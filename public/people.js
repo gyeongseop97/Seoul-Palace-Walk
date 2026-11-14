@@ -3,7 +3,7 @@ import {wadeSegment as clearSegment,distance,platformAt,loftStair} from "./layou
 import {JUMP_HEIGHT,jumpDuration,jumpLift} from "./activities.js";
 import {busAt,busSeatPose} from "./sejong-bus.js";
 import {canRideBikeSegment} from "./bike-movement.js";
-import {isCycling} from "./sejong-bike.js";
+import {isBikeDriver,isCycling} from "./sejong-bike.js";
 
 export const normalize = angle => ((angle % 360) + 360) % 360;
 export const angleDelta = (from,to) => normalize(to-from+180)-180;
@@ -25,7 +25,8 @@ export function receivePeople(people,rows,self,serverTime){
     }
     const previous=person.sample;
     if(at<previous.at)continue;
-    const rideChanged=avatar.bus?.index!==previous.avatar.bus?.index||avatar.bus?.seat!==previous.avatar.bus?.seat;
+    const rideChanged=avatar.bus?.index!==previous.avatar.bus?.index||avatar.bus?.seat!==previous.avatar.bus?.seat||
+      avatar.bikeRide?.driver!==previous.avatar.bikeRide?.driver;
     if(at>previous.at||rideChanged){
       const interval=at-previous.at;
       // Track how often this walker's position really arrives. The render loop predicts
@@ -89,7 +90,7 @@ export function smoothPeople(people,seconds,serverTime,roundTrip=65){
         Math.max(platform,avatar.vaultBase+jumpLift(avatar,serverTime)):platform+(airborne?JUMP_HEIGHT:.19);
       for(const share of [1,.6,.3]){
         const guess={x:a.x+(a.vx||0)*lead*share,y:a.y+(a.vy||0)*lead*share};
-        const clear=isCycling(a)?canRideBikeSegment(a,guess):clearSegment(a,guess,.36,feet);
+        const clear=isBikeDriver(a)?canRideBikeSegment(a,guess):clearSegment(a,guess,.36,feet);
         if(a.up||loftStair(a.x,a.y)!=null||clear){goal=guess;break;}
       }
     }

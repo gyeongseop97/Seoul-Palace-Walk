@@ -5,7 +5,7 @@ import {museumBounds} from "../public/visit-layout.js";
 import {CLINK_DRINKS,CLINK_DURATION_MS,CLINK_INVITE_MS,CLINK_LEAD_MS,CLINK_REACH} from "../public/social-events.js";
 import {plazaShowSpot,PLAZA_SHOW_DURATION_MS,PLAZA_SHOW_LEAD_MS,PLAZA_SHOW_REACH} from "../public/plaza-show.js";
 
-const onFoot=field=>`json_extract(${field},'$.bus') IS NULL AND (
+const onFoot=field=>`json_extract(${field},'$.bus') IS NULL AND json_extract(${field},'$.bikeRide') IS NULL AND (
   json_extract(${field},'$.bike') IS NULL OR json_type(${field},'$.bike.parked') IS 'object')`;
 const squared=term=>`(${term})*(${term})`;
 const coordinate=(field,axis)=>`json_extract(${field},'$.${axis}')`;

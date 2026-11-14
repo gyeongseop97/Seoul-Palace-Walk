@@ -99,7 +99,8 @@ export function buildSejongCorridor(T,scene,kit){
     if(branchAt(x,y)||crossingAt(x,y)||Math.abs(y-205)<12)continue;
     for(const [offset,radius] of [[-.36,.23],[.36,.23]]){
       const tire=new T.Mesh(new T.RingGeometry(radius-.041,radius,14),matte(0xd8cec1));
-      tire.rotation.x=-Math.PI/2;tire.position.set(wx(x),.065,wz(y+offset));group.add(tire);
+      tire.rotation.x=-Math.PI/2;tire.position.set(wx(x),.065,wz(y+offset));
+      tire.userData.followTerrain=true;group.add(tire);
     }
     strip(0xd8cec1,{x:x-.16,y:y-.32},{x:x+.18,y:y+.34},.045,.007,.061);
     strip(0xd8cec1,{x:x+.18,y:y-.11},{x:x-.15,y:y+.29},.045,.007,.061);
@@ -119,7 +120,8 @@ export function buildSejongCorridor(T,scene,kit){
       stripe.userData.followTerrain=true;stripe.userData.sharedTerrainGeometry=true;
     }
     for(const end of [a,b]){
-      block(0xc69e40,end.x,end.y,width-.05,.46,.029,.049,angle);
+      const tactile=block(0xc69e40,end.x,end.y,width-.05,.46,.029,.049,angle);
+      tactile.userData.followTerrain=true;tactile.userData.sharedTerrainGeometry=true;
       for(let i=1;i<width-.2;i+=.38){
         const side=i-width/2;
         block(0xd1b159,end.x-uy*side,end.y+ux*side,.09,.09,.012,.080);

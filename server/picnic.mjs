@@ -47,6 +47,7 @@ const avatarX="json_extract(w.avatar,'$.x')",avatarY="json_extract(w.avatar,'$.y
 const squared=(x,y)=>`((${x})*(${x})+(${y})*(${y}))`;
 const readyWalker=`w.room=? AND w.id=? AND w.player_key=? AND w.updated>=?
   AND json_extract(w.avatar,'$.bus') IS NULL AND json_extract(w.avatar,'$.seat') IS NULL
+  AND json_extract(w.avatar,'$.bikeRide') IS NULL
   AND (json_extract(w.avatar,'$.bike') IS NULL OR json_type(w.avatar,'$.bike.parked')='object')
   AND COALESCE(json_extract(w.avatar,'$.jump'),0)<=?`;
 const readyArgs=({room,id,key,now,online})=>[room,id,key,online,now-JUMP_MS];
@@ -117,6 +118,7 @@ function offerFood(db,context,request){
           AND ${squared(peerX+"-m.x",peerY+"-m.y")}<=${PICNIC_REACH**2}
           AND ${squared(peerX+"-"+avatarX,peerY+"-"+avatarY)}<=${PICNIC_REACH**2}
           AND json_extract(peer.avatar,'$.bus') IS NULL
+          AND json_extract(peer.avatar,'$.bikeRide') IS NULL
           AND (json_extract(peer.avatar,'$.bike') IS NULL OR json_type(peer.avatar,'$.bike.parked')='object')
       )
   `).bind(picnic.target,now,room,picnic.mat,picnic.item,id,...request,now-matLifetime,...readyArgs(context),picnic.target,online);

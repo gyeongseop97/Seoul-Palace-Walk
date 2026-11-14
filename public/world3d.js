@@ -27,9 +27,9 @@ import { prepareSurveyTerrain } from "./survey-terrain.js";
 import { assembleGwanghwamunPlaza, registerPlazaNavigation } from "./gwanghwamun-plaza.js";
 import { inGwanghwamunPlaza, plazaBounds, plazaGroundHeight, plazaSites } from "./plaza-layout.js";
 import { buildSejongCorridor } from "./sejong-corridor.js";
-import { corridorBounds } from "./sejong-corridor-layout.js";
+import { corridorBounds, corridorWalkable } from "./sejong-corridor-layout.js";
 import { buildBikeDocks, makeRidingBike, registerBikeDocks } from "./sejong-bike-model.js";
-import { bikeDocks, isCycling } from "./sejong-bike.js";
+import { bikeDocks, isBikePassenger, isCycling } from "./sejong-bike.js";
 import { buildSejongBusModels } from "./sejong-bus-model.js";
 import { BUS_FLOOR, busAt, busSeatPose } from "./sejong-bus.js";
 import { addPalacePeople } from "./palace-people.js";
@@ -412,12 +412,20 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     return Math.hypot(Math.max(minX-x,0,x-maxX),Math.max(minY-y,0,y-maxY));
   }
   function advanceWorld(anchor,indoors){
-    const needed=indoors?gallery:expansions.find(district=>district.contains(anchor.x,anchor.y))??
-      (inGyeongbok(anchor.x,anchor.y)?palace:inGwanghwamunPlaza(anchor.x,anchor.y)?plaza:
-        distanceToDistrict(anchor,deoksBounds)===0&&anchor.y>=120?deoks:
-        distanceToDistrict(anchor,corridorBounds)===0?corridor:
-        distanceToDistrict(anchor,deoksBounds)===0?deoks:null);
-    const pending=needed&&!needed.chunks&&!needed.failed?needed:null;
+    const {x,y}=anchor;
+    const nearCorridor=distanceToDistrict(anchor,corridorBounds)===0;
+    const area=expansions.find(district=>district.contains(x,y))??
+      (inGyeongbok(x,y)?palace:inGwanghwamunPlaza(x,y)?plaza:
+        nearCorridor&&corridorWalkable(x,y)?corridor:distanceToDistrict(anchor,deoksBounds)===0?deoks:
+        nearCorridor?corridor:null);
+    const required=indoors?[gallery]:[area];
+    // Street corners at either end of Sejong-daero share a foreground with the next district.
+    if(area===corridor&&y>=-321&&y<-266)required.push(plaza);
+    if(area===plaza&&y>-326)required.push(corridor);
+    if(area===corridor&&y>103&&x<550)required.push(deoks);
+    if(area===deoks&&y>103&&x>=442&&nearCorridor)required.push(corridor);
+    const incomplete=district=>district&&!district.chunks&&!district.failed;
+    const pending=required.find(incomplete);
     let nearby=null,gap=handheld?245:315;
     if(!indoors&&!pending)for(const district of districts){
       if(district.chunks||district.failed||district.fetching)continue;
@@ -477,10 +485,10 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
         if(populate(northWildlife))northWildlife=null;
       }else if(target)build(target);
     }
-    const waiting=Boolean(needed&&!needed.chunks);
+    const waiting=required.some(incomplete);
     if(loading){
-      loading.hidden=!waiting;
-      const message=needed?.failed?"산책길을 불러오지 못했어요.":"산책길을 열고 있어요.";
+      loading.hidden=!waiting&&!area?.failed&&!(indoors&&gallery.failed);
+      const message=waiting?"산책길을 열고 있어요.":"산책길을 불러오지 못했어요.";
       if(loading.textContent!==message)loading.textContent=message;
     }
     return waiting;
@@ -831,7 +839,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       if(indoors||isInsideMuseum(bike.x,bike.y)||(bike.x-anchor.x)**2+(bike.y-anchor.y)**2>140**2)continue;
       parkedNearby.add(bike.id);
       let model=parkedModels.get(bike.id);
-      if(!model){model=makeRidingBike(T).group;parkedModels.set(bike.id,model);outdoors.add(model);}
+      if(!model){model=makeRidingBike(T,{rearSeat:true}).group;parkedModels.set(bike.id,model);outdoors.add(model);}
       const rider=bike.id===me.id?me:peers.find(player=>player.id===bike.id);
       const fallWeight=rider?bikeFallAt(rider,clock)?.weight??0:0;
       model.position.set(wx(bike.x),footing(bike)+fallWeight*.16,wz(bike.y));
@@ -858,7 +866,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       if(!visible){if(model){model.group.visible=false;walkerModels.clearChat(model);}drawRipples(player.id,player,now,false);return;}
       if(!model){model=walkerModels.create(player.coat??0xab5947,player.nickname,labelSprite);models.set(player.id,model);}
       drawRipples(player.id,player,now,waterDepth(player.x,player.y)>0&&jumpLift(player,clock)<.3);
-      const floor=footing(player);
+      const floor=footing(player.bikeDriverPosition??player);
       walkerModels.update(model,player,{now,clock,delta,seat:seatAt(player,clock),floor,jump:renderedJumpLift(player,clock,floor),emojiTexture,chatTexture,
         turnEase:player===me?1-Math.exp(-delta*22):1});
       minigameWorld.pose(player,model,state.photoCapture);
@@ -867,15 +875,15 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     minigameWorld.live(models,indoors||state.photoCapture?null:state.minigameAimPreview);
     const seat=seatAt(anchor,clock),bus=anchor.bus&&busAt(anchor.bus.index,clock);
     const outsideBus=bus&&!firstPerson;
-    const floor=seat?0:footing(anchor);
+    const floor=seat?0:footing(anchor.bikeDriverPosition??anchor);
     const fallWeight=firstPerson?(bikeFallAt(anchor,clock)?.weight??0):0;
     const eyeHeight=outsideBus?2.115+busGround(bus):seat?(firstPerson?1.30:1.22)+(seat.base??0):
       (firstPerson?1.28:1.20)+floor+renderedJumpLift(anchor,clock,floor)+(isCycling(anchor)?.12:0)-fallWeight*.87;
     const cameraPoint=outsideBus?bus:seat??anchor;
     anchorPoint.set(wx(cameraPoint.x),eyeHeight,wz(cameraPoint.y));
-    const anchorKey=bus?`${anchor.id}-${bus.index}-${firstPerson}`:anchor.id;
+    const anchorKey=bus?`${anchor.id}-${bus.index}-${firstPerson}`:anchor.bikeRide?.driver??anchor.id;
     const changed=cameraAnchor!==anchorKey||pivot.distanceToSquared(anchorPoint)>144;
-    if(changed||bus&&firstPerson)pivot.copy(anchorPoint);
+    if(changed||firstPerson&&(bus||isBikePassenger(anchor)))pivot.copy(anchorPoint);
     else pivot.lerp(anchorPoint,1-Math.exp(-delta*20));
     cameraAnchor=anchorKey;
     const zoomFov=baseFov-view.zoom*(firstPerson?6:1.7);

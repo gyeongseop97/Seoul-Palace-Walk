@@ -1,5 +1,5 @@
 import {FEED_MS,avatarHands,jumpLift} from "./activities.js";
-import {isCycling} from "./sejong-bike.js";
+import {isBikeDriver,isBikePassenger,isCycling} from "./sejong-bike.js";
 import {CLINK_DURATION_MS} from "./social-events.js";
 import {gestureHands} from "./avatar-gestures.js";
 
@@ -66,7 +66,8 @@ export function makeFirstPersonView(T,createItemProp){
       fabric.roughness=outfit==="puffer"?.63:.86;
       trouser.color.set(({puffer:0x4d6787,tee:0xc7b089,hanbok:0xb9b295})[outfit]??0x3f4452);
     }
-    const riding=!seat&&isCycling(position),seated=Boolean(seat);
+    const riding=!seat&&isCycling(position),driving=riding&&isBikeDriver(position),passenger=riding&&isBikePassenger(position);
+    const seated=Boolean(seat)||passenger;
     const walking=Boolean(position.stepping&&!seated&&!riding&&jumpLift(position,clock)<.06);
     const motion=walking?(position.blocked?.40:1):0;
     stride=mix(stride,motion,1-Math.exp(-delta*11));
@@ -84,7 +85,7 @@ export function makeFirstPersonView(T,createItemProp){
     }
     const performance=gestureHands(position,clock,hands,{riding,busy:Boolean(cheers)});
     const {pose:acting,umbrellaSide}=performance;
-    lap.visible=seated;handlebar.visible=riding;
+    lap.visible=seated;handlebar.visible=driving;
     for(const [i,arm] of forearms.entries()){
       const {side,palm,wrist,elbow,shoulder,sleeve,lower,cuff,ribs,fingers}=arm;
       const step=Math.sin(phase+side*Math.PI/2)*stride,bob=seated||riding?0:Math.sin(phase*2)*stride;
@@ -98,7 +99,8 @@ export function makeFirstPersonView(T,createItemProp){
       const performanceHand=performance.hand(avatarSide,true);
       const weight=performanceHand?acting.weight:0;
       let x=side*(seated?.48:.70),y=seated?-.80:-.73,z=seated?.74:.72;
-      if(riding){x=side*.62;y=-.63+Math.sin(now*.010)*.014;z=.83;}
+      if(driving){x=side*.62;y=-.63+Math.sin(now*.010)*.014;z=.83;}
+      else if(passenger){x=side*.47;y=-.81+Math.sin(now*.008)*.009;z=.70;}
       else if(avatarSide===claspSide){x=side*.83;y=-.68;z=.83;}
       else if(holding){
         const lift=Math.max(use,toasting);
@@ -122,9 +124,9 @@ export function makeFirstPersonView(T,createItemProp){
         if(padded){joint.copy(elbow).lerp(wrist,.37+index*.28);tip.copy(elbow).lerp(wrist,.395+index*.28);segment(rib,joint,tip,.067*size,.010);}
       }
       palm.position.copy(wrist);palm.scale.setScalar(size);
-      palm.rotation.set(riding?-.93:holding?-.28:mix(-.55,performanceHand?.bend??-.55,weight),
-        side*(holding?.39:.21),mix(side*(riding?.08:.32),performanceHand?.roll??side*.32,weight));
-      for(const finger of fingers)finger.rotation.x=riding||holding||holdingUmbrella?-1.07:mix(-.52,performanceHand?.curl??-.52,weight);
+      palm.rotation.set(driving?-.93:holding?-.28:mix(-.55,performanceHand?.bend??-.55,weight),
+        side*(holding?.39:.21),mix(side*(driving?.08:.32),performanceHand?.roll??side*.32,weight));
+      for(const finger of fingers)finger.rotation.x=driving||holding||holdingUmbrella?-1.07:mix(-.52,performanceHand?.curl??-.52,weight);
       const {pivot:itemPivot,show}=props[i];
       itemPivot.visible=holding;
       if(holding){
@@ -136,7 +138,7 @@ export function makeFirstPersonView(T,createItemProp){
       show(item?.kind??null,serving?feedAge/1000:spark&&item.started?itemAge/1000:-1);
       if(seated){frame(knees[i].position,side*.44,-1.12,.89);knees[i].scale.set(.125*size,.094*size,.142*size);}
     }
-    if(riding){
+    if(driving){
       frame(joint,0,-.83,.94);frame(tip,0,-1.23,.81);segment(stem,joint,tip,.026*size);
       for(const [i,{wrist}] of forearms.entries()){
         grips[i].position.copy(wrist);grips[i].rotation.z=Math.PI/2;grips[i].scale.set(.024*size,.11*size,.024*size);

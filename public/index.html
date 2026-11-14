@@ -84,14 +84,14 @@
     <h1 class="brand"><img src="./seoul-palace-wordmark.png" alt="서울 궁 한바퀴" width="576" height="190" decoding="async"></h1>
     <div class="top-game-actions">
       <div id="mobile-view-controls"></div>
-      <div class="top-actions" id="game-room-controls">
+      <div class="top-actions" id="mobile-room-controls">
         <button id="passport-open" class="quiet" type="button" data-native-touch aria-haspopup="dialog">산책 기록</button>
-        <button id="character" class="quiet" type="button" aria-haspopup="dialog" aria-controls="character-dialog">캐릭터</button>
-        <button id="invite" class="invite" type="button" data-native-touch aria-haspopup="dialog" aria-controls="invite-dialog" disabled>초대코드</button>
       </div>
       <details class="mobile-settings" id="mobile-settings">
         <summary>설정</summary>
         <div class="mobile-settings-actions" id="mobile-settings-actions" data-scroll-actions>
+          <button id="character" class="quiet" type="button" aria-haspopup="dialog" aria-controls="character-dialog">캐릭터</button>
+          <button id="invite" class="invite" type="button" data-native-touch aria-haspopup="dialog" aria-controls="invite-dialog" disabled>초대코드</button>
           <button id="settings-leave" class="quiet" type="button" data-native-touch aria-haspopup="dialog" aria-controls="leave-save-dialog">방 나가기</button>
         </div>
       </details>
@@ -100,24 +100,11 @@
   <main>
     <section class="experience" aria-label="함께 걷기">
       <article class="panel scene-panel">
-        <div class="panel-head scene-head">
-          <h2 class="scene-title">덕수궁 돌담길</h2>
-          <div class="top-actions">
-            <div id="desktop-view-controls">
-              <div class="view-controls" id="view-controls">
-                <button id="perspective" class="quiet" type="button" aria-label="1인칭으로 전환">1인칭</button>
-                <button id="sound" class="quiet" type="button" aria-pressed="true" title="소리 켜기와 끄기">소리</button>
-                <button id="night" class="quiet" type="button" aria-haspopup="dialog" aria-controls="environment-dialog">시간·날씨</button>
-                <button id="photo-mode-open" class="quiet" type="button" aria-controls="photo-controls">사진 모드</button>
-              </div>
-            </div>
-          </div>
-        </div>
         <div class="scene-wrap">
           <div id="game" tabindex="0" role="group" aria-label="3D 산책. 조이스틱이나 방향키로 이동, 드래그로 시야 회전, 마우스 휠이나 두 손가락으로 확대 및 축소">
             <p id="loading-game">산책길을 열고 있어요.</p>
             <div class="game-info">
-              <div class="game-place"><span id="game-season">정동의 가을</span><strong id="game-place">매표소 앞</strong><small class="desktop-controls-hint">화면 기준으로 이동 · 드래그로 시야 돌리기</small><small id="travel-status" hidden></small></div>
+              <div class="game-place"><span id="game-season">정동의 가을</span><strong id="game-place">매표소 앞</strong><small class="desktop-controls-hint">WASD · 방향키로 이동</small><small id="travel-status" hidden></small></div>
               <div class="look-actions">
                 <span id="look-hint" hidden>내 위치를 지도에 5초 동안 표시해요.</span>
                 <button id="look" class="primary" type="button" aria-describedby="look-hint" disabled><span aria-hidden="true">✦</span> 여기 봐</button>
@@ -151,6 +138,16 @@
               <span class="mini-north" aria-hidden="true">↑ N</span><span class="mini-label" aria-hidden="true">⤢</span>
             </button>
             <div id="joystick" class="joystick" role="group" aria-label="이동 조이스틱"><span aria-hidden="true"></span></div>
+          </div>
+          <div class="fullscreen-tools">
+            <button id="fullscreen-map" class="quiet" type="button" aria-controls="game-sidebar" aria-expanded="false">지도 · 설정</button>
+            <button id="fullscreen-toggle" class="quiet" type="button" aria-pressed="false">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path class="fullscreen-enter-icon" d="M3 7V3h4m6 0h4v4m0 6v4h-4m-6 0H3v-4"/>
+                <path class="fullscreen-exit-icon" d="M3 7h4V3m6 0v4h4m0 6h-4v4m-6 0v-4H3"/>
+              </svg>
+              <span>전체화면</span>
+            </button>
           </div>
           <div class="game-hud">
             <div class="game-command">
@@ -190,12 +187,6 @@
                 <button id="run" type="button" class="quiet" aria-pressed="false" disabled>달리기 <kbd>Shift</kbd></button>
                 <button id="jump" type="button" class="quiet" disabled>점프 <kbd>Space</kbd></button>
               </div>
-            </div>
-            <div class="pad game-pad" aria-label="3D 이동 버튼">
-              <button type="button" data-key="ArrowUp" aria-label="앞으로">↑</button>
-              <button type="button" data-key="ArrowLeft" aria-label="왼쪽으로">←</button>
-              <button type="button" data-key="ArrowDown" aria-label="뒤로">↓</button>
-              <button type="button" data-key="ArrowRight" aria-label="오른쪽으로">→</button>
             </div>
           </div>
           <div class="peer-hud" id="peer-controls" role="group" aria-label="동행 행동">
@@ -274,6 +265,7 @@
           </form>
         </div>
       </article>
+      <aside class="game-sidebar" id="game-sidebar" aria-label="산책 지도와 설정">
       <article class="panel map-panel" id="map-panel" data-native-touch>
         <div class="panel-head">
           <h2>산책 지도</h2>
@@ -305,17 +297,21 @@
             <g id="my-avatar" class="avatar me"><ellipse cy="11" rx="16" ry="6"/><circle r="14"/><path d="M-7 7a8 8 0 0 1 14 0" class="shoulders"/><circle cy="-3" r="4" class="face"/><text y="-21" text-anchor="middle">나</text></g>
           </svg>
             <div class="map-location"><span>현재 위치</span><strong id="location">매표소 앞</strong></div>
-          <div class="pad" aria-label="이동 버튼">
-            <button type="button" data-key="ArrowUp" aria-label="위로">↑</button>
-            <button type="button" data-key="ArrowLeft" aria-label="왼쪽으로">←</button>
-            <button type="button" data-key="ArrowDown" aria-label="아래로">↓</button>
-            <button type="button" data-key="ArrowRight" aria-label="오른쪽으로">→</button>
-          </div>
         </div>
         <div class="map-footer"><span class="map-key"><span><i class="dot mine"></i>나</span><span><i class="dot theirs"></i>동행</span><span><i class="dot bus-dot"></i>버스</span><span><i class="dot subway-dot"></i>지하철</span><span><i class="dot bike-dot"></i>따릉이</span><span><i class="dot stamp-dot"></i>찍은 도장</span><span><i class="dot stamp-dot unvisited"></i>미방문 도장</span></span><div class="map-links"><button id="model-credits" class="quiet" type="button" aria-haspopup="dialog">자료 출처</button><button id="entrance-target" class="quiet" type="button" aria-label="매표소로 순간이동">매표소</button><button id="fountain-target" class="quiet" type="button" aria-label="정동 분수대로 순간이동">분수대</button><button id="palace-target" class="quiet" type="button" aria-label="중화전으로 순간이동">중화전</button><button id="stop-target" class="quiet" type="button" hidden>정류장</button><button id="plaza-bus-target" class="quiet" type="button" hidden>정류장</button></div></div>
       </article>
+      <section class="panel desktop-tools" aria-labelledby="desktop-settings-title">
+        <h2 id="desktop-settings-title">설정</h2>
+        <div class="view-controls" id="view-controls">
+          <button id="perspective" class="quiet" type="button" aria-label="1인칭으로 전환">1인칭</button>
+          <button id="sound" class="quiet" type="button" aria-pressed="true" title="소리 켜기와 끄기">소리</button>
+          <button id="night" class="quiet" type="button" aria-haspopup="dialog" aria-controls="environment-dialog">시간·날씨</button>
+          <button id="photo-mode-open" class="quiet" type="button" aria-controls="photo-controls">사진 모드</button>
+        </div>
+        <div class="view-controls" id="desktop-room-controls"></div>
+      </section>
+      </aside>
     </section>
-    <footer><span>✦ &nbsp; 서울 궁 한바퀴</span><span>덕수궁 · 광화문광장 · 경복궁을 걷는 3D 산책 공간</span></footer>
   </main>
   </div>
   <div id="passport-mount"></div>
@@ -463,9 +459,9 @@
     <p class="guide-intro">대한문 매표소에서 출발해 광화문광장과 경복궁을 지나 북촌까지 걸어갈 수 있어요. 정동 분수대에서는 서·북쪽 돌담길로, 서울광장 동쪽에서는 횡단보도를 건너 환구단으로 이어져요. <strong>전체 지도</strong>에서 장소 이름을 누르면 그곳으로 걸어갑니다.</p>
     <button id="tutorial-replay" type="button" class="quiet">처음 조작 안내 다시 보기</button>
     <div class="visitor-guide-list">
-      <section><h3>걷고 둘러보기</h3><p>길을 터치하거나 조이스틱으로 걸어요. PC에서는 방향키나 WASD를 쓸 수 있어요. 마우스 휠이나 두 손가락으로 시야와 지도를 확대·축소할 수 있어요. 오른쪽 아래에서 손에 든 물건을 골라 쓰거나 <strong>행동</strong>에서 인사·댄스를 할 수 있어요. 손잡기와 건배는 왼쪽의 <strong>동행 행동</strong>에 있어요.</p></section>
+      <section><h3>걷고 둘러보기</h3><p>길을 터치하거나 조이스틱으로 걸어요. PC에서는 방향키나 WASD로 이동하고 오른쪽 위의 <strong>전체화면</strong>을 눌러 화면을 넓힐 수 있어요. 마우스 휠이나 두 손가락으로 시야와 지도를 확대·축소할 수 있어요. 오른쪽 아래에서 손에 든 물건을 골라 쓰거나 <strong>행동</strong>에서 인사·댄스를 할 수 있어요. 손잡기와 건배는 왼쪽의 <strong>동행 행동</strong>에 있어요.</p></section>
       <section><h3>세종대로·북촌 순환버스</h3><p>버스는 덕수궁에서 광화문과 경복궁을 거쳐 삼청로 위쪽까지 갔다가 돌아와요. 정류장마다 10초 정차해요. 정차 중 <strong>버스 타기</strong>로 좌석을 고르고, 도착하면 <strong>버스 내리기</strong>를 누르세요.</p></section>
-      <section><h3>지하철과 따릉이</h3><p>지도의 보라색 표시가 지하철 출입구예요. 출입구 앞에서 <strong>지하철 타기</strong>를 누르고 역과 출구 번호를 고르면 그곳으로 이동해요. 따릉이는 대여소에서 빌리거나 반납할 수 있어요. 도중에 세워 두면 10분 안에 다시 탈 수 있어요.</p></section>
+      <section><h3>지하철과 따릉이</h3><p>지도의 보라색 표시가 지하철 출입구예요. 출입구 앞에서 <strong>지하철 타기</strong>를 누르고 역과 출구 번호를 고르면 그곳으로 이동해요. 따릉이는 대여소에서 빌리거나 반납할 수 있어요. 운전자가 멈추면 같은 방 친구 한 명이 가까이에서 <strong>따릉이 뒷자리 타기</strong>를 누를 수 있어요. 도중에 세워 두면 10분 안에 다시 탈 수 있어요.</p></section>
       <section><h3>공연과 기념사진</h3><p>광화문광장 명량분수 서쪽에서 <strong>분수쇼 시작</strong>을 누르면 같은 방에서 음악분수 공연을 함께 볼 수 있어요. 경복궁 광화문에서는 수문장 교대식이 열리고, 근정전 포토존에서는 <strong>사진 찍기</strong>를 할 수 있어요.</p></section>
       <section><h3>도장과 산책 기록</h3><p>전각과 동상, 유적 터에 가까이 가면 여권에 도장이 찍혀요. 덕수궁·광화문광장·경복궁에서 각각 9곳을 방문하면 꾸미기 보상을 받을 수 있어요. <strong>산책 기록</strong>에서 여권, 앨범, 이어하기 코드를 열 수 있어요.</p></section>
       <section><h3>한복과 전통놀이</h3><p>경복궁 앞 한복 대여소에서 한복과 갓 또는 족두리를 골라 입어 보세요. 근정전 마당에서 투호와 제기차기를, 광화문광장 육조마당에서 연날리기를 혼자 또는 같은 방 친구와 즐길 수 있어요.</p></section>

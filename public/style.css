@@ -38,7 +38,7 @@ main{max-width:1440px;margin:0 auto;padding:0 max(4.5vw,20px)}
 .kicker{font-size:11px!important;letter-spacing:.17em;font-weight:700;color:#d4bb86!important;display:flex;gap:10px;align-items:center;margin-bottom:5px!important}
 .kicker>span,.pill i{width:7px;height:7px;background:#caa76c;border-radius:50%;display:inline-block}
 .kicker i{height:1px;width:14px;background:#837253}
-h1,.scene-title{font-family:Georgia,"Batang",serif;font-size:clamp(37px,5.5vw,66px);line-height:1.14;letter-spacing:-.055em;font-weight:600;margin:5px 0 10px}
+h1{font-family:Georgia,"Batang",serif;font-size:clamp(37px,5.5vw,66px);line-height:1.14;letter-spacing:-.055em;font-weight:600;margin:5px 0 10px}
 .intro p{margin:0;color:#c2c5b3;font-size:15px}
 .experience{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:16px}
 .panel{display:flex;flex-direction:column;min-width:0;border:1px solid var(--line);border-radius:15px;overflow:hidden;background:var(--panel);box-shadow:0 20px 45px #0003}
@@ -73,17 +73,11 @@ h2{font-size:19px;line-height:1.2;margin:4px 0 0;font-weight:700;letter-spacing:
 .map-location{position:absolute;top:11px;left:11px;background:#141e17e8;border:1px solid #596252;border-radius:8px;padding:5px 10px;pointer-events:none}
 .map-location span{display:block;font-size:10px;color:#c7b387}
 .map-location strong{font-size:13px}
-.pad{position:absolute;right:12px;bottom:12px;display:grid;grid-template-columns:repeat(3,34px);gap:3px}
-.pad button{min-height:32px;padding:0;background:#1a271ee8;border-color:#6e735d;color:#f2dfb4;touch-action:none}
-.pad button:first-child{grid-column:2}
-.pad button:nth-child(2){grid-column:1}
 .map-footer{font-size:11px;color:#d0d3bf;flex-wrap:wrap}
-.map-footer span:first-child{display:flex;align-items:center;gap:6px}
 .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
 .mine{background:#e5b672}
 .theirs{background:#a4cbb2;margin-left:7px}
 kbd{font-size:10px;font-family:monospace;border:1px solid #526052;padding:2px 4px;border-radius:4px}
-footer{display:flex;justify-content:space-between;color:#b4b8a3;font-size:11px;padding:19px 0 24px}
 #toast{position:fixed;z-index:9;bottom:24px;left:50%;transform:translateX(-50%);border:1px solid #c8b480;border-radius:12px;background:#25362a;box-shadow:0 10px 40px #0007;max-width:calc(100% - 24px);width:max-content;padding:11px 17px}
 dialog{background:#1b281f;color:var(--ink);border:1px solid #5c6959;border-radius:16px;max-width:min(450px,calc(100vw - 28px));padding:21px;width:100%}
 dialog::backdrop{background:#080d0ab8}
@@ -157,7 +151,6 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   .scene-controls{padding-inline:8px}
 }
 .experience{margin-top:23px;grid-template-columns:minmax(0,2.45fr) minmax(265px,1fr);align-items:start}
-.panel-head .scene-title{font-size:clamp(24px,3.2vw,42px);margin:3px 0 0;line-height:1.12}
 .scene-wrap,.map-wrap{height:clamp(345px,min(43vw,calc(100dvh - 250px)),680px)}
 #game{position:absolute;inset:0;overflow:hidden;touch-action:none;cursor:grab;background:linear-gradient(150deg,#546f63,#263d30)}
 #game-shell :is(.top,.experience){-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -209,7 +202,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 .held-actions small{font-size:10px;font-weight:650}
 .nearby-controls{grid-area:nearby;grid-template-columns:minmax(0,1fr) 67px}
 .movement-actions{grid-area:movement}
-.game-command :is(button,.nearby-actions),.game-hud .game-pad button{pointer-events:auto}
+.game-command :is(button,.nearby-actions){pointer-events:auto}
 .game-command>div>button{
   min-width:0;min-height:var(--control-height);padding:4px 7px;
   border-radius:10px;font-size:13px;
@@ -247,12 +240,9 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 .gesture-menu{z-index:5;right:16px;bottom:calc(3 * 44px + 3 * 6px + 16px);grid-template-columns:repeat(3,minmax(0,1fr));width:min(228px,calc(100vw - 24px))}
 .gesture-menu button{text-align:center}
 .scene-wrap:has(.held-actions button:not([hidden])) .gesture-menu{bottom:calc(4 * 44px + 4 * 6px + 16px)}
-.game-hud .game-pad{position:static;display:grid;grid-template-columns:repeat(3,40px)}
-.game-pad button{min-height:39px;background:#15231bd9}
 #wish{background:#17261ddf;border-color:#cbb27a;color:#f2d393}
 .activity-button{background:#263c2bea;border-color:#b6a577;color:#fff0c9}
 #visitor-guide{background:#ecd086;color:#32281b;border-color:#fff0ad}
-.map-wrap>.pad{display:none}
 .map-wrap{background:radial-gradient(ellipse,#304636,#1e2a23)}
 #world{background:none}
 @media(max-width:810px){
@@ -263,13 +253,11 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 @media(max-width:420px){
   .panel-head .top-actions{gap:4px}
   .panel-head .top-actions .pill{display:none}
-  .game-hud .game-pad{grid-template-columns:repeat(3,35px)}
-  .game-pad button{min-height:36px}
 }
 #map-toggle,#close-map,.game-presence,.joystick{display:none}
 .game-place small{color:#edf0de}
 #palace-target,#stop-target{font-size:11px}
-@media (max-width:810px), (orientation:landscape) and (max-height:560px){
+@media (max-width:810px), (pointer:coarse){
   #game-shell{display:flex;flex-direction:column;height:100dvh}
   #game-shell>main{display:flex;flex:1;flex-direction:column;min-height:0;width:100%;padding-bottom:max(4px,env(safe-area-inset-bottom,0px))}
   .top{
@@ -283,7 +271,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   main{padding:0 max(5px,env(safe-area-inset-right,0px)) 0 max(5px,env(safe-area-inset-left,0px))}
   .experience{display:flex;flex:1;flex-direction:column;min-height:0;margin-top:4px}
   .scene-panel{flex:1;align-self:stretch;min-height:235px;border-radius:11px}
-  .scene-head{display:none}
+  .game-sidebar{display:contents}
   .panel-head{min-height:55px;padding:5px 10px}
   .panel-head .tag{font-size:8px}
   #map-toggle,#close-map{display:inline-block}
@@ -305,7 +293,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   #game-presence::after{margin-left:6px;vertical-align:2px}
   .game-presence.live{color:#bde4bd}
   .game-hud{bottom:12px;right:11px}
-  .game-hud .game-pad,#wish kbd{display:none}
+  #wish kbd{display:none}
   #wish{min-height:44px}
   .joystick{
     display:grid;place-items:center;position:absolute;z-index:2;bottom:12px;left:12px;
@@ -324,7 +312,6 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   .map-panel .map-wrap{height:min(42dvh,340px);min-height:78px}
   .map-panel :is(.panel-head,.map-route,.map-footer){flex:none}
   .map-footer{min-height:54px}
-  footer{display:none}
   #toast{bottom:max(63px,calc(env(safe-area-inset-bottom,0px) + 54px));pointer-events:none}
 }
 @media(max-width:420px){
@@ -345,7 +332,8 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 #bus-seats button{min-height:44px;white-space:nowrap}
 #bus-seats button:disabled{opacity:.54}
 .map-key{display:flex;flex-wrap:wrap;gap:2px 8px}
-.map-key span{white-space:nowrap}
+.map-key span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.map-key .theirs{margin:0}
 .map-key .bus-dot{background:#91c9f2}
 .map-key .subway-dot{background:#a68be3;border-radius:3px}
 .map-key .bike-dot{background:#8ed7a2}
@@ -375,12 +363,12 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 .map-route span{color:#dbdec9;font-size:12px}
 .map-route button{min-height:36px;white-space:nowrap}
 #map-route-clear{width:36px;padding-inline:0;font-size:20px}
-@media (max-width:810px), (orientation:landscape) and (max-height:560px){
+@media (max-width:810px), (pointer:coarse){
   .map-panel:has(.map-route:not([hidden])) .map-wrap{height:min(40dvh,340px)}
 }
 .overview-map #map-landscape .map-label:not(.overview-label){visibility:hidden}
 .overview-map .overview-label{font-size:76px;stroke-width:13px}
-@media (max-width:810px), (orientation:landscape) and (max-height:560px){
+@media (max-width:810px), (pointer:coarse){
   #run kbd{display:none}
   #run,#sit,.map-links button{min-height:44px}
   #game-presence{max-width:105px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -442,7 +430,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 #look-target-people{list-style:none;padding:0;margin-bottom:0}
 #look-target-people:empty{display:none}
 #look-target-people button{width:100%;text-align:left;white-space:normal;overflow-wrap:anywhere}
-@media(max-width:810px), (orientation:landscape) and (max-height:560px){
+@media(max-width:810px), (pointer:coarse){
   #wave{min-height:44px}
   .location-guides{right:auto;left:50%;transform:translateX(-50%);justify-items:center;max-width:calc(100% - 18px)}
   #clear-tracking{min-width:39px;min-height:39px}
@@ -578,7 +566,8 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   .entry-code-form{margin-top:12px;padding:10px}
   .entry-code-form button{min-width:63px;padding-inline:10px}
 }
-@media(orientation:landscape) and (max-height:560px) and (min-width:460px){
+@media(orientation:landscape) and (max-height:560px) and (min-width:460px) and (max-width:810px),
+  (pointer:coarse) and (orientation:landscape) and (max-height:560px) and (min-width:460px){
   .entry-flow{
     align-items:center;padding-block:max(10px,env(safe-area-inset-top,0px)) max(10px,env(safe-area-inset-bottom,0px));
   }
@@ -620,7 +609,8 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   .cat-run-tip{top:calc(45px + clamp(84px,25.4vw,117px));gap:7px;max-width:calc(100% - 16px)}
   .cat-run-tip p{font-size:11px}
 }
-@media(orientation:landscape) and (max-height:560px){
+@media(orientation:landscape) and (max-height:560px) and (max-width:810px),
+  (pointer:coarse) and (orientation:landscape) and (max-height:560px){
   .cat-run-tip{top:71px}
 }
 .invite-code{font:700 23px/1.55 monospace;letter-spacing:.2em;text-align:center}
@@ -681,13 +671,12 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 .hand-offer button{min-height:44px}
 .hand-list{display:grid;gap:7px;margin-top:14px;max-height:50vh;overflow:auto}
 .hand-list button{text-align:left;border-left:5px solid var(--player-color);min-height:44px}
-.hand-following .joystick,.hand-following .game-pad{opacity:.48;pointer-events:none}
-.hand-following .game-pad button{pointer-events:none}
+.hand-following .joystick{opacity:.48;pointer-events:none}
 .room-dot{stroke:#fff0d0;stroke-width:2;paint-order:stroke}
 .room-dot-mini{stroke:#fff0d0;stroke-width:1.1}
 .museum-map .room-dot,.museum-map .room-dot-mini{stroke-width:.38}
 .mini-landmark{font-size:8.3px;fill:#f4e5bb;stroke:#243027;stroke-width:1.75;paint-order:stroke;stroke-linejoin:round}
-@media(max-width:810px), (orientation:landscape) and (max-height:560px){
+@media(max-width:810px), (pointer:coarse){
   #game .minimap{
     display:block;position:absolute;z-index:3;top:9px;right:8px;
     width:clamp(99px,30vw,138px);aspect-ratio:1.18;overflow:hidden;
@@ -721,7 +710,8 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   .gesture-menu{right:8px}
   .scene-wrap:has(.held-actions button:not([hidden])) .emote-menu{bottom:calc(4 * 44px + 4 * 6px + 12px)}
 }
-@media (orientation:landscape) and (max-height:560px){
+@media (orientation:landscape) and (max-height:560px) and (max-width:810px),
+  (pointer:coarse) and (orientation:landscape) and (max-height:560px){
   .top{min-height:calc(48px + env(safe-area-inset-top,0px));padding-block:calc(2px + env(safe-area-inset-top,0px)) 2px}
   .scene-panel{
     --minimap-width:104px;
@@ -853,3 +843,47 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 
 .gyeongbok-label{font-size:21px;stroke-width:5px}
 .plaza-map-label{font-size:17px;stroke-width:4px}
+
+.fullscreen-tools,.desktop-tools{display:none}
+@media (width > 810px) and (not (pointer:coarse)){
+  #game-shell{display:flex;flex-direction:column;height:100dvh}
+  #game-shell>.top{flex:none;height:47px;min-height:0;padding:0 13px}
+  #game-shell>.top .brand img{height:34px}
+  #game-shell>.top .top-game-actions{display:none}
+  #game-shell>main{display:flex;flex:1;min-height:0;width:100%;max-width:none;padding:8px}
+  .experience{flex:1;min-width:0;min-height:0;margin:0;align-items:stretch;gap:8px;
+    grid-template-columns:minmax(0,1fr) clamp(266px,23vw,345px)}
+  .scene-panel{min-height:0;border-radius:10px}
+  .scene-wrap,.map-wrap{flex:1;height:auto;min-height:0}
+  .scene-wrap{border-top:0}
+  .scene-controls{flex:none;min-height:50px;padding:4px 8px}
+  .game-sidebar{display:flex;flex-direction:column;gap:8px;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}
+  .game-sidebar .panel{border-radius:10px;box-shadow:none}
+  .game-sidebar .map-panel{flex:1 0 220px}
+  .game-sidebar .map-wrap{min-height:96px}
+  .game-sidebar .panel-head,.game-sidebar .map-footer{flex:none;min-height:0;padding:7px 9px}
+  .game-sidebar .panel-head h2{font-size:15px;margin:0}
+  .game-sidebar .top-actions{flex-wrap:wrap;gap:4px}
+  .game-sidebar .top-actions button{min-height:30px;padding:4px 7px;font-size:11px}
+  .game-sidebar .map-location{top:6px;left:6px;padding:3px 7px}
+  .desktop-tools{display:grid;flex:none;gap:6px;padding:8px}
+  .desktop-tools h2{margin:0 0 2px 3px;font-size:14px}
+  .desktop-tools .view-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+  .desktop-tools button{min-height:33px;padding:4px 6px;font-size:12px}
+  .desktop-tools #settings-leave{color:#eed2a3}
+  .fullscreen-tools{position:absolute;z-index:6;top:10px;right:10px;display:flex;gap:5px}
+  .fullscreen-tools button{display:flex;align-items:center;gap:6px;min-height:35px;padding:4px 9px;
+    border-color:#9aa987;background:#14231ce8;font-size:12px}
+  .fullscreen-tools svg{width:16px;height:16px}
+  #fullscreen-map,.fullscreen-exit-icon{display:none}
+  .game-fullscreen>.top{display:none}
+  #game-shell.game-fullscreen>main{padding:0}
+  .game-fullscreen .experience{position:relative;grid-template-columns:minmax(0,1fr);gap:0}
+  .game-fullscreen .scene-panel{border:0;border-radius:0}
+  .game-fullscreen .scene-controls{padding-inline:12px}
+  .game-fullscreen .game-sidebar{display:none;position:absolute;z-index:7;inset:56px 10px 64px auto;
+    width:min(345px,calc(100% - 20px));padding:6px;border:1px solid #7c8a72;border-radius:12px;background:#132019ed}
+  .game-fullscreen .fullscreen-sidebar-open{display:flex}
+  .game-fullscreen :is(#fullscreen-map,.fullscreen-exit-icon){display:initial}
+  .game-fullscreen .fullscreen-enter-icon{display:none}
+}

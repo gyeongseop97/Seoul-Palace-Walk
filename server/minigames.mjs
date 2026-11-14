@@ -46,6 +46,7 @@ const squared=term=>`(${term})*(${term})`;
 const roomWalker=`w.room=? AND w.id=? AND w.player_key=? AND w.updated>=?`;
 const walkerReady=`${roomWalker}
   AND json_extract(w.avatar,'$.seat') IS NULL AND json_extract(w.avatar,'$.bus') IS NULL
+  AND json_extract(w.avatar,'$.bikeRide') IS NULL
   AND (json_extract(w.avatar,'$.bike') IS NULL OR json_type(w.avatar,'$.bike.parked') IS 'object')
   AND COALESCE(json_extract(w.avatar,'$.jump'),0)<=?`;
 const walkerAtVenue=`${walkerReady}

@@ -20,9 +20,18 @@ export const bikeDocks=[
 
 export const bikeDockReach=3.2;
 export const bikeMountReach=2.7;
+export const bikePassengerBoardSpeed=.18;
+export const bikePassengerOffset=.8;
 export const bikeParkDuration=10*60_000;
 export const bikeRackSize={width:4.12,depth:1.8};
-export const isCycling=position=>Boolean(position.bike&&!position.bike.parked);
+export const isBikeDriver=position=>Boolean(position?.bike&&!position.bike.parked);
+export const isBikePassenger=position=>Boolean(position?.bikeRide?.driver);
+export const isCycling=position=>isBikeDriver(position)||isBikePassenger(position);
+
+export function bikePassengerPose(driver){
+  const heading=driver.heading??0,angle=heading*Math.PI/180;
+  return {x:driver.x-Math.sin(angle)*bikePassengerOffset,y:driver.y+Math.cos(angle)*bikePassengerOffset,heading};
+}
 
 function rackApproach(dock,point){
   const angle=(180-dock.heading)*Math.PI/180,c=Math.cos(angle),s=Math.sin(angle);

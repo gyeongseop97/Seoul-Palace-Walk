@@ -27,6 +27,7 @@ const outside=alias=>`NOT (${x(alias)}>${museumBounds.minX} AND ${x(alias)}<${mu
   AND ${y(alias)}>${museumBounds.minY} AND ${y(alias)}<${museumBounds.maxY})`;
 const onFoot=alias=>`${field(alias,"umbrellaReady")}=1
   AND ${field(alias,"seat")} IS NULL AND ${field(alias,"bus")} IS NULL
+  AND ${field(alias,"bikeRide")} IS NULL
   AND (${field(alias,"bike")} IS NULL OR json_type(${alias}.avatar,'$.bike.parked') IS 'object')
   AND ${outside(alias)}`;
 const activeGap=8;

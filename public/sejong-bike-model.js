@@ -1,5 +1,5 @@
 import {addObstacle,platformAt} from "./layout.js";
-import {bikeDocks,bikeRackSize} from "./sejong-bike.js";
+import {bikeDocks,bikePassengerOffset,bikeRackSize} from "./sejong-bike.js";
 
 const tau=Math.PI*2;
 const sides=[-1,1];
@@ -18,6 +18,7 @@ const dockLevel=dock=>Math.max(dockPaving[dock.id]??.024,platformAt(dock.x,dock.
 
 // Positions in metres in the rider group's coordinates. Positive Z points forward.
 export const bikeFit={saddleY:.59,gripX:.255,gripY:.89,gripZ:.40,crankY:.41,crankZ:.13,pedalX:.17,pedalRadius:.103};
+export const bikeRearFit={saddleY:.62,pegX:.194,pegY:.25,pegForward:.29};
 
 export function bikePedal(side,angle){
   const phase=side<0?angle:angle+Math.PI;
@@ -108,6 +109,16 @@ function bikeParts(T){
       rod([side*.105,.558,-.405],[side*.056,.291,-.54],.012,steel),
       rod([side*.105,.559,-.735],[side*.105,.559,-.352],.012,silver));
   }
+  const rearZ=-bikePassengerOffset;
+  const rear=[block([0,.555,rearZ+.10],[.22,.057,.33],deepGreen),
+    block([0,bikeRearFit.saddleY-.026,rearZ],[.323,.052,.335],black),
+    ball([0,bikeRearFit.saddleY-.022,rearZ-.036],[.164,.028,.117],rubber)];
+  for(const side of sides){
+    const x=side*bikeRearFit.pegX,z=rearZ+bikeRearFit.pegForward;
+    rear.push(rod([side*.06,axleY,-wheelbase],[x,bikeRearFit.pegY,z],.021,steel),
+      rod([side*.11,.58,rearZ-.13],[side*.062,axleY,-wheelbase],.018,silver),
+      block([x,bikeRearFit.pegY,z],[.114,.023,.09],black));
+  }
   const steerZ=.47,steerY=.69;
   const front=[
     rod([0,-.029,0],[0,gripY-steerY,0],.022,steel),
@@ -136,7 +147,7 @@ function bikeParts(T){
     bend([[x+side*.128,.10,.30],[x+side*.128,.31,.36],[x+side*.128,.43,.57],
       [x+side*.128,.31,.76],[x+side*.128,.10,.80]],.026,steel));
   const material=new T.MeshStandardMaterial({vertexColors:true,roughness:.69,metalness:.055});
-  const result={wheel:combine(wheel),frame:combine(frame),front:combine(front),crank:combine(crank),pedal:combine(pedal),
+  const result={wheel:combine(wheel),frame:combine(frame),rear:combine(rear),front:combine(front),crank:combine(crank),pedal:combine(pedal),
     rack:combine(rack),material,steerY,steerZ};
   modelCache.set(T,result);return result;
 }
@@ -145,7 +156,7 @@ function paintedMesh(T,geometry,material){
   const mesh=new T.Mesh(geometry,material);mesh.castShadow=true;mesh.receiveShadow=true;return mesh;
 }
 
-export function makeRidingBike(T){
+export function makeRidingBike(T,{rearSeat=false}={}){
   const parts=bikeParts(T),group=new T.Group(),front=new T.Group(),crank=new T.Group();
   const frame=paintedMesh(T,parts.frame,parts.material),backWheel=paintedMesh(T,parts.wheel,parts.material);
   const frontWheel=paintedMesh(T,parts.wheel,parts.material);
@@ -162,6 +173,10 @@ export function makeRidingBike(T){
     return pedal;
   });
   group.add(frame,backWheel,front,crank);
+  if(rearSeat){
+    const seat=paintedMesh(T,parts.rear,parts.material);
+    seat.name="따릉이 뒷좌석";group.add(seat);
+  }
   let wheelAngle=0,pedalAngle=0;
   return {group,get pedalAngle(){return pedalAngle;},update(travel,steer=0){
     wheelAngle=(wheelAngle+travel/axleY)%tau;pedalAngle=(pedalAngle+travel*tau/2.6)%tau;

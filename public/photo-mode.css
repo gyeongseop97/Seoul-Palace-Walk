@@ -9,7 +9,7 @@
 .photo-controls button,.tutorial-card button{min-height:44px;padding:4px 7px;font-size:12px}
 #photo-countdown:empty{display:none}
 #photo-countdown{display:block;margin:6px 0 0;color:#f3d89c;font-size:12px}
-.photo-active :is(.game-hud,.peer-hud,.gesture-menu,.game-info,.game-presence,.location-guides,.hand-offer,.emote-menu,.self-chat,.self-emote,.tutorial-card,.cat-run-tip,#map-toggle){display:none!important}
+.photo-active :is(.game-hud,.peer-hud,.gesture-menu,.game-info,.game-presence,.location-guides,.hand-offer,.emote-menu,.self-chat,.self-emote,.tutorial-card,.cat-run-tip,.fullscreen-tools,#map-toggle){display:none!important}
 
 #photo-album{max-width:min(690px,calc(100vw - 24px));max-height:calc(100dvh - 22px);overflow:auto}
 [data-photo-gallery]{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,175px),1fr));gap:10px}

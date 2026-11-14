@@ -4,7 +4,8 @@ import {validItemSlot} from "./public/held-items.js";
 import {BIKE_FALL_DURATION_MS,GESTURE_DURATIONS,MAX_ALCOHOL_DRINKS,MAX_ALCOHOL_LEVEL} from "./public/avatar-gestures.js";
 import {isInsideMuseum} from "./public/visit-layout.js";
 import {BUS_COUNT,BUS_SEATS,BUS_BOARD_REACH,busAt,busStopById,busSeatPose} from "./public/sejong-bus.js";
-import {bikeDockReach,bikeDocks,bikeMountReach,bikeParkDuration} from "./public/sejong-bike.js";
+import {bikeDockReach,bikeDocks,bikeMountReach,bikeParkDuration,bikePassengerPose} from "./public/sejong-bike.js";
+import {bikePassenger,boardBikePassenger,dismountBikePassenger,dropBikePassengers,mountedBike,refreshBikePassenger,ridingBike} from "./server/bike-passengers.mjs";
 import {HEADWEAR,KEEPSAKES} from "./public/wearable-options.js";
 import {GITHUB_PAGES_ORIGIN} from "./public/hosting.js";
 import {ensureSocialTables} from "./database/social-schema.mjs";
@@ -82,11 +83,10 @@ const busSeat = seat => Number.isInteger(seat)&&seat>=0&&seat<BUS_SEATS;
 const validBus = bus => bus?.action==="board"?busIndex(bus.index)&&busSeat(bus.seat):
   bus?.action==="exit"&&(bus.index==null||busIndex(bus.index));
 const docksById=new Map(bikeDocks.map(dock=>[dock.id,dock]));
-const validBike = bike => bike?.action==="park"||bike?.action==="mount"||bike?.action==="fall"||
+const validBike = (bike,id) => bike?.action==="ride"?validId(bike.driver)&&bike.driver!==id:
+  bike?.action==="park"||bike?.action==="mount"||bike?.action==="fall"||bike?.action==="dismount"||
   (bike?.action==="take"||bike?.action==="return")&&docksById.has(bike.dock);
 const parkedBikeTime="json_extract(avatar,'$.bike.parked.at')";
-const mountedBike=(field="avatar")=>`(json_type(${field},'$.bike') IS 'object'
-  AND json_extract(${field},'$.bike.parked') IS NULL)`;
 const parkedBikePatch=`CASE WHEN ${parkedBikeTime}>?
   THEN json_object('bike',json_extract(avatar,'$.bike')) ELSE '{}' END`;
 
@@ -157,6 +157,7 @@ async function enterRoom(db,body){
   delete initialAvatar.chat;
   delete initialAvatar.bus;
   delete initialAvatar.bike;
+  delete initialAvatar.bikeRide;
   delete initialAvatar.bikeFallAt;
   delete initialAvatar.picnicClaim;
   const {results}=await db.prepare(`
@@ -175,7 +176,7 @@ async function enterRoom(db,body){
     ), ?))
     ON CONFLICT(room,id) DO UPDATE SET updated=MAX(walkers.updated,excluded.updated),
       avatar=CASE WHEN walkers.updated<? THEN json_patch(
-        json_patch(json_remove(walkers.avatar,'$.bus','$.bike'), ${expiredRidePatch}), ${parkedBikePatch})
+        json_patch(json_remove(walkers.avatar,'$.bus','$.bike','$.bikeRide'), ${expiredRidePatch}), ${parkedBikePatch})
         ELSE walkers.avatar END
       WHERE walkers.player_key IS excluded.player_key
     RETURNING nickname,coat
@@ -187,7 +188,7 @@ async function enterRoom(db,body){
 }
 
 function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeAction,pendingPicnic){
-  const {feed,chat,bus,bike,bikeFallAt,picnicClaim,...snapshotData}=avatar;
+  const {feed,chat,bus,bike,bikeRide,bikeFallAt,picnicClaim,...snapshotData}=avatar;
   const snapshot=JSON.stringify(snapshotData);
   const inheritWish=avatar.wishArt===undefined&&avatar.wish>now-WISH_FLIGHT_MS?avatar.wish:null;
   const acknowledgedFeed=validId(feed?.claim)?feed.claim:null;
@@ -224,9 +225,11 @@ function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeA
     CASE WHEN updated<? OR ${invalidBusRide} THEN ${expiredRidePatch}
     WHEN json_type(avatar,'$.bus')='object' THEN json_object(
       'bus',json_extract(avatar,'$.bus'),'seat',NULL,'seatSide',NULL,${vehiclePose})
+    WHEN ${bikePassenger()} THEN json_object('bikeRide',json_extract(avatar,'$.bikeRide'),
+      'seat',NULL,'seatSide',NULL,${vehiclePose})
     WHEN ${mountedBike()} THEN json_object(
       'bike',json_extract(avatar,'$.bike'),'seat',NULL,'seatSide',NULL${mountedPose})
-    ELSE '{}' END)`;
+    ELSE ${bikeRide?.driver?`json_object('seat',NULL,'seatSide',NULL,${vehiclePose})`:"'{}'"} END)`;
   const bikeCutoff=now-bikeParkDuration;
   const picnicGuard=pendingPicnic?`AND NOT EXISTS (SELECT 1 FROM picnic_requests p
     WHERE p.room=walkers.room AND p.player=walkers.id AND p.request=?)`:"";
@@ -308,7 +311,7 @@ function feedUpdate(db,room,id,key,feed,now){
       '${path}.remaining',json_extract(avatar,'${path}.remaining')-1,'${path}.started',?,'$.itemUse',?)
     WHERE room=? AND id=? AND player_key=?
       AND json_extract(avatar,'$.seat') IS NULL
-      AND json_extract(avatar,'$.bus') IS NULL AND NOT ${mountedBike()}
+      AND json_extract(avatar,'$.bus') IS NULL AND NOT ${ridingBike()}
       AND COALESCE(json_extract(avatar,'$.running'),0)=0
       AND json_extract(avatar,'${path}.kind')='churu'
       AND json_extract(avatar,'${path}.remaining')>0
@@ -327,7 +330,7 @@ const nearVehicleAccess=`
   (json_extract(avatar,'$.y')-?) * (json_extract(avatar,'$.y')-?) <= ?
 `;
 const accessArguments=(point,reach)=>[point.x,point.x,point.y,point.y,reach**2];
-const availableRider=`json_extract(avatar,'$.bus') IS NULL AND NOT ${mountedBike()}
+const availableRider=`json_extract(avatar,'$.bus') IS NULL AND NOT ${ridingBike()}
   AND json_extract(avatar,'$.seat') IS NULL AND COALESCE(json_extract(avatar,'$.feed.at'),0)<=?
   AND COALESCE(json_extract(avatar,'$.bikeFallAt'),0)<=?`;
 
@@ -407,7 +410,7 @@ function releaseTransportHands(db,room,id,key){
   return db.prepare(`
     DELETE FROM handholds WHERE room=? AND (leader=? OR follower=?) AND EXISTS (
       SELECT 1 FROM walkers WHERE room=? AND id=? AND player_key=?
-        AND (json_extract(avatar,'$.bus') IS NOT NULL OR ${mountedBike()})
+        AND (json_extract(avatar,'$.bus') IS NOT NULL OR ${ridingBike()})
     )
   `).bind(room,id,id,room,id,key);
 }
@@ -438,7 +441,9 @@ function transportResult(bus,bike,avatar,walkers,id,now){
   }else if(bus)result.bus=avatar.bus?"unavailable":"exited";
   if(bike){
     const rental=avatar.bike,mounted=rental&&!rental.parked;
-    if(bike.action==="take")result.bike=mounted&&rental.dock===bike.dock?"taken":"unavailable";
+    if(bike.action==="ride")result.bike=avatar.bikeRide?.driver===bike.driver?"riding":"unavailable";
+    else if(bike.action==="dismount")result.bike=avatar.bikeRide?"unavailable":"dismounted";
+    else if(bike.action==="take")result.bike=mounted&&rental.dock===bike.dock?"taken":"unavailable";
     else if(bike.action==="park")result.bike=rental?.parked?"parked":"unavailable";
     else if(bike.action==="fall")result.bike=rental?.parked&&rental.parked.at===avatar.bikeFallAt?"fell":"unavailable";
     else if(bike.action==="mount")result.bike=mounted?"mounted":"unavailable";
@@ -451,7 +456,7 @@ const readyPair=`
   a.player_key IS NOT NULL AND b.player_key IS NOT NULL AND a.updated >= ? AND b.updated >= ?
   AND json_extract(a.avatar,'$.seat') IS NULL AND json_extract(b.avatar,'$.seat') IS NULL
   AND json_extract(a.avatar,'$.bus') IS NULL AND json_extract(b.avatar,'$.bus') IS NULL
-  AND NOT ${mountedBike("a.avatar")} AND NOT ${mountedBike("b.avatar")}
+  AND NOT ${ridingBike("a.avatar")} AND NOT ${ridingBike("b.avatar")}
   AND (json_extract(a.avatar,'$.x')-json_extract(b.avatar,'$.x')) *
       (json_extract(a.avatar,'$.x')-json_extract(b.avatar,'$.x')) +
       (json_extract(a.avatar,'$.y')-json_extract(b.avatar,'$.y')) *
@@ -526,6 +531,7 @@ export async function api(request,env){
         AND EXISTS (SELECT 1 FROM walkers WHERE room=? AND id=? AND player_key IS ?)
       `).bind(room,id,id,room,id,key),
       clearUmbrellaMarkers(db,room),
+      dropBikePassengers(db,{room,id,key,leaving:true}),
       db.prepare("DELETE FROM walkers WHERE room=? AND id=? AND player_key IS ?").bind(room,id,key)
     ]);
     return json({ok:true});
@@ -533,7 +539,7 @@ export async function api(request,env){
   if(hand!=null&&(!key||!validHand(hand)))return json({error:"함께 걷기 요청을 읽을 수 없어요."},400);
   if(feed!=null&&(!key||avatar===undefined||!validFeed(feed)))return json({error:"간식 주기 요청을 읽을 수 없어요."},400);
   if(bus!=null&&(!key||avatar===undefined||!validBus(bus)))return json({error:"버스 요청을 읽을 수 없어요."},400);
-  if(bike!=null&&(!key||avatar===undefined||!validBike(bike)))return json({error:"자전거 요청을 읽을 수 없어요."},400);
+  if(bike!=null&&(!key||avatar===undefined||!validBike(bike,id)))return json({error:"자전거 요청을 읽을 수 없어요."},400);
   if(show!=null&&(!key||avatar===undefined||!validShow(show)))return json({error:"분수 공연 요청을 읽을 수 없어요."},400);
   if(clink!=null&&(!key||avatar===undefined||!validClink(clink,id)))return json({error:"건배 요청을 읽을 수 없어요."},400);
   const photo=body.photo;
@@ -554,8 +560,10 @@ export async function api(request,env){
   const currentFeed=feed&&feed.at>=now-FEED_MS&&feed.at<=now+1500;
   const operations=[];
   if(avatar!==undefined){
+    if(key)operations.push(dismountBikePassenger(db,room,id,key,{online,expired:true}));
     const pendingPicnic=picnic?.action==="place"||picnic?.action==="take"?picnic.id:undefined;
     if(!feed||currentFeed)operations.push(avatarUpdate(db,room,id,key,avatar,view,now,active,feed?.claim,bike?.action,pendingPicnic));
+    if(key&&avatar.bikeRide?.driver)operations.push(refreshBikePassenger(db,room,id,key,online));
     if(chat)operations.push(chatUpdate(db,room,id,key,chat,now,active));
     if(signal)operations.push(signalUpdate(db,room,id,key,signal,avatar,now,active));
     if(Math.random()<.004){
@@ -572,7 +580,14 @@ export async function api(request,env){
     }
   }
   if(currentFeed)operations.push(feedUpdate(db,room,id,key,feed,now));
-  if(bike)operations.push(bikeStatement(db,room,id,key,bike,now,active));
+  if(bike?.action==="ride")operations.push(boardBikePassenger(db,{room,id,key,driver:bike.driver,online,bikeCutoff,
+    feedCutoff:now-FEED_MS,fallCutoff:now-BIKE_FALL_DURATION_MS}));
+  else if(bike?.action==="dismount")operations.push(dismountBikePassenger(db,room,id,key));
+  else if(bike){
+    operations.push(bikeStatement(db,room,id,key,bike,now,active));
+    if(bike.action==="park"||bike.action==="return"||bike.action==="fall")
+      operations.push(dropBikePassengers(db,{room,id,key,fallAt:bike.action==="fall"?now:undefined}));
+  }
   if(bus)operations.push(...busStatements(db,room,id,key,bus,now,active));
   if(bus||bike)operations.push(releaseTransportHands(db,room,id,key),clearUmbrellaMarkers(db,room));
   if(hand){
@@ -607,11 +622,23 @@ export async function api(request,env){
   const rows=results.at(-2).results;
   const ownRow=rows.find(row=>row.id===id&&row.player_key===key&&row.updated>=active);
   if(!ownRow)return json({error:"산책방에 다시 입장해 주세요."},409);
-  const receiver={id,avatar:transportAvatar(ownRow,now)};
+  const avatars=new Map(rows.map(row=>[row.id,transportAvatar(row,now)]));
+  const onlineRows=new Set(rows.filter(row=>row.updated>=online).map(row=>row.id));
+  for(const [passenger,avatar] of avatars){
+    const driverId=avatar.bikeRide?.driver;
+    if(!driverId)continue;
+    const driver=avatars.get(driverId),pose=driver&&bikePassengerPose(driver);
+    if(validPoint(pose))Object.assign(avatar,pose);
+    if(onlineRows.has(passenger)&&onlineRows.has(driverId)&&driver.bike&&!driver.bike.parked){
+      driver.bike.passenger=passenger;
+      avatar.vx=driver.vx??0;avatar.vy=driver.vy??0;
+    }else delete avatar.bikeRide;
+  }
+  const receiver={id,avatar:avatars.get(id)};
   const receiverIndoors=isInsideMuseum(receiver.avatar.x,receiver.avatar.y);
   const walkers=[],parkedBikes=[];
   for(const row of rows){
-    const avatar=row===ownRow?receiver.avatar:transportAvatar(row,now);
+    const avatar=avatars.get(row.id);
     if(avatar.bike?.parked)parkedBikes.push({id:row.id,...avatar.bike.parked});
     if(row.updated<active)continue;
     if(avatar.catFriends&&(row===ownRow||receiverIndoors||

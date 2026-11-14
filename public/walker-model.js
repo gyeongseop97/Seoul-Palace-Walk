@@ -1,6 +1,6 @@
 import {FEED_MS, PET_MS, JUMP_HEIGHT, avatarHands} from "./activities.js";
-import {bikeFit,bikePedal,makeRidingBike} from "./sejong-bike-model.js";
-import {isCycling} from "./sejong-bike.js";
+import {bikeFit,bikePedal,bikeRearFit,makeRidingBike} from "./sejong-bike-model.js";
+import {isBikeDriver,isBikePassenger,isCycling} from "./sejong-bike.js";
 import {CLINK_DURATION_MS} from "./social-events.js";
 import {makeUmbrella,makeWearables} from "./wearables-models.js";
 import {alcoholGlasses,alcoholLevel,gestureBody,gestureHands,MAX_ALCOHOL_LEVEL} from "./avatar-gestures.js";
@@ -711,6 +711,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     group.visible = true;
     const smoothPose = wasVisible ? 1 - Math.exp(-delta*15) : 1;
     const riding = !seat && isCycling(position);
+    const driving = riding && isBikeDriver(position),passenger = riding && isBikePassenger(position);
     const lift = riding ? 0 : jump;
     const airborne = Math.min(1,lift/JUMP_HEIGHT);
     const walking = Boolean(position.stepping && !seat && !riding && jump<.06);
@@ -732,7 +733,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
 
     const facing = Math.PI - (seat?.heading ?? position.clink?.heading ?? position.heading ?? 252) * Math.PI/180;
     const turn = facing - group.rotation.y;
-    group.rotation.y += Math.atan2(Math.sin(turn),Math.cos(turn)) * (wasVisible && !seat && !claspSide ? turnEase : 1);
+    group.rotation.y += Math.atan2(Math.sin(turn),Math.cos(turn)) * (wasVisible && !seat && !riding && !claspSide ? turnEase : 1);
     // Stepping onto or off a ledge eases the floor so the body does not pop.
     const vaulting=position.vaultBase!=null&&lift>0;
     model.floorY = !vaulting && wasVisible && model.floorY !== null && Math.abs(floor-model.floorY) < 1.6
@@ -742,10 +743,10 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     model.lastX = position.x;
     model.lastY = position.y;
     let pedalAngle = 0;
-    if (riding) {
+    if (driving) {
       const pedaling = wasVisible && model.bike?.group.visible && travel <= Math.max(.8,delta*22);
       if (!model.bike) {
-        model.bike = makeRidingBike(T);
+        model.bike = makeRidingBike(T,{rearSeat:true});
         group.add(model.bike.group);
       }
       model.bike.group.visible = true;
@@ -776,10 +777,10 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const strideDip = (.074+.020*sprint)*sway;
     const idleRise = .035*(1-stride)*(1-seated)*(1-crouch);
     if (riding) {
-      body.position.y = CYCLING_LIFT;
+      body.position.y = CYCLING_LIFT+(passenger?bikeRearFit.saddleY-bikeFit.saddleY:0);
       pelvis.position.set(0,CYCLING_HIP,0);
-      chest.rotation.set(.28,0,0);
-      headJoint.rotation.set(-.25,0,breath*.012);
+      chest.rotation.set(passenger?.14:.28,0,0);
+      headJoint.rotation.set(passenger?-.13:-.25,0,breath*.012);
       inverseChest.copy(chest.quaternion).invert();
     } else {
       body.position.y = seated*SEAT_LIFT+(fall?.weight??0)*.23;
@@ -812,9 +813,8 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     for (let i=0;i<2;i++) {
       const side = SIDE[i], leg = legs[i];
       if (riding) {
-        const pedal = bikePedal(side,pedalAngle);
-        // Set the sole on top of the flat pedal and keep the shoe level.
-        leg.target.set(pedal.x/BODY,(pedal.y+.011-body.position.y)/BODY+.130-pelvis.position.y,pedal.z/BODY-.046);
+        const foot = passenger?{x:side*bikeRearFit.pegX,y:bikeRearFit.pegY,z:bikeRearFit.pegForward}:bikePedal(side,pedalAngle);
+        leg.target.set(foot.x/BODY,(foot.y+.011-body.position.y)/BODY+.130-pelvis.position.y,foot.z/BODY-.046);
         solve(leg,leg.target,forward);
         leg.end.quaternion.copy(globalLower).invert();
         continue;
@@ -848,9 +848,10 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       const fist=performanceHand?.curl<-.8&&acting.weight>.4;
       arm.hand.geometry=fist?fistGeometry[i]:handGeometry[i];
       if (riding) {
-        // The palm sits below the wrist, wrapping the centre of the grip.
-        arm.target.set(side*bikeFit.gripX/BODY,(bikeFit.gripY-body.position.y)/BODY+.046-pelvis.position.y-chest.position.y,
-          bikeFit.gripZ/BODY-.012).applyQuaternion(inverseChest);
+        // The driver holds the bars. The rear rider steadies themselves near the driver's waist.
+        const grip=passenger?{x:.177,y:.90,z:.44}:{x:bikeFit.gripX,y:bikeFit.gripY,z:bikeFit.gripZ};
+        arm.target.set(side*grip.x/BODY,(grip.y-body.position.y)/BODY+.046-pelvis.position.y-chest.position.y,
+          grip.z/BODY-.012).applyQuaternion(inverseChest);
         pole.set(side*.5,-.7,-.25);
         solve(arm,arm.target,pole);
         arm.end.quaternion.copy(globalLower).invert().multiply(inverseChest);
