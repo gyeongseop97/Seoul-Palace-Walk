@@ -1592,7 +1592,7 @@ function nearbyBikeDock(){
 }
 function nearbyParkedBike(){
   const bike=me.bike?.parked;
-  return bike&&near(bike,me.x,me.y)<=bikeMountReach&&clearSegment(me,bike,.32,.18);
+  return Boolean(bike&&near(bike,me.x,me.y)<=bikeMountReach&&canRideBikeSegment(me,bike));
 }
 function nearbyBikeDriver(){
   if(me.bike||isBikePassenger(me)||photoMode.camera||minigames.active()||isInsideMuseum(me.x,me.y))return null;
@@ -1601,7 +1601,7 @@ function nearbyBikeDriver(){
     const {avatar,position}=person;
     if(!isBikeDriver(avatar)||avatar.bike.passenger||Math.hypot(avatar.vx||0,avatar.vy||0)>bikePassengerBoardSpeed)continue;
     const distance=near(position,me.x,me.y);
-    if(distance>range||!clearSegment(me,position,.32,.18))continue;
+    if(distance>range||!canRideBikeSegment(me,position))continue;
     nearest=person;range=distance;
   }
   return nearest;
@@ -1640,10 +1640,10 @@ function updateTransport(time){
   const stop=bus?busStopById(bus.stopId):world&&!riding?nearbyBusStop():null;
   const passenger=isBikePassenger(me),driver=isBikeDriver(me),dock=ready&&!passenger&&nearbyBikeDock();
   const boarding=boardableBus(time,ready);
-  const parked=me.bike?.parked,offeredRide=ready&&nearbyBikeDriver();
+  const parked=me.bike?.parked,canRemount=nearbyParkedBike(),offeredRide=ready&&nearbyBikeDriver();
   setActivity("bike-action",queuedBike?"따릉이 확인 중":dock&&(!me.bike||driver)?driver?"따릉이 반납하기":"따릉이 빌리기":null,Boolean(queuedBike));
   setActivity("bike-park",passenger?"뒷자리에서 내리기":ready?
-    driver?"따릉이에서 내리기":nearbyParkedBike()?"따릉이 다시 타기":offeredRide?"따릉이 뒷자리 타기":null:null,Boolean(queuedBike));
+    driver?"따릉이에서 내리기":canRemount?"따릉이 다시 타기":offeredRide?"따릉이 뒷자리 타기":null:null,Boolean(queuedBike));
   const rideButton=$("bike-park");
   if(offeredRide)attr(rideButton,"aria-label",offeredRide.nickname+" 님 따릉이 뒷자리 타기");
   else rideButton.removeAttribute("aria-label");
@@ -1651,7 +1651,7 @@ function updateTransport(time){
   setActivity("bus-action",queuedBus?"버스 확인 중":bus&&stop?"버스 내리기":boarding?"버스 타기":null,Boolean(queuedBus));
   if(boarding)attr(button,"aria-haspopup","dialog");else button.removeAttribute("aria-haspopup");
   const label=passenger?(people.get(me.bikeRide.driver)?.nickname??"친구")+" 님과 따릉이 동승 중":driver?
-    me.bike.passenger?"따릉이 · 둘이 타는 중":"따릉이 이용 중 · 지정 대여소에서 반납":parked&&(dock||nearbyParkedBike())?
+    me.bike.passenger?"따릉이 · 둘이 타는 중":"따릉이 이용 중 · 지정 대여소에서 반납":parked&&(dock||canRemount)?
     `세워둔 따릉이 · ${travelTime(parked.at+bikeParkDuration-time)} 뒤 회수`:"";
   travelStatus.hidden=!label;setText(travelStatus,label);
   updateBusStatus(bus,stop,time);
@@ -2236,9 +2236,12 @@ let lastFrame=performance.now(),interfaceAt=0,guideNearby=false;
 function preferredNearbyAction(time){
   if(me.bus||queuedBus)return "bus-action";
   const bike=$("bike-action"),park=$("bike-park");
-  if(!park.hidden&&!park.disabled&&(isBikePassenger(me)||park.hasAttribute("aria-label")))return "bike-park";
+  const parkAvailable=!park.hidden&&!park.disabled;
+  // Offer mounting (including the rear seat) ahead of unrelated actions. At a
+  // dock, a mounted driver still sees the option to return the rental first.
+  if(parkAvailable&&!isBikeDriver(me))return "bike-park";
   if(!bike.hidden&&!bike.disabled)return "bike-action";
-  if(isCycling(me)&&!park.hidden&&!park.disabled)return "bike-park";
+  if(parkAvailable)return "bike-park";
   if(me.seat!=null)return "sit";
   if(!$("picnic").hidden&&(picnic.nearby(me)||ITEM_SLOTS.some(slot=>me[slot]?.remaining&&isPicnicItem(me[slot].kind))))return "picnic";
   if(!$("minigame").hidden)return "minigame";
