@@ -1,8 +1,8 @@
-import {bukchonPaths,bukchonGroundHeight,bukchonTerrain,bukchonShopPlots,bukchonLawns,bukchonStreetTrees,dongsipjagak,folkMuseumEastDoor} from "./bukchon-layout.js";
+import {bukchonPaths,bukchonGroundHeight,bukchonSurfaceGrade,bukchonTerrain,bukchonShopPlots,bukchonLawns,bukchonStreetTrees,dongsipjagak,folkMuseumEastDoor} from "./bukchon-layout.js";
 import {gbEastWallX,insideGbWall} from "./gyeongbok-perimeter.js";
 import {bikeDocks} from "./sejong-bike.js";
 import {bukchonBusRoads,busStopById} from "./sejong-bus.js";
-import {samcheongLevel} from "./gyeongbok-terrain.js";
+import {gradePalaceMeshes,sampleMeshHeight} from "./gyeongbok-terrain.js";
 import {mmcaReserved} from "./mmca-layout.js";
 import {buildMmca} from "./mmca.js";
 
@@ -32,21 +32,27 @@ export function* buildBukchon(T,root,kit){
     group.rotation.y=angle;
     root.add(group);return group;
   }
-  function meshFromTriangles(color,triangles,twoSided=false){
+  const graded=[];
+  function meshFromTriangles(color,triangles,{terrain=true,follow=true,twoSided=false}={}){
     if(!triangles.length)return;
     const geometry=new T.BufferGeometry();
     geometry.setAttribute("position",new T.Float32BufferAttribute(triangles,3));
     geometry.computeVertexNormals();
     const mesh=material(shape(geometry,color,0,0,0,root),false);
+    mesh.userData.terrainSurface=terrain;
+    if(follow){mesh.userData.followTerrain=true;graded.push(mesh);}
     if(twoSided){
       mesh.material=mesh.material.clone();
       mesh.material.side=T.DoubleSide;
     }
   }
   const vertex=(values,point,offset)=>values.push(wx(point.x),point.level+offset,wz(point.y));
-  function quad(values,a,b,c,d,offset=0){
+  function quad(values,a,b,c,d,offset=0,follow=true){
     const flip=(b.y-a.y)*(c.x-a.x)<(b.x-a.x)*(c.y-a.y);
-    for(const p of flip?[a,c,b,a,d,c]:[a,b,c,a,c,d])vertex(values,p,offset);
+    for(const p of flip?[a,c,b,a,d,c]:[a,b,c,a,c,d]){
+      if(follow)values.push(wx(p.x),offset,wz(p.y));
+      else vertex(values,p,offset);
+    }
   }
   function band(path,color,offset=.002){
     let values=[],length=0;
@@ -69,8 +75,9 @@ export function* buildBukchon(T,root,kit){
     mesh.rotation.set(0,direction(a,b),Math.atan2(b.level-a.level,run),"YXZ");
     return mesh;
   }
-  const grid=5.5;
+  const grid=8,patch=grid*8;
   const stairs=bukchonPaths.find(path=>path.kind==="stairs");
+  const avenue=bukchonPaths[0],eastWalk=bukchonPaths[2],northWestWalk=bukchonPaths[8];
   for(const ring of bukchonBusRoads){
     const vertices=[];
     const contour=ring.map(({x,y})=>new T.Vector2(x,y));
@@ -78,35 +85,44 @@ export function* buildBukchon(T,root,kit){
       const direction=(ring[b].x-ring[a].x)*(ring[c].y-ring[a].y)-(ring[b].y-ring[a].y)*(ring[c].x-ring[a].x);
       for(const i of direction<0?[a,b,c]:[a,c,b]){
         const point=ring[i];
-        vertex(vertices,{...point,level:samcheongLevel(point.y)},-.006);
+        vertices.push(wx(point.x),-.016,wz(point.y));
       }
     }
     meshFromTriangles(asphalt,vertices);
   }
   // Stop the east-side terrain at the shared palace wall. Its floor and this
   // verge meet at the same grade as the sidewalk.
-  for(let left=626;left<1160;left+=44){
-    for(let top=-1885;top<-850;top+=44){
+  for(let left=620;left<1220;left+=patch){
+    for(let top=-2079;top<-850;top+=patch){
       const earth=[],plants=[];
       const node=(x,y)=>{
         const wall=gbEastWallX(y);
         if(wall!=null&&y< -908)x=Math.max(x,wall+.12);
-        const stairGap=Math.hypot(Math.max(937-x,0,x-957),Math.max(-1842-y,0,y+1832));
-        const recess=Math.max(0,1-stairGap/10)*2.05;
-        return {x,y,level:bukchonTerrain(x,y)-.6-recess};
+        const stairGap=Math.hypot(Math.max(936-x,0,x-958),Math.max(-1843-y,0,y+1830));
+        const recess=Math.max(0,1-stairGap/14)*2.85;
+        return {x,y,level:sampleMeshHeight(bukchonSurfaceGrade,{x,y})-.6-recess};
       };
       const vertexRows=Array.from({length:9},(_,i)=>Array.from({length:9},(_,j)=>node(left+j*grid,top+i*grid)));
       for(let i=0;i<8;i++)for(let j=0;j<8;j++){
         const a=vertexRows[i][j],b=vertexRows[i][j+1],c=vertexRows[i+1][j+1],d=vertexRows[i+1][j];
         if(b.x-a.x+c.x-d.x<.02||insideGbWall((a.x+b.x+c.x+d.x)/4,(a.y+b.y+c.y+d.y)/4))continue;
-        quad(random()<.16?plants:earth,a,b,c,d);
+        // Use the same diagonal as the draped road in each cell.
+        quad(random()<.16?plants:earth,b,c,d,a,0,false);
       }
-      meshFromTriangles(streetGrass,earth);meshFromTriangles(park,plants);
-      if((top+1885)%176===132)yield;
+      meshFromTriangles(streetGrass,earth,{follow:false});meshFromTriangles(park,plants,{follow:false});
+      if((top+2079)%(patch*4)===patch*3)yield;
     }
   }
+  // Keep the road and its shoulders in view at the playable boundary.
+  // The extension is scenery only and bends into the row of trees below.
+  for(const [path,color] of [[avenue,asphalt],[eastWalk,pave],[northWestWalk,pave]]){
+    const left=path.left.at(-1),right=path.right.at(-1);
+    const bend=[{x:5,y:-16},{x:16,y:-37},{x:38,y:-65},{x:63,y:-106}];
+    const edge=(point,offset)=>({...point,x:point.x+offset.x,y:point.y+offset.y});
+    band({left:[left,...bend.map(offset=>edge(left,offset))],right:[right,...bend.map(offset=>edge(right,offset))]},
+      color,path.kind==="road"?0:.055);
+  }
   const walkingColor={road:asphalt,pavement:pave,alley:0x77726c,lane:0x68686a,crosswalk:asphalt,entrance:0xb4ab94};
-  const [avenue,,eastWalk]=bukchonPaths;
   for(let i=1;i<avenue.right.length;i++){
     const joints=[];
     quad(joints,avenue.right[i-1],eastWalk.left[i-1],eastWalk.left[i],avenue.right[i],-.002);
@@ -114,29 +130,28 @@ export function* buildBukchon(T,root,kit){
   }
   for(const path of bukchonPaths){
     if(path.kind==="stairs")continue;
-    band(path,walkingColor[path.kind],path.kind==="crosswalk"?.012:.003);
+    const layer={road:0,pavement:.055,alley:.035,lane:.028,crosswalk:.072,entrance:.082}[path.kind];
+    band(path,walkingColor[path.kind],layer);
     const edgeTrim=[];
-    if(path.kind==="pavement"||path.kind==="road"){
+    if(path.kind==="pavement"){
       for(const side of [path.left,path.right]){
         for(let i=1;i<side.length;i++){
           const a=side[i-1],b=side[i],across=direction(a,b);
-          const width=path.kind==="road"?.13:.23;
+          const width=.23;
           const from=apart(a,across,-width),to=apart(b,across,-width);
-          quad(edgeTrim,from,apart(a,across,width),apart(b,across,width),to,.021);
-          if(path.kind==="pavement")beam(0x8c897e,a,b,.15,.17,-.071);
+          quad(edgeTrim,from,apart(a,across,width),apart(b,across,width),to,.027);
         }
       }
-      meshFromTriangles(path.kind==="road"?0x8a837b:0x969487,edgeTrim);
+      meshFromTriangles(0x969487,edgeTrim);
     }
     if(path.kind==="alley"){
       for(const side of [path.left,path.right]){
         let frontage=[];
         for(let i=1;i<side.length;i++){
+          if(path.name==="북촌로5나길"&&i===1)continue;
           const a=side[i-1],b=side[i],start=path.points[i-1],end=path.points[i];
-          const outward=(edge,centre)=>({
-            x:edge.x+(edge.x-centre.x)*.83,y:edge.y+(edge.y-centre.y)*.83,level:edge.level-.025
-          });
-          quad(frontage,a,b,outward(b,end),outward(a,start));
+          const outward=(edge,centre)=>({x:edge.x+(edge.x-centre.x)*.83,y:edge.y+(edge.y-centre.y)*.83});
+          quad(frontage,a,b,outward(b,end),outward(a,start),-.003);
           if(frontage.length>140){meshFromTriangles(0x8c8070,frontage);frontage=[];}
         }
         meshFromTriangles(0x8c8070,frontage);
@@ -156,7 +171,7 @@ export function* buildBukchon(T,root,kit){
         const paint=[];
         for(let metre=.6;metre<length-1;metre+=1.27){
           const start=mix(a,b,metre/length),end=mix(a,b,(metre+.64)/length),width=path.width/2-.22;
-          quad(paint,apart(start,angle,-width),apart(start,angle,width),apart(end,angle,width),apart(end,angle,-width),.035);
+          quad(paint,apart(start,angle,-width),apart(start,angle,width),apart(end,angle,width),apart(end,angle,-width),.091);
         }
         meshFromTriangles(0xe2ddd1,paint);
       }
@@ -164,7 +179,7 @@ export function* buildBukchon(T,root,kit){
         const drain=[];
         for(let metre=0;metre<length-1;metre+=1.45){
           const start=mix(a,b,metre/length),end=mix(a,b,Math.min(1,(metre+1.4)/length)),edge=path.width/2-.36;
-          quad(drain,apart(start,angle,edge-.11),apart(start,angle,edge+.11),apart(end,angle,edge+.11),apart(end,angle,edge-.11),.012);
+          quad(drain,apart(start,angle,edge-.11),apart(start,angle,edge+.11),apart(end,angle,edge+.11),apart(end,angle,edge-.11),layer+.016);
         }
         meshFromTriangles(path.kind==="alley"?0x9b8f80:0xb6a061,drain);
       }
@@ -179,8 +194,9 @@ export function* buildBukchon(T,root,kit){
         (outline[b].y-outline[a].y)*(outline[c].x-outline[a].x);
       for(const index of normal<0?[a,b,c]:[a,c,b])vertex(positions,outline[index],.011);
     }
-    meshFromTriangles(0x738953,positions);
+    meshFromTriangles(0x738953,positions,{follow:false});
   }
+  yield* gradePalaceMeshes(T,graded,bukchonSurfaceGrade);
   for(const [index,{a,b}] of stairs.segments.entries()){
     const treads=[],skirting=[],underpinning=[];
     const left=stairs.left[index],right=stairs.right[index],nextLeft=stairs.left[index+1],nextRight=stairs.right[index+1];
@@ -190,7 +206,7 @@ export function* buildBukchon(T,root,kit){
       const before=i/count,after=(i+1)/count,level=mix(a,b,(before+after)/2).level;
       const l0={...mix(left,nextLeft,before),level},r0={...mix(right,nextRight,before),level};
       const l1={...mix(left,nextLeft,after),level},r1={...mix(right,nextRight,after),level};
-      quad(treads,l0,r0,r1,l1,.006);
+      quad(treads,l0,r0,r1,l1,.006,false);
       const baseLevel=level-.19;
       for(const [one,two] of [[l0,r0],[l0,l1],[r1,r0]]){
         for(const p of [one,two,{...two,level:baseLevel},one,{...two,level:baseLevel},{...one,level:baseLevel}])vertex(skirting,p,0);
@@ -200,9 +216,9 @@ export function* buildBukchon(T,root,kit){
         for(const p of [one,two,bottom(two),one,bottom(two),bottom(one)])vertex(underpinning,p,0);
       }
     }
-    meshFromTriangles(index%2?0xb1a999:0xa9a191,treads);
-    meshFromTriangles(0x81776b,skirting,true);
-    meshFromTriangles(0x8c8272,underpinning,true);
+    meshFromTriangles(index%2?0xb1a999:0xa9a191,treads,{follow:false});
+    meshFromTriangles(0x81776b,skirting,{terrain:false,follow:false,twoSided:true});
+    meshFromTriangles(0x8c8272,underpinning,{terrain:false,follow:false,twoSided:true});
     if(index===0||index===stairs.segments.length-1)continue;
     for(const [start,end] of [[left,nextLeft],[right,nextRight]]){
       const outside=(edge,center)=>({...edge,x:edge.x+(edge.x-center.x)*.55,y:edge.y+(edge.y-center.y)*.55});
@@ -377,7 +393,7 @@ export function* buildBukchon(T,root,kit){
   }
   function hanok(point,angle,w,d,shop){
     const group=groupAt(point,angle),h=2.55+random()*.68;
-    create(mortar,0,-.37,0,w+.27,1.2,d+.29,group);
+    foundation(group,point,angle,w+.27,d+.29,mortar,.23);
     create(stone,0,.12,0,w+.34,.38,d+.36,group);
     create(colorFrom([plaster,0xcbbd9f,0xe0d6bd,0xbfb6a4]),0,h/2+.30,0,w,h,d,group);
     const front=d/2;
@@ -408,7 +424,7 @@ export function* buildBukchon(T,root,kit){
   }
   function masonryHouse(point,angle,w,d,h,shop=false){
     const group=groupAt(point,angle),wall=colorFrom([brick,0xad9182,0x9c8c78,0xb0a99c,0xd0c5b0]);
-    create(0x807466,0,-.39,0,w+.12,1.0,d+.14,group);
+    foundation(group,point,angle,w+.12,d+.14,0x807466,.11);
     create(wall,0,h/2,0,w,h,d,group);
     create(0x6f6860,0,h+.14,0,w+.23,.32,d+.21,group);
     const floors=Math.max(1,Math.floor(h/2.72)),front=d/2;
@@ -426,9 +442,19 @@ export function* buildBukchon(T,root,kit){
     if(shop)sign(group,colorFrom(fasciaNames),Math.min(2.65,h-.3),front+.15,Math.min(w*.75,3.8));
   }
   const foliageGeo=new T.IcosahedronGeometry(1,1);
+  function foundation(group,point,angle,w,d,color,top){
+    const sine=Math.sin(angle),cosine=Math.cos(angle);
+    let bottom=point.level-1;
+    for(const x of [-w/2,w/2])for(const z of [-d/2,d/2]){
+      bottom=Math.min(bottom,bukchonTerrain(point.x+x*cosine+z*sine,point.y-x*sine+z*cosine)-.8);
+    }
+    const height=point.level+top-bottom;
+    create(color,0,top-height/2,0,w,height,d,group);
+  }
   function tree(point,height,autumn){
     const group=groupAt(point),leaf=matte(autumn?0xc48f49:0x62794e);
-    const mesh=cylinder(0x66564a,0,height*.45,0,height*.046,height*.9,7,group,.55);
+    const bottom=.8;
+    const mesh=cylinder(0x66564a,0,height*.45-bottom/2,0,height*.046,height*.9+bottom,7,group,.55);
     material(mesh);
     for(let i=0;i<6;i++){
       const angle=i*2.4,r=height*(.13+random()*.14),spread=height*(.19+random()*.10);
@@ -442,7 +468,7 @@ export function* buildBukchon(T,root,kit){
   const occupied=[
     ...Object.values(bukchonShopPlots).map(({x,y,w,d})=>({x,y,radius:Math.hypot(w,d)/2+1.4})),
     ...bikeDocks.filter(dock=>dock.area==="bukchon").map(({x,y})=>({x,y,radius:4.6})),
-    {...busStopById("bukchon-upper").shelter,radius:5.5},
+    ...["bukchon-upper","bukchon-terminal"].map(id=>({...busStopById(id).shelter,radius:5.5})),
     ...bukchonStreetTrees.map(([x,y])=>({x,y,radius:3.5})),
     ...bukchonLawns.map(({outline})=>{
       const middle={x:outline.reduce((sum,p)=>sum+p.x,0)/outline.length,y:outline.reduce((sum,p)=>sum+p.y,0)/outline.length};
@@ -505,6 +531,7 @@ export function* buildBukchon(T,root,kit){
       point.level=bukchonTerrain(point.x,point.y);
       const group=groupAt(point,angle);
       const wall=colorFrom([brick,0xa58c7b,0xbdb5a7,0xc7c0b5,0x97968b]);
+      foundation(group,point,angle,width,depth,wall,-.54);
       create(wall,0,h/2-.27,0,width,h+.55,depth,group);
       create(colorFrom([0x746760,0x64615c,0x8c8881]),0,h+.025,0,width+.27,.15,depth+.22,group);
       create(0xa6a095,-width*.22,h+.52,-depth*.24,width*.29,.93,depth*.27,group);
@@ -552,5 +579,12 @@ export function* buildBukchon(T,root,kit){
   const stairSign=groupAt({x:944.6,y:-1836.1,level:bukchonGroundHeight(stairFoot)??bukchonTerrain(stairFoot.x,stairFoot.y)},-Math.PI/2);
   create(0x605950,0,.72,-.025,.15,1.5,.11,stairSign);
   sign(stairSign,"북촌 8경 · 돌계단길",1.53,.03,2.04);
+  // A wooded rise beyond the terminal hides the distant edge of the ground apron.
+  for(let row=0;row<3;row++)for(let index=0;index<15;index++){
+    const x=787+index*21+(row%2)*9+(random()-.5)*7,y=-1932-row*28+(random()-.5)*15;
+    const mainRoad=951+(y+1903)*-.73;
+    if(Math.abs(mainRoad-x)<14&&y> -1995)continue;
+    tree({x,y,level:bukchonTerrain(x,y)},6+random()*5,row===0&&index%3===0);
+  }
   yield;
 }

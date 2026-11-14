@@ -1,6 +1,6 @@
 import {addLandmarks,addObstacle,addZone,project} from "./layout.js";
 import {gbEastOpenings,gbEastWall,gbEastWallX} from "./gyeongbok-perimeter.js";
-import {gyeongbokTerrainHeight,samcheongLevel} from "./gyeongbok-terrain.js";
+import {gyeongbokTerrainHeight,samcheongLevel,sampleMeshHeight} from "./gyeongbok-terrain.js";
 import {mmcaGroundHeight,mmcaLandmarks,mmcaWalkable} from "./mmca-layout.js";
 
 // Read in the common map projection. The street bends and ridgeline follow the Seoul
@@ -80,7 +80,7 @@ const northRoad=northAxis.map(([y,x])=>[x,y,samcheongLevel(y)]);
 const northEastWalk=northAxis.map(([y,x])=>[x+10,y,samcheongLevel(y)+.14]);
 const northWestWalk=[-1593,...northAxis.map(([y])=>y).filter(y=>y< -1593)].map(y=>[atY(y,northAxis)-10,y,samcheongLevel(y)+.14]);
 const northMainWest=section([-1464,...mainRows.filter(y=>y< -1464)],-10);
-const northLanding=[941,-1839,samcheongLevel(-1839)+.14],stoneStepsTop=[952,-1834,21.2];
+const northLanding=[941,-1839,samcheongLevel(-1839)+.14],stoneStepsTop=[952,-1834,21.2],stairExit=[957,-1832,21.2];
 const crosswalks=crosswalkSurvey.map(([name,y,width,axis])=>{
   const street=atY(y,axis),level=samcheongLevel(y);
   const west=axis===northAxis||y> -1466?westEdges(y)[1]-1.6:street-10;
@@ -95,10 +95,22 @@ const entrancePaths=gbEastOpenings.map(({id,name,x,y})=>{
 });
 const geonchunCross=crosswalks[1],museumCross=crosswalks[2];
 const crossingApproach=({points})=>points.at(-1);
-const ridgeNorth=[970,-1820,12.5],ridgeJunction=[1009,-1792,13.2];
+const ridgeNorth=[970,-1820,17],ridgeJunction=[1009,-1792,13.2];
 const ridgeSouth=[988,-1700,10.7],libraryNorth=[958,-1606,7.4];
 const westLink=[755,-1370,samcheongLevel(-1370)+.14],libraryLink=[881,-1465,4.9],gamgodangTop=[914,-1414,4.1];
 const angukJunction=[1059,-938,.35];
+const stairs=makePath("삼청동 돌계단길","stairs",3.3,[
+  [937,-1839,northLanding[2]],northLanding,[945,-1841,18.1],[947.2,-1840.1,18.1],[950,-1838,19.55],stoneStepsTop,stairExit
+]);
+const ridgeAlley=makePath("북촌로5나길","alley",5.2,[
+  stairExit,[963,-1825,19.5],ridgeNorth,[984,-1811,15],
+  [997,-1804,13.3],ridgeJunction,[1007,-1765,13],[998,-1734,12],ridgeSouth,[980,-1660,9.1],libraryNorth,
+  [936,-1583,6.5],[908,-1562,5.7],libraryLink
+]);
+// Share the stair's final edge before the alley opens to its normal width.
+ridgeAlley.left[0]=stairs.left.at(-1);
+ridgeAlley.right[0]=stairs.right.at(-1);
+ridgeAlley.outline=[...ridgeAlley.left,...ridgeAlley.right.slice().reverse()];
 const lawnGrade=y=>samcheongLevel(-1735)+.14+(-1735-y)*.026;
 const lawn=(name,vertices,height)=>({name,height,outline:vertices.map(([x,y])=>({x,y,level:height(y)}))});
 export const bukchonLawns=[
@@ -127,16 +139,9 @@ export const bukchonPaths=[
   makePath("청와대로 서편 인도","pavement",4.5,northWestWalk),
   makePath("삼청로 북쪽 서편 인도","pavement",5,northMainWest),
   ...entrancePaths,...crosswalks,
-  makePath("삼청동 돌계단길","stairs",3.3,[
-    [937,-1839,northLanding[2]],northLanding,[945,-1841,18.1],[947.2,-1840.1,18.1],[950,-1838,19.55],stoneStepsTop,[957,-1832,21.2]
-  ]),
-  makePath("북촌로5나길","alley",5.2,[
-    stoneStepsTop,[957,-1832,21.2],[963,-1825,19.5],[970,-1820,17],[984,-1811,15],
-    [997,-1804,13.3],ridgeJunction,[1007,-1765,13],[998,-1734,12],ridgeSouth,[980,-1660,9.1],libraryNorth,
-    [936,-1583,6.5],[908,-1562,5.7],libraryLink
-  ]),
+  stairs,ridgeAlley,
   makePath("북촌로11나길","alley",4,[
-    ridgeNorth,[977,-1831,13],[987,-1832,13.2],[1002,-1829,13.5],[1015,-1819,13.55],[1027,-1808,13.6]
+    ridgeNorth,[977,-1831,15.8],[987,-1832,15],[1002,-1829,14.2],[1015,-1819,13.75],[1027,-1808,13.6]
   ]),
   makePath("북촌로11가길","alley",4.5,[
     ridgeJunction,[1023,-1792,13.55],[1035,-1794,13.85],[1043,-1786,14.05],[1046,-1766,13.75],[1049,-1746,13.12],
@@ -152,7 +157,8 @@ export const bukchonPaths=[
   ]),
   makePath("팔판길","lane",5.1,[
     [907,-1730,samcheongLevel(-1730)+.14],[888,-1727,9],[860,-1724,4.5],[868,-1692,4],[865,-1658,3.8],
-    [846,-1624,3.25],[821,-1589,2.9],[791,-1550,2.44],[775,-1530,4.9],[767,-1520,samcheongLevel(-1520)+.14]
+    [846,-1624,3.25],[821,-1589,3.8],[807,-1569,5.1],[793,-1551,7.12],
+    [785,-1544,samcheongLevel(-1544)+.14],[775,-1530,samcheongLevel(-1530)+.14],[767,-1520,samcheongLevel(-1520)+.14]
   ]),
   makePath("감고당길","lane",6,[
     angukJunction,[1037,-987,.6],[1016,-1045,1],[996,-1102,1.5],[978,-1160,2.05],[959,-1221,2.55],
@@ -198,17 +204,49 @@ function samplePath(x,y,path){
   }
   return {nearest,level};
 }
-export function bukchonGroundHeight({x,y}){
-  let nearest=Infinity,height=null;
-  for(const path of bukchonPaths){
-    if(!inPath(x,y,path))continue;
-    if(path.kind==="stairs")return stairLevel(x,y,path);
-    const sample=samplePath(x,y,path);
-    const gap=sample.nearest/(path.width*path.width);
-    if(gap>=nearest)continue;
-    nearest=gap;height=sample.level;
+const gradePaths=bukchonPaths.filter(path=>path.kind!=="crosswalk"&&path.kind!=="stairs"&&path.kind!=="entrance");
+function levelLanding(x,y){
+  const distance=Math.hypot(x-stoneStepsTop[0],y-stoneStepsTop[1]);
+  return Math.max(0,Math.min(1,1-(distance-3.4)/5));
+}
+function streetGrade(x,y){
+  if(y> -891||y< -1890)return 0;
+  const mainGap=Math.abs(x-atY(y,mainAxis));
+  const northGap=y>=northAxis.at(-1)[0]&&y<=northAxis[0][0]?Math.abs(x-atY(y,northAxis)):Infinity;
+  const gap=Math.min(mainGap,northGap);
+  // Let feeder lanes meet the same road profile before their slopes diverge.
+  const weight=Math.max(0,Math.min(1,(19-gap)/12));
+  return weight*weight*(3-2*weight);
+}
+export function bukchonSurfaceGrade({x,y}){
+  let total=0,weight=0;
+  for(const path of gradePaths){
+    if(x<path.minX-64||x>path.maxX+64||y<path.minY-64||y>path.maxY+64)continue;
+    const {nearest,level}=samplePath(x,y,path);
+    const proximity=1/(1+(nearest/9)**2);
+    total+=proximity*level;weight+=proximity;
   }
-  return height??mmcaGroundHeight(x,y)??lawnAt(x,y)?.height(y);
+  const mainRoad=streetGrade(x,y),street=samcheongLevel(y);
+  const natural=weight>0.00001?total/weight:street;
+  let level=natural+(street-natural)*mainRoad;
+  const landing=levelLanding(x,y);
+  level+=(stoneStepsTop[2]-level)*landing;
+  const wall=gbEastWallX(y);
+  if(wall!==null){
+    const distance=x-wall;
+    const edge=Math.max(0,Math.min(1,1-distance/7));
+    if(edge>0)level+=(gyeongbokTerrainHeight({x,y})-level)*edge;
+  }
+  return level;
+}
+export function bukchonGroundHeight({x,y}){
+  if(!inBukchon(x,y))return null;
+  const step=inPath(x,y,stairs)?stairLevel(x,y,stairs):null;
+  const path=bukchonPaths.find(path=>path!==stairs&&inPath(x,y,path));
+  const campus=mmcaGroundHeight(x,y),lawn=lawnAt(x,y);
+  if(!path)return step??campus??lawn?.height(y);
+  const height=sampleMeshHeight(bukchonSurfaceGrade,{x,y});
+  return Math.max(height,step??-Infinity,campus??-Infinity,lawn?.height(y)??-Infinity);
 }
 // The two edges turn together at landings. Sampling the same quadrilateral as the
 // renderer keeps the player's feet on its individual stone treads, even on a bend.
@@ -233,17 +271,10 @@ function stairLevel(x,y,path){
   }
   return samplePath(x,y,path).level;
 }
-// Keep property bases and sloped ground just below the nearby street. Down the west side
-// the road is a valley and the palace terrain remains at its established zero level.
+// Ground details and building foundations use the same levels as the street meshes.
 export function bukchonTerrain(x,y){
-  let nearest=Infinity,height=0;
-  for(const path of bukchonPaths){
-    if(x<path.minX-100||x>path.maxX+100||y<path.minY-100||y>path.maxY+100)continue;
-    const sample=samplePath(x,y,path);
-    if(sample.nearest>=nearest)continue;
-    nearest=sample.nearest;height=sample.level;
-  }
-  return mmcaGroundHeight(x,y)??lawnAt(x,y)?.height(y)??height;
+  return mmcaGroundHeight(x,y)??lawnAt(x,y)?.height(y)??
+    sampleMeshHeight(bukchonSurfaceGrade,{x,y});
 }
 export const bukchonLandmarks=[
   {...point([697,-891]),name:"동십자각 앞"},

@@ -20,7 +20,8 @@ import { makeFirstPersonView } from "./first-person.js";
 import { plazaShowSpot } from "./plaza-show.js";
 import { gbSurveyModels, gbNightGlow } from "./gyeongbok.js";
 import { gbSite, gwanghwamun, gbBounds, inGyeongbok, gbLightSpots } from "./gyeongbok-layout.js";
-import { outsideGroundOffset,palaceGroundOffset,samcheongLevel,southWorldTerrainHeight } from "./gyeongbok-terrain.js";
+import { gbEastOpenings } from "./gyeongbok-perimeter.js";
+import { outsideGroundOffset,palaceGroundOffset,sampleMeshHeight,southWorldTerrainHeight } from "./gyeongbok-terrain.js";
 import { gradeAvenueMeshes } from "./avenue-terrain.js";
 import { gradeJeongdongMeshes } from "./jeongdong-terrain-render.js";
 import { prepareSurveyTerrain } from "./survey-terrain.js";
@@ -39,7 +40,7 @@ import { makePicnicWorld } from "./picnic-world.js";
 import { buildSubwayAccess,registerExpandedSubway } from "./subway-expansion.js";
 import { jeongdongExtensionBounds,registerJeongdongExtension } from "./jeongdong-extension-layout.js";
 import { buildJeongdongExtension } from "./jeongdong-extension.js";
-import { bukchonBounds,bukchonWalkable,bukchonGroundHeight,registerBukchonTrees } from "./bukchon-layout.js";
+import { bukchonBounds,bukchonWalkable,bukchonGroundHeight,bukchonSurfaceGrade,registerBukchonTrees } from "./bukchon-layout.js";
 import { hwangudanBounds,hwangudanWalkable,hwangudanFloorHeight,registerHwangudanNavigation } from "./seoul-hwangudan-layout.js";
 import { decodeWishFace, WISH_WIDTH, WISH_HEIGHT, WISH_COLORS, WISH_FLIGHT_MS } from "./wish-art.js";
 
@@ -169,9 +170,10 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   const addDocks=(root,where,height)=>buildBikeDocks(T,root,makeKit(root),{docks:bikeDocks.filter(where),register:false,height});
   addDocks(deoksExtras,dock=>dock.y>=28,southWorldTerrainHeight);
   addDocks(corridorRoot,dock=>dock.y<28&&dock.y>-280,southWorldTerrainHeight);
-  const busGround=point=>point.y<gwanghwamun.y&&point.x>=680?
-    bukchonGroundHeight(point)??samcheongLevel(point.y):southWorldTerrainHeight(point);
-  const buses=buildSejongBusModels(T,transportRoot,kit,busGround);
+  const busInBukchon=point=>point.x>=680&&point.y< -890;
+  const busGround=point=>busInBukchon(point)?sampleMeshHeight(bukchonSurfaceGrade,point):southWorldTerrainHeight(point);
+  const buses=buildSejongBusModels(T,transportRoot,kit,busGround,
+    point=>busInBukchon(point)?bukchonGroundHeight(point)??busGround(point):busGround(point));
   registerPlazaNavigation(benches);
   const drawWater=addWater(T,deoksExtras,fountains,{...makeKit(deoksExtras),terrain:southWorldTerrainHeight});
   registerRegionalStands();
@@ -414,18 +416,30 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   function advanceWorld(anchor,indoors){
     const {x,y}=anchor;
     const nearCorridor=distanceToDistrict(anchor,corridorBounds)===0;
+    const inNorthernMap=y<plazaBounds.minY+100;
     const area=expansions.find(district=>district.contains(x,y))??
       (inGyeongbok(x,y)?palace:inGwanghwamunPlaza(x,y)?plaza:
         nearCorridor&&corridorWalkable(x,y)?corridor:distanceToDistrict(anchor,deoksBounds)===0?deoks:
-        nearCorridor?corridor:null);
-    const required=indoors?[gallery]:[area];
+        nearCorridor?corridor:inNorthernMap&&distanceToDistrict(anchor,bukchonBounds)===0?bukchon:
+        inNorthernMap&&distanceToDistrict(anchor,gbBounds)===0?palace:null);
+    const required=indoors?[gallery]:area?[area]:[];
+    const requireDistrict=district=>{if(!required.includes(district))required.push(district);};
     // Street corners at either end of Sejong-daero share a foreground with the next district.
-    if(area===corridor&&y>=-321&&y<-266)required.push(plaza);
-    if(area===plaza&&y>-326)required.push(corridor);
-    if(area===corridor&&y>103&&x<550)required.push(deoks);
-    if(area===deoks&&y>103&&x>=442&&nearCorridor)required.push(corridor);
-    const incomplete=district=>district&&!district.chunks&&!district.failed;
-    const pending=required.find(incomplete);
+    if(area===corridor&&y>=-321&&y<-266)requireDistrict(plaza);
+    if(area===plaza&&y>-326)requireDistrict(corridor);
+    if(area===corridor&&y>103&&x<550)requireDistrict(deoks);
+    if(area===deoks&&y>103&&x>=442&&nearCorridor)requireDistrict(corridor);
+    // At the Sajik-ro crossing and the east gates, both sides belong in the
+    // foreground. Load them together after a shortcut or a restored visit.
+    if(!indoors&&y<gwanghwamun.y+102&&y>gwanghwamun.y-28&&Math.abs(x-gwanghwamun.x)<102){
+      requireDistrict(plaza);requireDistrict(palace);
+    }
+    if(!indoors&&(gbEastOpenings.some(gate=>Math.hypot(x-gate.x,y-gate.y)<43)||
+       y<gwanghwamun.y+54&&y>gwanghwamun.y-35&&x>gwanghwamun.x+80&&x<gwanghwamun.x+208)){
+      requireDistrict(palace);requireDistrict(bukchon);
+    }
+    const incomplete=district=>!district.chunks&&!district.failed;
+    const pending=required.find(district=>incomplete(district)&&!district.fetching);
     let nearby=null,gap=handheld?245:315;
     if(!indoors&&!pending)for(const district of districts){
       if(district.chunks||district.failed||district.fetching)continue;
@@ -487,7 +501,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     }
     const waiting=required.some(incomplete);
     if(loading){
-      loading.hidden=!waiting&&!area?.failed&&!(indoors&&gallery.failed);
+      loading.hidden=!waiting&&!required.some(district=>district.failed);
       const message=waiting?"산책길을 열고 있어요.":"산책길을 불러오지 못했어요.";
       if(loading.textContent!==message)loading.textContent=message;
     }
@@ -721,7 +735,9 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     const anchor=me,angle=view.pan*Math.PI/180,indoors=museum.isInside(anchor.x,anchor.y),
       atPlaza=inGwanghwamunPlaza(anchor.x,anchor.y);
     const waiting=advanceWorld(anchor,indoors);
-    if(waiting&&(indoors?!gallery.chunks:cameraAnchor==null||Math.hypot(anchor.x-300-pivot.x,anchor.y-225-pivot.z)>65))return;
+    const blocked=waiting&&(indoors?!gallery.chunks:cameraAnchor==null||Math.hypot(anchor.x-300-pivot.x,anchor.y-225-pivot.z)>65);
+    loading?.classList?.toggle("loading-transition",blocked);
+    if(blocked)return;
     picnicWorld.update(indoors?null:anchor,state.picnics);
     const weather=state.environment&&resolveSeoulEnvironment(state.environment,clock);
     const ease=environmentShown?Math.min(1,delta*4.2):1;

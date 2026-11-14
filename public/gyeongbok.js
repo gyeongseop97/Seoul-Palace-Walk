@@ -1,9 +1,9 @@
 import {
   gwanghwamun,gbSites,gbSite,gbCourts,gbLake,gbPond,gbPaths,gbLawns,gbStation,subwayStops,
-  gbWoldae,gbHaetae,gbPhotoZone,gbRoyalPavilion,gbUijeongbu,gbBusIsland,gbCrossings,at
+  gbWoldae,gbHaetae,gbPhotoZone,gbRoyalPavilion,gbUijeongbu,gbBusIsland,gbCrossings,gyeongbokWater,at
 } from "./gyeongbok-layout.js";
 import {solidAt} from "./layout.js";
-import {gbEastOpenings,gbEastWall,gbMuseumWestGate,gbOuterWallRuns,gbWallOutline,insideGbWall,clipGbGround} from "./gyeongbok-perimeter.js";
+import {gbEastOpenings,gbEastWall,gbMuseumWestGate,gbOuterWallRuns,gbWallOutline,gbWestPaths,insideGbWall,clipGbGround} from "./gyeongbok-perimeter.js";
 import {buildGyeongbokCompounds,inGyeongbokCompound} from "./gyeongbok-compounds.js";
 
 // Survey models can replace these hand-built halls later: drop "<id>.glb" into public/ and
@@ -126,8 +126,12 @@ export function* buildGyeongbok(T,scene,kit,tools){
   const centre=world(0,410);
   // This distant backing plane overlaps part of the avenue's sloping road.
   box(0x677253,centre.x,-8.36,centre.z,900,.65,1280).userData.flatBackground=true;
+  plot(rect(-326,-177,2,880),materials.garden.grove,-.12);
   plot(gbWallOutline,materials.earth,.008);
-  plot(rect(-92,92,-52,0),materials.paving,.02);
+  // Overlap the north curb of Sajik-ro and keep the gate apron visible above the road.
+  plot(rect(-92,92,-54,1),materials.paving,.028);
+  // Hyoja-ro shares the palace's grade. Give the narrow path a continuous shoulder next to the wall.
+  for(const {points,width} of gbWestPaths)ribbon(points,-width/2-5,width/2+5,materials.earth,-.04);
   for(const {kind,west,east,south,north} of gbLawns){
     const grass=clipGbGround(west,east,south,north);
     if(grass.length>=3)plot(grass,materials.garden[kind],.017);
@@ -137,7 +141,8 @@ export function* buildGyeongbok(T,scene,kit,tools){
     plot(rect(court.west+1,court.east-1,court.south+1,court.north-1),materials.court,.022);
   }
   for(const [i,{points,width,surface}] of gbPaths.entries()){
-    ribbon(points,-width/2,width/2,surface==="stone"?materials.paving:materials.gravel,.03+i*.0004);
+    const stone=surface==="stone";
+    ribbon(points,-width/2,width/2,stone?materials.paving:materials.gravel,(stone?.054:.030)+i*.0004);
   }
   yield;
 
@@ -467,6 +472,7 @@ export function* buildGyeongbok(T,scene,kit,tools){
   slab(0xb3ad9d,(island.west+island.east)/2,(island.south+island.north)/2,island.east-island.west,island.north-island.south,.09);
   for(const bridge of lake.bridges){
     slab(0xb8b2a2,(bridge.west+bridge.east)/2,bridge.north,bridge.east-bridge.west+1.2,bridge.width,.1);
+    solid((bridge.west+bridge.east)/2,bridge.north,bridge.east-bridge.west+1.2,bridge.width,.1);
     for(const edge of [-1,1]){
       const n=bridge.north+edge*(bridge.width/2+.12);
       slab(0xa7a394,(bridge.west+bridge.east)/2,n,bridge.east-bridge.west,.22,.8);
@@ -608,6 +614,7 @@ export function* buildGyeongbok(T,scene,kit,tools){
   plot(ring(pond.island),materials.garden.lawn,.1);
   const {bridge}=pond;
   slab(0xb8a48c,bridge.east,(bridge.south+bridge.north)/2,bridge.width,bridge.north-bridge.south+1,.1,.06);
+  solid(bridge.east,(bridge.south+bridge.north)/2,bridge.width,bridge.north-bridge.south+1,.16);
   for(const edge of [-1,1]){
     const east=bridge.east+edge*(bridge.width/2+.1);
     slab(0x7b4b38,east,(bridge.south+bridge.north)/2,.14,bridge.north-bridge.south,.85,.1);
@@ -752,7 +759,7 @@ export function* buildGyeongbok(T,scene,kit,tools){
   function plant(east,north,height,choice){
     const point=at(east,north),x=wx(point.x),z=wz(point.y);
     if(north>=0&&!insideGbWall(point.x,point.y)||inGyeongbokCompound(east,north)||solidAt(point.x,point.y)||
-      !awayFromRoads(point.x,point.y)||!treeFits(x,z,height))return false;
+      gyeongbokWater(point.x,point.y)||!awayFromRoads(point.x,point.y)||!treeFits(x,z,height))return false;
     return Boolean(tree(x,z,height,choice));
   }
   for(const {kind,west,east,south,north} of gbLawns){

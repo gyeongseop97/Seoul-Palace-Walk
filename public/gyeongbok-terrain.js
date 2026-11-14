@@ -1,4 +1,4 @@
-import {gbEastWallX,insideGbWall,onGbWestPath} from "./gyeongbok-perimeter.js";
+import {gbEastWallX,gbOuterWallRuns,insideGbWall,onGbWestPath} from "./gyeongbok-perimeter.js";
 import {court,courtAngle,hall,middle,palacePond,pavilions,stoneFountain,stoneHall,ticket} from "./layout.js";
 import {plazaSites} from "./plaza-layout.js";
 
@@ -11,6 +11,8 @@ const samcheongProfile=[[-890,0],[-1030,1],[-1145,.8],[-1280,2],[-1400,3],[-1515
 const sejongProfile=[[-905,0],[-840,.1],[-750,-.3],[-620,-.75],[-495,-1.2],[-355,-1.85],
   [-260,-2.7],[-130,-4.3],[-45,-4.8],[35,-3.95],[115,-3.35],[205,-3.1],[295,-3.15],[450,-2.7]];
 const gardenProfile=[[6,6.1],[70,5.4],[140,4.3],[216,3.05],[300,2.0],[386,.9],[450,.2]];
+// The northeast corner continues beyond the surveyed Samcheong-ro wall run.
+const northeastBlend=gbOuterWallRuns[1].slice(0,4).map(({x,y})=>[y,x]);
 const levelPads=[
   [stoneHall,34,24,.85],[stoneFountain,12,12,.90],[palacePond,23,23,.15],
   [court,20,13,-.20],[middle,13,13,-.26],[ticket,7,5,-3.16]
@@ -80,8 +82,8 @@ export function gyeongbokTerrainHeight({x,y}){
     const margin=Math.min(east+219,-39-east,north-331,517-north);
     level+=(6.2-level)*clamp(margin/22);
   }
-  const boundary=gbEastWallX(y);
-  const edge=boundary==null?0:clamp((x-boundary+74)/74);
+  const boundary=gbEastWallX(y)??(y<=northeastBlend[0][0]?profileAt(y,northeastBlend,-1):null);
+  const edge=boundary==null?0:clamp((x-boundary+74)/74)*clamp((845-north)/42);
   return level+(samcheongLevel(y)-level)*edge;
 }
 
@@ -116,6 +118,16 @@ function terrainGrid(height){
   const grid={sample,plane};
   heightGrids.set(height,grid);
   return grid;
+}
+
+// Read the same triangle the mesh generator uses, including on a cell edge.
+export function sampleMeshHeight(height,{x,y}){
+  const grid=terrainGrid(height),sx=x-300,sz=y-225;
+  const col=Math.floor(sx/terrainCell)*terrainCell,row=Math.floor(sz/terrainCell)*terrainCell;
+  const u=(sx-col)/terrainCell,v=(sz-row)/terrainCell;
+  return u+v<=1?
+    grid.sample(col,row)*(1-u-v)+grid.sample(col+terrainCell,row)*u+grid.sample(col,row+terrainCell)*v:
+    grid.sample(col+terrainCell,row+terrainCell)*(u+v-1)+grid.sample(col,row+terrainCell)*(1-u)+grid.sample(col+terrainCell,row)*(1-v);
 }
 
 // The same world-space grid must underlie ground, roads, paving and their

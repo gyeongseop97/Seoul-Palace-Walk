@@ -1,7 +1,7 @@
 import {addObstacle} from "./layout.js";
 import {BUS_COUNT, BUS_FLOOR, BUS_LENGTH, BUS_SEATS, BUS_WIDTH, busAt, busLocalPose, busSeatOffset, busStops} from "./sejong-bus.js";
 
-export function buildSejongBusModels(T,scene,kit,height=()=>0){
+export function buildSejongBusModels(T,scene,kit,height=()=>0,shelterHeight=height){
   const {wx,wz,box,matte}=kit;
   const stopGroup=new T.Group();stopGroup.name="세종대로 순환버스 정류장";scene.add(stopGroup);
   const busGroup=new T.Group();busGroup.name="세종대로 순환버스";scene.add(busGroup);
@@ -28,7 +28,7 @@ export function buildSejongBusModels(T,scene,kit,height=()=>0){
   const shade=0x5f686b,roofColor=0xb1b6b8,blue=0x305ca8;
   for(const stop of busStops){
     const shelter=new T.Group();shelter.name=stop.name;
-    shelter.position.set(wx(stop.shelter.x),height(stop.shelter),wz(stop.shelter.y));shelter.rotation.y=(180-stop.shelter.heading)*Math.PI/180;
+    shelter.position.set(wx(stop.shelter.x),shelterHeight(stop.shelter),wz(stop.shelter.y));shelter.rotation.y=(180-stop.shelter.heading)*Math.PI/180;
     stopGroup.add(shelter);
     const part=(color,x,y,z,w,h,d)=>box(color,x,y,z,w,h,d,shelter);
     part(shade,0,.12,-.49,5.36,.20,.16);

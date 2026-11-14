@@ -159,6 +159,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 #game:active{cursor:grabbing}
 #game canvas{display:block;width:100%;height:100%;position:absolute;inset:0}
 #loading-game{position:absolute;z-index:1;inset:0;display:grid;place-items:center;margin:0}
+#loading-game.loading-transition{z-index:2;background:#203128ed;color:#f6efdc}
 .game-info{position:absolute;z-index:2;left:17px;top:16px;display:grid;justify-items:start;gap:6px;max-width:calc(100% - 34px);pointer-events:none}
 .game-place{min-width:0;padding:10px 14px;background:#15221ac7;border:1px solid #dddbb754;border-radius:11px;box-shadow:0 4px 18px #18241d4d}
 .game-place span,.game-place strong,.game-place small{display:block}

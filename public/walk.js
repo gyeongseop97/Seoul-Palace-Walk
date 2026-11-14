@@ -1274,7 +1274,8 @@ const hwangudanDestinations=[
   ...hwangudanLandmarks.slice(0,2).map(point=>({...point,label:point.name,aria:point.name+"로 순간이동"})),
   busShortcut("seoul-plaza","정류장")
 ];
-const localDestinations={"경복궁":gyeongbokDestinations,"광화문광장":plazaDestinations,"북촌":bukchonShortcuts,"환구단":hwangudanDestinations};
+const localDestinations={"경복궁":gyeongbokDestinations,"광화문광장":plazaDestinations,
+  "북촌":[...bukchonShortcuts,busShortcut("bukchon-terminal","돌계단길 정류장")],"환구단":hwangudanDestinations};
 const shortcutsHere=()=>localDestinations[outdoorMap(me)]??mapDestinations;
 let shownShortcuts=null;
 function refreshShortcuts(){
@@ -2436,11 +2437,12 @@ function drawMap(base,mini=false){
 }
 function drawTransport(base,mini){
   for(const [points,color] of [[bikeDocks.map(dock=>({...dock.access,name:dock.name})),"#8ed7a2"],
-    [busStops.map(stop=>({...stop.board,name:`${stop.name} · ${stop.direction}`})),"#91c9f2"]]){
+    [busStops.map(stop=>({...stop.board,name:`${stop.name} · ${stop.direction}`,label:stop.id==="bukchon-terminal"?"돌계단길 정류장":""})),"#91c9f2"]]){
     for(const point of points){
       const mark=svg(base,"g",mini?{}:{"data-walk-x":point.x,"data-walk-y":point.y});
       svg(mark,"circle",{cx:point.x,cy:point.y,r:mini?4.2:5.8,fill:color,stroke:"#18291f","stroke-width":mini?1:1.5});
       if(!mini)svg(mark,"title",{},point.name);
+      if(!mini&&point.label)svg(mark,"text",{x:point.x-9,y:point.y+4,class:"map-label","text-anchor":"end"},point.label);
     }
   }
   for(const stop of transitStops){
