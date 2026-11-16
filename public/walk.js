@@ -468,6 +468,14 @@ $("game").addEventListener("wheel",event=>{
 
 const characterOptions=[...document.querySelectorAll("[data-character]")];
 const appearanceOptions=[...document.querySelectorAll("[data-feature]")];
+// One group of choices is shown at a time so the preview stays in view while choosing.
+const lookTabs=[...document.querySelectorAll("[data-look-tab]")],lookGroups=[...document.querySelectorAll("[data-look-group]")];
+function showLookGroup(name){
+  for(const tab of lookTabs)tab.setAttribute("aria-pressed",String(tab.dataset.lookTab===name));
+  for(const group of lookGroups)group.hidden=group.dataset.lookGroup!==name;
+}
+for(const tab of lookTabs)tab.addEventListener("click",()=>showLookGroup(tab.dataset.lookTab));
+showLookGroup("hair");
 function refreshCharacterPreview(){
   for(const option of characterOptions)attr(option,"aria-pressed",option.dataset.character===me.character);
   for(const option of appearanceOptions){

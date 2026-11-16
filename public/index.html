@@ -515,7 +515,16 @@
           <button type="button" data-character="man" aria-pressed="true">남자</button>
           <button type="button" data-character="woman" aria-pressed="false">여자</button>
         </div></fieldset>
-        <fieldset><legend>헤어스타일</legend><div class="options-row">
+        <div class="character-tabs" role="group" aria-label="꾸밀 부분">
+          <button type="button" data-look-tab="hair" aria-pressed="false">헤어</button>
+          <button type="button" data-look-tab="hairColor" aria-pressed="false">머리 색</button>
+          <button type="button" data-look-tab="skin" aria-pressed="false">피부</button>
+          <button type="button" data-look-tab="eyes" aria-pressed="false">눈</button>
+          <button type="button" data-look-tab="brows" aria-pressed="false">눈썹</button>
+          <button type="button" data-look-tab="mouth" aria-pressed="false">입</button>
+          <button type="button" data-look-tab="outfit" aria-pressed="false">옷</button>
+        </div>
+        <fieldset data-look-group="hair"><legend>헤어스타일</legend><div class="options-row">
           <button type="button" data-feature="hair" data-option="short" aria-pressed="false">짧은 머리</button>
           <button type="button" data-feature="hair" data-option="crop" aria-pressed="false">스포츠 머리</button>
           <button type="button" data-feature="hair" data-option="parted" aria-pressed="false">가르마 머리</button>
@@ -529,7 +538,7 @@
           <button type="button" data-feature="hair" data-option="bun" aria-pressed="false">양쪽 올림머리</button>
           <button type="button" data-feature="hair" data-option="topknot" aria-pressed="false">똥머리</button>
         </div></fieldset>
-        <fieldset><legend>머리 색</legend><div class="options-row">
+        <fieldset data-look-group="hairColor"><legend>머리 색</legend><div class="options-row">
           <button type="button" data-feature="hairColor" data-option="auto" aria-pressed="false">기본</button>
           <button type="button" data-feature="hairColor" data-option="black" aria-pressed="false">검정</button>
           <button type="button" data-feature="hairColor" data-option="dark" aria-pressed="false">흑갈색</button>
@@ -542,7 +551,7 @@
           <button type="button" data-feature="hairColor" data-option="plum" aria-pressed="false">자주빛</button>
           <button type="button" data-feature="hairColor" data-option="pink" aria-pressed="false">핑크</button>
         </div></fieldset>
-        <fieldset><legend>피부색</legend><div class="options-row">
+        <fieldset data-look-group="skin"><legend>피부색</legend><div class="options-row">
           <button type="button" data-feature="skin" data-option="fair" aria-pressed="false">아주 밝게</button>
           <button type="button" data-feature="skin" data-option="light" aria-pressed="false">밝게</button>
           <button type="button" data-feature="skin" data-option="warm" aria-pressed="false">따뜻하게</button>
@@ -550,7 +559,7 @@
           <button type="button" data-feature="skin" data-option="brown" aria-pressed="false">갈색</button>
           <button type="button" data-feature="skin" data-option="deep" aria-pressed="false">짙게</button>
         </div></fieldset>
-        <fieldset><legend>눈 모양</legend><div class="options-row">
+        <fieldset data-look-group="eyes"><legend>눈 모양</legend><div class="options-row">
           <button type="button" data-feature="eyes" data-option="round" aria-pressed="false">동그란 눈</button>
           <button type="button" data-feature="eyes" data-option="bright" aria-pressed="false">반짝이는 눈</button>
           <button type="button" data-feature="eyes" data-option="almond" aria-pressed="false">고양이 눈</button>
@@ -561,7 +570,7 @@
           <button type="button" data-feature="eyes" data-option="dot" aria-pressed="false">점 눈</button>
           <button type="button" data-feature="eyes" data-option="soft" aria-pressed="false">웃는 눈</button>
         </div></fieldset>
-        <fieldset><legend>눈썹</legend><div class="options-row">
+        <fieldset data-look-group="brows"><legend>눈썹</legend><div class="options-row">
           <button type="button" data-feature="brows" data-option="soft" aria-pressed="false">둥근 눈썹</button>
           <button type="button" data-feature="brows" data-option="straight" aria-pressed="false">일자 눈썹</button>
           <button type="button" data-feature="brows" data-option="arched" aria-pressed="false">아치 눈썹</button>
@@ -571,14 +580,14 @@
           <button type="button" data-feature="brows" data-option="raised" aria-pressed="false">치켜 올라간 눈썹</button>
           <button type="button" data-feature="brows" data-option="short" aria-pressed="false">짧은 눈썹</button>
         </div></fieldset>
-        <fieldset><legend>입 모양</legend><div class="options-row">
+        <fieldset data-look-group="mouth"><legend>입 모양</legend><div class="options-row">
           <button type="button" data-feature="mouth" data-option="smile" aria-pressed="false">미소</button>
           <button type="button" data-feature="mouth" data-option="grin" aria-pressed="false">활짝 웃음</button>
           <button type="button" data-feature="mouth" data-option="calm" aria-pressed="false">다문 입</button>
           <button type="button" data-feature="mouth" data-option="cat" aria-pressed="false">고양이 입</button>
           <button type="button" data-feature="mouth" data-option="pout" aria-pressed="false">오므린 입</button>
         </div></fieldset>
-        <fieldset><legend>옷 디자인</legend><div class="options-row">
+        <fieldset data-look-group="outfit"><legend>옷 디자인</legend><div class="options-row">
           <button type="button" data-feature="outfit" data-option="jacket" aria-pressed="false">재킷</button>
           <button type="button" data-feature="outfit" data-option="coat" aria-pressed="false">코트</button>
           <button type="button" data-feature="outfit" data-option="puffer" aria-pressed="false">패딩</button>

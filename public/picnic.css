@@ -6,16 +6,16 @@
 .picnic-dialog button{min-height:44px;touch-action:manipulation}
 .picnic-place{width:100%;margin:0 0 8px}
 .picnic-hint,.picnic-status{margin:5px 0 10px;font-size:13px;line-height:1.45}
-.picnic-status{padding:8px 10px;border-radius:8px;background:#283b2c;color:#ffdf9c}
+.picnic-status{padding:8px 10px;border-radius:8px;background:var(--pine-5);color:#ffdf9c}
 .picnic-food{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.picnic-food li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 8px;border:1px solid #56664e;border-radius:8px;background:#253429}
+.picnic-food li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 8px;border:1px solid var(--pine-8);border-radius:8px;background:var(--pine-4)}
 .picnic-food strong,.picnic-food small{display:block}
-.picnic-food small{margin-top:2px;color:#cdd1bc;overflow-wrap:anywhere}
+.picnic-food small{margin-top:2px;color:var(--sage-3);overflow-wrap:anywhere}
 .picnic-food-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:4px}
 .picnic-food-actions button,.picnic-share button{padding-inline:9px;font-size:12px}
 .picnic-share{margin-top:10px}
 .picnic-share label{margin:0 0 5px;font-size:13px}
 .picnic-share>div{display:flex;gap:6px}
-.picnic-share select{min-width:0;flex:1;background:#14231a;color:#f3e6c6;border:1px solid #7a8264;border-radius:7px;padding:7px;font:inherit}
+.picnic-share select{min-width:0;flex:1;background:var(--pine-2);color:var(--ivory-1);border:1px solid #7a8264;border-radius:7px;padding:7px;font:inherit}
 .picnic-pack{margin-top:12px}
 @media(max-width:390px){.picnic-dialog{padding:13px}.picnic-food li{gap:6px}.picnic-food-actions button{padding-inline:6px}}

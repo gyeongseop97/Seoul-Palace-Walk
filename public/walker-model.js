@@ -24,11 +24,11 @@ const SOLE = .096;
 // Proportions sit between the reference sculpt and a chibi: about three and a half heads
 // tall with the head resting on the collar, a slim trunk and rounded limbs. Limb lengths
 // and joint heights are unchanged, so every pose still fits.
-const BODY = .72;
+const BODY = .675;
 const HEAD = .72;
 const WIDE = 1.0;
-const HIP = .084, SHOULDER = .232, STANCE = .090, REACH = .76, GESTURE_REACH = .84;
-const LIMB = {leg:[.106,.088], roomy:[.122,.102], arm:[.078,.068], bare:[.068,.061], padded:[.092,.080]};
+const HIP = .090, SHOULDER = .236, STANCE = .096, REACH = .76, GESTURE_REACH = .84;
+const LIMB = {leg:[.120,.101], roomy:[.136,.114], arm:[.090,.079], bare:[.080,.072], padded:[.104,.091]};
 const FOOT = [.76,.84,.74], HAND = .76;
 // Keeps the hips at bench height (.57 m) whatever the body scale.
 const SEAT_LIFT = .574-(.546-HIP_DROP)*BODY;
@@ -676,8 +676,8 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     });
     const arms = SIDE.map((side,i) => {
       const arm = chain(chest,side*SHOULDER,.412,ARM,LIMB.arm,palette.sleeve);
-      arm.cuff = part(arm.lower,sphere,palette.trim,0,-.204,0,.055,.034,.054);
-      arm.shortSleeve = part(arm.upper,shortSleeve,palette.sleeve,0,0,0,.078,.150,.078);
+      arm.cuff = part(arm.lower,sphere,palette.trim,0,-.184,0,.084,.034,.084);
+      arm.shortSleeve = part(arm.upper,shortSleeve,palette.sleeve,0,0,0,.090,.150,.090);
       arm.hand=part(arm.end,handGeometry[i],details,0,0,0,HAND,HAND,HAND);
       return arm;
     });
@@ -1124,7 +1124,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
 
     const reaction = position.emote, age = (clock-reaction?.at)/1000;
     emote.visible = age >= -.3 && age < 3.15 && Boolean(emojiTexture);
-    const labelY = (model.hat ? 1.74 : model.tallHair ? 1.64 : 1.57)+
+    const labelY = (model.hat ? 1.69 : model.tallHair ? 1.59 : 1.52)+
       (riding ? CYCLING_LIFT : seated*(SEAT_LIFT-.145*BODY)-crouch*.225*BODY);
     if (model.label) model.label.position.y = labelY+(model.labelLift??0);
     if (emote.visible) {
