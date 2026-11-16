@@ -1,4 +1,4 @@
-export const GESTURE_DURATIONS=Object.freeze({wave:2450,clap:2250,punch:2100,dance:3600,heart:2500,cheer:2450});
+export const GESTURE_DURATIONS=Object.freeze({wave:2450,clap:2250,punch:2100,dance:3600,heart:2500,cheer:2450,peace:2700});
 export const SICK_DURATION_MS=2150;
 export const MAX_ALCOHOL_LEVEL=8;
 export const MAX_ALCOHOL_DRINKS=8;
@@ -8,6 +8,16 @@ export const BIKE_FALL_DURATION_MS=2750;
 const TAU=Math.PI*2;
 const clamp=(value,min=0,max=1)=>Math.min(max,Math.max(min,value));
 const ease=value=>{const t=clamp(value);return t*t*(3-2*t);};
+
+// Palm, extended index and middle fingers, two folded fingers, and thumb.
+export const peaceHandParts=side=>[
+  [0xf2bd98,0,.047,.004,.078,.077,.052,0],
+  [0xf2bd98,-side*.055,.144,.004,.027,.095,.029,side*.38],
+  [0xf2bd98,side*.042,.158,.004,.028,.105,.029,-side*.35],
+  [0xeeb58f,side*.050,.069,.040,.031,.037,.024,-side*.28],
+  [0xeeb58f,side*.073,.047,.037,.025,.034,.023,-side*.34],
+  [0xf2bd98,-side*.026,.076,.051,.026,.058,.024,-side*.68]
+];
 
 export function gestureAt(avatar,clock){
   const event=avatar.gesture;
@@ -89,6 +99,7 @@ export function gestureBody(pose){
       roll:Math.sin(time*TAU*1.75)*.052*weight,headPitch:-.04*weight,headRoll:0};
     case "clap":return {x:0,y:0,pitch:(.06+Math.cos(time*TAU*2.55)*.045)*weight,yaw:0,roll:0,headPitch:-.07*weight,headRoll:0};
     case "heart":return {x:0,y:0,pitch:-.025*weight,yaw:0,roll:0,headPitch:-.045*weight,headRoll:-.13*weight};
+    case "peace":return {x:0,y:0,pitch:-.02*weight,yaw:0,roll:0,headPitch:-.045*weight,headRoll:-.115*weight};
     case "cheer":return {x:0,y:(-.02+.026*Math.sin(time*TAU*2.15))*weight,pitch:-.055*weight,yaw:0,
       roll:sway*.052*weight,headPitch:-.085*weight,headRoll:0};
     case "sick":return {x:0,y:(-.055-heave*.035)*weight,pitch:(.35+heave*.23)*weight,yaw:0,roll:sway*.035*weight,
@@ -126,6 +137,12 @@ export function gestureHand(pose,side,waveSide,firstPerson=false){
       const lift=Math.sin(time*TAU*.68)*.016*weight;
       return firstPerson?{x:side*.105,y:.22+lift,z:.78,bend:-.13,roll:-side*.78,curl:-.50}:
         {x:side*.104,y:.700+lift,z:.233,bend:-.15,roll:-side*.78,curl:0};
+    }
+    case "peace":{
+      if(side!==waveSide)return null;
+      const lift=Math.sin(time*TAU*.74)*.013;
+      return firstPerson?{x:side*.58,y:-.035+lift,z:.72,bend:-.16,roll:-side*.27}:
+        {x:side*.51,y:.657+lift,z:.22,bend:-.12,roll:-side*.24};
     }
     case "cheer":{
       const pump=(1+Math.cos(time*TAU*2.15+side*.31))*.5;

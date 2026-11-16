@@ -3,11 +3,11 @@ import {bikeFit,bikePedal,bikeRearFit,makeRidingBike} from "./sejong-bike-model.
 import {isBikeDriver,isBikePassenger,isCycling} from "./sejong-bike.js";
 import {CLINK_DURATION_MS} from "./social-events.js";
 import {makeUmbrella,makeWearables} from "./wearables-models.js";
-import {alcoholGlasses,alcoholLevel,gestureBody,gestureHands,MAX_ALCOHOL_LEVEL} from "./avatar-gestures.js";
+import {alcoholGlasses,alcoholLevel,gestureBody,gestureHands,MAX_ALCOHOL_LEVEL,peaceHandParts} from "./avatar-gestures.js";
 import {DINING_TRAY_WIDTH,diningGesture,makeDiningUtensil} from "./dining-dishes.js";
 import {FACE_LINES,sculptedHead} from "./avatar-head.js";
 import {HAIR_STYLES,TALL_HAIR,makeHairGeometry} from "./avatar-hair.js";
-import {LOOK_OPTIONS} from "./look-options.js";
+import {LOOK_OPTIONS,SKIN_TONES} from "./look-options.js";
 
 const TAU = Math.PI * 2;
 const HAIR = HAIR_STYLES;
@@ -75,10 +75,6 @@ function softTint(ctx, x, y, radius, color) {
   oval(ctx, x, y, radius, radius, glow);
 }
 
-// Skin tones multiply the base complexion; the painted features keep their own colours.
-const SKIN_TONES = {fair:[1.035,1.045,1.075], light:[1,1,1], warm:[.975,.925,.87], tan:[.89,.80,.715],
-  brown:[.735,.615,.53], deep:[.565,.445,.385]};
-const SKIN = Object.keys(SKIN_TONES);
 function tinted(hex, tone) {
   const channel = i => Math.min(255, Math.round(parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16) * tone[i]));
   const alpha = hex.length > 7 ? parseInt(hex.slice(7, 9), 16) / 255 : 1;
@@ -218,7 +214,16 @@ function faceTexture(T, eyes, blink, blushLevel, brows = "soft", mouth = "smile"
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = "#8a4a40";
     ctx.beginPath();
-    if (mouth === "grin") {
+    if (mouth === "peace") {
+      ctx.moveTo(115, mouthY - 5);
+      ctx.quadraticCurveTo(128, mouthY + 18, 141, mouthY - 5);
+      ctx.quadraticCurveTo(128, mouthY + 2, 115, mouthY - 5);
+      ctx.closePath();
+      ctx.fillStyle = "#742c2c";ctx.fill();
+      ctx.save();ctx.clip();
+      ctx.fillStyle = "#fff4de";ctx.fillRect(116, mouthY - 5, 24, 7);
+      ctx.restore();
+    } else if (mouth === "grin") {
       // An open smile showing a strip of teeth.
       ctx.moveTo(119, mouthY - 3.5);
       ctx.quadraticCurveTo(128, mouthY + 11, 137, mouthY - 3.5);
@@ -502,6 +507,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
   const fistGeometry=SIDE.map(side=>modeledDetails(T,sphere,[
     [0xf2bd98,0,-.044,.024,.083,.077,.077],[0xe9aa83,-side*.055,-.042,.071,.033,.044,.029]
   ]));
+  const peaceGeometry=SIDE.map(side=>modeledDetails(T,sphere,peaceHandParts(side)));
   const knotGeometry = modeledDetails(T,sphere,[
     [0xc97c66,0,0,0,.048,.036,.027],[0xc97c66,-.045,-.017,.007,.062,.023,.016,-.36],
     [0xc97c66,.048,.008,.004,.056,.023,.016,.26],[0xc97c66,.042,-.075,.011,.020,.072,.012,.27],
@@ -711,6 +717,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
   const emoteAnchor = new T.Vector3(), chatAnchor = new T.Vector3();
   const pitch = new T.Quaternion(), inverseChest = new T.Quaternion();
   const xAxis = new T.Vector3(1,0,0);
+  const peaceWrist = new T.Euler();
 
   // Solve a two-segment limb from the end position and a preferred bend direction.
   function solve(limb, point, preferred) {
@@ -726,13 +733,13 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     lower.quaternion.copy(upper.quaternion).invert().multiply(globalLower);
   }
 
-  function appearance(model, position, blink, blush, woozy, sick) {
+  function appearance(model, position, blink, blush, woozy, sick, smiling) {
     const look = position.look;
     const hair = HAIR.includes(look?.hair) ? look.hair : position.character === "woman" ? "long" : "short";
     const eyes = EYES.includes(look?.eyes) ? look.eyes : "round";
     const brows = BROWS.includes(look?.brows) ? look.brows : "soft";
-    const mouth = MOUTHS.includes(look?.mouth) ? look.mouth : "smile";
-    const tone = SKIN.includes(look?.skin) ? look.skin : "light";
+    const mouth = smiling ? "peace" : MOUTHS.includes(look?.mouth) ? look.mouth : "smile";
+    const tone = LOOK_OPTIONS.skin.includes(look?.skin) ? look.skin : "light";
     const hairColor = Object.hasOwn(HAIR_COLORS,look?.hairColor) ? look.hairColor : HAIR_SHADES[model.offset % HAIR_SHADES.length];
     const woman = position.character === "woman";
     const outfit = OUTFITS.includes(look?.outfit) ? look.outfit : "coat";
@@ -963,7 +970,8 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     model.shadow.scale.set(1+sprint*.05-airborne*.18,1+crouch*.13-airborne*.18,1);
 
     const blinkTick = (now + model.offset%4100) % 4120;
-    appearance(model,position,blinkTick>3970&&blinkTick<4100,blushLevel,woozy,Boolean(sick?.weight>.38));
+    const smiling = acting?.kind==="peace"&&acting.weight>.26;
+    appearance(model,position,blinkTick>3970&&blinkTick<4100,blushLevel,woozy,Boolean(sick?.weight>.38),smiling);
     if (model.hem.visible) {
       model.hem.scale.set(1+seated*.08,1-seated*.61,1+stride*.10);
       model.hem.rotation.set(-seated*.37-sprint*.12,pendulum*sway*.065,pendulum*sway*.044);
@@ -1013,7 +1021,8 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       pivot.visible=Boolean(prop);
       const performanceHand=performance.hand(side);
       const fist=performanceHand?.curl<-.8&&acting.weight>.4;
-      arm.hand.geometry=fist||steeringGrips?fistGeometry[i]:handGeometry[i];
+      const peace=smiling&&performanceHand&&!steeringGrips;
+      arm.hand.geometry=peace?peaceGeometry[i]:fist||steeringGrips?fistGeometry[i]:handGeometry[i];
       if(steeringGrips){
         // Convert the grip from the seated driver's local frame into the chest joint's frame.
         inverseChest.copy(chest.quaternion).invert();
@@ -1092,7 +1101,11 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       const armEase = wasVisible && !clasping ? 1 - Math.exp(-delta*29) : 1;
       arm.target.set(mix(arm.target.x,x,armEase),mix(arm.target.y,y,armEase),mix(arm.target.z,z,armEase));
       solve(arm,arm.target,pole);
-      arm.end.rotation.set((performanceHand?.bend??0)*(acting?.weight??0),0,(performanceHand?.roll??0)*(acting?.weight??0));
+      if(peace){
+        // Hold the V upright while the elbow swivels into the pose.
+        pitch.setFromEuler(peaceWrist.set(performanceHand.bend,0,performanceHand.roll));
+        arm.end.quaternion.copy(globalLower).invert().multiply(pitch);
+      }else arm.end.rotation.set((performanceHand?.bend??0)*(acting?.weight??0),0,(performanceHand?.roll??0)*(acting?.weight??0));
       if(carryingTray)arm.end.rotation.set(-.26,side*.06,side*.28);
       if(eatingMeal&&side===-1){
         const {lift,dip}=eatingMeal,utensil=model.utensil.group;

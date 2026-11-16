@@ -1,8 +1,9 @@
 import {FEED_MS,avatarHands,jumpLift} from "./activities.js";
 import {isBikeDriver,isBikePassenger,isCycling} from "./sejong-bike.js";
 import {CLINK_DURATION_MS} from "./social-events.js";
-import {gestureHands} from "./avatar-gestures.js";
+import {gestureHands,peaceHandParts} from "./avatar-gestures.js";
 import {DINING_TRAY_WIDTH,diningGesture,makeDiningUtensil} from "./dining-dishes.js";
+import {LOOK_OPTIONS,SKIN_TONES} from "./look-options.js";
 
 const clamp=(value,min=0,max=1)=>Math.max(min,Math.min(max,value));
 const ease=value=>{const t=clamp(value);return t*t*(3-2*t);};
@@ -15,6 +16,7 @@ export function makeFirstPersonView(T,createItemProp){
   key.position.set(-.7,1.8,.8);scene.add(ambient,key);
   const matte=(color,roughness=.84)=>new T.MeshStandardMaterial({color,roughness});
   const fabric=matte(0xab5947),trim=matte(0x855446),ivory=matte(0xf0debd),skin=matte(0xf2bd98);
+  const skinBase=skin.color.clone().convertLinearToSRGB();
   const trouser=matte(0x3f4452),metal=matte(0xc9d2cb,.60),rubber=matte(0x26312e),bikePaint=matte(0x39ad66,.66);
   const sphere=new T.SphereGeometry(1,12,8),tube=new T.CylinderGeometry(1,1,1,10);
   const make=(parent,geometry,material)=>{const mesh=new T.Mesh(geometry,material);parent.add(mesh);return mesh;};
@@ -26,10 +28,11 @@ export function makeFirstPersonView(T,createItemProp){
     scene.add(arm);arm.add(palm);
     const sleeve=make(arm,tube,fabric),lower=make(arm,tube,fabric),cuff=make(arm,tube,trim);
     const ribs=[make(arm,tube,trim),make(arm,tube,trim)];
-    oval(palm,skin,0,.012,.003,.042,.047,.027);
-    const fingers=[-.027,-.010,.009,.026].map((x,i)=>oval(palm,skin,x,.045,.003,.010,.032-Math.abs(i-1.5)*.005,.012));
-    const thumb=oval(palm,skin,-side*.037,.015,.013,.017,.034,.016);thumb.rotation.z=side*.52;
-    return {side,palm,sleeve,lower,cuff,ribs,fingers,wrist:new T.Vector3(),elbow:new T.Vector3(),shoulder:new T.Vector3()};
+    const mitten=oval(palm,skin,0,.019,.004,.045,.058,.031);
+    const peaceHand=new T.Group();peaceHand.name="Peace sign";peaceHand.scale.setScalar(.53);peaceHand.visible=false;
+    palm.add(peaceHand);
+    for(const [,x,y,z,w,h,d,rotation] of peaceHandParts(side))oval(peaceHand,skin,x,y,z,w,h,d).rotation.z=rotation;
+    return {side,palm,sleeve,lower,cuff,ribs,mitten,peaceHand,wrist:new T.Vector3(),elbow:new T.Vector3(),shoulder:new T.Vector3()};
   });
   const lap=new T.Group();lap.name="Seated lap";scene.add(lap);
   const knees=sides.map(()=>oval(lap,trouser,0,0,0,.14,.10,.15));
@@ -65,12 +68,15 @@ export function makeFirstPersonView(T,createItemProp){
     const frame=(vector,x,y,depth)=>vector.set(x*viewWidth*depth,y*viewHeight*depth,-depth);
     ambient.intensity=2.12-.84*night;key.intensity=1.10-.48*night;
     const outfit=position.look?.outfit==="hoodie"?"puffer":position.look?.outfit??"coat";
-    const coat=position.coat??0xab5947,keyForLook=`${outfit}/${coat}`;
+    const tone=LOOK_OPTIONS.skin.includes(position.look?.skin)?position.look.skin:"light";
+    const coat=position.coat??0xab5947,keyForLook=`${outfit}/${coat}/${tone}`;
     if(lookKey!==keyForLook){
       lookKey=keyForLook;
       fabric.color.set(coat).lerp(sand,.19);trim.color.copy(fabric.color).multiplyScalar(.76);
       fabric.roughness=outfit==="puffer"?.63:.86;
       trouser.color.set(({puffer:0x4d6787,tee:0xc7b089,hanbok:0xb9b295})[outfit]??0x3f4452);
+      const [r,g,b]=SKIN_TONES[tone];
+      skin.color.setRGB(Math.min(1,skinBase.r*r),Math.min(1,skinBase.g*g),Math.min(1,skinBase.b*b),T.SRGBColorSpace);
     }
     const riding=!seat&&isCycling(position),driving=riding&&isBikeDriver(position),passenger=riding&&isBikePassenger(position);
     const seated=Boolean(seat)||passenger;
@@ -109,7 +115,7 @@ export function makeFirstPersonView(T,createItemProp){
     const {pose:acting,umbrellaSide}=performance;
     lap.visible=seated;handlebar.visible=driving;
     for(const [i,arm] of forearms.entries()){
-      const {side,palm,wrist,elbow,shoulder,sleeve,lower,cuff,ribs,fingers}=arm;
+      const {side,palm,wrist,elbow,shoulder,sleeve,lower,cuff,ribs,mitten,peaceHand}=arm;
       const step=Math.sin(phase+side*Math.PI/2)*stride,bob=seated||riding?0:Math.sin(phase*2)*stride;
       // The camera faces -Z, so its horizontal axis is the reverse of the avatar's.
       const avatarSide=-side;
@@ -169,8 +175,10 @@ export function makeFirstPersonView(T,createItemProp){
         side*(holding?.39:.21),mix(side*(driving?.08:.32),performanceHand?.roll??side*.32,weight));
       if(carryingTray)palm.rotation.set(-.81,side*.19,side*.46);
       else if(seeingMeal&&side===1)palm.rotation.set(-.80,-.34,.32);
-      for(const finger of fingers)finger.rotation.x=driving||holding||holdingUmbrella||carryingTray||seeingMeal&&side===1
-        ?-1.07:mix(-.52,performanceHand?.curl??-.52,weight);
+      peaceHand.visible=acting?.kind==="peace"&&weight>.26;
+      mitten.visible=!peaceHand.visible;
+      const gripping=driving||holding||holdingUmbrella||carryingTray||seeingMeal&&side===1;
+      mitten.scale.y=gripping?.042:mix(.058,performanceHand?.curl<-.8?.043:.058,weight);
       const {pivot:itemPivot,show}=props[i];
       itemPivot.visible=holding;
       if(holding){

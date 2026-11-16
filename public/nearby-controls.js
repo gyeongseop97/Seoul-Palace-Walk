@@ -87,5 +87,5 @@ export function bindNearbyControls(root,focusGame,prefix="nearby"){
     }
     if(focused===primary&&(primary.hidden||primary.disabled))focusControls();
   }
-  return {refresh,close,ownsFocus:()=>!panel.hidden&&panel.contains(doc.activeElement)};
+  return {refresh,close,isPrimary:button=>action===button,ownsFocus:()=>!panel.hidden&&panel.contains(doc.activeElement)};
 }

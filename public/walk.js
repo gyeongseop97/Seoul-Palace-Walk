@@ -97,6 +97,7 @@ const heardClinks=new Set();
 let parkedBikes=[];
 let lastChatAt=0;
 let course=[],pendingSeat=null,seatClaim=null,thumb=[0,0],thumbId,manualInputAt=-Infinity;
+let exitPress=null;
 let mapRoute=null;
 let clockOffset=null,roundTrip=65;
 let runToggled=false,shiftHeld=false,sentHeading=0,jumpBase=0;
@@ -437,6 +438,7 @@ function soundscape(time,travelled,wading,running=false){
   }
 }
 $("perspective").addEventListener("click",()=>{
+  if(photoMode.camera)photoMode.close();
   firstPerson=!firstPerson;
   labelPerspective();
   localStorage.setItem("jeongdong-first-person",String(firstPerson));
@@ -546,7 +548,6 @@ $("gesture-open").addEventListener("click",event=>{
 for(const button of gestureButtons)button.addEventListener("click",()=>{
   const time=gameTime(),kind=button.dataset.gesture;
   if(!Object.hasOwn(GESTURE_DURATIONS,kind)||!gestureReady(time,kind)||time-(me.gesture?.at??0)<450)return;
-  resetInput();
   me.gesture={kind,at:time};
   me.wave=kind==="wave"?time:0;
   dirty=true;wakeSync();setGestures(false);focusGame();
@@ -1204,7 +1205,7 @@ window.addEventListener("pagehide",()=>{
   active=false;pageVersion++;clearSyncTimer();sound.bus(null);sound.plazaShow(null);sound.rain(0);leaveBeacon();
 });
 document.addEventListener("visibilitychange",()=>{
-  if(document.hidden){rememberWalkPosition();clearManualInput();sound.bus(null);sound.plazaShow(null);sound.rain(0);}
+  if(document.hidden){rememberWalkPosition();clearManualInput();exitPress=null;sound.bus(null);sound.plazaShow(null);sound.rain(0);}
   clearSyncTimer();scheduleSync(document.hidden?1150:0);
 });
 window.addEventListener("online",()=>{if(!document.hidden)scheduleSync(0);});
@@ -1375,22 +1376,32 @@ function moveThumb(event){
 }
 joystick.addEventListener("pointerdown",event=>{
   event.stopPropagation();
-  if(event.button!==0||thumbId!==undefined||amFollowingHands()||isBikePassenger(me)&&!photoMode.camera)return;
+  if(event.button!==0||amFollowingHands()||isBikePassenger(me)&&!photoMode.camera)return;
+  // A fresh primary press can replace a touch whose release was lost outside the page.
+  if(thumbId!==undefined){
+    if(!event.isPrimary)return;
+    releaseThumb();
+  }
   event.preventDefault();
   thumbId=event.pointerId;beginManualMove();
   $("game").focus({preventScroll:true});
-  joystick.setPointerCapture(thumbId);moveThumb(event);
+  try{joystick.setPointerCapture(thumbId);}catch{/* Window listeners also handle uncaptured touches. */}
+  moveThumb(event);
 });
-joystick.addEventListener("pointermove",event=>{if(event.pointerId===thumbId)moveThumb(event);});
+window.addEventListener("pointermove",event=>{
+  if(event.pointerId!==thumbId)return;
+  if(event.pointerType==="mouse"&&!(event.buttons&1))releaseThumb();
+  else moveThumb(event);
+},{capture:true,passive:true});
 function releaseThumb(){
   const id=thumbId;
   thumbId=undefined;thumb=[0,0];
   joystick.style.setProperty("--jx","0px");joystick.style.setProperty("--jy","0px");
   if(id!==undefined&&joystick.hasPointerCapture(id))joystick.releasePointerCapture(id);
 }
-for(const type of ["pointerup","pointercancel","lostpointercapture"]){
-  joystick.addEventListener(type,event=>{if(event.pointerId===thumbId)releaseThumb();});
-}
+const finishThumb=event=>{if(event.pointerId===thumbId)releaseThumb();};
+for(const type of ["pointerup","pointercancel"])window.addEventListener(type,finishThumb,true);
+joystick.addEventListener("lostpointercapture",finishThumb);
 function clearManualInput(){keys.clear();shiftHeld=false;releaseThumb();clearSceneTouch();}
 function resetInput(){clearManualInput();course=[];pendingSeat=seatClaim=null;}
 window.addEventListener("blur",clearManualInput);
@@ -1407,7 +1418,7 @@ window.addEventListener("keydown",event=>{
     if(fullscreenFallback){void leaveFullscreen();return;}
     setMap(false);setEmotes(false);
   }
-  if(!session||riding||nearbyControls.ownsFocus()||peerControls.ownsFocus()||event.target.closest("input,#mobile-settings,#gesture-menu"))return;
+  if(!session||riding||nearbyControls.ownsFocus()||peerControls.ownsFocus()||event.target.closest("input,#mobile-settings"))return;
   if(event.code==="Space"&&!photoMode.camera&&!event.target.closest("button,a")&&!event.ctrlKey&&!event.metaKey&&!event.altKey){
     event.preventDefault();if(!event.repeat)jump();return;
   }
@@ -2023,10 +2034,36 @@ function movePlayerTo(destination,place){
   ownView={...ownView,pan:heading,tilt:destination.tilt??0};
   $("location").textContent=place;dirty=true;wakeSync();
 }
-$("museum-door").addEventListener("click",()=>{
+const venueDoorButton=$("museum-door");
+function stopAtPressedExit(event){
+  if(event.button!==0||venueDoorButton.hidden||venueDoorButton.disabled||!portalNearby()?.inside)return;
+  exitPress={pointerId:event.pointerId};
+  resetInput();
+}
+venueDoorButton.addEventListener("pointerdown",stopAtPressedExit);
+$("nearby-primary").addEventListener("pointerdown",event=>{
+  if(nearbyControls.isPrimary(venueDoorButton))stopAtPressedExit(event);
+});
+window.addEventListener("pointerup",event=>{
+  const pressed=exitPress;
+  if(pressed?.pointerId!==event.pointerId)return;
+  setTimeout(()=>{if(exitPress===pressed)exitPress=null;},0);
+},true);
+for(const type of ["pointercancel","lostpointercapture"])window.addEventListener(type,event=>{
+  if(exitPress?.pointerId===event.pointerId)exitPress=null;
+},true);
+window.addEventListener("pointermove",event=>{
+  if(exitPress?.pointerId===event.pointerId&&event.pointerType==="mouse"&&!(event.buttons&1))exitPress=null;
+},true);
+window.addEventListener("blur",()=>{exitPress=null;});
+venueDoorButton.addEventListener("click",()=>{
+  exitPress=null;
   const portal=portalNearby();
-  if(!session||myLink()?.active||feedingLocked(gameTime())||!portal)return;
+  if(!session||!portal||feedingLocked(gameTime()))return;
   const {inside,venue}=portal,destination=inside?venue.outsideDoor:venue.insideSpawn;
+  const link=myLink()??(queuedHand?.action==="offer"?queuedHand:null);
+  if(!inside&&link?.active)return;
+  if(inside&&link){releasePair(link);changeLinks(links);}
   movePlayerTo(destination,inside?venue.outsideName??venue.name+" 앞":venue.name);focusGame();
 });
 function guestbookVenue(){
@@ -2291,7 +2328,7 @@ function updateActivities(time,guideNearby){
   setActivity("subway",stop?"지하철 타기":null,riding||feeding||Boolean(myLink()?.active));
   const portal=eligible&&portalNearby();
   const entrance=portal?.venue===mmcaVenue?"미술관 입장":diningById[portal?.venue?.id]?"식당 입장":"입장하기";
-  setActivity("museum-door",portal?(portal.inside?"나가기":entrance):null,feeding||Boolean(myLink()?.active));
+  setActivity("museum-door",portal?(portal.inside?"나가기":entrance):null,feeding||(!portal?.inside&&Boolean(myLink()?.active)));
   setActivity("venue-guestbook",eligible&&guestbookVenue()?"방명록":null);
   updateDiningControls(eligible,busy,time);
   const exhibit=eligible&&nearbyExhibit();
@@ -2357,7 +2394,7 @@ function motion(now,elapsed){
   }
   const oldX=me.x,oldY=me.y,link=myLink(),follower=amFollowingHands();
   const wasMoving=moving(me)||me.blocked,wasBlocked=me.blocked,wasRunning=me.running;
-  const leader=follower&&people.get(link.leader);
+  const leader=follower&&!exitPress&&people.get(link.leader);
   // Wading through a pond is slow going, and there is no running in the water.
   const wading=waterDepth(me.x,me.y)>0,pace=(runToggled||shiftHeld)&&!wading&&!(isUmbrellaLink(link)&&link.active);
   const speed=elapsed*(isBikeDriver(me)?9.4:wading?1.1:pace?6.675:2.58);
@@ -2367,7 +2404,7 @@ function motion(now,elapsed){
     if(me.heading!==next.heading){me.heading=next.heading;dirty=true;}
     if(next.x!==me.x||next.y!==me.y){me.x=next.x;me.y=next.y;dirty=true;}
     blocked=Boolean(leader.avatar.blocked);
-  }else if(session&&elapsed>0&&!queuedBus&&!queuedBike&&!feedingLocked(gameTime(now))&&!clinkLocked(gameTime(now))&&!sickLocked(gameTime(now))){
+  }else if(!exitPress&&session&&elapsed>0&&!queuedBus&&!queuedBike&&!feedingLocked(gameTime(now))&&!clinkLocked(gameTime(now))&&!sickLocked(gameTime(now))){
     if(keys.size||thumbId!==undefined){
       const [dx,dy]=Array.from(keys,key=>vectors[key]).reduce(([x,y],[vx,vy])=>[x+vx,y+vy],thumb);
       blocked=moveWithInput(dx,dy,speed,link,!worldFailed&&(thumbId!==undefined||document.activeElement!==$("world")));
@@ -2445,6 +2482,7 @@ function actors(now,stepping){
 let lastFrame=performance.now(),interfaceAt=0,guideNearby=false;
 function preferredNearbyAction(time){
   if(me.bus||queuedBus)return "bus-action";
+  if(!venueDoorButton.hidden&&!venueDoorButton.disabled&&interiorAt(me.x,me.y))return venueDoorButton.id;
   const bike=$("bike-action"),park=$("bike-park");
   const parkAvailable=!park.hidden&&!park.disabled;
   // Offer mounting (including the rear seat) ahead of unrelated actions. At a

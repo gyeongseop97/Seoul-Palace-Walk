@@ -37,9 +37,7 @@ export function bindSceneTouch(scene,shell,{canTap,onBegin,onTap,onDrag,onPinch}
       pinch.gap=gap;
       return;
     }
-    if(pointer.pinched)return;
     if(!pointer.dragged){
-      if(pointer.touch&&event.timeStamp-pointer.began>=tapDuration)return;
       if(Math.hypot(pointer.x-pointer.startX,pointer.y-pointer.startY)<dragSlop)return;
       pointer.dragged=true;
       onDrag(pointer.x-pointer.startX,pointer.y-pointer.startY);
@@ -49,7 +47,12 @@ export function bindSceneTouch(scene,shell,{canTap,onBegin,onTap,onDrag,onPinch}
   function finishScenePointer(event,activate){
     const pointer=pointers.get(event.pointerId);
     if(!pointer)return;
+    const wasPinching=Boolean(pinch);
     pointers.delete(event.pointerId);resetPinch();
+    if(wasPinching){
+      const remaining=pointers.values().next().value;
+      remaining.startX=remaining.x;remaining.startY=remaining.y;remaining.dragged=false;
+    }
     if(activate&&pointer.tap&&!pointer.pinched&&!pointer.dragged&&canTap(pointer.began)&&
       (!pointer.touch||event.timeStamp-pointer.began<tapDuration)&&
       Math.hypot(event.clientX-pointer.startX,event.clientY-pointer.startY)<dragSlop)onTap(event.clientX,event.clientY);
