@@ -10,6 +10,7 @@ import { addSeoulPrecipitation, makeSeasonFoliage } from "./seoul-weather-scene.
 import { addStands, addRegionalStands, makeItemProps, regionalStations, registerRegionalStands, underDoldamAwning } from "./street-stands.js";
 import { BUNGEO_STALL } from "./bungeo-data.js";
 import { addBungeoStall, registerBungeoStall } from "./bungeo-world.js";
+import { makeBungeoCustomer } from "./bungeo-customer.js";
 import { hanbokRental,registerHanbokRental } from "./passport-data.js";
 import { addHanbokRental } from "./wearables-models.js";
 import { assembleMuseum, registerMuseumNavigation, isInsideMuseum, museumOutsideDoor, museumInsideDoor, museumInsideSpawn, stairHeight } from "./museum.js";
@@ -188,6 +189,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   addDocks(corridorRoot,dock=>dock.y<28&&dock.y>-280,southWorldTerrainHeight);
   const createItemProp=makeItemProps(T,kit);
   const walkerModels=makeWalkerModels(T,scene,kit,createItemProp);
+  const bungeoCustomer=makeBungeoCustomer(walkerModels,{floorHeight,labelSprite,chatTexture});
   const busInBukchon=point=>point.x>=680&&point.y< -890;
   const busGround=point=>busInBukchon(point)?sampleMeshHeight(bukchonSurfaceGrade,point):southWorldTerrainHeight(point);
   const buses=buildSejongBusModels(T,transportRoot,kit,walkerModels,busGround,
@@ -992,8 +994,9 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     if(plazaRoot.parent===outdoors){
       const viewer=indoors?null:anchor;
       updatePlaza(now,night,viewer,fountainShow?.startedAt??0,clock);
-      bungeoStall?.update(state.bungeo,clock,viewer);
+      bungeoStall?.update(state.bungeo,clock,viewer,state.bungeoOrder?.stock);
     }
+    bungeoCustomer.update(state.bungeoOrder,!indoors&&plazaRoot.parent===outdoors?anchor:null,now,clock,delta);
     if(hwangudan.root.parent===outdoors)updateHwangudan?.(night);
     const roster=[me,...peers],present=new Set(roster.map(player=>player.id));
     minigameWorld.begin(clock,indoors?null:anchor,state.minigames,state.minigameAction,state.minigameFree);
@@ -1117,6 +1120,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     }
     cameraUp.set(0,1,0).applyQuaternion(camera.quaternion);
     for(const model of models.values())if(model.group.visible&&model.chatSprite)walkerModels.placeChat(model,cameraUp);
+    bungeoCustomer.placeChat(cameraUp);
     const anchorModel=models.get(anchor.id);
     if(anchorModel&&cameraDistance<1.08)anchorModel.group.visible=false;
     const umbrella=firstPerson&&anchor.sharedUmbrella&&anchorModel?.umbrella;

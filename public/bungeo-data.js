@@ -10,6 +10,9 @@ export const BUNGEO_BURN_MS=5800;
 export const BUNGEO_EXPIRE_MS=21000;
 export const BUNGEO_GIFT_REACH=2.7;
 export const BUNGEO_ITEMS=Object.freeze({good:"bungeoppang",burnt:"bungeoppangBurnt",torn:"bungeoppangTorn"});
+export const BUNGEO_CUSTOMER_WALK_MS=2400;
+export const BUNGEO_CUSTOMER_NEXT_MS=4000;
+export const BUNGEO_CUSTOMER_PATIENCE_MS=180000;
 
 export function bungeoQuality(mold,now){
   const first=(mold.flippedAt??now)-mold.pouredAt;

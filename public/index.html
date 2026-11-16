@@ -104,7 +104,7 @@
           <div id="game" tabindex="0" role="group" aria-label="3D 산책. 조이스틱이나 방향키로 이동, 드래그로 시야 회전, 마우스 휠이나 두 손가락으로 확대 및 축소">
             <p id="loading-game">산책길을 열고 있어요.</p>
             <div class="game-info">
-              <div class="game-place"><span id="game-season">정동의 가을</span><strong id="game-place">매표소 앞</strong><small class="desktop-controls-hint">WASD · 방향키로 이동</small><small id="travel-status" hidden></small><small id="dining-status" role="status" hidden></small><small id="bungeo-status" role="status" hidden></small></div>
+              <div class="game-place"><span id="game-season">정동의 가을</span><strong id="game-place">매표소 앞</strong><small class="desktop-controls-hint">WASD · 방향키로 이동</small><small id="travel-status" hidden></small><small id="dining-status" role="status" hidden></small><small id="bungeo-order-status" role="status" hidden></small><small id="bungeo-status" role="status" hidden></small></div>
               <div class="look-actions">
                 <span id="look-hint" hidden>내 위치를 지도에 5초 동안 표시해요.</span>
                 <button id="look" class="primary" type="button" aria-describedby="look-hint" disabled><span aria-hidden="true">✦</span> 여기 봐</button>
@@ -174,6 +174,9 @@
                   <button id="dining-call" type="button" class="quiet activity-button" hidden>벨 누르기</button>
                   <button id="dining-order" type="button" class="quiet activity-button" aria-haspopup="dialog" aria-controls="dining-menu-dialog" hidden>주문하기</button>
                   <button id="bungeo-cook" type="button" class="quiet activity-button" aria-describedby="bungeo-status" hidden>반죽 붓기</button>
+                  <button id="bungeo-accept" type="button" class="quiet activity-button" aria-describedby="bungeo-order-status" hidden>주문 받기</button>
+                  <button id="bungeo-plate" type="button" class="quiet activity-button" aria-describedby="bungeo-order-status" hidden>판매대에 올리기</button>
+                  <button id="bungeo-serve" type="button" class="quiet activity-button" aria-describedby="bungeo-order-status" hidden>손님에게 건네기</button>
                   <button id="bungeo-gift" type="button" class="quiet activity-button" hidden>붕어빵 건네기</button>
                   <button id="fountain-show" type="button" class="quiet activity-button" hidden>분수쇼 시작</button>
                   <button id="picnic" type="button" class="quiet activity-button" aria-haspopup="dialog" hidden>돗자리 펴기</button>
@@ -494,7 +497,7 @@
       <section><h3>석조전 서관 전시관</h3><p>계단을 올라 문 앞에서 <strong>입장하기</strong>를 누르세요. 삼국·통일신라부터 근대까지 한국 그림과 공예품을 시대별로 볼 수 있어요. 전시품 가까이에서 <strong>작품 설명</strong>을 열어 보세요.</p></section>
       <section><h3>미술관과 동네 식당</h3><p>북촌의 국립현대미술관 서울에서 서도호, 데이미언 허스트, 론 뮤익 등 역대 전시를 바탕으로 만든 작품을 만나 보세요. 지도에서 한식집과 정동 비스트로, 세종 우동집, 삼청 중화식당을 찾을 수 있어요. 직원이 있는 곳에서는 앉아서 <strong>벨 누르기</strong>를, 키오스크가 있는 곳에서는 주문한 뒤 빈 식탁에 앉아 보세요. 음식이 도착하면 <strong>먹기</strong>를 누르세요. 미술관과 식당에는 같은 방 친구와 함께 쓰는 <strong>방명록</strong>도 있어요.</p></section>
       <section><h3>길에서 만나는 가게</h3><p>광화문에서는 팥빙수·붕어빵·하이볼을, 북촌에서는 꿀떡·매실주를 받아요. 기존 커피, 크레페, 맥주, 약과, 막걸리와 와인도 즐길 수 있어요. 지도에서 가게 이름을 누르면 입구로 걸어갑니다.</p></section>
-      <section><h3>광화문 붕어빵 좌판</h3><p>지도에서 <strong>광화문 붕어빵 좌판</strong>을 찾아보세요. 반죽을 붓고 양면이 노릇해질 때까지 기다린 뒤 하나씩 뒤집고 꺼내요. 같은 방에서는 틀을 함께 쓰므로 친구가 이어서 구울 수 있고, 완성한 붕어빵을 가까이 있는 친구에게 건넬 수 있어요.</p></section>
+      <section><h3>광화문 붕어빵 좌판</h3><p>지도에서 <strong>광화문 붕어빵 좌판</strong>을 찾아보세요. 손님이 오면 <strong>주문 받기</strong>를 눌러 수량을 확인해요. 양면을 노릇하게 구운 붕어빵을 <strong>판매대에 올리기</strong>로 모으고, 주문 수량이 차면 <strong>손님에게 건네기</strong>를 누르세요. 같은 방 친구와 굽기와 손님 응대를 나눌 수 있고 혼자서도 장사할 수 있어요.</p></section>
       <section><h3>고양이와 새</h3><p>고양이에게 천천히 다가가 <strong>쓰다듬기</strong>를 눌러 보세요. 츄르를 들고 기다리면 다가오는 고양이에게 <strong>간식 주기</strong>를 할 수 있어요. 친해진 고양이는 잠깐 멈춰 기다리면 먼저 다가오기도 해요. 산책길에서는 까치와 비둘기가 바닥을 쪼거나 나무에 쉬는 모습도 볼 수 있어요.</p></section>
       <section><h3>잔디밭 피크닉과 우산</h3><p>광화문광장 육조마당 잔디밭에서 <strong>돗자리 펴기</strong>를 누르고 음식이나 음료를 한 몫씩 나눠 보세요. 비나 눈이 오면 가까운 친구에게 <strong>우산 같이 쓰기</strong>를 요청할 수 있어요. 친구가 수락하면 우산을 든 사람이 앞장서요.</p></section>
       <section><h3>친구와 함께</h3><p>오픈서버에서 다른 산책자와 만나거나 초대코드로 친구와 같은 방에 들어오세요. 가까이에서 손을 잡고 벤치에 나란히 앉거나, 둘 다 음료를 들고 <strong>건배하기</strong>를 눌러 보세요. <strong>여기 봐</strong>를 누르면 상대에게 내 위치가 5초 동안 표시돼요.</p></section>

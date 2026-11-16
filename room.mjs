@@ -19,7 +19,7 @@ import {cleanupMinigames,leaveMinigames,minigamePayload,minigameStatements,selec
 import {ensureUmbrellaPairs,umbrellaWeather,umbrellaActorsReady,umbrellaPairMarked,umbrellaPairJoin,
   visibleUmbrellaPairs,markUmbrellaPair,purgeUmbrellaPairs,clearUmbrellaMarkers} from "./server/umbrella-pairs.mjs";
 import {ensurePicnicTables,validPicnic,picnicStatements,selectPicnics,picnicPayload,cleanupPicnics} from "./server/picnic.mjs";
-import {ensureBungeoTables,validBungeo,bungeoStatements,selectBungeo,bungeoPayload,cleanupBungeo} from "./server/bungeo.mjs";
+import {advanceBungeoOrder,ensureBungeoTables,validBungeo,bungeoStatements,selectBungeo,bungeoPayload,cleanupBungeo} from "./server/bungeo.mjs";
 import {handleGuestbook} from "./server/guestbook.mjs";
 import {diningService,ensureDiningService,isDiningVenue,pruneDiningService,selectDiningService,validDiningCommand} from "./server/dining-service.mjs";
 
@@ -684,6 +684,8 @@ export async function api(request,env){
     }else delete avatar.bikeRide;
   }
   const receiver={id,avatar:avatars.get(id)};
+  const bungeoState=watchBungeo?bungeoPayload(await advanceBungeoOrder(db,bungeoContext,receiver.avatar,
+    results[bungeoSelection].results[0]),bungeoContext):{};
   const tableService=diningVenue?await diningService(db,{room,id,key,venueId:diningVenue,command:dining,now,active,
     players:new Map(rows.filter(row=>row.updated>=active).map(row=>[row.id,avatars.get(row.id)])),
     state:results[diningSelection].results[0]}):undefined;
@@ -715,7 +717,7 @@ export async function api(request,env){
     photoSession:roomPhotoPayload(results[photoSelection],receiver.avatar),
     ...minigamePayload(results[minigameSelection].results[0],minigame),
     ...picnicPayload(results[picnicSelection].results[0],picnic),
-    ...(watchBungeo?bungeoPayload(results[bungeoSelection].results[0],bungeo):{}),
+    ...bungeoState,
     dining:tableService,
     handholds,umbrellas,
     bikeOffer:tandem?bikeOffer:undefined,

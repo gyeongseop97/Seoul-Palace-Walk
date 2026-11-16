@@ -94,7 +94,7 @@ let alcoholSip=null,bikeFallHintSeen=false;
 let fountainShow=null,clinks=[],queuedShow=null,queuedClink=null;
 let queuedMinigame=null,queuedPhoto=null,roomPhoto=null,minigameKiteCuts=[];
 let queuedPicnic=null;
-let queuedBungeo=null,bungeoMold;
+let queuedBungeo=null,bungeoMold,bungeoOrder=null;
 const heardClinks=new Set();
 let parkedBikes=[];
 let lastChatAt=0;
@@ -1033,7 +1033,8 @@ function returnToLobby(message=""){
   alcoholSip=null;bikeFallHintSeen=false;hideBikeFallTip();
   fountainShow=queuedShow=queuedClink=null;clinks=[];heardClinks.clear();nextShowAudio=0;
   queuedPhoto=roomPhoto=queuedMinigame=queuedPicnic=null;minigames.reset();picnic.reset();photoMode.close();tutorial.close();
-  queuedBungeo=null;bungeoMold=undefined;$("bungeo-status").hidden=true;
+  queuedBungeo=null;bungeoMold=undefined;bungeoOrder=null;
+  $("bungeo-status").hidden=$("bungeo-order-status").hidden=true;
   guestbook.close();diningMenu.close();galleryLight=0;
   queuedDining=diningService=null;$("dining-status").hidden=true;
   minigameKiteCuts=[];
@@ -2174,6 +2175,10 @@ function bungeoActions(time){
     minigames.active()||!atBungeoCounter(me)||!clearSegment(me,BUNGEO_STALL))return null;
   const busy=Boolean(queuedBungeo||picnicInventoryBusy()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||time-me.jump<jumpDuration(me));
   const step=bungeoStep(bungeoMold,time),slot=freeItemSlot(me,time);
+  const order=bungeoOrder,accepted=order?.phase==="accepted",outstanding=accepted?order.quantity-order.served:0;
+  const acceptOrder=order?.phase==="waiting",serveOrder=accepted&&outstanding>0&&order.stock>=outstanding;
+  const wantsPlate=accepted&&order.stock<outstanding&&step.action==="take";
+  const plate=wantsPlate&&step.ready&&step.quality==="good";
   const giftSlot=ITEM_SLOTS.find(hand=>bungeoKinds.has(me[hand]?.kind)&&me[hand].remaining>0&&!itemAnimating(me[hand],time));
   let target=null,closest=BUNGEO_GIFT_REACH;
   if(giftSlot)for(const person of people.values()){
@@ -2183,11 +2188,11 @@ function bungeoActions(time){
     const distance=near(position,me.x,me.y);
     if(distance<=closest){closest=distance;target=person;}
   }
-  return {busy,step,slot,giftSlot,target};
+  return {busy,step,slot,giftSlot,target,order,accepted,acceptOrder,serveOrder,wantsPlate,plate};
 }
 function receiveBungeo(data,confirmed,command,watching){
-  if(!watching)bungeoMold=undefined;
-  else if(Object.hasOwn(data,"bungeo"))bungeoMold=data.bungeo;
+  if(!watching){bungeoMold=undefined;bungeoOrder=null;}
+  else if(Object.hasOwn(data,"bungeo")){bungeoMold=data.bungeo;bungeoOrder=data.bungeoOrder??null;}
   const result=data.bungeoResult;
   if(confirmed?.bungeoClaim&&confirmed.bungeoClaim!==me.bungeoClaim){
     me.bungeoClaim=confirmed.bungeoClaim;
@@ -2197,40 +2202,62 @@ function receiveBungeo(data,confirmed,command,watching){
   }
   if(!command||queuedBungeo!==command)return;
   queuedBungeo=null;
-  if(result?.id!==command.id||!result.accepted){toast("틀과 빈손을 확인한 뒤 다시 해 주세요.");return;}
+  if(result?.id!==command.id||!result.accepted){
+    toast(command.order?"주문과 판매대 상태를 확인해 주세요.":"틀과 빈손을 확인한 뒤 다시 해 주세요.");return;
+  }
   const item=ITEMS[BUNGEO_ITEMS[result.quality]];
   if(command.action==="take"&&item)toast(item.name+"을 손에 들었어요.");
   if(command.action==="gift")toast("친구에게 붕어빵을 건넸어요.");
 }
+function bungeoOrderMessage(order){
+  switch(order?.phase){
+    case "approaching":return "손님이 오고 있어요.";
+    case "waiting":return `“붕어빵 ${order.quantity}개 주세요!”`;
+    case "accepted":return `주문 ${order.quantity}개 · 판매대 ${order.stock}/${order.quantity}개`;
+    case "complete":return `${order.quantity}개 판매 완료 · 이 방에서 총 ${order.totalSold}개`;
+    default:return "";
+  }
+}
 function updateBungeoControls(time){
   const actions=bungeoActions(time),step=actions?.step,status=$("bungeo-status"),gift=$("bungeo-gift");
-  status.hidden=!actions;
+  const orderStatus=$("bungeo-order-status"),orderMessage=bungeoOrderMessage(actions?.order);
+  orderStatus.hidden=!orderMessage;setText(orderStatus,orderMessage);
+  status.hidden=!actions||actions.serveOrder;
   if(actions){
     const {slot}=actions;
     const message=bungeoMold===undefined?"붕어빵 틀을 확인하는 중이에요.":queuedBungeo?"좌판 상태를 맞추고 있어요.":
       !slot?"굽거나 받으려면 한 손을 비워 주세요.":step.action==="pour"?"반죽을 부어 붕어빵을 구워 보세요.":
       step.waitMs>0?`노릇해지기까지 ${Math.ceil(step.waitMs/1000)}초`:
       step.quality==="burnt"?"붕어빵이 탔어요.":step.quality==="torn"?"붕어빵의 속이 터졌어요.":
-      step.action==="flip"?"한쪽이 노릇해졌어요. 뒤집어 보세요!":"양쪽이 노릇해졌어요. 지금 꺼내세요!";
+      step.action==="flip"?"한쪽이 노릇해졌어요. 뒤집어 보세요!":actions.plate?"판매대에 올릴 수 있어요.":"양쪽이 노릇해졌어요. 지금 꺼내세요!";
     setText(status,message);
   }
   setActivity("bungeo-cook",step?bungeoLabels[step.action]:null,Boolean(!actions||actions.busy||!actions.slot||!step.ready||bungeoMold===undefined));
+  setActivity("bungeo-accept",actions?.acceptOrder?"주문 받기":null,Boolean(actions?.busy));
+  setActivity("bungeo-plate",actions?.wantsPlate&&(step.waitMs>0||actions.plate)?"판매대에 올리기":null,!actions?.plate||actions.busy);
+  setActivity("bungeo-serve",actions?.accepted?"손님에게 건네기":null,!actions?.serveOrder||actions.busy);
   setActivity("bungeo-gift",actions?.target?"붕어빵 건네기":null,Boolean(!actions||actions.busy));
   if(actions?.target)attr(gift,"aria-label",actions.target.nickname+" 님에게 붕어빵 건네기");
+}
+function queueBungeo(command){
+  queuedBungeo={id:token(),stall:BUNGEO_STALL.id,...command};wakeSync();focusGame();
 }
 $("bungeo-cook").addEventListener("click",()=>{
   const actions=bungeoActions(gameTime());
   if(!actions||actions.busy||!actions.slot||!actions.step.ready||bungeoMold===undefined)return;
   const {action}=actions.step;
-  queuedBungeo={id:token(),action,stall:BUNGEO_STALL.id,
-    ...(action!=="pour"?{batch:bungeoMold.id}:null),...(action==="take"?{slot:actions.slot}:null)};
-  wakeSync();focusGame();
+  queueBungeo({action,...(action!=="pour"?{batch:bungeoMold.id}:null),...(action==="take"?{slot:actions.slot}:null)});
 });
 $("bungeo-gift").addEventListener("click",()=>{
   const actions=bungeoActions(gameTime());
   if(!actions?.target||actions.busy)return;
-  queuedBungeo={id:token(),action:"gift",stall:BUNGEO_STALL.id,slot:actions.giftSlot,to:actions.target.id};
-  wakeSync();focusGame();
+  queueBungeo({action:"gift",slot:actions.giftSlot,to:actions.target.id});
+});
+const bungeoOrderButtons={"bungeo-accept":"acceptOrder","bungeo-plate":"plate","bungeo-serve":"serveOrder"};
+for(const [id,action] of Object.entries(bungeoOrderButtons))$(id).addEventListener("click",()=>{
+  const actions=bungeoActions(gameTime());
+  if(!actions?.[action]||actions.busy)return;
+  queueBungeo({action,order:actions.order.id,...(action==="plate"?{batch:bungeoMold.id}:null)});
 });
 function atShowControls(){
   return near(plazaShowSpot,me.x,me.y)<=PLAZA_SHOW_REACH&&!me.bus&&!isCycling(me);
@@ -2560,8 +2587,12 @@ let lastFrame=performance.now(),interfaceAt=0,guideNearby=false;
 function preferredNearbyAction(time){
   if(me.bus||queuedBus)return "bus-action";
   if(!venueDoorButton.hidden&&!venueDoorButton.disabled&&interiorAt(me.x,me.y))return venueDoorButton.id;
+  for(const id of ["bungeo-serve","bungeo-accept","bungeo-plate"]){
+    const action=$(id);
+    if(!action.hidden&&!action.disabled)return id;
+  }
   const cook=$("bungeo-cook"),gift=$("bungeo-gift");
-  if(!gift.hidden&&!gift.disabled&&(cook.disabled||bungeoStep(bungeoMold,time).action==="pour"))return gift.id;
+  if(!gift.hidden&&!gift.disabled&&(cook.disabled||bungeoOrder?.phase!=="accepted"&&bungeoStep(bungeoMold,time).action==="pour"))return gift.id;
   if(!cook.hidden)return cook.id;
   const bike=$("bike-action"),park=$("bike-park");
   const parkAvailable=!park.hidden&&!park.disabled;
@@ -2645,7 +2676,7 @@ function frame(now){
   lastScene={me:self,peers:[...others.values()],parkedBikes,view:ownView,firstPerson:firstPerson&&!photoMode.camera,
     photoCamera:photoMode.camera,environment,guideNearby,destination:course.at(-1),clock:time,fountainShow,galleryLight,
     diningService:diningService?.venue===currentDining()?.id?diningService?.tickets??[]:[],
-    minigames:minigames.states(),minigameAction:minigames.localAction(),picnics:picnic.states(),bungeo:bungeoMold,
+    minigames:minigames.states(),minigameAction:minigames.localAction(),picnics:picnic.states(),bungeo:bungeoMold,bungeoOrder,
     minigameFree:minigameKiteCuts.concat(minigames.freeStates()),
     minigameAimPreview:minigames.aimPreview()};
   world?.render(lastScene,now);

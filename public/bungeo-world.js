@@ -69,12 +69,17 @@ export function addBungeoStall(T,parent,kit,groundHeight){
   }
   pan(-.855,.104,0xf6dba3);pan(-.855,-.206,0x713a2e);
   box(0xacb9ad,-.75,1.198,.131,.021,.20,.021,root).rotation.z=-.52;
-  const bags=box(0xe4bd83,.947,1.075,-.077,.41,.095,.39,root);bags.rotation.y=.13;
-  for(let i=0;i<3;i++)box(0xebcb96,.947-i*.016,1.131+i*.009,-.080+i*.009,.366,.009,.355,root).rotation.y=.13+i*.043;
+  const bags=box(0xe4bd83,.947,1.061,-.325,.36,.068,.23,root);bags.rotation.y=.10;
+  for(let i=0;i<3;i++)box(0xebcb96,.947-i*.016,1.102+i*.009,-.327+i*.009,.33,.009,.205,root).rotation.y=.10+i*.042;
   for(const x of [.79,.91]){
-    box(0x524f43,x,1.04,.353,.029,.042,.328,root).rotation.y=(x-.85)*1.14;
-    cylinder(0x33372f,x,1.07,.496,.023,.032,8,root);
+    box(0x524f43,x,1.04,.431,.029,.042,.212,root).rotation.y=(x-.85)*1.14;
+    cylinder(0x33372f,x,1.07,.515,.023,.032,8,root);
   }
+  const tray=new T.Group();tray.name="완성된 붕어빵 쟁반";tray.position.set(.864,1.029,.058);root.add(tray);
+  box(0xb6925c,0,.008,0,.627,.026,.395,tray);
+  box(0xf3dba8,0,.027,0,.566,.012,.335,tray);
+  for(const x of [-.305,.305])box(0xa27849,x,.036,0,.027,.054,.39,tray);
+  for(const z of [-.189,.189])box(0xa27849,0,.036,z,.583,.054,.027,tray);
 
   const work=new T.Group();work.name="붕어빵 틀";work.position.set(.034,1.019,.003);root.add(work);
   box(0x7f8580,0,.052,0,1.04,.10,.739,work);
@@ -113,6 +118,13 @@ export function addBungeoStall(T,parent,kit,groundHeight){
   const dough=shape(recessGeometry,0xffd8a1,0,.201,-.030,work);dough.name="붕어빵 반죽";dough.scale.set(.94,1,.92);
   const doughPour=cylinder(0xf2cd94,0,.35,-.030,.028,.18,9,work,1.30);
   const pastryProps=makeBungeoppangProps(T,kit);
+  const stockPies=Array.from({length:3},(_,index)=>{
+    const fish=new T.Group();fish.name="쟁반의 붕어빵 "+(index+1);
+    fish.position.set((index-1)*.178,.046,0);fish.rotation.y=-Math.PI/2+(index-1)*.11;
+    fish.scale.setScalar(.92);fish.visible=false;tray.add(fish);pastryProps(fish,"good");
+    fish.traverse(object=>{if(object.isMesh)object.userData.dynamic=true;});
+    return fish;
+  });
   const pastries=Object.fromEntries(["good","torn","burnt"].map(quality=>{
     const group=new T.Group();group.name=quality+" 붕어빵";group.scale.setScalar(fishSize*.96);
     group.position.set(0,.207,-.030);group.visible=false;work.add(group);pastryProps(group,quality);return [quality,group];
@@ -136,7 +148,8 @@ export function addBungeoStall(T,parent,kit,groundHeight){
     }
   }
 
-  function update(mold,clock,viewer){
+  function update(mold,clock,viewer,stock=0){
+    stockPies.forEach((fish,index)=>{fish.visible=index<stock;});
     const step=bungeoStep(mold,clock),active=step.action!=="pour";
     const first=step.action==="flip",age=active?Math.max(0,clock-(mold.flippedAt??mold.pouredAt)):0;
     const reveal=ease((age-BUNGEO_GOOD_MS+280)/360);
