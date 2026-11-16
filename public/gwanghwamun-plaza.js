@@ -60,7 +60,7 @@ export function buildGwanghwamunPlaza(T,scene,kit,{benches}){
   while(!step.done)step=build.next();
   return step.value;
 }
-export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight=()=>0}={}){
+export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight=()=>0,onMonuments}={}){
   const group=new T.Group();group.name="광화문광장";scene.add(group);
   const {wx,wz,box,cylinder,matte}=kit;
   let seed=3720957;
@@ -324,7 +324,8 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
   sign("감사의 정원",-44.8,281.6,.8,0,2.28,.52,{sub:"GARDEN OF GRATITUDE"});
 
   yield;
-  addPlazaMonuments(T,group,kit,{yi:plazaSites.yi,sejong:plazaSites.sejong});
+  const monuments=addPlazaMonuments(T,group,kit,{yi:plazaSites.yi,sejong:plazaSites.sejong});
+  onMonuments?.(monuments);
   yield;
   yield* assemblePlazaCity(T,group,kit);
   yield;

@@ -1,3 +1,5 @@
+import {sculptSejong} from "./plaza-sejong-figure.js";
+
 export const plazaMonumentFootprints={
   yi:{width:7.6,depth:6.9},
   sejong:{width:8.8,depth:7.5}
@@ -55,9 +57,12 @@ export function addPlazaMonuments(T,parent,kit,{yi,sejong}){
   });
 
   const yiFigure=new T.Group();
+  yiFigure.name="이순신 장군상 인물";
   yiFigure.position.set(0,10.50,-.38);
   yiGroup.add(yiFigure);
-  const admiral=make(yiFigure);
+  const yiFallback=new T.Group();
+  yiFigure.add(yiFallback);
+  const admiral=make(yiFallback);
   admiral.box(bronzeShade,0,.07,0,2.66,.14,1.98);
   for(const side of [-1,1]){
     admiral.oval(bronze,side*.47,.29,.33,.41,.20,.65);
@@ -141,85 +146,42 @@ export function addPlazaMonuments(T,parent,kit,{yi,sejong}){
   ship.finish();
 
   const kingBase=make(sejongGroup);
+  const masonryJoint=new T.MeshStandardMaterial({color:0x85817a,roughness:.94});
+  const baseY=.29,shoulderY=3.55,baseWidth=8.48,shoulderWidth=6.77,baseDepth=7.06,shoulderDepth=5.66;
+  const masonryOffset=-.17;
+  const progress=y=>(y-baseY)/(shoulderY-baseY);
+  const widthAt=y=>baseWidth+(shoulderWidth-baseWidth)*progress(y);
+  const depthAt=y=>baseDepth+(shoulderDepth-baseDepth)*progress(y);
+  const faceAt=y=>masonryOffset+depthAt(y)/2;
   kingBase.box(granite,0,.08,0,plazaMonumentFootprints.sejong.width,.16,plazaMonumentFootprints.sejong.depth);
-  kingBase.box(lightStone,0,.232,-.06,8.49,.15,7.2);
-  kingBase.frustum(darkStone,0,-.17,[[.30,7.99,6.72],[2.16,7.22,6.12],[4.02,6.31,5.42]]);
-  kingBase.box(granite,0,4.07,-.17,6.37,.13,5.48);
-  kingBase.box(darkStone,0,4.165,-.17,6.17,.07,5.31);
-  for(let i=0;i<3;i++){
-    const h=.92+i*.95,width=7.99-(h-.30)*.45,depth=6.72-(h-.30)*.35;
-    kingBase.box(granite,0,h,-.17,width+.025,.027,depth+.025);
+  kingBase.box(granite,0,.223,masonryOffset,8.62,.134,7.26);
+  kingBase.frustum(lightStone,0,masonryOffset,[[baseY,baseWidth,baseDepth],[shoulderY,shoulderWidth,shoulderDepth]]);
+  kingBase.box(lightStone,0,3.837,masonryOffset,5.72,.574,4.78);
+  kingBase.box(granite,0,4.162,masonryOffset,5.83,.076,4.90);
+  for(const y of [.98,1.82,2.66,3.47]){
+    kingBase.box(masonryJoint,0,y,masonryOffset,widthAt(y)+.014,.012,depthAt(y)+.014);
   }
-  kingBase.box(granite,0,1.80,2.975,3.95,.89,.06,-.174);
-  kingBase.box(darkStone,0,1.80,3.015,3.79,.77,.034,-.174);
+  for(const side of [-1,1])for(const share of [.16,.36]){
+    kingBase.rod(masonryJoint,[side*widthAt(baseY)*share,baseY,faceAt(baseY)+.006],
+      [side*widthAt(shoulderY)*share,shoulderY,faceAt(shoulderY)+.006],.009);
+  }
+  const border=[[-2.77,3.43],[-1.48,.95],[1.48,.95],[2.77,3.43]];
+  for(let i=1;i<border.length;i++){
+    const [a,b]=[border[i-1],border[i]];
+    kingBase.rod(granite,[a[0],a[1],faceAt(a[1])+.021],[b[0],b[1],faceAt(b[1])+.021],.036);
+    kingBase.rod(masonryJoint,[a[0]*.975,a[1],faceAt(a[1])+.033],[b[0]*.975,b[1],faceAt(b[1])+.033],.016);
+  }
   kingBase.finish();
   addInscription(T,sejongGroup,["세종대왕"],{
-    x:0,y:1.80,z:3.04,width:3.72,height:.71,rotation:-.174,color:"#e7c98d"
+    x:0,y:1.99,z:faceAt(1.99)+.026,width:3.76,height:.75,
+    rotation:Math.atan((shoulderDepth-baseDepth)/(2*(shoulderY-baseY))),color:"#282620",font:"'Malgun Gothic', sans-serif"
   });
 
   const kingFigure=new T.Group();
+  kingFigure.name="세종대왕 청동 좌상";
   kingFigure.position.set(0,4.20,-.16);
   sejongGroup.add(kingFigure);
-  const king=make(kingFigure);
-  king.box(goldShade,0,.24,-.11,4.17,.48,3.43);
-  king.box(gold,0,.50,-.09,4.21,.10,3.39);
-  king.box(goldShade,0,2.47,-1.16,3.40,3.54,.40);
-  king.box(gold,0,2.60,-.92,3.22,3.70,.19);
-  for(const side of [-1,1]){
-    king.rod(goldEdge,[side*1.62,.61,-1.28],[side*1.62,4.42,-1.23],.12);
-    king.oval(goldEdge,side*1.62,4.43,-1.22,.18,.18,.18);
-    king.box(gold,side*1.75,1.66,-.33,.41,.31,1.79);
-    king.box(goldShade,side*1.83,.94,.29,.24,.85,.28);
-  }
-  king.folds(gold,[[.48,1.60,.98,.22],[.67,1.81,1.07,.21],[1.01,1.79,1.08,.34],
-    [1.48,1.66,1.14,.39],[1.93,1.54,1.04,.29],[2.21,1.19,.84,.08]],11,.074);
-  king.folds(gold,[[1.95,1.19,.74,-.08],[2.38,1.18,.72,-.14],[3.21,1.08,.68,-.19],
-    [3.88,1.03,.57,-.19],[4.23,.71,.46,-.17],[4.38,.45,.35,-.15]],9,.062);
-  for(const side of [-1,1]){
-    for(let i=0;i<6;i++){
-      const x=side*(.23+i*.226);
-      king.oval(i%2?gold:goldEdge,x,1.10,1.22-.23*(x*x),.067,.53,.20,-.37,0,side*-.21);
-    }
-  }
-  king.rod(goldShade,[-.49,4.09,.23],[.12,3.47,.51],.062);
-  king.rod(goldEdge,[.49,4.09,.22],[.14,3.68,.46],.069);
-  king.oval(goldShade,.09,3.36,.516,.35,.36,.055);
-  king.oval(goldEdge,.09,3.36,.551,.27,.29,.048);
-  king.oval(gold,.09,3.36,.584,.17,.17,.038);
-  king.rod(gold,[-.90,3.79,-.09],[-1.54,3.04,.48],.40);
-  king.rod(gold,[-1.54,3.05,.46],[-1.73,3.67,.78],.37);
-  king.oval(goldEdge,-1.72,3.65,.79,.37,.18,.31,0,0,-.24);
-  king.oval(goldShade,-1.72,3.75,.86,.29,.074,.21,0,0,-.23);
-  king.oval(goldEdge,-1.66,3.91,1.02,.20,.26,.12,.15,-.22,-.30);
-  for(let finger=0;finger<4;finger++){
-    const x=-1.86+finger*.095;
-    const y=4.13+Math.sin(finger*Math.PI/4)*.072;
-    king.rod(goldEdge,[x+.045,3.98,1.056],[x,y,1.04],.054);
-    king.oval(goldEdge,x,y,1.039,.056,.068,.053);
-  }
-  king.rod(goldEdge,[-1.52,3.88,1.03],[-1.43,4.02,1.09],.068);
-  king.rod(gold,[.89,3.79,-.05],[1.48,2.78,.31],.41);
-  king.rod(gold,[1.45,2.78,.30],[.90,2.31,.95],.36);
-  king.oval(goldEdge,.85,2.29,1.00,.24,.19,.19);
-  king.box(goldShade,.48,2.38,1.055,.74,.83,.102,-.27,0,-.28);
-  king.box(goldEdge,.48,2.38,1.119,.66,.74,.045,-.27,0,-.28);
-  king.box(gold,.42,2.36,1.154,.052,.71,.025,-.27,0,-.28);
-  king.oval(goldShade,0,4.46,-.10,.38,.36,.34);
-  king.oval(goldEdge,0,4.99,-.055,.53,.68,.47);
-  face(king,goldEdge,goldShade,0,4.99,-.055,1.25);
-  king.folds(goldShade,[[4.43,.084,.103,.252],[4.55,.20,.13,.29],[4.76,.26,.12,.32]],8,.016);
-  for(const side of [-1,1]){
-    king.oval(goldEdge,side*.49,5.00,-.071,.119,.195,.117);
-    king.rod(goldShade,[0,4.82,.417],[side*.28,4.81,.333],.034);
-  }
-  king.folds(goldShade,[[5.40,.53,.46,-.08],[5.51,.57,.48,-.09],[5.83,.49,.44,-.17],
-    [6.10,.39,.36,-.21],[6.20,.25,.27,-.23]],8,.017);
-  king.oval(gold,0,5.44,-.08,.57,.10,.47);
-  for(const side of [-1,1]){
-    king.oval(goldShade,side*.60,5.65,-.17,.53,.112,.16,0,side*.14,side*.18);
-    king.oval(gold,side*.73,5.70,-.17,.37,.057,.13,0,side*.14,side*.19);
-  }
-  king.finish();
+  sculptSejong(T,make(kingFigure),{gold,goldEdge,goldShade});
 
   const instruments=make(sejongGroup);
   for(const x of [-2.81,0,2.81]){
@@ -243,7 +205,7 @@ export function addPlazaMonuments(T,parent,kit,{yi,sejong}){
   instruments.finish();
 
   square.dispose();sphere.dispose();column.dispose();bowl.dispose();ring.dispose();
-  return {yi:yiGroup,sejong:sejongGroup};
+  return {yi:yiGroup,sejong:sejongGroup,yiFigure,yiFallback};
 }
 
 function face(model,metal,shadow,x,y,z,size){
@@ -257,7 +219,7 @@ function face(model,metal,shadow,x,y,z,size){
   model.oval(shadow,x,y-.206*size,z+.369*size,.134*size,.019*size,.039*size);
 }
 
-function addInscription(T,group,lines,{x,y,z,width,height,rotation=0,facing=0,color}){
+function addInscription(T,group,lines,{x,y,z,width,height,rotation=0,facing=0,color,font="'Noto Serif KR', 'Batang', serif"}){
   if(typeof document==="undefined")return;
   const canvas=document.createElement("canvas");
   canvas.width=lines.length===1?512:128;
@@ -268,7 +230,7 @@ function addInscription(T,group,lines,{x,y,z,width,height,rotation=0,facing=0,co
   ctx.fillStyle=color;
   ctx.textAlign="center";
   ctx.textBaseline="middle";
-  ctx.font=`700 ${Math.floor(step*.75)}px 'Noto Serif KR', 'Batang', serif`;
+  ctx.font=`700 ${Math.floor(step*.75)}px ${font}`;
   lines.forEach((line,index)=>ctx.fillText(line,canvas.width/2,(index+.5)*step,canvas.width*.95));
   const map=new T.CanvasTexture(canvas);
   map.colorSpace=T.SRGBColorSpace;

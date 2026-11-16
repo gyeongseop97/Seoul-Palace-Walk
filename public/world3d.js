@@ -336,14 +336,33 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       new T.Plane(up.clone(),-(floor+height)),new T.Plane(up.clone().negate(),floor)
     ];
   }
+  async function loadGltf(path){
+    landmarkLoaders??=Promise.all([
+      import("https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js"),
+      import("https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/meshopt_decoder.module.js")
+    ]);
+    const [{GLTFLoader},{MeshoptDecoder}]=await landmarkLoaders;
+    return new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(new URL(path,import.meta.url).href);
+  }
+  async function loadYiStatue({yiFigure,yiFallback}){
+    try{
+      const {scene:statue}=await loadGltf("./art/yi-sun-sin.glb");
+      if(new T.Box3().setFromObject(statue).isEmpty())throw new Error("이순신 장군상 모델에 형상이 없습니다.");
+      statue.name="이순신 장군상 STL 변환 모델";
+      statue.traverse(mesh=>{
+        if(mesh.isMesh)mesh.castShadow=mesh.receiveShadow=true;
+      });
+      yiFigure.add(statue);
+      yiFallback.visible=false;
+      document.getElementById("yi-stl-credit")?.removeAttribute("hidden");
+      container.dataset.yiStatue="stl";
+    }catch{
+      container.dataset.yiStatue="modeled";
+    }
+  }
   async function loadLandmark({name,point,groups,angle,root,onLoaded}){
     try{
-      landmarkLoaders??=Promise.all([
-        import("https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js"),
-        import("https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/meshopt_decoder.module.js")
-      ]);
-      const [{GLTFLoader},{MeshoptDecoder}]=await landmarkLoaders;
-      const asset=await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(new URL(`./${name}.glb`,import.meta.url).href);
+      const asset=await loadGltf(`./${name}.glb`);
       const replaced=prepareSurveyTerrain(T,asset.scene,name,groups);
       asset.scene.position.set(wx(point.x),outsideGroundOffset(point),wz(point.y));
       asset.scene.rotation.y=angle;
@@ -404,13 +423,17 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     .map(([id,bounds])=>({id,bounds,steps:null,ready:false}));
   const plaza={root:plazaRoot,bounds:plazaBounds,*build(){
     const birdPerches=[];
-    updatePlaza=yield* assembleGwanghwamunPlaza(T,plazaRoot,makeKit(plazaRoot),{birdPerches,terrainHeight:southWorldTerrainHeight});
+    let monuments;
+    updatePlaza=yield* assembleGwanghwamunPlaza(T,plazaRoot,makeKit(plazaRoot),{
+      birdPerches,terrainHeight:southWorldTerrainHeight,onMonuments:built=>{monuments=built;}
+    });
     addRegionalStands(T,plazaRoot,makeKit(plazaRoot),"gwanghwamun");
     addDocks(plazaRoot,dock=>dock.y<=-280&&dock.y>-790);
     yield* gradeAvenueMeshes(T,plazaRoot.children,southWorldTerrainHeight);
     yield* addDiningFronts(plazaRoot,"gwanghwamun");
     addMinigameMarkers(T,plazaRoot,kit,["kite"],floorHeight);
-    const chunks=yield* consolidate(plazaRoot,new Set(),foliage.register);
+    const chunks=yield* consolidate(plazaRoot,new Set([monuments.yiFallback]),foliage.register);
+    void loadYiStatue(monuments);
     plazaWildlife=birds.loadPlaza(birdPerches);
     return chunks;
   }};
