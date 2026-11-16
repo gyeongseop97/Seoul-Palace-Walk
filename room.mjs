@@ -8,6 +8,7 @@ import {bikeDockReach,bikeDocks,bikeMountReach,bikeParkDuration,bikePassengerPos
 import {acceptBikeRide,bikePassenger,closeBikeOffer,dismountBikePassenger,dropBikePassengers,ensureBikeOffers,
   leaveBikeOffers,mountedBike,refreshBikePassenger,requestBikeRide,ridingBike,selectBikeOffer} from "./server/bike-passengers.mjs";
 import {HEADWEAR,KEEPSAKES} from "./public/wearable-options.js";
+import {LOOK_OPTIONS} from "./public/look-options.js";
 import {GITHUB_PAGES_ORIGIN} from "./public/hosting.js";
 import {ensureSocialTables} from "./database/social-schema.mjs";
 import {ensureRoomPhotos,roomPhotoPayload,selectRoomPhoto,validPhoto,writeRoomPhoto} from "./server/room-photo.mjs";
@@ -28,11 +29,11 @@ const finite = (value,min,max) => typeof value==="number" && value>=min && value
 const validPoint = (point) => point && finite(point.x,0,2100) && finite(point.y,-1900,1100);
 const validTime = (value) => finite(value,0,9999999999999);
 const reactions = new Set(["😊","😂","❤️","👍","😮","😢","😠","✨"]);
-const hairStyles = new Set(["short","bob","long","bun"]);
-const eyeStyles = new Set(["round","soft","bright"]);
-const outfitStyles = new Set(["coat","hoodie","puffer","tee","hanbok"]);
+// Hair, eyes and outfit are required; choices added later are optional so older clients still pass.
+const requiredLook = ["hair","eyes","outfit"];
 const validLook = (look) => look==null ||
-  hairStyles.has(look.hair) && eyeStyles.has(look.eyes) && outfitStyles.has(look.outfit) &&
+  Object.entries(LOOK_OPTIONS).every(([feature,choices]) =>
+    look[feature]===undefined ? !requiredLook.includes(feature) : choices.includes(look[feature])) &&
   (look.headwear===undefined||HEADWEAR.includes(look.headwear)) &&
   (look.keepsake===undefined||KEEPSAKES.includes(look.keepsake));
 const validItem=item=>item==null||typeof item.kind==="string"&&Object.hasOwn(ITEMS,item.kind)&&
