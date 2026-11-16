@@ -3,6 +3,7 @@ import {GITHUB_PAGES_ORIGIN} from "../public/hosting.js";
 import {PHOTO_CHUNK_BYTES,normalizeContinueCode} from "../public/profile-transfer.js";
 import {cleanPassport} from "../public/passport-state.js";
 import {HEADWEAR,KEEPSAKES} from "../public/wearable-options.js";
+import {LOOK_DEFAULTS,LOOK_OPTIONS} from "../public/look-options.js";
 
 const schema=[
   `CREATE TABLE IF NOT EXISTS walk_profiles (
@@ -38,9 +39,11 @@ const missing=()=>error("이어하기 코드를 찾을 수 없어요.",404);
 
 function cleanProfile(value){
   const nickname=text(value?.nickname,16),character=value?.character,look=value?.look;
-  if(!nickname||!["man","woman"].includes(character)||!["short","bob","long","bun"].includes(look?.hair)||
-    !["round","soft","bright"].includes(look.eyes)||!["coat","puffer","tee","hanbok"].includes(look.outfit))return null;
-  return {nickname,character,look:{hair:look.hair,eyes:look.eyes,outfit:look.outfit,
+  if(!nickname||!["man","woman"].includes(character)||!LOOK_OPTIONS.hair.includes(look?.hair)||
+    !LOOK_OPTIONS.eyes.includes(look.eyes)||!LOOK_OPTIONS.outfit.includes(look.outfit))return null;
+  const optional=Object.fromEntries(Object.entries(LOOK_DEFAULTS).map(([feature,fallback])=>
+    [feature,LOOK_OPTIONS[feature].includes(look[feature])?look[feature]:fallback]));
+  return {nickname,character,look:{hair:look.hair,eyes:look.eyes,outfit:look.outfit,...optional,
     headwear:HEADWEAR.includes(look.headwear)?look.headwear:"none",keepsake:KEEPSAKES.includes(look.keepsake)?look.keepsake:"none"},
     progress:cleanPassport(value.progress)};
 }
