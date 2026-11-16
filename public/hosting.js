@@ -1,5 +1,5 @@
 export const GITHUB_PAGES_ORIGIN="https://gyeongseop97.github.io";
-const GAME_SERVER_ORIGIN="https://deoksu-walk.vercel.app";
+const GAME_SERVER_ORIGIN="https://seoulgung-walk.vercel.app";
 
 export function isGitHubPages(origin=globalThis.location?.origin){
   return origin===GITHUB_PAGES_ORIGIN;

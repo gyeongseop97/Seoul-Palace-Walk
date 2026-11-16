@@ -50,7 +50,7 @@ Vercel이 게임 화면과 방 API를 제공하고, Turso의 **libSQL** 데이�
 ## 4. GitHub Pages 주소도 사용하기
 
 1. `gyeongseop97/Seoul-Palace-Walk` 저장소의 **Settings → Pages**에서 **Deploy from a branch**, `main`, `/(root)`를 사용합니다. `main`에 변경을 반영하면 GitHub가 정적 게임 화면을 다시 게시합니다. [GitHub Pages 게시 설정](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)
-2. [GitHub Pages 게임 주소](https://gyeongseop97.github.io/Seoul-Palace-Walk/)를 열면 같은 사이트의 `public/`으로 이동합니다. 여기서 만든 초대코드로 [Vercel 운영 주소](https://deoksu-walk.vercel.app/)에서도 입장할 수 있습니다. 두 주소가 Vercel의 같은 방 API와 Turso를 사용하며, 환경 변수는 Vercel에서 관리합니다.
+2. [GitHub Pages 게임 주소](https://gyeongseop97.github.io/Seoul-Palace-Walk/)를 열면 같은 사이트의 `public/`으로 이동합니다. 여기서 만든 초대코드로 [Vercel 운영 주소](https://seoulgung-walk.vercel.app/)에서도 입장할 수 있습니다. 두 주소가 Vercel의 같은 방 API와 Turso를 사용하며, 환경 변수는 Vercel에서 관리합니다.
 
 ## 컴퓨터에서 먼저 실행
 

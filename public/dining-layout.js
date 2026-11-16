@@ -29,12 +29,16 @@ export function registerDiningNavigation(benches){
   const {x,y,w,d,angle}=diningPlot;
   addObstacle(x,y,w,d,angle);
   const {center}=diningVenue;
-  const add=(x,z,w,d)=>addObstacle(center.x+x,center.y+z,w,d);
+  const add=(x,z,w,d,height=Infinity)=>addObstacle(center.x+x,center.y+z,w,d,0,height);
   for(const [x,z,w,d] of diningWalls)add(x,z,w,d);
   for(const {x,z,w,d} of Object.values(diningFurniture))add(x,z,w,d);
   for(const {x,z,chairs} of diningTables){
-    add(x,z,tableSize.w,tableSize.d);
-    for(const chair of chairs)add(chair.x,chair.z,chairSize.d,chairSize.w);
+    // Keep the orbit camera above furniture while blocking a walk through the legs or seat.
+    add(x,z,tableSize.w,tableSize.d,.84);
+    for(const chair of chairs){
+      add(chair.x,chair.z,chairSize.d,chairSize.w,.50);
+      add(chair.x+chair.side*.263,chair.z,.075,chairSize.w,.88);
+    }
     benches.push({...point(x,z),table:true,slots:chairs.map(chair=>({
       ...point(chair.x,chair.z),heading:chair.heading,approach:chair.approach,base:-.015
     }))});
