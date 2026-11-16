@@ -331,6 +331,13 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 #travel-status{color:var(--gold-2);margin-top:4px}
 :is(#dining-status,#bungeo-status,#bungeo-order-status){color:var(--gold-2);margin-top:4px;max-width:24ch;white-space:normal}
 #bungeo-order-status{font-weight:700}
+.bungeo-molds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;width:min(100%,309px);padding:5px;
+  border:1px solid #dddbb754;border-radius:10px;background:#15221aeb;color:var(--ivory-1)}
+.bungeo-cavity{display:grid;grid-template-rows:auto auto 1fr;align-content:start;gap:3px;min-width:0}
+.bungeo-cavity strong,.bungeo-cavity small{padding-inline:3px;text-align:center;font-size:11px;line-height:1.2}
+.bungeo-cavity small{color:var(--gold-2);min-height:13px}
+.bungeo-cavity button{min-height:44px;padding:3px 5px;line-height:1.15;font-size:12px;white-space:normal;pointer-events:auto}
+.bungeo-cavity[data-ready="true"] button:first-of-type{background:var(--gold-3);color:var(--gold-9);border-color:var(--gold-2)}
 .bus-seating{width:min(100%,310px);margin:0 auto;display:grid;gap:7px;text-align:center;color:var(--ivory-3)}
 #bus-seats{display:grid;grid-template-columns:1fr 1fr;column-gap:clamp(18px,10vw,60px);row-gap:7px;padding:12px;border:1px solid var(--pine-9);border-radius:22px;background:var(--pine-2)}
 #bus-seats button{min-height:44px;white-space:nowrap}

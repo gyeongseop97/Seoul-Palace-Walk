@@ -994,7 +994,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     if(plazaRoot.parent===outdoors){
       const viewer=indoors?null:anchor;
       updatePlaza(now,night,viewer,fountainShow?.startedAt??0,clock);
-      bungeoStall?.update(state.bungeo,clock,viewer,state.bungeoOrder?.stock);
+      bungeoStall?.update(state.bungeoMolds,clock,viewer,state.bungeoOrder?.stock);
     }
     bungeoCustomer.update(state.bungeoOrder,!indoors&&plazaRoot.parent===outdoors?anchor:null,now,clock,delta);
     if(hwangudan.root.parent===outdoors)updateHwangudan?.(night);

@@ -4,6 +4,7 @@ export const BUNGEO_STALL=Object.freeze({
   ...plazaAt(-51.8,373,"광화문 붕어빵 좌판"),id:"bungeo-stall",radius:2.4,watchRadius:26,
   body:plazaAt(-53.75,373),angle:Math.PI/2
 });
+export const BUNGEO_MOLD_COUNT=3;
 export const BUNGEO_TOUCH_MS=700;
 export const BUNGEO_GOOD_MS=1800;
 export const BUNGEO_BURN_MS=5800;
