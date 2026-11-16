@@ -53,13 +53,11 @@ export function makeRegionalItemProps(T,{box,cylinder,shape}){
   }
   return {
     yakgwa(parent){
-      const wrap=box(0xf4ddab,0,-.041,0,.21,.012,.182,parent);wrap.rotation.y=.12;
-      box(0xe8c799,0,-.031,-.080,.20,.024,.017,parent);
-      const pastry=shape(pastryGeometry,0xb5632a,0,-.025,0,parent);pastry.rotation.y=.20;
-      shape(flowerStamp,0x8d441e,0,-.001,0,parent);
+      shape(pastryGeometry,0xb5632a,0,-.010,0,parent);
+      shape(flowerStamp,0x8d441e,0,.014,0,parent);
       for(let i=0;i<8;i++){
         const angle=i*Math.PI/4;
-        berry(parent,i%2?0xf0c581:0xe2a260,Math.cos(angle)*.049,-.002,Math.sin(angle)*.049,.007,.004,.005);
+        berry(parent,i%2?0xf0c581:0xe2a260,Math.cos(angle)*.049,.013,Math.sin(angle)*.049,.007,.004,.005);
       }
     },
     cake(parent){
@@ -90,9 +88,6 @@ export function makeRegionalItemProps(T,{box,cylinder,shape}){
       berry(parent,0x9ea9a9,-.066,.105,-.103,.022,.009,.033);
     },
     bungeoppang(parent){
-      const paper=box(0xeee2bf,0,-.016,0,.235,.014,.160,parent);
-      paper.rotation.y=-.11;
-      box(0xcfb47f,-.107,-.002,.006,.015,.023,.142,parent).rotation.y=.12;
       shape(fishGeometry,0xc27a3b,0,0,0,parent);
       shape(fishEye,0x86502d,.063,.034,-.012,parent);
       berry(parent,0x8d512c,.063,.035,-.011,.004,.003,.004);

@@ -4,6 +4,7 @@ import {isBikeDriver,isBikePassenger,isCycling} from "./sejong-bike.js";
 import {CLINK_DURATION_MS} from "./social-events.js";
 import {makeUmbrella,makeWearables} from "./wearables-models.js";
 import {alcoholGlasses,alcoholLevel,gestureBody,gestureHands,MAX_ALCOHOL_LEVEL} from "./avatar-gestures.js";
+import {DINING_TRAY_WIDTH,diningGesture,makeDiningUtensil} from "./dining-dishes.js";
 
 const TAU = Math.PI * 2;
 const HAIR = ["short", "bob", "long", "bun"];
@@ -387,6 +388,7 @@ function chimaGeometry(T) {
 }
 
 export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
+  const makeUtensil=makeDiningUtensil(T);
   const wearables=makeWearables(T),umbrellaTemplate=makeUmbrella(T);
   const sphere = new T.SphereGeometry(1,16,12);
   const head = chibiHead(T);
@@ -571,6 +573,9 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       const pivot=joint(chest);pivot.scale.setScalar(1.35);pivot.visible=false;
       return {pivot,show:createItemProp(pivot)};
     });
+    const tray=joint(chest,0,.112,.408);
+    tray.name="Two-handed meal tray";tray.scale.setScalar(.91/BODY);tray.visible=false;
+    const showTray=createItemProp(tray);
     const label = nickname && labelSprite ? labelSprite(nickname,coat) : null;
     if (label) group.add(label);
     const emote = new T.Sprite(new T.SpriteMaterial({transparent:true,depthWrite:false,toneMapped:false}));
@@ -584,7 +589,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     group.visible = false;
     group.traverse(mesh => { if (mesh.isMesh && mesh !== shadow) mesh.castShadow = true; });
     return {group,body,floorY:null,teeHem,pelvis,chest,torso,waist,face,garb,faceMesh,ears,headJoint,hairMesh,pin,overcoat,hem,pufferCollar,hanbokDetails,skirt,legs,arms,label,
-      shadow,emote,chatSprite:null,chatMessage:null,itemPivots,palette,offset,phase:(offset%100)/100,
+      shadow,emote,chatSprite:null,chatMessage:null,itemPivots,tray,showTray,utensil:null,palette,offset,phase:(offset%100)/100,
       stride:0,sprint:0,seatBlend:0,petBlend:0,appearance:"",lastX:null,lastY:null,bike:null,hat:null,charm:null,umbrella:null};
   }
 
@@ -717,7 +722,16 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const walking = Boolean(position.stepping && !seat && !riding && jump<.06);
     const running = walking && Boolean(position.running);
     const hands=avatarHands(position,clock,{riding,seated:Boolean(seat),walking});
-    const {claspSide,feedAge,feeding,petAge,petting:pet,petSide,umbrellaHand,itemFor,feedingSide}=hands;
+    const {claspSide,feedAge,feeding,petAge,petting:pet,petSide,umbrellaHand,itemFor,feedingSide,tray}=hands;
+    const carryingTray=Boolean(tray&&!seat&&!riding);
+    const eatingMeal=diningGesture(tray,seat);
+    model.tray.visible=carryingTray;model.showTray(carryingTray?tray.item.kind:null);
+    if(eatingMeal&&!model.utensil){
+      model.utensil=makeUtensil(chest);
+      model.utensil.group.name="Eating utensil";
+      model.utensil.group.scale.setScalar(1/BODY);
+    }
+    model.utensil?.show(eatingMeal?.utensil);
     const feedPose = feeding ? smooth(Math.min(feedAge/320,(FEED_MS-feedAge)/360)) : 0;
     const petPose = pet ? smooth(Math.min(petAge/235,(PET_MS-petAge)/275)) : 0;
     const clinkEvent=position.clink,clinkAge=clock-clinkEvent?.startedAt;
@@ -725,7 +739,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const clink=itemFor(clinkSide)?.spec.verb==="마시기"&&!seat&&!claspSide&&clinkAge>=0&&clinkAge<CLINK_DURATION_MS
       ? smooth(Math.min(clinkAge/600,(CLINK_DURATION_MS-clinkAge)/730)) : 0;
     const contact=clink?Math.max(0,1-Math.abs(clinkAge-900)/170)*.045:0;
-    const performance=gestureHands(position,clock,hands,{riding,busy:Boolean(clink)});
+    const performance=gestureHands(position,clock,hands,{riding,busy:Boolean(clink||carryingTray||eatingMeal)});
     const {pose:acting,sick,fall,umbrellaOpen,umbrellaSide}=performance;
     const bodyPose=acting&&gestureBody(acting);
     const blushLevel=alcoholLevel(position,clock);
@@ -788,9 +802,9 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       const wobble=woozy?Math.sin(clock*.0048+model.offset)*.062:0;
       pelvis.position.set(.020*pendulum*sway+(bodyPose?.x??0)*(1-seated),
         .691+bob-strideDip+idleRise+breath*.004-seated*.145-crouch*.225+(bodyPose?.y??0)*idleGesture,0);
-      chest.rotation.set(.020+sprint*.13+crouch*.34+seated*.03+clink*.22+(bodyPose?.pitch??0)*idleGesture,
+      chest.rotation.set(.020+sprint*.13+crouch*.34+seated*.03+clink*.22+(eatingMeal?.dip??0)*.13+(bodyPose?.pitch??0)*idleGesture,
         pendulum*sway*.10+(bodyPose?.yaw??0)*idleGesture,pendulum*sway*.065+(bodyPose?.roll??0)*idleGesture+wobble*.41);
-      headJoint.rotation.set(-.030-sprint*.070+crouch*.16+(bodyPose?.headPitch??0)*idleGesture,
+      headJoint.rotation.set(-.030-sprint*.070+crouch*.16+(eatingMeal?.dip??0)*.18+(eatingMeal?.lift??0)*.078+(bodyPose?.headPitch??0)*idleGesture,
         -pendulum*sway*.05+wobble*.65,breath*.020-pendulum*sway*.045+(bodyPose?.headRoll??0)*idleGesture+wobble);
     }
     body.rotation.z=-(fall?.weight??0)*1.48;
@@ -864,7 +878,20 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       x += side*airborne*.14; y += airborne*.30; z += airborne*.08;
       pole.set(side*.56,-.12,-1);
       const clasping = side === claspSide;
-      if (clasping) {
+      if(carryingTray){
+        x=side*(DINING_TRAY_WIDTH*.46*.91/BODY);y=.096;z=.37;
+        pole.set(side*.67,-.8,-.26);
+      } else if(eatingMeal){
+        if(side===-1){
+          const {lift,dip}=eatingMeal;
+          x=side*mix(.179,.198,lift);
+          y=mix(.442+(seat.tray.height-.843)/BODY-.039*dip,.620,lift);
+          z=mix(.446,.343,lift);
+        }else{
+          x=.230;y=.236;z=.349;
+        }
+        pole.set(side*.70,-.74,-.28);
+      } else if (clasping) {
         inverseChest.copy(chest.quaternion).invert();
         clasp.set(side*.608-pelvis.position.x,.930-pelvis.position.y-chest.position.y,.078).applyQuaternion(inverseChest);
         x = clasp.x; y = clasp.y; z = clasp.z;
@@ -898,9 +925,17 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       arm.target.set(mix(arm.target.x,x,armEase),mix(arm.target.y,y,armEase),mix(arm.target.z,z,armEase));
       solve(arm,arm.target,pole);
       arm.end.rotation.set((performanceHand?.bend??0)*(acting?.weight??0),0,(performanceHand?.roll??0)*(acting?.weight??0));
+      if(carryingTray)arm.end.rotation.set(-.26,side*.06,side*.28);
+      if(eatingMeal&&side===-1){
+        const {lift,dip}=eatingMeal,utensil=model.utensil.group;
+        const hand=chest.worldToLocal(arm.end.getWorldPosition(grip));
+        arm.end.rotation.set(-.31-.48*lift,.42,side*.31);
+        utensil.position.set(hand.x+.013,hand.y+.013,hand.z+.014);
+        utensil.rotation.set(mix(.17+dip*.26,-.39,lift),mix(.47,2.89,lift),-.16,"YXZ");
+      }
       if(prop){
-        const hand=toasting?chest.worldToLocal(arm.end.getWorldPosition(grip)):arm.target;
-        pivot.position.set(hand.x,hand.y+.015,hand.z+.039);
+        const hand=toasting||spec.snack?chest.worldToLocal(arm.end.getWorldPosition(grip)):arm.target;
+        pivot.position.set(hand.x,hand.y+(spec.snack?.026:.015),hand.z+(spec.snack?.019:.039));
         if(clasping)pivot.position.x+=side*.13;
         pivot.rotation.set(toasting?-.12*toasting+contact*3:spark?.11:serving?1.81*serving:-.66*eat,0,toasting*.08);
       }
@@ -941,6 +976,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     model.shadow.material.dispose();
     model.emote.material.dispose();
     for(const {show} of model.itemPivots)show.dispose();
+    model.showTray.dispose();
     if (model.label) {
       model.label.material.map.dispose();
       model.label.material.dispose();

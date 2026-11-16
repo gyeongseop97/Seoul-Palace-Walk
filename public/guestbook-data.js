@@ -1,7 +1,9 @@
+import {diningVenues} from "./dining-data.js";
+
 export const GUESTBOOK_LIMIT=140;
 export const guestbookVenues=Object.freeze({
   "mmca":"국립현대미술관 서울",
-  "bukchon-dining":"북촌 작은 식탁"
+  ...Object.fromEntries(diningVenues.map(venue=>[venue.id,venue.name])),
 });
 
 export function cleanGuestbookMessage(value){

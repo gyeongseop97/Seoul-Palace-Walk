@@ -3,7 +3,7 @@ import {
   middle,hall,stoneHall,stoneFountain,city,pavilions,estateOutline,nearest,distance as near,walkable,solidAt,clearSegment,wadeSegment,waterDepth,loftStep,loftHeight,loftStair,planWalk,platformAt
 } from "./layout.js";
 import {normalize,angleDelta,hexCoat,moving,receivePeople,smoothPeople,handPosition,handSide,pairFits} from "./people.js";
-import {ITEMS,PET_MS,FEED_MS,jumpDuration,jumpLift} from "./activities.js";
+import {ITEMS,PET_MS,FEED_MS,diningTray,jumpDuration,jumpLift} from "./activities.js";
 import {makeWishDrawing} from "./wish-drawing.js";
 import {WISH_FLIGHT_MS} from "./wish-art.js";
 import {isInsideMuseum,museumBounds,museumGalleries,museumGalleryAt,museumHall} from "./visit-layout.js";
@@ -29,9 +29,9 @@ import {canRideBikeSegment} from "./bike-movement.js";
 import {gbWallOutline,clipGbGround} from "./gyeongbok-perimeter.js";
 import {outsideGroundOffset} from "./gyeongbok-terrain.js";
 import {mmcaCourtyards,mmcaBuildings,mmcaLawns} from "./mmca-layout.js";
-import {mmcaVenue,mmcaGalleryRooms,mmcaExhibits} from "./mmca-gallery-layout.js";
-import {diningVenue,diningTables} from "./dining-layout.js";
-import {diningMenu as menuDishes} from "./dining-data.js";
+import {mmcaVenue,mmcaGalleryAt,mmcaGalleryRooms,mmcaExhibits} from "./mmca-gallery-layout.js";
+import {diningTables} from "./dining-layout.js";
+import {diningVenues} from "./dining-data.js";
 import {interiorAt,interiorBounds} from "./interior-layout.js";
 import {bindDiningMenu} from "./dining-menu.js";
 import {bindGuestbook} from "./guestbook.js";
@@ -50,7 +50,7 @@ import {bindPhotoAlbum,downloadPhoto,importPhotos,listPhotos,makePhotoCard} from
 import {bindTutorial} from "./tutorial.js";
 import {makePicnic} from "./picnic-client.js";
 import {isPicnicItem} from "./picnic-data.js";
-import {ITEM_SLOTS,handLabel,itemAnimating,freeItemSlot} from "./held-items.js";
+import {ITEM_SLOTS,handLabel,itemAnimating,freeItemSlot,handsFree} from "./held-items.js";
 import {BIKE_FALL_DURATION_MS,GESTURE_DURATIONS,SICK_DURATION_MS,bikeFallChance,finishAlcoholSip} from "./avatar-gestures.js";
 
 const $=id=>document.getElementById(id);
@@ -88,6 +88,7 @@ let pageVersion=0,walkPositionAt=0,lastWalkPosition=null;
 let syncTimer,syncDue=Infinity,syncInFlight=null,syncStarted=-Infinity,syncFailures=0;
 let links=[],queuedSignal=null,queuedHand=null,queuedFeed=null,queuedChat=null,toastTimer;
 let queuedBus=null,queuedBike=null,lastBusHeading=null,lastBikeHeading=null;
+let tandemOffer=null;
 let alcoholSip=null,bikeFallHintSeen=false;
 let fountainShow=null,clinks=[],queuedShow=null,queuedClink=null;
 let queuedMinigame=null,queuedPhoto=null,roomPhoto=null,minigameKiteCuts=[];
@@ -118,7 +119,9 @@ nickname.value=localStorage.getItem("jeongdong-nickname")||"";
 joinCode.value=suppliedCode;
 profileChoices.find(option=>option.value===me.character).checked=true;
 const photoAlbum=bindPhotoAlbum($("photo-album")),tutorial=bindTutorial($("tutorial-card"));
-const venueById={ [mmcaVenue.id]:mmcaVenue,[diningVenue.id]:diningVenue };
+const diningById=Object.fromEntries(diningVenues.map(venue=>[venue.id,venue]));
+const diningRegion={jeongdong:"덕수궁",gwanghwamun:"광화문광장",bukchon:"북촌"};
+const venueById={ [mmcaVenue.id]:mmcaVenue,...diningById };
 const guestbook=bindGuestbook({getSession:()=>session,onClose:focusGame,request});
 const diningMenu=bindDiningMenu({onSelectDish:takeMeal});
 const galleryLogKey="seoul-palace-walk:mmca-exhibits";
@@ -520,7 +523,7 @@ function setGestures(open){
 const gestureButtons=[...document.querySelectorAll("[data-gesture]")];
 function gestureReady(time,kind){
   if(!session||riding||me.bus||isCycling(me)||queuedBus||queuedBike||myLink()?.active||
-    photoMode.camera||minigames.active()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||
+    photoMode.camera||minigames.active()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||diningTray(me,time)||
     time-me.jump<jumpDuration(me)||ITEM_SLOTS.some(slot=>itemAnimating(me[slot],time)))return false;
   if(!kind)return true;
   const held=ITEM_SLOTS.filter(slot=>me[slot]?.remaining).length;
@@ -551,7 +554,8 @@ const rosterDialog=$("roster-dialog"),targetDialog=$("look-target-dialog");
 const trackPins=[$("track-pin"),$("mini-track-pin")];
 function setText(node,value){if(node.textContent!==value)node.textContent=value;}
 function outdoorMap({x,y}){
-  if(venueById[interiorAt(x,y)])return "북촌";
+  const indoors=venueById[interiorAt(x,y)];
+  if(indoors)return indoors===mmcaVenue?"북촌":diningRegion[indoors.area]??"북촌";
   if(bukchonWalkable(x,y))return "북촌";
   if(x>610&&hwangudanWalkable(x,y))return "환구단";
   if(inGyeongbok(x,y)||x<385&&y< -845&&y> -975)return "경복궁";
@@ -702,11 +706,11 @@ function resetLocationGuides(){
 
 function handCandidates(kind){
   const time=gameTime();
-  if(!world||!session||riding||me.seat!=null||me.bus||isCycling(me)||myLink()||feedingLocked(time)||sickLocked(time))return [];
+  if(!world||!session||riding||me.seat!=null||me.bus||isCycling(me)||myLink()||feedingLocked(time)||sickLocked(time)||diningTray(me,time))return [];
   const umbrella=kind==="umbrella";
   if(umbrella&&(!me.umbrella||!me.umbrellaReady||queuedBus||queuedBike))return [];
   const busy=new Set(links.flatMap(link=>[link.leader,link.follower]));
-  return [...people.values()].filter(person=>person.available&&(!umbrella||person.avatar.umbrellaReady)&&!busy.has(person.id)&&
+  return [...people.values()].filter(person=>person.available&&(!umbrella||person.avatar.umbrellaReady)&&!busy.has(person.id)&&!diningTray(person.avatar,time)&&
     near(me,person.position.x,person.position.y)<=2.4&&handSide(me,{...person.avatar,...person.position})!==0)
     .sort((a,b)=>near(me,a.position.x,a.position.y)-near(me,b.position.x,b.position.y));
 }
@@ -810,6 +814,7 @@ function gameTime(now=performance.now()){
 function placeName(point){
   const inside=interiorAt(point.x,point.y);
   if(inside==="museum")return museumGalleryAt(point.x,point.y)?.name??"덕수궁 전시관";
+  if(inside===mmcaVenue.id)return mmcaGalleryAt(point.x,point.y)?.name??mmcaVenue.name;
   if(venueById[inside])return venueById[inside].name;
   return nearest(point.x,point.y).name;
 }
@@ -856,7 +861,8 @@ async function sync(){
   const show=queuedShow,clink=queuedClink,photo=queuedPhoto,minigame=queuedMinigame,picnicCommand=queuedPicnic;
   syncStarted=sent;
   const post=dirty||signal||hand||claim||feed||chat||bus||bike||show||clink||photo||minigame||picnicCommand||Date.now()-lastPost>=3800;
-  const base={room:visit.room,id:visit.id,key:visit.key,lookPings:true};
+  const base={room:visit.room,id:visit.id,key:visit.key,lookPings:true,
+    bikeOffers:isBikeDriver(me)||Boolean(tandemOffer)};
   const avatar=post?{...me,catFriends:passport.friendlyCatIds()}:null;
   if(avatar&&claim)Object.assign(avatar,{seat:claim.bench,seatSide:claim.side});
   if(avatar){if(chat)avatar.chat=chat;else delete avatar.chat;}
@@ -877,6 +883,10 @@ async function sync(){
     if(queuedHand===hand)queuedHand=null;
     const confirmed=data.walkers.find(row=>row.id===visit.id)?.avatar;
     confirmTransport(confirmed,data.transport,bus,bike);
+    if(tandemOffer?.requester===visit.id&&!data.bikeOffer&&!me.bikeRide&&bike?.action!=="cancelRide"){
+      toast("자전거 동승 요청이 끝났어요.");
+    }
+    tandemOffer=data.bikeOffer??null;
     parkedBikes=data.parkedBikes??[];
     if(chat&&queuedChat===chat){
       queuedChat=null;
@@ -998,6 +1008,7 @@ function returnToLobby(message=""){
   leaveBeacon();session=null;clearSyncTimer();resetInput();
   queuedSignal=queuedHand=queuedFeed=queuedChat=null;people.clear();changeLinks([]);resetLocationGuides();
   queuedBus=queuedBike=lastBusHeading=lastBikeHeading=selectedBus=null;
+  tandemOffer=null;$("bike-offer").hidden=true;
   alcoholSip=null;bikeFallHintSeen=false;hideBikeFallTip();
   fountainShow=queuedShow=queuedClink=null;clinks=[];heardClinks.clear();nextShowAudio=0;
   queuedPhoto=roomPhoto=queuedMinigame=queuedPicnic=null;minigames.reset();picnic.reset();photoMode.close();tutorial.close();
@@ -1195,7 +1206,7 @@ $("run").addEventListener("click",()=>{
 });
 function jump(){
   const time=gameTime();
-  if(!session||!world||riding||me.bus||isCycling(me)||queuedBus||queuedBike||sharingUmbrella()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||time-me.jump<jumpDuration(me))return;
+  if(!session||!world||riding||me.bus||isCycling(me)||queuedBus||queuedBike||sharingUmbrella()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||diningTray(me,time)||time-me.jump<jumpDuration(me))return;
   if(pendingSeat)course=[];
   pendingSeat=seatClaim=null;stand();
   rememberWalkPosition();
@@ -1234,7 +1245,7 @@ function confirmSeat(claim,avatar){
   dirty=true;
 }
 function interactBench(){
-  if(me.bus||isCycling(me)||queuedBus||queuedBike||myLink()?.active||pendingSeat||seatClaim)return;
+  if(me.bus||isCycling(me)||queuedBus||queuedBike||myLink()?.active||pendingSeat||seatClaim||mealBiteLocked(gameTime()))return;
   if(me.seat!=null){stand();return;}
   const {choice}=benchNearby();
   if(choice)walkTo(choice.approach,choice);
@@ -1553,9 +1564,19 @@ function sickLocked(time){
     me.bikeFallAt&&time<me.bikeFallAt+BIKE_FALL_DURATION_MS);
 }
 function canUseItem(time,slot){
+  const item=me[slot];
   return Boolean(!me.bus&&!riding&&!isCycling(me)&&!queuedBus&&!queuedBike&&!picnicInventoryBusy()&&
-    !alcoholSip&&!clinkLocked(time)&&!sickLocked(time)&&!feedingLocked(time)&&me[slot]?.remaining&&
+    !alcoholSip&&!clinkLocked(time)&&!sickLocked(time)&&!feedingLocked(time)&&item?.remaining&&
+    (!ITEMS[item.kind].meal||atDiningTable())&&
     !ITEM_SLOTS.some(slot=>itemAnimating(me[slot],time)));
+}
+function atDiningTable(){
+  const bench=world?.benches[me.seat];
+  return Boolean(bench?.table&&bench.venueId===interiorAt(me.x,me.y));
+}
+function mealBiteLocked(time){
+  const tray=diningTray(me,time);
+  return Boolean(tray&&tray.itemAge<tray.spec.duration&&atDiningTable());
 }
 function feedingLocked(time){
   return Boolean(queuedFeed&&time-queuedFeed.at<FEED_MS||me.feed&&time-me.feed.at<FEED_MS);
@@ -1569,7 +1590,7 @@ function atIndoorStation(point,reach=2.8){return near(point,me.x,me.y)<reach&&cl
 function portalNearby(){
   if(!world||me.bus||isCycling(me)||queuedBus||queuedBike)return null;
   const inside=interiorAt(me.x,me.y);
-  const venues=inside?[venueAt(inside)]:[world.museum,mmcaVenue,diningVenue];
+  const venues=inside?[venueAt(inside)]:[world.museum,mmcaVenue,...diningVenues];
   for(const venue of venues){
     const door=inside?venue?.insideDoor:venue?.outsideDoor;
     if(door&&atIndoorStation(door,2.5))return {inside:Boolean(inside),venue};
@@ -1635,6 +1656,15 @@ function nearbyBikeDriver(){
   }
   return nearest;
 }
+function incomingBikeOffer(){
+  return tandemOffer?.driver===session?.id&&isBikeDriver(me)&&!me.bike.passenger?tandemOffer:null;
+}
+function acceptBikeOffer(offer,time){
+  const requester=people.get(offer.requester);
+  return Boolean(transportReady(time)&&requester&&
+    Math.hypot(me.vx||0,me.vy||0)<=bikePassengerBoardSpeed&&
+    near(requester.position,me.x,me.y)<=bikeMountReach&&canRideBikeSegment(requester.position,me));
+}
 function nearbyBusStop(){
   let closest=null,range=BUS_STOP_INFO_REACH;
   for(const stop of busStops){
@@ -1669,19 +1699,26 @@ function updateTransport(time){
   const stop=bus?busStopById(bus.stopId):world&&!riding?nearbyBusStop():null;
   const passenger=isBikePassenger(me),driver=isBikeDriver(me),dock=ready&&!passenger&&nearbyBikeDock();
   const boarding=boardableBus(time,ready);
-  const parked=me.bike?.parked,canRemount=nearbyParkedBike(),offeredRide=ready&&nearbyBikeDriver();
+  const parked=me.bike?.parked,canRemount=nearbyParkedBike();
   setActivity("bike-action",queuedBike?"따릉이 확인 중":dock&&(!me.bike||driver)?driver?"따릉이 반납하기":"따릉이 빌리기":null,Boolean(queuedBike));
   setActivity("bike-park",passenger?"뒷자리에서 내리기":ready?
-    driver?"따릉이에서 내리기":canRemount?"따릉이 다시 타기":offeredRide?"따릉이 뒷자리 타기":null:null,Boolean(queuedBike));
-  const rideButton=$("bike-park");
-  if(offeredRide)attr(rideButton,"aria-label",offeredRide.nickname+" 님 따릉이 뒷자리 타기");
+    driver?"따릉이에서 내리기":canRemount?"따릉이 다시 타기":null:null,Boolean(queuedBike));
+  const asking=tandemOffer?.requester===session.id,offeredRide=ready&&!asking&&nearbyBikeDriver();
+  setActivity("bike-tandem",asking?"동승 요청 취소":offeredRide?"자전거 동승 요청":null,Boolean(queuedBike));
+  const rideButton=$("bike-tandem");
+  if(offeredRide)attr(rideButton,"aria-label",offeredRide.nickname+" 님에게 자전거 동승 요청");
   else rideButton.removeAttribute("aria-label");
+  const incoming=incomingBikeOffer();
+  $("bike-offer").hidden=!incoming;
+  if(incoming)setText($("bike-offer-message"),(people.get(incoming.requester)?.nickname??"친구")+" 님이 자전거에 같이 타고 싶어 해요.");
+  $("bike-accept").disabled=!incoming||!acceptBikeOffer(incoming,time);
+  $("bike-decline").disabled=Boolean(queuedBike);
   const button=$("bus-action");
   setActivity("bus-action",queuedBus?"버스 확인 중":bus&&stop?"버스 내리기":boarding?"버스 타기":null,Boolean(queuedBus));
   if(boarding)attr(button,"aria-haspopup","dialog");else button.removeAttribute("aria-haspopup");
   const label=passenger?(people.get(me.bikeRide.driver)?.nickname??"친구")+" 님과 따릉이 동승 중":driver?
     me.bike.passenger?"따릉이 · 둘이 타는 중":"따릉이 이용 중 · 지정 대여소에서 반납":parked&&(dock||canRemount)?
-    `세워둔 따릉이 · ${travelTime(parked.at+bikeParkDuration-time)} 뒤 회수`:"";
+    `세워둔 따릉이 · ${travelTime(parked.at+bikeParkDuration-time)} 뒤 회수`:asking?"자전거 동승 수락을 기다리는 중":"";
   travelStatus.hidden=!label;setText(travelStatus,label);
   updateBusStatus(bus,stop,time);
   refreshBusSeats(time);
@@ -1711,12 +1748,24 @@ $("bike-park").addEventListener("click",()=>{
     if(!transportReady(gameTime()))return;
     if(isBikeDriver(me))queuedBike={action:"park"};
     else if(nearbyParkedBike())queuedBike={action:"mount"};
-    else{
-      const driver=nearbyBikeDriver();
-      if(!driver)return;
-      queuedBike={action:"ride",driver:driver.id};
-    }
+    else return;
   }
+  resetInput();wakeSync();focusGame();
+});
+$("bike-tandem").addEventListener("click",()=>{
+  if(!session||queuedBike)return;
+  if(tandemOffer?.requester===session.id)queuedBike={action:"cancelRide",id:tandemOffer.id};
+  else{
+    const driver=transportReady(gameTime())&&nearbyBikeDriver();
+    if(!driver)return;
+    queuedBike={action:"requestRide",id:token(),driver:driver.id};
+  }
+  resetInput();wakeSync();focusGame();
+});
+for(const action of ["accept","decline"])$("bike-"+action).addEventListener("click",()=>{
+  const offer=incomingBikeOffer();
+  if(!offer||queuedBike||action==="accept"&&!acceptBikeOffer(offer,gameTime()))return;
+  queuedBike={action:action+"Ride",id:offer.id};
   resetInput();wakeSync();focusGame();
 });
 function bikeLanding(avatar){
@@ -1756,7 +1805,10 @@ function confirmTransport(avatar,result,bus,bike){
     Object.assign(me,{x,y,heading,vx:0,vy:0,jump:0,vaultBase:null,blocked:false,running:false,up:false});
     if(x!==avatar.x||y!==avatar.y){dirty=true;wakeSync();}
     lastBikeHeading=me.bikeRide?avatar.heading:null;
-    if(me.bikeRide)ownView={...ownView,pan:avatar.heading};
+    if(me.bikeRide){
+      ownView={...ownView,pan:avatar.heading};
+      toast("따릉이 뒷자리에 탔어요. 운전하는 친구와 함께 이동해요.");
+    }
     else if(previousBikeDriver&&bike?.action!=="dismount")toast("따릉이 뒷자리에서 내렸어요.");
     setText($("location"),placeName(me));
   }
@@ -1776,10 +1828,11 @@ function confirmTransport(avatar,result,bus,bike){
     else if(outcome==="returned")toast("따릉이를 반납했어요.");
     else if(outcome==="parked")toast("따릉이를 세웠어요. 10분 안에 돌아와 다시 탈 수 있어요.");
     else if(outcome==="fell")showBikeFallTip();
-    else if(outcome==="riding")toast("따릉이 뒷자리에 탔어요. 운전하는 친구와 함께 이동해요.");
+    else if(outcome==="requested")toast("자전거 동승 요청을 보냈어요.");
+    else if(outcome==="accepted")toast("친구가 따릉이 뒷자리에 탔어요.");
     else if(outcome==="dismounted")toast("따릉이 뒷자리에서 내렸어요.");
     else if(outcome==="unavailable")toast(bike.action==="mount"?"세워둔 따릉이 가까이에서 다시 타 주세요.":
-      bike.action==="ride"?"가까이에 멈춰 있는 따릉이의 빈 뒷자리에 탈 수 있어요.":"지금은 따릉이를 이용할 수 없어요.");
+      bike.action==="requestRide"||bike.action==="acceptRide"?"서로 가까이에서 멈춘 뒤 다시 동승을 요청해 주세요.":"지금은 따릉이를 이용할 수 없어요.");
   }
 }
 const transitDialog=$("transit-dialog"),transitOptions=$("transit-options");
@@ -1850,13 +1903,11 @@ $("subway").addEventListener("click",()=>{
   transitDialog.showModal();
 });
 function nearbyExhibit(){
-  if(interiorAt(me.x,me.y)===mmcaVenue.id){
-    return mmcaExhibits.find(exhibit=>near(exhibit,me.x,me.y)<exhibit.radius);
-  }
-  const gallery=museumGalleryAt(me.x,me.y);
+  const modern=interiorAt(me.x,me.y)===mmcaVenue.id;
+  const gallery=modern?mmcaGalleryAt(me.x,me.y):museumGalleryAt(me.x,me.y);
   if(!gallery||!world)return null;
   let closest=null,gap=Infinity;
-  for(const exhibit of world.museum.exhibits){
+  for(const exhibit of modern?mmcaExhibits:world.museum.exhibits){
     if(exhibit.gallery!==gallery.id)continue;
     const distance=near(exhibit,me.x,me.y);
     if(distance<exhibit.radius&&distance<gap){closest=exhibit;gap=distance;}
@@ -1923,12 +1974,17 @@ function useHeldItem(slot){
   }
   me[slot]={...item,remaining:item.remaining-1,started:time};
   disableHeldActions();
+  if(spec.meal){resetInput();$("sit").disabled=true;}
   me.itemUse=slot;me.gesture=null;me.wave=0;
   if(spec.alcohol)alcoholSip={at:time+spec.duration,empty:item.remaining===1};
   dirty=true;wakeSync();focusGame();
 }
 ITEM_SLOTS.forEach((slot,index)=>$(useItemButtons[index]).addEventListener("click",()=>useHeldItem(slot)));
 function movePlayerTo(destination,place){
+  const before=interiorAt(me.x,me.y);
+  if(diningById[before]&&before!==interiorAt(destination.x,destination.y)){
+    for(const slot of ITEM_SLOTS)if(ITEMS[me[slot]?.kind]?.meal)me[slot]=null;
+  }
   resetInput();stand();
   const heading=destination.heading??me.heading;
   Object.assign(me,{x:destination.x,y:destination.y,heading,vx:0,vy:0,blocked:false,running:false,jump:0,vaultBase:null,up:false});
@@ -1950,18 +2006,23 @@ $("venue-guestbook").addEventListener("click",()=>{
   if(!session||!world||!venue)return;
   resetInput();guestbook.open(venue.id);
 });
-function atDiningMenu(){return interiorAt(me.x,me.y)===diningVenue.id&&atIndoorStation(diningVenue.menuPoint);}
+function atDiningMenu(){
+  const venue=diningById[interiorAt(me.x,me.y)];
+  return venue&&atIndoorStation(venue.menuPoint)?venue:null;
+}
 function takeMeal(kind){
-  const slot=freeItemSlot(me,gameTime());
-  if(!session||!atDiningMenu()||!menuDishes.some(dish=>dish.kind===kind))return "주문대 가까이에서 다시 주문해 주세요.";
-  if(!slot)return "두 손이 가득 찼어요.";
-  me[slot]={kind,remaining:ITEMS[kind].uses,started:0};dirty=true;wakeSync();
-  toast(ITEMS[kind].name+"을 받았어요. 빈자리에 앉아서 먹을 수 있어요.");
+  const time=gameTime(),venue=atDiningMenu();
+  if(!session||!venue?.dishes.some(dish=>dish.kind===kind))return "주문대 가까이에서 다시 주문해 주세요.";
+  if(!handsFree(me,time)||myLink()||queuedHand||me.seat!=null)return "두 손을 비운 뒤 트레이를 받아 주세요.";
+  me.item={kind,remaining:ITEMS[kind].uses,started:0};me.secondItem=null;me.itemUse=null;
+  me.gesture=null;me.wave=0;dirty=true;wakeSync();
+  toast("트레이를 받았어요. 빈 식탁에 앉아 식사하세요.");
   focusGame();return true;
 }
 $("dining-order").addEventListener("click",()=>{
-  if(!session||!world||!atDiningMenu()||!freeItemSlot(me,gameTime()))return;
-  resetInput();diningMenu.open();
+  const venue=atDiningMenu();
+  if(!session||!world||!venue||myLink()||queuedHand||!handsFree(me,gameTime()))return;
+  resetInput();diningMenu.open(venue);
 });
 $("mmca-light").addEventListener("click",()=>{
   if(!session||nearbyExhibit()?.id!=="colors")return;
@@ -2119,7 +2180,7 @@ function updateActivities(time,guideNearby){
   const landmark=eligible&&nearbyPalaceGuide(me);
   setActivity("landmark-guide",landmark?"설명 읽기":null);
   if(landmark)attr($("landmark-guide"),"aria-label",landmark.title+" 설명 읽기");
-  $("jump").disabled=!eligible||riding||feeding||sharingUmbrella()||clinkLocked(time)||sickLocked(time)||time-me.jump<jumpDuration(me);
+  $("jump").disabled=!eligible||riding||feeding||sharingUmbrella()||clinkLocked(time)||sickLocked(time)||Boolean(diningTray(me,time))||time-me.jump<jumpDuration(me);
   const atFountain=nearWishFountain();
   if($("wish").hidden===Boolean(atFountain))$("wish").hidden=$("wish").disabled=!atFountain;
   const cat=eligible&&me.seat==null&&!myLink()?.active&&world.parkLife.nearestCat(me.x,me.y);
@@ -2136,9 +2197,10 @@ function updateActivities(time,guideNearby){
   ITEM_SLOTS.forEach((slot,index)=>{
     const item=eligible&&me[slot],spec=item&&ITEMS[item.kind],churu=item?.kind==="churu";
     const feedingHere=feeding&&slot===feedSlot;
-    const button=$(useItemButtons[index]),hand=handLabel(slot);
+    const button=$(useItemButtons[index]),hand=spec?.meal?"식사 트레이":handLabel(slot);
     const action=feedingHere?(queuedFeed?"주는 중":"먹는 중"):
-      churu&&!nearbyFeedCat?"고양이 찾기":spec?.verb;
+      churu&&!nearbyFeedCat?"고양이 찾기":spec?.meal?(!atDiningTable()?"식탁에 앉아 먹기":itemAnimating(item,time)?"식사 중":
+        spec.utensil==="chopsticks"?"젓가락으로 먹기":"숟가락으로 먹기"):spec?.verb;
     button.hidden=!spec;
     button.disabled=!canUseItem(time,slot)||churu&&(!nearbyFeedCat||time-(me.pet?.at??0)<PET_MS);
     if(spec){
@@ -2151,10 +2213,12 @@ function updateActivities(time,guideNearby){
   const stop=eligible&&nearbyTransit();
   setActivity("subway",stop?"지하철 타기":null,riding||feeding||Boolean(myLink()?.active));
   const portal=eligible&&portalNearby();
-  const entrance=portal?.venue===mmcaVenue?"미술관 입장":portal?.venue===diningVenue?"식당 입장":"입장하기";
+  const entrance=portal?.venue===mmcaVenue?"미술관 입장":diningById[portal?.venue?.id]?"식당 입장":"입장하기";
   setActivity("museum-door",portal?(portal.inside?"나가기":entrance):null,feeding||Boolean(myLink()?.active));
   setActivity("venue-guestbook",eligible&&guestbookVenue()?"방명록":null);
-  setActivity("dining-order",eligible&&atDiningMenu()?"메뉴 보기":null,busy||!free);
+  const menu=eligible&&atDiningMenu(),emptyHands=handsFree(me,time);
+  setActivity("dining-order",menu?(emptyHands?"메뉴 보기":diningTray(me,time)?"트레이를 들고 있어요":"두 손을 비워 주세요"):null,
+    busy||!emptyHands||Boolean(myLink()||queuedHand));
   const exhibit=eligible&&nearbyExhibit();
   setActivity("museum-exhibit",exhibit?"작품 설명":null);
   if(exhibit)attr($("museum-exhibit"),"aria-label",exhibit.title+" 작품 설명");
@@ -2190,7 +2254,7 @@ function walkCourse(speed){
   }
 }
 function motion(now,elapsed){
-  if(riding)return false;
+  if(riding||mealBiteLocked(gameTime(now)))return false;
   if(me.bus){
     const bus=busAt(me.bus.index,gameTime(now)),seat=busSeatPose(bus,me.bus.seat);
     if(!seat)return false;
@@ -2325,6 +2389,7 @@ function preferredPeerAction(time){
   const link=myLink();
   if(link?.active)return isUmbrellaLink(link)?"share-umbrella":"hand";
   if(joinablePhoto(time))return "photo-join";
+  if(!$("bike-tandem").hidden)return "bike-tandem";
   if(!$("share-umbrella").hidden)return "share-umbrella";
   if(!$("clink").hidden&&!$("clink").disabled)return "clink";
 }
@@ -2369,9 +2434,10 @@ function frame(now){
     tutorial.update(now,tutorialPaused);
     const seatEnabled=world&&session&&!me.bus&&!isCycling(me)&&!queuedBus&&!queuedBike&&!myLink()?.active&&!feedingLocked(time);
     const bench=seatEnabled&&me.seat==null&&!pendingSeat&&!seatClaim?benchNearby():null;
-    const seatLabel=me.seat!=null?"일어나기":seatClaim?"자리 확인 중":pendingSeat?(interiorAt(me.x,me.y)===diningVenue.id?"식탁으로 이동 중":"벤치로 이동 중"):
+    const eating=mealBiteLocked(time);
+    const seatLabel=me.seat!=null?(eating?"식사 중":"일어나기"):seatClaim?"자리 확인 중":pendingSeat?(diningById[interiorAt(me.x,me.y)]?"식탁으로 이동 중":"벤치로 이동 중"):
       bench?.choice?"앉기":bench?.nearby?"빈자리 없음":null;
-    setActivity("sit",seatEnabled?seatLabel:null,me.seat==null&&!bench?.choice);
+    setActivity("sit",seatEnabled?seatLabel:null,eating||me.seat==null&&!bench?.choice);
     attr($("sit"),"aria-pressed",me.seat!=null);
     setText($("game-place"),$("location").textContent);
     const area=outdoorMap(me),jeongdong=area==="덕수궁";
@@ -2412,7 +2478,7 @@ function drawIndoorMap(base,venue,galleries,mini){
     svg(layer,"text",{x:(room.minX+room.maxX)/2,y:(room.minY+room.maxY)/2+1.1,fill:"#fff8ec",
       "text-anchor":"middle","font-size":mini?4.15:3.25,"pointer-events":"none"},mini?room.shortName:room.name);
   }
-  if(venue===diningVenue){
+  if(diningById[venue.id]){
     for(const table of diningTables)svg(layer,"rect",{x:venue.center.x+table.x-1.15,y:venue.center.y+table.z-.69,
       width:2.3,height:1.38,rx:.25,fill:"#d0ab79"});
   }
@@ -2505,7 +2571,7 @@ function drawMap(base,mini=false){
   }
   svg(interior,"line",{x1:78.4,x2:81.6,y1:maxY,y2:maxY,stroke:"#d4b985","stroke-width":1.6});
   drawIndoorMap(base,mmcaVenue,mmcaGalleryRooms,mini);
-  drawIndoorMap(base,diningVenue,[],mini);
+  for(const venue of diningVenues)drawIndoorMap(base,venue,[],mini);
   if(mini){
     for(const [point,label,dy] of [[ticket,"매표소",-6],[hall,"중화전",-6],
       [stoneHall,"석조전",-6],[fountain,"정동 분수",10],[seoulPlazaApproach,"서울광장",-6]]){
@@ -2793,7 +2859,7 @@ function drawDestinations(world){
   const layer=$("map-landscape");
   const doors=[...world.stations,{...world.museum.outsideDoor,name:"전시관 입구"},
     {...mmcaVenue.outsideDoor,name:"국립현대미술관 입구",area:"bukchon"},
-    {...diningVenue.outsideDoor,name:diningVenue.name,area:"bukchon"}];
+    ...diningVenues.map(venue=>({...venue.outsideDoor,name:venue.name,area:venue.area}))];
   for(const point of doors){
     const mark=svg(layer,"g",{"data-walk-x":point.x,"data-walk-y":point.y});
     const regional=Boolean(point.area);

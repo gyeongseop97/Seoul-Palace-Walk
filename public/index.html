@@ -198,6 +198,7 @@
             <div id="peer-actions" class="nearby-actions" role="group" aria-label="동행 행동" tabindex="-1" data-scroll-actions hidden>
               <button id="hand" type="button" class="quiet" hidden>손잡기</button>
               <button id="share-umbrella" type="button" class="quiet" hidden>우산 같이 쓰기</button>
+              <button id="bike-tandem" type="button" class="quiet" hidden>자전거 동승 요청</button>
               <button id="clink" type="button" class="quiet" hidden>건배하기</button>
               <button id="photo-join" type="button" class="quiet" hidden>단체 사진 함께 찍기</button>
             </div>
@@ -247,6 +248,10 @@
           <div id="clink-offer" class="hand-offer" role="group" aria-label="건배 요청" hidden>
             <p id="clink-message" role="status"></p>
             <div><button id="clink-decline" type="button" class="quiet">거절</button><button id="clink-accept" type="button" class="primary">건배하기</button></div>
+          </div>
+          <div id="bike-offer" class="hand-offer" role="group" aria-label="자전거 동승 요청" hidden>
+            <p id="bike-offer-message" role="status"></p>
+            <div><button id="bike-decline" type="button" class="quiet">거절</button><button id="bike-accept" type="button" class="primary">수락</button></div>
           </div>
           <div class="location-guides">
             <div id="hand-status" class="hand-status" role="status" hidden></div>
@@ -480,7 +485,7 @@
       <section><h3>돌담길 연주와 사진 모드</h3><p>정동 분수로 가는 길에 버스킹이 열려요. <strong>사진 모드</strong>는 어디서나 열 수 있고, 친구가 가까이에 있으면 단체 사진도 찍을 수 있어요. 사진 카드에는 날짜와 장소가 들어가요.</p></section>
       <section><h3>소원등과 스파클</h3><p>정동 분수대와 경복궁 향원정에서 <strong>소원등</strong>을 눌러 네 면을 꾸미고 지금 서 있는 곳에서 띄워 보세요. 석조전 분수와 경회루 옆 좌판에서는 스파클을 받아 <strong>사용하기</strong>를 누르면 손에 든 폭죽이 반짝여요.</p></section>
       <section><h3>석조전 서관 전시관</h3><p>계단을 올라 문 앞에서 <strong>입장하기</strong>를 누르세요. 삼국·통일신라부터 근대까지 한국 그림과 공예품을 시대별로 볼 수 있어요. 전시품 가까이에서 <strong>작품 설명</strong>을 열어 보세요.</p></section>
-      <section><h3>북촌 미술관과 식당</h3><p>삼청로의 국립현대미술관 서울에서 역대 전시를 바탕으로 만든 설치·회화 작품 여섯 점을 만나 보세요. 북촌 작은 식탁에서는 비빔밥이나 버섯 국밥을 주문하고 자리에 앉아 먹을 수 있어요. 두 곳 모두 입구 안쪽에서 같은 방 친구들과 함께 보는 <strong>방명록</strong>에 글을 남길 수 있어요.</p></section>
+      <section><h3>미술관과 동네 식당</h3><p>북촌의 국립현대미술관 서울에서 서도호, 데이미언 허스트, 론 뮤익 등 역대 전시를 바탕으로 만든 작품을 만나 보세요. 정동에서는 메밀국수, 광화문에서는 장국밥, 북촌에서는 수제비를 주문할 수 있어요. 양손으로 트레이를 받아 식탁에 앉은 뒤 <strong>먹기</strong>를 누르세요. 미술관과 식당에는 같은 방 친구와 함께 쓰는 <strong>방명록</strong>이 있어요.</p></section>
       <section><h3>길에서 만나는 가게</h3><p>광화문에서는 팥빙수·붕어빵·하이볼을, 북촌에서는 꿀떡·매실주를 받아요. 기존 커피, 크레페, 맥주, 약과, 막걸리와 와인도 즐길 수 있어요. 지도에서 가게 이름을 누르면 입구로 걸어갑니다.</p></section>
       <section><h3>고양이와 새</h3><p>고양이에게 천천히 다가가 <strong>쓰다듬기</strong>를 눌러 보세요. 츄르를 들고 기다리면 다가오는 고양이에게 <strong>간식 주기</strong>를 할 수 있어요. 친해진 고양이는 잠깐 멈춰 기다리면 먼저 다가오기도 해요. 산책길에서는 까치와 비둘기가 바닥을 쪼거나 나무에 쉬는 모습도 볼 수 있어요.</p></section>
       <section><h3>잔디밭 피크닉과 우산</h3><p>광화문광장 육조마당 잔디밭에서 <strong>돗자리 펴기</strong>를 누르고 음식이나 음료를 한 몫씩 나눠 보세요. 비나 눈이 오면 가까운 친구에게 <strong>우산 같이 쓰기</strong>를 요청할 수 있어요. 친구가 수락하면 우산을 든 사람이 앞장서요.</p></section>

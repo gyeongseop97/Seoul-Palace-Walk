@@ -1,7 +1,10 @@
 import {mmcaExhibits,mmcaGalleryRooms,mmcaVenue,mmcaWalls} from "./mmca-gallery-layout.js";
+import {addHirstWork} from "./mmca-hirst.js";
+import {buildMueckSculpture} from "./mmca-mueck.js";
 
 const finish={walls:0xe8e6e1,ceiling:0x5d6064,metal:0x353a41,trim:0x777c7e};
-const exhibitColors={home:0xa2c7c1,colors:0xd0a3bc,objects:0xe3ba70,weave:0x7bafac,tide:0x448ead,wind:0x92a3bb};
+const exhibitColors={home:0xa2c7c1,"home-passage":0xc4a5c8,colors:0xd0a3bc,objects:0xe3ba70,
+  weave:0x7bafac,tide:0x448ead,wind:0x92a3bb,skull:0x9cacc3,shark:0x75c8c8,mueck:0xb99584};
 const ceilingHeight=6.7;
 
 export function* buildMmcaGallery(T,root,{wx,wz}){
@@ -11,7 +14,8 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
   const cylinderGeometry=new T.CylinderGeometry(1,1,1,24);
   const sphereGeometry=new T.SphereGeometry(1,14,10);
   const torusGeometry=new T.TorusGeometry(1,.035,7,48);
-  const animated=[];
+  const animated=[],fabrics=new Map();
+  let weaveMap;
   function material(color,flat=false){
     const key=color+(flat?0x1000000:0);
     if(!materials.has(key))materials.set(key,flat?new T.MeshBasicMaterial({color,toneMapped:false}):
@@ -100,7 +104,7 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
   const lobbyY=mmcaVenue.insideSpawn.y;
   block(0x30383e,centerX,4.65,lobbyY-5.4,9.25,1.55,.20);
   label(["국립현대미술관 서울","서울관 전시의 기억 · 게임 특별전"],centerX,4.65,lobbyY-5.26,8.9,1.45,0,"#9ac2b3",true);
-  label(["전시실 안내","여섯 개의 작품을 따라 걸어 보세요"],centerX,2.45,minY+.177,7.5,1.0);
+  label(["왼쪽  데이미언 허스트 관","오른쪽  론 뮤익 관"],centerX,2.45,minY+.177,7.5,1.0);
   for(const x of [hallLeft+.27,hallRight-.27]){
     block(0x646a6e,x,.022,centerY,.08,.016,maxY-minY-1.4);
     block(finish.metal,x,ceilingHeight-.37,centerY,.16,.16,maxY-minY-1);
@@ -125,12 +129,18 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
     yield;
     const {minX:left,maxX:right,minY:front,maxY:back,doorX,doorY}=room;
     const west=doorX<centerX,roomX=(left+right)/2;
-    const id=room.exhibitId??room.id;
-    const exhibit=byId.get(id)??mmcaExhibits.find(item=>item.x>left&&item.x<right&&item.y>front&&item.y<back);
-    if(!exhibit)continue;
+    const exhibit=byId.get(room.exhibitId??room.id);
     const accent=exhibitColors[exhibit.id],stripe=`#${accent.toString(16).padStart(6,"0")}`;
+    if(room.id==="hirst"){
+      block(0x263141,roomX,.024,(front+back)/2,right-left-.22,.022,back-front-.23);
+      block(0x243041,left+.20,3.16,(front+back)/2,.14,6.19,back-front-.28);
+      for(const y of [front+.24,back-.22])block(0x374457,roomX,3.16,y,right-left-.26,6.19,.12);
+    }else if(room.id==="mueck"){
+      block(0x9e8d80,roomX,.021,(front+back)/2,right-left-.22,.016,back-front-.23);
+      block(0xc9b6a5,right-.18,3.15,(front+back)/2,.13,6.17,back-front-.30);
+    }
     block(0x424953,doorX,5.32,doorY,.32,2.76,6.1);
-    label([room.name??exhibit.title,"아카이브 전시 · 오마주"],doorX+(west?.176:-.176),4.56,doorY,5.7,.91,
+    label([room.name,"게임 오마주"],doorX+(west?.176:-.176),4.56,doorY,5.7,.91,
       west?Math.PI/2:-Math.PI/2,stripe,true);
     block(accent,doorX,.028,doorY,.36,.022,5.68);
     block(0xcdd0cc,roomX,ceilingHeight-.22,(front+back)/2,right-left-.66,.14,back-front-.62);
@@ -139,7 +149,9 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
       block(0xf7f3e3,roomX,ceilingHeight-.50,y,right-left-5.1,.041,.105);
     }
     block(accent,west?left+.17:right-.17,2.82,(front+back)/2,.06,3.46,Math.min(10,back-front-3));
-    label([exhibit.title,exhibit.credit],west?left+.215:right-.215,2.72,(front+back)/2,6.9,1.45,
+    const roomWorks=mmcaExhibits.filter(work=>work.gallery===room.id);
+    const wallCopy=roomWorks.length===1?[exhibit.title,exhibit.credit]:roomWorks.map(work=>work.title);
+    label(wallCopy,west?left+.286:right-.286,2.72,(front+back)/2,6.9,1.45,
       west?Math.PI/2:-Math.PI/2,stripe);
   }
 
@@ -147,10 +159,17 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
   const fill=new T.DirectionalLight(0xcae4ff,1.35);fill.position.set(9,12,-8);gallery.add(fill);
   for(const exhibit of mmcaExhibits){
     yield;
+    if(exhibit.gallery==="hirst"){
+      addHirstWork(T,gallery,{wx,wz},exhibit);
+      const skull=exhibit.id==="skull";
+      label([exhibit.title],exhibit.x,.64,exhibit.y+(skull?1.28:2.57),2.9,.45,0,"#77a7af",true);
+      continue;
+    }
     const art=group(wx(exhibit.x),0,wz(exhibit.y));art.name=exhibit.title;
-    if(exhibit.id==="home"){
-      block(0x748b86,exhibit.x,.024,exhibit.y,4.74,.018,4.83);
-      block(0xb4c1b8,exhibit.x,.036,exhibit.y,1.86,.014,4.89);
+    if(exhibit.id==="home"||exhibit.id==="home-passage"){
+      const house=exhibit.id==="home";
+      block(house?0x7f9994:0x9d8eaa,exhibit.x,.022,exhibit.y,house?6.64:4.08,.014,6.48);
+      block(house?0xb4c9bf:0xc4bbc5,exhibit.x,.033,exhibit.y,house?1.89:2.26,.012,6.52);
     }else{
       block(0x303b42,exhibit.x,.115,exhibit.y,5.75,.23,5.52);
       block(exhibitColors[exhibit.id],exhibit.x,.235,exhibit.y,5.61,.028,5.38);
@@ -158,11 +177,13 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
     }
     switch(exhibit.id){
       case "home": makeHome(art);batchArt(art);break;
+      case "home-passage": makeHomePassage(art);batchArt(art);break;
       case "colors": makeColorLight(art);break;
       case "objects": makeObjects(art);batchArt(art);break;
       case "weave": makeWeave(art);batchArt(art);break;
       case "tide": makeTide(art);break;
       case "wind": makeWind(art);break;
+      case "mueck":art.rotation.y=-Math.PI*.28;buildMueckSculpture(T,art);break;
     }
   }
 
@@ -188,23 +209,183 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
     }
   }
 
-  function makeHome(parent){
-    const glassColors=[0x5d9c98,0x86c5be,0xccad87,0x8184a3,0x86b2ad];
-    for(let i=0;i<glassColors.length;i++){
-      const frame=group((i-2)*.067,0,(i-2)*.85,parent);
-      frame.rotation.y=(i-2)*.058;frame.scale.setScalar(1-i*.035);
-      const color=glassColors[i];
-      const pane=new T.MeshStandardMaterial({color,transparent:true,opacity:.36,side:T.DoubleSide,
-        depthWrite:false,roughness:.94,metalness:0});
-      for(const side of [-1,1]){
-        box(0x576967,side*1.48,.10,0,.71,.14,.31,frame);
-        box(color,side*1.58,1.56,0,.11,2.5,.13,frame);
-        box(color,side*.83,3.25,0,1.67,.12,.13,frame).rotation.z=side*-.47;
-        mesh(new T.PlaneGeometry(.65,2.37),pane,side*1.25,1.58,0,frame);
-        for(let seam=0;seam<4;seam++)box(color,side*(1.56-seam*.15),1.53,.009,.022,2.30,.021,frame);
+  function fabric(color,opacity){
+    const key=`${color}/${opacity}`;
+    if(fabrics.has(key))return fabrics.get(key);
+    if(!weaveMap){
+      const size=32,data=new Uint8Array(size*size*4);
+      for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+        const cell=(y*size+x)*4,dark=x%8<2||y%8===0;
+        const fiber=(dark?176:246)+((x*17+y*13)%21)-10;
+        data.set([fiber,fiber,fiber,255],cell);
       }
-      box(color,0,2.80,0,3.21,.10,.13,frame);
-      mesh(new T.PlaneGeometry(2.84,.23),pane,0,2.65,0,frame);
+      weaveMap=new T.DataTexture(data,size,size);weaveMap.colorSpace=T.SRGBColorSpace;
+      weaveMap.wrapS=weaveMap.wrapT=T.RepeatWrapping;weaveMap.generateMipmaps=true;
+      weaveMap.magFilter=T.LinearFilter;weaveMap.minFilter=T.LinearMipmapLinearFilter;weaveMap.needsUpdate=true;
+    }
+    const surface=new T.MeshBasicMaterial({map:weaveMap,color,transparent:true,opacity,
+      side:T.DoubleSide,depthWrite:false,forceSinglePass:true,toneMapped:false});
+    fabrics.set(key,surface);return surface;
+  }
+  function cloth(width,height,x,y,z,turn,material,parent){
+    const plane=new T.PlaneGeometry(width,height,6,6);
+    const uv=plane.getAttribute("uv"),points=plane.getAttribute("position");
+    for(let i=0;i<points.count;i++){
+      const u=uv.getX(i),v=uv.getY(i);
+      points.setZ(i,.025*Math.sin(u*Math.PI)*Math.sin(v*Math.PI)*Math.sin(v*17+u*6));
+      uv.setXY(i,u*width*17,v*height*17);
+    }
+    const panel=mesh(plane,material,x,y,z,parent);panel.rotation.y=turn;return panel;
+  }
+  function seams(color,paths,parent){
+    const positions=[];
+    for(const path of paths)for(let index=1;index<path.length;index++)positions.push(...path[index-1],...path[index]);
+    const geometry=new T.BufferGeometry();
+    geometry.setAttribute("position",new T.Float32BufferAttribute(positions,3));
+    parent.add(new T.LineSegments(geometry,new T.LineBasicMaterial({color,transparent:true,opacity:.84,depthWrite:false})));
+  }
+  function framePanel(panel,w,h,color,onFabric=false){
+    const {parent}=panel,wire=group(panel.position.x,panel.position.y,panel.position.z,parent);
+    wire.rotation.copy(panel.rotation);
+    for(const side of [-1,1]){
+      box(color,side*w/2,0,0,.036,h+.032,.039,wire);
+      box(color,0,side*h/2,0,w,.036,.039,wire);
+    }
+    if(onFabric){
+      seams(color,[-.021,.021].flatMap(z=>[-1,1].flatMap(side=>[
+        [[side*(w/2-.067),-h/2+.062,z],[side*(w/2-.067),h/2-.062,z]],
+        [[-w/2+.062,side*(h/2-.063),z],[w/2-.062,side*(h/2-.063),z]],
+      ])),wire);
+    }
+    return wire;
+  }
+  function clothRoof(parent,width,depth,eave,rise,material,color){
+    for(const side of [-1,1]){
+      const point=(across,along)=>[side*across*width,eave+rise*(1-across)**1.52+
+        .21*across**5+.17*across**3*along**4,along*depth];
+      const positions=[],uvs=[],indices=[],ribs=[];
+      for(let j=0;j<=8;j++)for(let i=0;i<=8;i++){
+        positions.push(...point(i/8,(j-4)/4));uvs.push(i*width*1.8,j*depth*3.6);
+        if(i&&j){const vertex=j*9+i;indices.push(vertex-10,vertex-9,vertex,vertex-10,vertex,vertex-1);}
+      }
+      const fabricSheet=new T.BufferGeometry();
+      fabricSheet.setAttribute("position",new T.Float32BufferAttribute(positions,3));
+      fabricSheet.setAttribute("uv",new T.Float32BufferAttribute(uvs,2));fabricSheet.setIndex(indices);
+      mesh(fabricSheet,material,0,0,0,parent);
+      for(let j=0;j<=16;j++){
+        const along=(j-8)/8;
+        ribs.push(Array.from({length:13},(_,i)=>{
+          const [x,y,z]=point(i/12,along);return [x,y+.018,z];
+        }));
+      }
+      for(const edge of [.017,.96,1]){
+        ribs.push(Array.from({length:17},(_,i)=>point(edge,(i-8)/8)));
+      }
+      seams(color,ribs,parent);
+      for(const z of [-.91,0,.91]){
+        const x=side*(width-.24);
+        box(color,x,eave-.04,z*depth,.24,.10,.25,parent);
+        box(color,x,eave-.14,z*depth,.17,.10,.17,parent);
+      }
+    }
+  }
+  function makeHome(parent){
+    const sea=0x529283,wood=0x80b6a3,stitch=0xb1d0bb,brass=0xccad7d;
+    const screen=fabric(0x86bea9,.35),transom=fabric(0x9dcfc0,.43),roof=fabric(0x72b6a6,.45);
+    clothRoof(parent,3.30,3.19,3.23,1.06,roof,sea);
+    box(sea,0,4.29,0,.065,.07,6.39,parent);
+    for(const side of [-1,1]){
+      for(const offset of [-2.72,0,2.72]){
+        box(sea,side*2.88,1.625,offset,.104,3.25,.149,parent);
+        box(wood,side*2.88,.22,offset,.155,.36,.193,parent);
+        box(stitch,side*2.88,2.98,offset,.181,.115,.206,parent);
+      }
+      for(const sideZ of [-1,1]){
+        const wall=cloth(2.62,2.64,side*2.88,1.51,sideZ*1.36,Math.PI/2,screen,parent);
+        const lattice=framePanel(wall,2.62,2.64,sea,true);
+        for(let index=-4;index<=4;index++){
+          const track=index*.24;
+          box(wood,track,.33,0,.028,1.56,.030,lattice);
+          box(stitch,track,-.73,0,.018,.48,.026,lattice);
+        }
+        for(const y of [-.925,-.53,-.41,.095,.57,1.08])box(wood,0,y,0,2.59,.031,.037,lattice);
+        const front=cloth(1.76,2.65,side*1.98,1.51,sideZ*2.72,0,screen,parent);
+        const window=framePanel(front,1.76,2.65,sea,true);
+        for(let i=-3;i<=3;i++)box(wood,i*.206,.31,0,.023,1.65,.031,window);
+        for(const y of [-.56,-.407,.235,.79,1.13])box(wood,0,y,0,1.74,.029,.03,window);
+        const pull=ring(brass,-side*.65,-.20,.037,.085,window);
+        pull.scale.y*=.85;
+      }
+      box(sea,side*2.88,3.04,0,.152,.15,5.56,parent);
+      box(stitch,side*2.883,2.89,0,.043,.055,5.41,parent);
+    }
+    for(const end of [-2.72,2.72]){
+      const crossbar=cloth(5.66,.39,0,2.97,end,0,transom,parent);
+      const frame=framePanel(crossbar,5.66,.39,sea,true);
+      for(let i=-11;i<=11;i++)box(wood,i*.234,0,0,.024,.35,.03,frame);
+    }
+    const inner=group(0,0,.62,parent),innerEdge=0xb39670;
+    const gold=fabric(0xdcc298,.42),goldRoof=fabric(0xe2cfa4,.44);
+    clothRoof(inner,2.04,1.57,2.42,.67,goldRoof,innerEdge);
+    for(const side of [-1,1]){
+      const sidePanel=cloth(2.65,2.07,side*1.71,1.3,0,Math.PI/2,gold,inner);
+      const lattice=framePanel(sidePanel,2.65,2.07,innerEdge,true);
+      for(let i=-5;i<=5;i++)box(innerEdge,i*.22,.22,0,.023,1.51,.022,lattice);
+      for(const y of [-.76,-.43,.02,.47,.91])box(innerEdge,0,y,0,2.63,.027,.027,lattice);
+      for(const z of [-1.33,1.33])box(innerEdge,side*1.71,1.21,z,.09,2.42,.10,inner);
+    }
+    for(const z of [-1.33,1.33]){
+      box(innerEdge,0,2.37,z,3.48,.115,.102,inner);
+      for(const side of [-1,1])box(0xdbca9f,side*1.56,2.24,z,.39,.065,.13,inner);
+    }
+    // Tension cords draw the outline of the suspended cloth up toward the gallery ceiling.
+    seams(0x718c84,[[-1,-1],[-1,1],[1,-1],[1,1]].map(([x,z])=>[[x*2.66,3.44,z*2.82],[x*2.66,6.30,z*2.82]]),parent);
+  }
+  function makeHomePassage(parent){
+    const sections=[
+      {z:-2.07,h:3.36,trim:0xa96d6b,threads:0xe5bdb0,color:0xeab5a0},
+      {z:0,h:3.57,trim:0x80679a,threads:0xc8b3dc,color:0xc1a5d7},
+      {z:2.07,h:3.18,trim:0x478a83,threads:0x9ac2ac,color:0x8eb9ab},
+    ];
+    for(const {z,h,trim,threads,color} of sections){
+      const segment=group(0,0,z,parent),pane=fabric(color,.43),shade=fabric(color,.54);
+      const ceiling=cloth(3.78,2.06,0,h,.0,0,pane,segment);ceiling.rotation.x=-Math.PI/2;
+      for(const edge of [-1,1]){
+        const side=cloth(2.06,h-.30,edge*1.89,h/2+.07,0,Math.PI/2,pane,segment);
+        framePanel(side,2.06,h-.30,trim,true);
+        box(trim,edge*1.89,.18,0,.062,.09,2.08,segment);
+        for(const face of [-1,1]){
+          box(trim,edge*1.89,h/2,face*1.035,.07,h,.078,segment);
+          box(threads,edge*1.84,h/2,face*.988,.022,h-.23,.023,segment);
+        }
+        const window=cloth(.88,.95,edge*1.86,2.00,edge*.19,Math.PI/2,shade,segment);
+        const rail=framePanel(window,.88,.95,trim,true);
+        for(const slat of [-1,0,1])box(threads,0,slat*.235,0,.87,.025,.022,rail);
+        box(threads,0,0,0,.024,.945,.025,rail);
+        const lining=cloth(.72,1.88,edge*1.842,1.262,-edge*.51,Math.PI/2,shade,segment);
+        const liningFrame=framePanel(lining,.72,1.88,trim,true);
+        box(threads,edge*.18,-.23,.048,.12,.040,.042,liningFrame);
+        box(threads,-edge*.23,-.225,-.05,.118,.048,.046,liningFrame);
+        for(const [y,depth] of [[1.31,edge*.77],[.49,edge*.62]]){
+          box(trim,edge*1.840,y,depth,.03,.155,.103,segment);
+          box(threads,edge*1.819,y+.025,depth,.015,.039,.039,segment);
+          box(threads,edge*1.819,y-.029,depth,.014,.025,.031,segment);
+        }
+      }
+      for(const end of [-1.032,1.032]){
+        box(trim,0,h-.047,end,3.83,.104,.097,segment);
+        box(threads,0,h-.124,end,3.72,.021,.097,segment);
+        const ribbon=cloth(3.68,.38,0,h-.274,end,0,shade,segment);
+        framePanel(ribbon,3.68,.38,trim,true);
+      }
+      for(const x of [-1.70,1.70]){
+        seams(0x9d9ea1,[[[x,h,.0],[x,6.28,.0]]],segment);
+        box(threads,x,.04,0,.036,.027,1.99,segment);
+      }
+    }
+    for(const y of [-2.99,-1.045,1.045,2.99]){
+      box(0x9d92aa,0,.045,y,3.64,.015,.085,parent);
+      for(const x of [-1.58,1.58])box(0xf0d9bf,x,.054,y,.36,.014,.065,parent);
     }
   }
 

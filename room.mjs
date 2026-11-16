@@ -5,7 +5,8 @@ import {BIKE_FALL_DURATION_MS,GESTURE_DURATIONS,MAX_ALCOHOL_DRINKS,MAX_ALCOHOL_L
 import {interiorAt} from "./public/interior-layout.js";
 import {BUS_COUNT,BUS_SEATS,BUS_BOARD_REACH,busAt,busStopById,busSeatPose} from "./public/sejong-bus.js";
 import {bikeDockReach,bikeDocks,bikeMountReach,bikeParkDuration,bikePassengerPose} from "./public/sejong-bike.js";
-import {bikePassenger,boardBikePassenger,dismountBikePassenger,dropBikePassengers,mountedBike,refreshBikePassenger,ridingBike} from "./server/bike-passengers.mjs";
+import {acceptBikeRide,bikePassenger,closeBikeOffer,dismountBikePassenger,dropBikePassengers,ensureBikeOffers,
+  leaveBikeOffers,mountedBike,refreshBikePassenger,requestBikeRide,ridingBike,selectBikeOffer} from "./server/bike-passengers.mjs";
 import {HEADWEAR,KEEPSAKES} from "./public/wearable-options.js";
 import {GITHUB_PAGES_ORIGIN} from "./public/hosting.js";
 import {ensureSocialTables} from "./database/social-schema.mjs";
@@ -84,7 +85,10 @@ const busSeat = seat => Number.isInteger(seat)&&seat>=0&&seat<BUS_SEATS;
 const validBus = bus => bus?.action==="board"?busIndex(bus.index)&&busSeat(bus.seat):
   bus?.action==="exit"&&(bus.index==null||busIndex(bus.index));
 const docksById=new Map(bikeDocks.map(dock=>[dock.id,dock]));
-const validBike = (bike,id) => bike?.action==="ride"?validId(bike.driver)&&bike.driver!==id:
+const tandemActions=new Set(["requestRide","acceptRide","declineRide","cancelRide"]);
+const validBike = (bike,id) => tandemActions.has(bike?.action)?validId(bike.id)&&
+  (bike.action!=="requestRide"||validId(bike.driver)&&bike.driver!==id):
+  bike?.action==="ride"?validId(bike.driver)&&bike.driver!==id:
   bike?.action==="park"||bike?.action==="mount"||bike?.action==="fall"||bike?.action==="dismount"||
   (bike?.action==="take"||bike?.action==="return")&&docksById.has(bike.dock);
 const parkedBikeTime="json_extract(avatar,'$.bike.parked.at')";
@@ -431,7 +435,7 @@ function transportAvatar(row,now){
   return avatar;
 }
 
-function transportResult(bus,bike,avatar,walkers,id,now){
+function transportResult(bus,bike,avatar,walkers,id,now,bikeOffer,bikeReply){
   if(!bus&&!bike)return undefined;
   const result={};
   if(bus?.action==="board"){
@@ -442,7 +446,9 @@ function transportResult(bus,bike,avatar,walkers,id,now){
   }else if(bus)result.bus=avatar.bus?"unavailable":"exited";
   if(bike){
     const rental=avatar.bike,mounted=rental&&!rental.parked;
-    if(bike.action==="ride")result.bike=avatar.bikeRide?.driver===bike.driver?"riding":"unavailable";
+    if(bike.action==="ride")result.bike="consentRequired";
+    else if(bike.action==="requestRide")result.bike=bikeOffer?.id===bike.id?"requested":"unavailable";
+    else if(tandemActions.has(bike.action))result.bike=bikeReply?.closed??"unavailable";
     else if(bike.action==="dismount")result.bike=avatar.bikeRide?"unavailable":"dismounted";
     else if(bike.action==="take")result.bike=mounted&&rental.dock===bike.dock?"taken":"unavailable";
     else if(bike.action==="park")result.bike=rental?.parked?"parked":"unavailable";
@@ -528,6 +534,7 @@ export async function api(request,env){
     await ensureSocialTables(db);
     await ensureMinigameTables(db);
     await ensureUmbrellaPairs(db);
+    await ensureBikeOffers(db);
     await db.batch([
       leaveClinks(db,{room,id,key,now:Date.now()}),
       leaveMinigames(db,{room,id,key,now:Date.now()}),
@@ -537,6 +544,7 @@ export async function api(request,env){
       `).bind(room,id,id,room,id,key),
       clearUmbrellaMarkers(db,room),
       dropBikePassengers(db,{room,id,key,leaving:true}),
+      leaveBikeOffers(db,{room,id,key}),
       db.prepare("DELETE FROM walkers WHERE room=? AND id=? AND player_key IS ?").bind(room,id,key)
     ]);
     return json({ok:true});
@@ -560,6 +568,8 @@ export async function api(request,env){
   await ensureMinigameTables(db);
   await ensureUmbrellaPairs(db);
   await ensurePicnicTables(db);
+  const tandem=Boolean(key&&(body.bikeOffers===true||tandemActions.has(bike?.action)));
+  if(tandem)await ensureBikeOffers(db);
   const now=Date.now(),active=now-walkerLifetime,online=now-9000,bikeCutoff=now-bikeParkDuration;
   const weather=await getRoomWeather(db,now),wet=umbrellaWeather(weather);
   const currentFeed=feed&&feed.at>=now-FEED_MS&&feed.at<=now+1500;
@@ -585,14 +595,19 @@ export async function api(request,env){
     }
   }
   if(currentFeed)operations.push(feedUpdate(db,room,id,key,feed,now));
-  if(bike?.action==="ride")operations.push(boardBikePassenger(db,{room,id,key,driver:bike.driver,online,bikeCutoff,
-    feedCutoff:now-FEED_MS,fallCutoff:now-BIKE_FALL_DURATION_MS}));
-  else if(bike?.action==="dismount")operations.push(dismountBikePassenger(db,room,id,key));
-  else if(bike){
+  const bikeContext={room,id,key,bike,now,online,bikeCutoff,feedCutoff:now-FEED_MS,fallCutoff:now-BIKE_FALL_DURATION_MS};
+  let bikeReplySelection=-1;
+  if(bike?.action==="requestRide")operations.push(...requestBikeRide(db,bikeContext));
+  else if(tandemActions.has(bike?.action)){
+    if(bike.action==="acceptRide")operations.push(acceptBikeRide(db,bikeContext));
+    bikeReplySelection=operations.push(closeBikeOffer(db,bikeContext))-1;
+  }else if(bike?.action==="dismount")operations.push(dismountBikePassenger(db,room,id,key));
+  else if(bike&&bike.action!=="ride"){
     operations.push(bikeStatement(db,room,id,key,bike,now,active));
     if(bike.action==="park"||bike.action==="return"||bike.action==="fall")
       operations.push(dropBikePassengers(db,{room,id,key,fallAt:bike.action==="fall"?now:undefined}));
   }
+  const bikeOfferSelection=tandem?operations.push(selectBikeOffer(db,bikeContext))-1:-1;
   if(bus)operations.push(...busStatements(db,room,id,key,bus,now,active));
   if(bus||bike)operations.push(releaseTransportHands(db,room,id,key),clearUmbrellaMarkers(db,room));
   if(hand){
@@ -624,6 +639,7 @@ export async function api(request,env){
       AND a.updated>=? AND b.updated>=? AND ${visibleUmbrellaPairs}
   `.trimStart()).bind(room,now-15000,online,online,Number(wet)));
   const results=await db.batch(operations);
+  const bikeOffer=results[bikeOfferSelection]?.results[0]??null;
   const rows=results.at(-2).results;
   const ownRow=rows.find(row=>row.id===id&&row.player_key===key&&row.updated>=active);
   if(!ownRow)return json({error:"산책방에 다시 입장해 주세요."},409);
@@ -669,6 +685,7 @@ export async function api(request,env){
     ...minigamePayload(results[minigameSelection].results[0],minigame),
     ...picnicPayload(results[picnicSelection].results[0],picnic),
     handholds,umbrellas,
-    transport:transportResult(bus,bike,receiver.avatar,walkers,id,now),walkers,parkedBikes
+    bikeOffer:tandem?bikeOffer:undefined,
+    transport:transportResult(bus,bike,receiver.avatar,walkers,id,now,bikeOffer,results[bikeReplySelection]?.results[0]),walkers,parkedBikes
   });
 }

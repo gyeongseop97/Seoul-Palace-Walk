@@ -2,7 +2,7 @@ import {mmcaAt} from "./mmca-layout.js";
 
 export const mmcaVenue={
   id:"mmca",name:"국립현대미술관 서울",
-  bounds:{minX:310,maxX:392,minY:470,maxY:546},
+  bounds:{minX:310,maxX:392,minY:438,maxY:546},
   outsideDoor:{...mmcaAt(-18.3,106),heading:260,tilt:0},
   insideDoor:{x:351,y:543,heading:180},insideSpawn:{x:351,y:539,heading:0},
   guestbookPoint:{x:339,y:536},
@@ -11,7 +11,9 @@ export const mmcaVenue={
 const works=[
   {id:"home",title:"바람이 머문 집",shortName:"바람의 집",credit:"서도호 · 2013 서울관 개관전",
     original:"‹집 속의 집 속의 집 속의 집 속의 집›",source:"201311010002927",color:"#708e95",
-    description:"서도호는 천으로 만든 집을 통해 이주한 뒤에도 지니고 다니는 공간의 기억을 보여줬어요. 게임에서는 바람길을 사이에 두고 비껴 선 반투명 문틀과 지붕을 걸으며 집에 대한 기억을 떠올릴 수 있어요."},
+    description:"서도호는 살던 집의 형태와 치수를 재어 천으로 옮겼어요. 게임에서는 한옥 처마와 격자 문살, 여러 겹의 반투명한 방을 만들었어요. 열린 문 사이로 들어가 천의 솔기와 겹쳐 보이는 지붕을 살펴보세요.",
+    obstacles:[[-2.88,0,.12,5.46],[2.88,0,.12,5.46],[-1.98,-2.72,1.76,.12],[1.98,-2.72,1.76,.12],
+      [-1.98,2.72,1.76,.12],[1.98,2.72,1.76,.12],[-1.71,.62,.10,2.65],[1.71,.62,.10,2.65]]},
   {id:"colors",title:"빛을 모으는 손",shortName:"빛의 방",credit:"김수자 · 2016 《마음의 기하학》",
     original:"‹마음의 기하학›과 ‹호흡›",link:"https://www.mmca.go.kr/pr/employmentDetail.do?bdCId=201607270005387",color:"#927da4",
     description:"2016년 전시에는 손으로 빚는 흙덩이와 유리를 통과하며 여러 색으로 나뉘는 빛이 함께 등장했어요. 이 방에서는 빛 바꾸기 버튼으로 세 가지 조명 아래 구슬과 프리즘의 색을 살펴볼 수 있어요."},
@@ -31,16 +33,47 @@ const works=[
 
 export const mmcaGalleryRooms=works.map((work,index)=>{
   const west=index%2===0,row=Math.floor(index/2);
-  return {id:work.id,name:work.title,shortName:work.shortName,mapColor:work.color,
+  return {id:work.id,name:work.id==="home"?"서도호 관":work.title,shortName:work.id==="home"?"서도호":work.shortName,mapColor:work.color,
     minX:west?mmcaVenue.bounds.minX:356,maxX:west?346:mmcaVenue.bounds.maxX,
     minY:[470,494,515][row],maxY:[494,515,533][row],doorY:[483,504,524][row],doorX:west?346:356};
 });
+mmcaGalleryRooms.unshift(
+  {id:"hirst",name:"데이미언 허스트 관",shortName:"허스트",mapColor:"#455770",exhibitId:"shark",
+    minX:310,maxX:346,minY:438,maxY:470,doorX:346,doorY:452},
+  {id:"mueck",name:"론 뮤익 관",shortName:"론 뮤익",mapColor:"#796a67",exhibitId:"mueck",
+    minX:356,maxX:392,minY:438,maxY:470,doorX:356,doorY:452},
+);
 
-export const mmcaExhibits=works.map((work,index)=>{
-  const room=mmcaGalleryRooms[index];
-  return {...work,gallery:room.id,x:index%2===0?326:376,y:[480,503,525][Math.floor(index/2)],radius:7.4,
-    source:work.link??`https://www.mmca.go.kr/exhibitions/exhibitionsDetail.do?exhId=${work.source}`,sourceLabel:"국립현대미술관 전시 기록"};
-});
+const hirstExhibition="202601060002023";
+const newWorks=[
+  {id:"home-passage",gallery:"home",title:"기억이 건너는 복도",credit:"서도호 · 2026 서울관 개인전",
+    original:"‹완벽한 집: 런던, 호셤, 뉴욕, 베를린, 프로비던스, 서울›",source:"202601200002041",
+    x:338,y:486,radius:5.8,obstacles:[[-1.89,0,.12,6.24],[1.89,0,.12,6.24]],
+    description:"서도호는 여러 도시의 집에서 가져온 복도와 문을 천으로 이어 하나의 공간을 만들었어요. 게임에서도 색이 다른 세 개의 천 복도를 이어 걸을 수 있게 했어요. 문고리와 스위치, 콘센트처럼 매일 보던 물건까지 가까이에서 살펴보세요."},
+  {id:"skull",gallery:"hirst",title:"차가운 별의 두개골",credit:"데이미언 허스트 · 2026 서울관 개인전",
+    original:"‹신의 사랑을 위하여› (For the Love of God, 2007)",source:hirstExhibition,
+    x:326,y:459,radius:5.2,obstacles:[[0,0,3.4,2.5]],
+    description:"허스트는 두개골 형태를 백금으로 주조하고 다이아몬드로 덮었어요. 게임에서는 각이 다른 보석을 별자리처럼 배치하고, 보는 방향에 따라 빛이 달라지는 두개골을 만들었어요."},
+  {id:"shark",gallery:"hirst",title:"푸른 정지",credit:"데이미언 허스트 · 2026 서울관 개인전",
+    original:"‹살아있는 자의 마음 속 죽음의 물리적 불가능성› (1991)",source:hirstExhibition,
+    x:328,y:445,radius:7.2,obstacles:[[0,0,9.25,4.8]],
+    description:"원작에서 허스트는 포름알데히드 용액에 보존한 상어를 유리 수조에 전시했어요. 여기서는 상어를 직접 3D로 만들고 푸른 유리 수조에 배치했어요. 수조를 돌아보면 아가미와 지느러미, 꼬리의 윤곽이 다르게 보여요."},
+  {id:"mueck",gallery:"mueck",title:"하루의 가장자리",credit:"론 뮤익 · 2025 서울관 개인전",
+    original:"‹침대에서› (In Bed, 2005)",source:"202501060001881",
+    x:374,y:453,radius:7.4,
+    description:"론 뮤익은 사람의 표정과 피부를 세밀하게 만들고, 크기를 크게 바꿔 관람객이 평범한 몸짓을 새로 보게 해요. 게임에서는 벤치에 앉아 볼을 괴고 잠시 쉬는 인물로 그 느낌을 표현했어요."},
+];
+
+export const mmcaExhibits=[...works.map((work,index)=>({
+  ...work,gallery:work.id,x:index%2===0?326:376,y:[480,503,525][Math.floor(index/2)],radius:7.4,
+})),...newWorks].map(work=>({
+  ...work,source:work.link??`https://www.mmca.go.kr/exhibitions/exhibitionsDetail.do?exhFlag=2&exhId=${work.source}`,
+  sourceLabel:"국립현대미술관 전시 기록",
+}));
+
+export function mmcaGalleryAt(x,y){
+  return mmcaGalleryRooms.find(room=>x>room.minX&&x<room.maxX&&y>room.minY&&y<room.maxY);
+}
 
 export const mmcaWalls=mmcaGalleryRooms.flatMap(room=>{
   const halfDoor=3;

@@ -18,18 +18,22 @@ export function renderedJumpLift(avatar,clock,floor){
   return Math.max(0,avatar.vaultBase+lift-floor);
 }
 const crepe={name:"크레페",verb:"먹기",uses:3,duration:1300};
+const meal=(name,utensil="spoon")=>({name,verb:"먹기",uses:3,duration:1800,meal:true,utensil});
 export const ITEMS={
   sparkler:{name:"스파클",verb:"사용하기",uses:1,duration:8000},
   coffee:{name:"커피",verb:"마시기",uses:3,duration:1150},
   crepe,parfait:crepe,
   beer:{name:"맥주",verb:"마시기",uses:3,duration:1350,alcohol:true},
-  yakgwa:{name:"약과",verb:"먹기",uses:3,duration:1300},
+  yakgwa:{name:"약과",verb:"먹기",uses:3,duration:1300,snack:true},
   cake:{name:"조각 케이크",verb:"먹기",uses:3,duration:1300},
   bingsu:{name:"팥빙수",verb:"먹기",uses:3,duration:1300},
-  bungeoppang:{name:"붕어빵",verb:"먹기",uses:3,duration:1300},
+  bungeoppang:{name:"붕어빵",verb:"먹기",uses:3,duration:1300,snack:true},
   riceCake:{name:"꿀떡",verb:"먹기",uses:3,duration:1300},
-  bibimbap:{name:"나물 비빔밥",verb:"먹기",uses:3,duration:1450},
-  mushroomSoup:{name:"버섯 국밥",verb:"먹기",uses:3,duration:1450},
+  bibimbap:meal("나물 비빔밥"),
+  mushroomSoup:meal("버섯 국밥"),
+  buckwheatNoodles:meal("메밀국수","chopsticks"),
+  jangGukbap:meal("장국밥"),
+  sujebi:meal("수제비"),
   makgeolli:{name:"막걸리",verb:"마시기",uses:3,duration:1350,alcohol:true},
   wine:{name:"와인",verb:"마시기",uses:3,duration:1350,alcohol:true},
   fruitWine:{name:"매실주",verb:"마시기",uses:3,duration:1350,alcohol:true},
@@ -45,10 +49,16 @@ function heldProp(avatar,clock,slot,side){
   return {slot,side,item,spec,itemAge};
 }
 
+export function diningTray(avatar,clock){
+  const first=ITEMS[avatar.item?.kind]?.meal?heldProp(avatar,clock,"item",1):null;
+  return first??(ITEMS[avatar.secondItem?.kind]?.meal?heldProp(avatar,clock,"secondItem",-1):null);
+}
+
 export function avatarHands(avatar,clock,{riding,seated,walking}){
   const claspSide=!riding&&(avatar.hand===-1||avatar.hand===1)?avatar.hand:0;
-  const first=riding?null:heldProp(avatar,clock,"item",1);
-  const second=riding?null:heldProp(avatar,clock,"secondItem",-1);
+  const tray=riding?null:diningTray(avatar,clock);
+  const first=riding||tray?null:heldProp(avatar,clock,"item",1);
+  const second=riding||tray?null:heldProp(avatar,clock,"secondItem",-1);
   const itemFor=side=>side===1?first:second;
   const feedAge=clock-avatar.feed?.at,petAge=clock-avatar.pet?.at;
   const feedActive=feedAge>=0&&feedAge<FEED_MS;
@@ -56,12 +66,12 @@ export function avatarHands(avatar,clock,{riding,seated,walking}){
   const main=using??first??second,carrying=Boolean(main);
   const canInteract=!seated&&!riding&&!walking&&!claspSide;
   const feeding=canInteract&&using?.item.kind==="churu"&&feedActive;
-  const freeSide=[1,-1].find(side=>side!==claspSide&&!itemFor(side))??0;
+  const freeSide=tray?0:[1,-1].find(side=>side!==claspSide&&!itemFor(side))??0;
   const petSide=canInteract&&!feeding&&petAge>=0&&petAge<PET_MS?freeSide:0;
   const sharedSide=avatar.sharedUmbrella;
-  const umbrellaHand=sharedSide===1||sharedSide===-1
+  const umbrellaHand=!tray&&(sharedSide===1||sharedSide===-1)
     ?[sharedSide,-sharedSide].find(side=>side!==claspSide&&!itemFor(side)&&side!==petSide)??0:0;
-  return {claspSide,item:main?.item,spec:main?.spec,itemAge:main?.itemAge??Infinity,carrying,feedAge,feeding,
+  return {claspSide,item:main?.item,spec:main?.spec,itemAge:main?.itemAge??Infinity,carrying,tray,feedAge,feeding,
     petAge,petting:Boolean(petSide),petSide,itemSide:main?.side??1,waveSide:freeSide,umbrellaHand,itemFor,
     feedingSide:feeding?using.side:0};
 }

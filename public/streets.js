@@ -6,6 +6,7 @@ import {
 import {buildWestern} from "./western.js";
 import {fromBuilding,pavilionStairAccess} from "./museum.js";
 import {standPlantingFootprints} from "./street-stands.js";
+import {diningVenues} from "./dining-data.js";
 import {makePalaceClearance} from "./palace-plantings.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {buildGyeongbok,buildSubwayExit} from "./gyeongbok.js";
@@ -31,6 +32,7 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
   const stone=[0x939188,0xa19e92,0x807f76,0xb7b0a4,0x9e9b90];
   const buildingPlots=[
     ...standPlantingFootprints,
+    ...diningVenues.filter(venue=>venue.area==="jeongdong").map(({plot})=>({...plot,w:plot.w+1,d:plot.d+1,h:4.6})),
     ...city.slice(1).map(spec=>({...spec,w:spec.w+.5,d:spec.d+.5})),
     ...pavilions.map(spec=>({...spec,w:spec.w+2.7,d:spec.d+2.5,h:spec.h+2.8})),
     {...gate,w:16.7,d:10.46,h:7.4,angle:Math.PI/2},

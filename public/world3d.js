@@ -13,8 +13,10 @@ import { addHanbokRental } from "./wearables-models.js";
 import { assembleMuseum, registerMuseumNavigation, isInsideMuseum, museumOutsideDoor, museumInsideDoor, museumInsideSpawn, stairHeight } from "./museum.js";
 import { interiorAt } from "./interior-layout.js";
 import { mmcaVenue,mmcaExhibits,mmcaWalls } from "./mmca-gallery-layout.js";
-import { diningVenue,registerDiningNavigation } from "./dining-layout.js";
-import { PET_MS, FEED_MS, jumpLift, renderedJumpLift } from "./activities.js";
+import { diningVenues } from "./dining-data.js";
+import { registerDiningNavigation } from "./dining-layout.js";
+import { buildDiningFacade } from "./dining-world.js";
+import { PET_MS, FEED_MS, diningTray, jumpLift, renderedJumpLift } from "./activities.js";
 import { bikeFallAt } from "./avatar-gestures.js";
 import { makeWalkerModels } from "./walker-model.js";
 import { addMinigameMarkers, registerMinigameProps } from "./minigame-markers.js";
@@ -161,6 +163,10 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     box:(color,x,y,z,w,h,d,parent=root)=>box(color,x,y,z,w,h,d,parent),
     cylinder:(color,x,y,z,r,h,sides,parent=root,top)=>cylinder(color,x,y,z,r,h,sides,parent,top)});
   const kit=makeKit(outdoors),deoksRoot=new T.Group(),corridorRoot=new T.Group(),transportRoot=new T.Group();
+  const diningById=Object.fromEntries(diningVenues.map(venue=>[venue.id,venue]));
+  function* addDiningFronts(root,area){
+    for(const venue of diningVenues)if(venue.area===area)yield* buildDiningFacade(T,root,makeKit(root),venue,southWorldTerrainHeight);
+  }
   const {benches,trees,catWalls,fountains,lampMaterial,classical,middleModel,hallModel,drawPond,pavilionModels,buildGyeongbokDistrict}=
     buildJeongdong(T,deoksRoot,makeKit(deoksRoot),{deferGyeongbok:true});
   buildSejongCorridor(T,corridorRoot,makeKit(corridorRoot));
@@ -274,9 +280,8 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   for(const [x1,y1,x2,y2] of [...perimeter,...mmcaWalls]){
     addObstacle((x1+x2)/2,(y1+y2)/2,Math.max(.28,x2-x1),Math.max(.28,y2-y1));
   }
-  for(const {id,x,y} of mmcaExhibits){
-    if(id==="home")for(const offset of [-1.50,1.50])addObstacle(x+offset,y,.84,4.02,0,2.55);
-    else addObstacle(x,y,5.9,5.9,0,2.12);
+  for(const {x,y,obstacles=[[0,0,5.9,5.9,2.12]]} of mmcaExhibits){
+    for(const [dx,dy,width,depth,height] of obstacles)addObstacle(x+dx,y+dy,width,depth,0,height);
   }
   addObstacle(339,537.5,2.4,1.05,0,1.25);
   registerDiningNavigation(benches);
@@ -355,6 +360,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   const plazaRoot=new T.Group(),palaceRoot=new T.Group(),museumRoot=new T.Group();
   const deoks={root:deoksRoot,bounds:deoksBounds,*build(){
     yield* gradeJeongdongMeshes(T,deoksRoot,southWorldTerrainHeight,{trees,catWalls});
+    yield* addDiningFronts(deoksRoot,"jeongdong");
     deoksRoot.add(deoksExtras);
     const models=[classical,middleModel,hallModel,...surveyedPavilions.flatMap(pavilion=>pavilion.groups)];
     const replaceable=new Set(models.flatMap(model=>[model,...(model.userData.surveyRoofs??[])]));
@@ -377,6 +383,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     addRegionalStands(T,plazaRoot,makeKit(plazaRoot),"gwanghwamun");
     addDocks(plazaRoot,dock=>dock.y<=-280&&dock.y>-790);
     yield* gradeAvenueMeshes(T,plazaRoot.children,southWorldTerrainHeight);
+    yield* addDiningFronts(plazaRoot,"gwanghwamun");
     addMinigameMarkers(T,plazaRoot,kit,["kite"],floorHeight);
     const chunks=yield* consolidate(plazaRoot,new Set(),foliage.register);
     plazaWildlife=birds.loadPlaza(birdPerches);
@@ -407,7 +414,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     const root=new T.Group();
     root.name=venue.name;root.visible=false;scene.add(root);
     return {outsideDoor:venue.outsideDoor,load,*build(){
-      const features=yield* this.module[builder](T,root,makeKit(root));
+      const features=yield* this.module[builder](T,root,makeKit(root),venue);
       this.view={...features,setVisible(visible){root.visible=visible;features?.setVisible?.(visible);}};
       return [];
     }};
@@ -415,7 +422,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   const indoorsById={
     museum:gallery,
     [mmcaVenue.id]:indoorDistrict(mmcaVenue,()=>import("./mmca-gallery.js"),"buildMmcaGallery"),
-    [diningVenue.id]:indoorDistrict(diningVenue,()=>import("./dining-world.js"),"buildDiningInterior"),
+    ...Object.fromEntries(diningVenues.map(venue=>[venue.id,indoorDistrict(venue,()=>import("./dining-world.js"),"buildDiningInterior")])),
   };
   const indoorDistricts=Object.values(indoorsById);
   function expansionDistrict(bounds,contains,build,load){
@@ -539,7 +546,24 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     return waiting;
   }
 
-  const models=new Map(),parkedModels=new Map(),emojiMaps=new Map();
+  const models=new Map(),parkedModels=new Map(),emojiMaps=new Map(),tableTrays=new Map();
+  function updateTableTray(player,seat,clock){
+    const meal=seat?.tray&&diningTray(player,clock);
+    let tableItem=tableTrays.get(player.id);
+    if(!meal){
+      if(tableItem)tableItem.root.visible=false;
+      return;
+    }
+    if(!tableItem){
+      const root=new T.Group();scene.add(root);
+      tableItem={root,show:createItemProp(root)};tableTrays.set(player.id,tableItem);
+    }
+    const {x,y,height,heading}=seat.tray;
+    tableItem.root.visible=true;
+    tableItem.root.position.set(wx(x),height,wz(y));
+    tableItem.root.rotation.y=(180-heading)*Math.PI/180;
+    tableItem.show(meal.item.kind,meal.itemAge<meal.spec.duration?meal.itemAge/1000:-1);
+  }
   function labelSprite(nickname,coat){
     const canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");
     const font='650 36px "Segoe UI","Malgun Gothic",sans-serif';
@@ -907,17 +931,22 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       minigameWorld.remove(model);
       walkerModels.dispose(model);
       models.delete(id);
+      const tray=tableTrays.get(id);
+      if(tray){tray.show.dispose();tray.root.removeFromParent();tableTrays.delete(id);}
       for(const ring of ripples.get(id)??[]){ring.removeFromParent();ring.material.dispose();}
       ripples.delete(id);
     }
     roster.forEach(player=>{
       let model=models.get(player.id);
       const visible=interiorAt(player.x,player.y)===insideId&&Math.hypot(player.x-anchor.x,player.y-anchor.y)<135;
-      if(!visible){if(model){model.group.visible=false;walkerModels.clearChat(model);}drawRipples(player.id,player,now,false);return;}
+      if(!visible){if(model){model.group.visible=false;walkerModels.clearChat(model);}drawRipples(player.id,player,now,false);
+        updateTableTray(player,null,clock);return;}
       if(!model){model=walkerModels.create(player.coat??0xab5947,player.nickname,labelSprite);models.set(player.id,model);}
       drawRipples(player.id,player,now,waterDepth(player.x,player.y)>0&&jumpLift(player,clock)<.3);
       const floor=footing(player.bikeDriverPosition??player);
-      walkerModels.update(model,player,{now,clock,delta,seat:seatAt(player,clock),floor,jump:renderedJumpLift(player,clock,floor),emojiTexture,chatTexture,
+      const tableSeat=seatAt(player,clock);
+      updateTableTray(player,tableSeat,clock);
+      walkerModels.update(model,player,{now,clock,delta,seat:tableSeat,floor,jump:renderedJumpLift(player,clock,floor),emojiTexture,chatTexture,
         turnEase:player===me?1-Math.exp(-delta*22):1});
       minigameWorld.pose(player,model,state.photoCapture);
       if(model.label)model.label.visible=!state.photoCapture;
@@ -953,7 +982,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       camera.rotateZ(fallWeight*.62);
       cameraDistance=0;
     }else{
-      const ceiling=insideId===diningVenue.id?4.5:4.97;
+      const ceiling=diningById[insideId]?4.5:4.97;
       const distance=Math.min(outsideBus?11.8-view.zoom*1.15:4.55-view.zoom*.42,indoors&&arm.y>0?(ceiling-pivot.y)/arm.y:Infinity);
       let available=distance;
       // Shorten the orbit arm at walls and let it ease back out as space opens.

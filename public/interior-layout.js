@@ -1,8 +1,9 @@
 import {museumBounds} from "./visit-layout.js";
 import {mmcaVenue} from "./mmca-gallery-layout.js";
-import {diningVenue} from "./dining-data.js";
+import {diningVenues} from "./dining-data.js";
 
-export const interiorBounds={museum:museumBounds,[mmcaVenue.id]:mmcaVenue.bounds,[diningVenue.id]:diningVenue.bounds};
+export const interiorBounds={museum:museumBounds,[mmcaVenue.id]:mmcaVenue.bounds,
+  ...Object.fromEntries(diningVenues.map(venue=>[venue.id,venue.bounds]))};
 const rooms=Object.entries(interiorBounds);
 
 export function interiorAt(x,y){

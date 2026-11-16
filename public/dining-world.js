@@ -1,34 +1,39 @@
 import {bukchonTerrain} from "./bukchon-layout.js";
-import {chairSize,diningFurniture,diningPlot,diningTables,diningVenue,diningWalls,tableSize} from "./dining-layout.js";
+import {chairSize,diningFurniture,diningTables,diningVenue,diningWalls,tableSize} from "./dining-layout.js";
 import {makeDiningDishes} from "./dining-dishes.js";
 import {standBatcher,standSign} from "./regional-stands.js";
 
 const wood=0x614336,heartwood=0x402e28,copper=0xc9955d,cream=0xe8d8b6;
 const paper=0xf4e4bf,teal=0x4c6557,red=0x88473e;
+const styles={
+  bukchon:{front:paper,trim:wood,sign:"#4b362c",ink:"#ffeac8",wall:0xe2cfab,runner:teal},
+  jeongdong:{front:0xb48570,trim:0x496353,sign:"#384e45",ink:"#f6e5cf",wall:0xe3d6c5,runner:0x66846e},
+  gwanghwamun:{front:0xa59a86,trim:0x715641,sign:"#744c3b",ink:"#ffdfab",wall:0xd2c0a4,runner:0x9c6347}
+};
 
-export function* buildDiningFacade(T,root,kit){
+export function* buildDiningFacade(T,root,kit,venue=diningVenue,groundHeight=point=>bukchonTerrain(point.x,point.y)){
   const {wx,wz,box,cylinder}=kit;
-  const {x,y,w,d,angle}=diningPlot,z=d/2;
-  const group=new T.Group();group.name=diningVenue.name;
-  const frontFloor=bukchonTerrain(diningVenue.outsideDoor.x,diningVenue.outsideDoor.y);
+  const {x,y,w,d,angle}=venue.plot,z=d/2,style=styles[venue.area];
+  const group=new T.Group();group.name=venue.name;
+  const frontFloor=groundHeight(venue.outsideDoor);
   group.position.set(wx(x),frontFloor,wz(y));group.rotation.y=angle;root.add(group);
   const part=(color,x0,h,z0,width,height,depth)=>box(color,x0,h,z0,width,height,depth,group);
   part(0x999183,0,-.45,0,w+.24,1.1,d+.21);
   part(0xaaa18c,0,.023,z+.28,w,.07,.91);
-  part(paper,0,1.68,-.15,w,3.27,d-.30);
+  part(style.front,0,1.68,-.15,w,3.27,d-.30);
   part(heartwood,0,1.71,z,2.14,3.06,.22);
   part(0x54483a,0,1.25,z+.14,1.38,2.42,.038);
   part(copper,.44,1.15,z+.199,.047,.26,.077);
   part(wood,0,.12,z+.09,2.03,.15,.24);
-  for(const px of [-6.4,-2.6,-1.1,1.1,2.6,6.4])part(wood,px,1.64,z+.14,.15,3.28,.24);
+  for(const px of [-6.4,-2.6,-1.1,1.1,2.6,6.4])part(style.trim,px,1.64,z+.14,.15,3.28,.24);
   for(const side of [-1,1]){
     const px=side*4.45;
-    part(wood,px,1.50,z+.12,3.47,1.93,.11);
+    part(style.trim,px,1.50,z+.12,3.47,1.93,.11);
     part(0xdda874,px,1.53,z+.18,3.22,1.70,.028);
-    for(let i=-4;i<=4;i++)part(wood,px+i*.354,1.53,z+.21,.042,1.70,.039);
-    for(const h of [.89,1.58,2.16])part(wood,px,h,z+.21,3.24,.046,.034);
-    part(wood,px,.61,z+.24,3.46,.105,.34);
-    part(wood,side*2.15,.3,z+.22,.64,.11,.58);
+    for(let i=-4;i<=4;i++)part(style.trim,px+i*.354,1.53,z+.21,.042,1.70,.039);
+    for(const h of [.89,1.58,2.16])part(style.trim,px,h,z+.21,3.24,.046,.034);
+    part(style.trim,px,.61,z+.24,3.46,.105,.34);
+    part(style.trim,side*2.15,.3,z+.22,.64,.11,.58);
     cylinder(red,side*2.15,.37,z+.22,.21,.45,11,group,1.22);
     for(let i=0;i<5;i++){
       const a=i*2.399,h=.12+(i%3)*.12;
@@ -37,7 +42,22 @@ export function* buildDiningFacade(T,root,kit){
     }
   }
   part(heartwood,0,3.17,z+.12,w+.24,.24,.32);
-  standSign(T,group,diningVenue.name,"나물 비빔밥 · 버섯 국밥",3.58,0,2.80,z+.17,"#4b362c","#ffeac8",.75);
+  const cityFront=venue.area==="gwanghwamun";
+  standSign(T,group,venue.name,venue.dishes[0].name,3.82,0,cityFront?3.15:2.80,z+.20,style.sign,style.ink,cityFront?.62:.75);
+  if(venue.area==="jeongdong"){
+    for(let row=0;row<10;row++){
+      const h=.20+row*.28;
+      for(const px of [-6.52,6.52])part(row%2?0xc49b84:0x90685b,px,h,z+.022,.30,.18,.035);
+    }
+  }
+  if(cityFront){
+    part(0x5e5a51,0,3.55,0,w+.70,.25,d+.49);
+    part(0x69584b,0,3.43,z+.20,w+.74,.13,.16);
+    part(0x905a46,0,2.55,z+.60,6.05,.078,.98).rotation.x=.20;
+    part(0xb67e5b,0,2.43,z+1.05,6.05,.18,.048);
+    yield;
+    return;
+  }
   part(0x403f3a,0,3.41,0,w+.8,.23,d+.91);
   for(const side of [-1,1]){
     const roof=part(0x494843,0,3.89,side*(d/4+.16),w+.73,.19,d*.511+.42);
@@ -52,13 +72,13 @@ export function* buildDiningFacade(T,root,kit){
   yield;
 }
 
-export function* buildDiningInterior(T,root,kit){
+export function* buildDiningInterior(T,root,kit,venue=diningVenue){
   const {wx,wz,box,cylinder}=kit;
-  const room=new T.Group(),{center}=diningVenue;
-  room.name=diningVenue.name;room.position.set(wx(center.x),0,wz(center.y));root.add(room);
+  const room=new T.Group(),{center}=venue,style=styles[venue.area];
+  room.name=venue.name;room.position.set(wx(center.x),0,wz(center.y));root.add(room);
   const staticGroups=[room];
   const part=(color,x,y,z,w,h,d,parent=room)=>box(color,x,y,z,w,h,d,parent);
-  const panel=(title,sub,w,x,y,z,height=.70)=>standSign(T,room,title,sub,w,x,y,z,"#544033","#ffecd1",height);
+  const panel=(title,sub,w,x,y,z,height=.70)=>standSign(T,room,title,sub,w,x,y,z,style.sign,style.ink,height);
 
   part(0xa7805e,0,-.10,0,24,.20,24);
   const floor=[0xac8768,0xb28c6b,0xb79271,0xa88362,0xc09b78,0xb99270];
@@ -70,7 +90,7 @@ export function* buildDiningInterior(T,root,kit){
   }
   part(cream,0,4.99,0,24,.19,24);
   for(const [x,z,w,d] of diningWalls){
-    part(0xe2cfab,x,2.46,z,w,4.90,d);
+    part(style.wall,x,2.46,z,w,4.90,d);
     part(heartwood,x,.133,z,w+.11,.27,d+.12);
     part(wood,x,4.74,z,w+.15,.24,d+.14);
   }
@@ -96,7 +116,7 @@ export function* buildDiningInterior(T,root,kit){
     for(const y of [1.18,1.57,2.30,2.66])part(wood,side*.69,y,.101,1.09,.034,.024,exit);
     part(copper,side*.13,1.34,.12,.057,.19,.068,exit);
   }
-  standSign(T,exit,"나가는 문","삼청로",1.79,0,3.54,.11,"#494335","#fae6bd",.47);
+  standSign(T,exit,"나가는 문",venue.street,1.99,0,3.54,.11,"#494335","#fae6bd",.47);
   part(0x825549,0,.016,10.2,3.28,.028,2.79);
   part(0xc3a172,0,.032,10.2,3.02,.029,2.54);
   part(0x91574b,0,.049,10.2,2.92,.029,2.45);
@@ -107,11 +127,11 @@ export function* buildDiningInterior(T,root,kit){
   part(heartwood,0,1.06,counter.z,counter.w+.22,.14,counter.d+.16);
   part(0x936946,0,.55,counter.z+.60,counter.w-.39,.63,.082);
   for(let x=-4.15;x<4.24;x+=.32)part(heartwood,x,.55,counter.z+.652,.043,.61,.029);
-  panel("북촌 작은 식탁","나물 비빔밥 · 버섯 국밥",5.16,0,3.67,-11.64,.86);
+  panel(venue.name,venue.dishes[0].name,5.16,0,3.67,-11.64,.86);
   const samples=makeDiningDishes(T,kit);
-  for(const [name,x] of [["bibimbap",-1.23],["mushroomSoup",1.11]]){
-    const dish=new T.Group();dish.position.set(x,1.249,counter.z-.045);dish.scale.setScalar(2.1);room.add(dish);
-    samples[name](dish);staticGroups.push(dish);
+  for(const x of [-1.23,1.11]){
+    const dish=new T.Group();dish.position.set(x,1.132,counter.z-.045);dish.scale.setScalar(1.75);room.add(dish);
+    samples[venue.dishes[0].kind]?.(dish);staticGroups.push(dish);
   }
   for(const x of [-3.25,3.25]){
     const cabinet=diningFurniture.cupboard;
@@ -160,7 +180,7 @@ export function* buildDiningInterior(T,root,kit){
     part(wood,x,.732,z,w,.145,d);
     part(0xaf8058,x,.812,z,w+.055,.044,d+.052);
     for(const a of [-1,1])for(const b of [-1,1])part(heartwood,x+a*.97,.36,z+b*.56,.108,.72,.108);
-    part(teal,x,.838,z,.48,.01,d-.15);
+    part(style.runner,x,.838,z,.48,.01,d-.15);
     for(const side of [-1,1]){
       const settingX=x+side*.70;
       cylinder(0xdddbc2,settingX,.850,z,.137,.022,16,room,1.09);
@@ -176,7 +196,7 @@ export function* buildDiningInterior(T,root,kit){
       staticGroups.push(chair);
       const {w:chairW,d:chairD}=chairSize;
       part(heartwood,0,.421,0,chairW,.082,chairD,chair);
-      part(side<0?teal:red,0,.474,.017,chairW-.034,.044,chairD-.062,chair);
+      part(side<0?style.runner:red,0,.474,.017,chairW-.034,.044,chairD-.062,chair);
       for(const i of [-1,1])for(const j of [-1,1]){
         part(wood,i*.21,j<0?.44:.21,j*.263,.066,j<0?.88:.42,.064,chair);
       }
