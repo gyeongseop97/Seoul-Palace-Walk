@@ -1,4 +1,51 @@
+export function bungeoppangOutline(T,scale=1,torn=false){
+  const point=(x,y)=>[x*scale,y*scale],outline=new T.Shape();
+  outline.moveTo(...point(torn?.061:.103,0));
+  if(torn){
+    outline.lineTo(...point(.083,.015));outline.lineTo(...point(.065,.028));outline.lineTo(...point(.084,.042));
+    outline.bezierCurveTo(...point(.078,.066),...point(.029,.069),...point(-.022,.046));
+  }else outline.bezierCurveTo(...point(.089,.055),...point(.039,.073),...point(-.022,.046));
+  outline.lineTo(...point(-.100,.069));outline.lineTo(...point(-.087,.012));outline.lineTo(...point(-.104,-.059));
+  outline.lineTo(...point(-.021,-.037));
+  outline.bezierCurveTo(...point(.034,-.067),...point(.087,-.050),...point(torn?.061:.103,0));
+  return outline;
+}
+
+export function makeBungeoppangProps(T,{box,shape}){
+  const crusts=[false,true].map(torn=>{
+    const geometry=new T.ExtrudeGeometry(bungeoppangOutline(T,1,torn),{
+      depth:.025,bevelEnabled:true,bevelSegments:2,steps:1,bevelThickness:.009,bevelSize:.009
+    });
+    return geometry.rotateX(-Math.PI/2);
+  });
+  const eye=new T.TorusGeometry(.010,.0021,5,12).rotateX(-Math.PI/2);
+  const scale=new T.TorusGeometry(.012,.0018,4,9,Math.PI*.70).rotateX(-Math.PI/2);
+  const spot=new T.SphereGeometry(1,9,6);
+  return (parent,quality="good")=>{
+    const torn=quality==="torn",burnt=quality==="burnt";
+    const toast=burnt?0x39231b:0xa46136;
+    shape(crusts[Number(torn)],burnt?0x543420:torn?0xd19a55:0xc27a3b,0,0,0,parent);
+    if(!torn){
+      shape(eye,burnt?toast:0x86502d,.063,.034,-.012,parent);
+      shape(spot,burnt?toast:0x8d512c,.063,.035,-.011,parent).scale.set(.004,.003,.004);
+    }else{
+      for(const [x,y,z,rx,ry,rz] of [[.056,.029,-.004,.021,.012,.027],[.063,.030,-.016,.016,.008,.016]]){
+        shape(spot,0x652a26,x,y,z,parent).scale.set(rx,ry,rz);
+      }
+    }
+    for(let row=0;row<3;row++)for(let col=0;col<4;col++){
+      const mark=shape(scale,toast,.028-col*.019+(row%2)*.007,.035,(row-1)*.021,parent);
+      mark.rotation.y=-Math.PI/2;
+    }
+    for(const z of [-.032,.014,.042])box(burnt?toast:0x9a5a32,-.072,.034,z,.043,.002,.003,parent).rotation.y=z*5;
+    if(burnt)for(const [x,z,rx,rz] of [[.030,.005,.038,.026],[-.031,-.013,.020,.023],[-.077,.019,.019,.012]]){
+      shape(spot,0x281c17,x,.033,z,parent).scale.set(rx,.004,rz);
+    }
+  };
+}
+
 export function makeRegionalItemProps(T,{box,cylinder,shape}){
+  const bungeoppang=makeBungeoppangProps(T,{box,shape});
   const berryGeometry=new T.SphereGeometry(1,10,7);
   const sliceFootprint=new T.Shape([[-.100,.074],[.100,.074],[.012,-.111],[-.010,-.111]]
     .map(([x,z])=>new T.Vector2(x,-z)));
@@ -26,16 +73,6 @@ export function makeRegionalItemProps(T,{box,cylinder,shape}){
   const tumbler=new T.LatheGeometry([[0,-.101],[.058,-.101],[.064,-.092],[.072,.105],[.070,.109],
     [.068,.106],[.060,-.089],[0,-.089]].map(([radius,y])=>new T.Vector2(radius,y)),24);
   const tumblerRim=new T.TorusGeometry(.069,.002,6,24);tumblerRim.rotateX(-Math.PI/2);
-  const fishShape=new T.Shape();
-  fishShape.moveTo(.103,0);
-  fishShape.bezierCurveTo(.089,.055,.039,.073,-.022,.046);
-  fishShape.lineTo(-.100,.069);fishShape.lineTo(-.087,.012);fishShape.lineTo(-.104,-.059);
-  fishShape.lineTo(-.021,-.037);
-  fishShape.bezierCurveTo(.034,-.067,.087,-.050,.103,0);
-  const fishGeometry=new T.ExtrudeGeometry(fishShape,{depth:.025,bevelEnabled:true,bevelSegments:2,steps:1,bevelThickness:.009,bevelSize:.009});
-  fishGeometry.rotateX(-Math.PI/2);
-  const fishEye=new T.TorusGeometry(.010,.0021,5,12);fishEye.rotateX(-Math.PI/2);
-  const fishScale=new T.TorusGeometry(.012,.0018,4,9,Math.PI*.70);fishScale.rotateX(-Math.PI/2);
   const plumCup=new T.LatheGeometry([[0,-.068],[.039,-.068],[.043,-.055],[.060,-.031],[.066,.018],
     [.063,.067],[.060,.067],[.059,.057],[.061,.021],[.054,-.029],[0,-.044]].map(([r,y])=>new T.Vector2(r,y)),24);
   const limeGeometry=new T.CylinderGeometry(.037,.037,.008,18,1,false,0,Math.PI);
@@ -87,16 +124,9 @@ export function makeRegionalItemProps(T,{box,cylinder,shape}){
       box(0xc8ceca,-.066,.079,-.057,.014,.013,.103,parent).rotation.x=.48;
       berry(parent,0x9ea9a9,-.066,.105,-.103,.022,.009,.033);
     },
-    bungeoppang(parent){
-      shape(fishGeometry,0xc27a3b,0,0,0,parent);
-      shape(fishEye,0x86502d,.063,.034,-.012,parent);
-      berry(parent,0x8d512c,.063,.035,-.011,.004,.003,.004);
-      for(let row=0;row<3;row++)for(let col=0;col<4;col++){
-        const imprint=shape(fishScale,0xa46136,.028-col*.019+(row%2)*.007,.035,(row-1)*.021,parent);
-        imprint.rotation.y=-Math.PI/2;
-      }
-      for(const z of [-.032,.014,.042])box(0x9a5a32,-.072,.034,z,.043,.002,.003,parent).rotation.y=z*5;
-    },
+    bungeoppang,
+    bungeoppangBurnt:parent=>bungeoppang(parent,"burnt"),
+    bungeoppangTorn:parent=>bungeoppang(parent,"torn"),
     riceCake(parent){
       cylinder(0xe7d8bf,0,-.044,0,.113,.023,24,parent,.94);
       cylinder(0xbfb492,0,-.029,0,.102,.008,24,parent);

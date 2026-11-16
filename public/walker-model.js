@@ -733,12 +733,12 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     lower.quaternion.copy(upper.quaternion).invert().multiply(globalLower);
   }
 
-  function appearance(model, position, blink, blush, woozy, sick, smiling) {
+  function appearance(model, position, blink, blush, woozy, sick, mouthOverride) {
     const look = position.look;
     const hair = HAIR.includes(look?.hair) ? look.hair : position.character === "woman" ? "long" : "short";
     const eyes = EYES.includes(look?.eyes) ? look.eyes : "round";
     const brows = BROWS.includes(look?.brows) ? look.brows : "soft";
-    const mouth = smiling ? "peace" : MOUTHS.includes(look?.mouth) ? look.mouth : "smile";
+    const mouth = mouthOverride ?? (MOUTHS.includes(look?.mouth) ? look.mouth : "smile");
     const tone = LOOK_OPTIONS.skin.includes(look?.skin) ? look.skin : "light";
     const hairColor = Object.hasOwn(HAIR_COLORS,look?.hairColor) ? look.hairColor : HAIR_SHADES[model.offset % HAIR_SHADES.length];
     const woman = position.character === "woman";
@@ -971,7 +971,10 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
 
     const blinkTick = (now + model.offset%4100) % 4120;
     const smiling = acting?.kind==="peace"&&acting.weight>.26;
-    appearance(model,position,blinkTick>3970&&blinkTick<4100,blushLevel,woozy,Boolean(sick?.weight>.38),smiling);
+    const snack=position[position.itemUse==="secondItem"?"secondItem":"item"];
+    const biteAge=clock-snack?.started;
+    const taste=biteAge>=410&&biteAge<1250?{bungeoppang:"grin",bungeoppangBurnt:"pout",bungeoppangTorn:"cat"}[snack.kind]:null;
+    appearance(model,position,blinkTick>3970&&blinkTick<4100,blushLevel,woozy,Boolean(sick?.weight>.38),smiling?"peace":taste);
     if (model.hem.visible) {
       model.hem.scale.set(1+seated*.08,1-seated*.61,1+stride*.10);
       model.hem.rotation.set(-seated*.37-sprint*.12,pendulum*sway*.065,pendulum*sway*.044);

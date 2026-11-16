@@ -8,6 +8,8 @@ import { addPalaceSky } from "./palace-sky.js";
 import { resolveSeoulEnvironment } from "./seoul-environment.js";
 import { addSeoulPrecipitation, makeSeasonFoliage } from "./seoul-weather-scene.js";
 import { addStands, addRegionalStands, makeItemProps, regionalStations, registerRegionalStands, underDoldamAwning } from "./street-stands.js";
+import { BUNGEO_STALL } from "./bungeo-data.js";
+import { addBungeoStall, registerBungeoStall } from "./bungeo-world.js";
 import { hanbokRental,registerHanbokRental } from "./passport-data.js";
 import { addHanbokRental } from "./wearables-models.js";
 import { assembleMuseum, registerMuseumNavigation, isInsideMuseum, museumOutsideDoor, museumInsideDoor, museumInsideSpawn, stairHeight } from "./museum.js";
@@ -193,6 +195,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   registerPlazaNavigation(benches);
   const drawWater=addWater(T,deoksExtras,fountains,{...makeKit(deoksExtras),terrain:southWorldTerrainHeight});
   registerRegionalStands();
+  registerBungeoStall();
   registerBukchonTrees();
   registerExpandedSubway();
   registerHanbokRental();
@@ -294,6 +297,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     id:"museum",name:"덕수궁 전시관",outsideName:"석조전 서관",isInside:isInsideMuseum,floorAt:stairHeight,exhibits:[]};
   const amenity=(point,label)=>({...point,kind:"activity",label});
   const interactionMarkers=makeInteractionMarkers(T,scene,{wx,wz,floorHeight},[
+    amenity(BUNGEO_STALL,"붕어빵 굽기"),
     ...stations.map(station=>({...station,kind:"food",label:station.kind==="churu"?"츄르 사기":ITEMS[station.kind].name+" 받기"})),
     ...[museum,mmcaVenue,...diningVenues].flatMap(venue=>[
       {...venue.outsideDoor,kind:"enter",label:diningById[venue.id]?"식당 입장":"전시관 입장"},
@@ -421,7 +425,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     yield* gradeAvenueMeshes(T,transportGround,southWorldSurfaceHeight);
     return yield* consolidate(transportRoot,new Set());
   }};
-  let updatePlaza,updateHwangudan,northWildlife,plazaWildlife,southWildlife,buildTurn=false;
+  let updatePlaza,updateHwangudan,bungeoStall,northWildlife,plazaWildlife,southWildlife,buildTurn=false;
   const wildlife=[["jeongdong",jeongdongExtensionBounds],["hwangudan",hwangudanBounds],["bukchon",bukchonBounds]]
     .map(([id,bounds])=>({id,bounds,steps:null,ready:false}));
   const plaza={root:plazaRoot,bounds:plazaBounds,*build(){
@@ -434,6 +438,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     addDocks(plazaRoot,dock=>dock.y<=-280&&dock.y>-790);
     yield* gradeAvenueMeshes(T,plazaRoot.children,southWorldSurfaceHeight);
     yield* addDiningFronts(plazaRoot,"gwanghwamun");
+    bungeoStall=addBungeoStall(T,plazaRoot,makeKit(plazaRoot),southWorldSurfaceHeight);
     addMinigameMarkers(T,plazaRoot,kit,["kite"],floorHeight);
     const chunks=yield* consolidate(plazaRoot,new Set([monuments.yiFallback]),foliage.register);
     void loadYiStatue(monuments);
@@ -984,7 +989,11 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     spotLights.forEach((light,i)=>{light.intensity=lightDay[i]*(1-night)+night*lightPower[i];});
     buses.update(clock,indoors?null:anchor);
     if(palaceRoot.parent===outdoors)for(const {material,rest,strength} of gbNightGlow)material.emissiveIntensity=rest+night*strength;
-    if(plazaRoot.parent===outdoors)updatePlaza(now,night,indoors?null:anchor,fountainShow?.startedAt??0,clock);
+    if(plazaRoot.parent===outdoors){
+      const viewer=indoors?null:anchor;
+      updatePlaza(now,night,viewer,fountainShow?.startedAt??0,clock);
+      bungeoStall?.update(state.bungeo,clock,viewer);
+    }
     if(hwangudan.root.parent===outdoors)updateHwangudan?.(night);
     const roster=[me,...peers],present=new Set(roster.map(player=>player.id));
     minigameWorld.begin(clock,indoors?null:anchor,state.minigames,state.minigameAction,state.minigameFree);

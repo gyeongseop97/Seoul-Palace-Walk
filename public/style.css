@@ -329,7 +329,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 #game-shell #perspective{min-width:44px;touch-action:none}
 .game-place small{max-width:100%}
 #travel-status{color:var(--gold-2);margin-top:4px}
-#dining-status{color:var(--gold-2);margin-top:4px;max-width:24ch;white-space:normal}
+:is(#dining-status,#bungeo-status){color:var(--gold-2);margin-top:4px;max-width:24ch;white-space:normal}
 .bus-seating{width:min(100%,310px);margin:0 auto;display:grid;gap:7px;text-align:center;color:var(--ivory-3)}
 #bus-seats{display:grid;grid-template-columns:1fr 1fr;column-gap:clamp(18px,10vw,60px);row-gap:7px;padding:12px;border:1px solid var(--pine-9);border-radius:22px;background:var(--pine-2)}
 #bus-seats button{min-height:44px;white-space:nowrap}

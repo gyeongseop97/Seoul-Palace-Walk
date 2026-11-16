@@ -51,6 +51,7 @@ import {bindPhotoAlbum,downloadPhoto,importPhotos,listPhotos,makePhotoCard} from
 import {bindTutorial} from "./tutorial.js";
 import {makePicnic} from "./picnic-client.js";
 import {isPicnicItem} from "./picnic-data.js";
+import {BUNGEO_GIFT_REACH,BUNGEO_ITEMS,BUNGEO_STALL,bungeoStep} from "./bungeo-data.js";
 import {ITEM_SLOTS,handLabel,itemAnimating,freeItemSlot,handsFree} from "./held-items.js";
 import {BIKE_FALL_DURATION_MS,GESTURE_DURATIONS,SICK_DURATION_MS,bikeFallChance,finishAlcoholSip} from "./avatar-gestures.js";
 
@@ -75,7 +76,7 @@ function initialAvatar(){
     }
   }catch{}
   return {x:ticketApproach.x+1,y:ticketApproach.y-2.4,heading:entranceHeading,vx:0,vy:0,wish:0,wishOrigin:null,wishHeading:0,wishArt:null,wave:0,jump:0,vaultBase:null,emote:null,chat:null,
-    seat:null,seatSide:null,bus:null,bike:null,bikeRide:null,item:null,secondItem:null,itemUse:null,picnicClaim:null,umbrella:false,umbrellaReady:false,
+    seat:null,seatSide:null,bus:null,bike:null,bikeRide:null,item:null,secondItem:null,itemUse:null,picnicClaim:null,bungeoReady:true,bungeoClaim:null,umbrella:false,umbrellaReady:false,
     blushUntil:0,blushLevel:0,alcoholGlasses:0,sickAt:0,bikeFallAt:0,gesture:null,pet:null,feed:null,
     running:false,blocked:false,up:false,character,look};
 }
@@ -93,6 +94,7 @@ let alcoholSip=null,bikeFallHintSeen=false;
 let fountainShow=null,clinks=[],queuedShow=null,queuedClink=null;
 let queuedMinigame=null,queuedPhoto=null,roomPhoto=null,minigameKiteCuts=[];
 let queuedPicnic=null;
+let queuedBungeo=null,bungeoMold;
 const heardClinks=new Set();
 let parkedBikes=[];
 let lastChatAt=0;
@@ -139,7 +141,7 @@ const passport=bindPassport({
 });
 const picnic=makePicnic({
   send(command){
-    if(!canPicnic(gameTime())||queuedPicnic)return false;
+    if(!canPicnic(gameTime())||queuedPicnic||bungeoInventoryPending())return false;
     queuedPicnic=command;wakeSync();return true;
   },
   self:()=>session?.id,getAvatar:()=>session?me:null,now:()=>gameTime(),
@@ -857,7 +859,7 @@ function wakeSync(){
 }
 function syncCadence(){
   const fast=dirty||myLink()||queuedHand||queuedSignal||queuedFeed||queuedChat||queuedBus||queuedBike||seatClaim||moving(me)||me.blocked||
-    queuedShow||queuedClink||queuedPhoto||queuedMinigame||queuedPicnic||queuedDining||
+    queuedShow||queuedClink||queuedPhoto||queuedMinigame||queuedPicnic||queuedDining||queuedBungeo||
     [...people.values()].some(person=>moving(person.avatar)||person.avatar.blocked);
   if(fast)return movingCadence();
   return session.mode==="open"?(people.size?195+Math.min(55,Math.max(0,people.size-5)*5):330):
@@ -871,15 +873,16 @@ async function sync(){
   const bus=queuedBus,bike=queuedBike;
   const dining=queuedDining,serviceVenue=dining?.venue??currentDining()?.id??(diningService?.self?diningService.venue:undefined);
   const show=queuedShow,clink=queuedClink,photo=queuedPhoto,minigame=queuedMinigame,picnicCommand=queuedPicnic;
+  const bungeo=queuedBungeo,bungeoWatch=Boolean(bungeo||near(BUNGEO_STALL,me.x,me.y)<=BUNGEO_STALL.watchRadius);
   syncStarted=sent;
-  const post=dirty||signal||hand||claim||feed||chat||bus||bike||show||clink||photo||minigame||picnicCommand||dining||Date.now()-lastPost>=3800;
+  const post=dirty||signal||hand||claim||feed||chat||bus||bike||show||clink||photo||minigame||picnicCommand||dining||bungeo||Date.now()-lastPost>=3800;
   const base={room:visit.room,id:visit.id,key:visit.key,lookPings:true,
-    bikeOffers:isBikeDriver(me)||Boolean(tandemOffer),diningVenue:serviceVenue};
+    bikeOffers:isBikeDriver(me)||Boolean(tandemOffer),diningVenue:serviceVenue,...(bungeoWatch?{bungeoWatch}:null)};
   const avatar=post?{...me,catFriends:passport.friendlyCatIds()}:null;
   if(avatar&&claim)Object.assign(avatar,{seat:claim.bench,seatSide:claim.side});
   if(avatar){if(chat)avatar.chat=chat;else delete avatar.chat;}
   if(avatar&&(avatar.wish===lastWishSynced||gameTime(sent)-avatar.wish>=WISH_FLIGHT_MS))delete avatar.wishArt;
-  const body=post?{...base,avatar,view:{...ownView},signal,hand,feed,bus,bike,show,clink,photo,minigame,picnic:picnicCommand,dining}:base;
+  const body=post?{...base,avatar,view:{...ownView},signal,hand,feed,bus,bike,show,clink,photo,minigame,picnic:picnicCommand,dining,...(bungeo?{bungeo}:null)}:base;
   if(post)dirty=false;
   try{
     const response=await request("/api/room",body),data=await response.json();
@@ -915,6 +918,7 @@ async function sync(){
       me.picnicClaim=confirmed.picnicClaim;
       for(const slot of ITEM_SLOTS)me[slot]=confirmed[slot]??null;
     }
+    receiveBungeo(data,confirmed,bungeo,bungeoWatch);
     if(feed&&queuedFeed===feed){
       queuedFeed=null;
       if(confirmed?.feed?.claim!==feed.claim)toast("고양이에게 가까이 다가가 다시 간식을 주세요.");
@@ -1029,6 +1033,7 @@ function returnToLobby(message=""){
   alcoholSip=null;bikeFallHintSeen=false;hideBikeFallTip();
   fountainShow=queuedShow=queuedClink=null;clinks=[];heardClinks.clear();nextShowAudio=0;
   queuedPhoto=roomPhoto=queuedMinigame=queuedPicnic=null;minigames.reset();picnic.reset();photoMode.close();tutorial.close();
+  queuedBungeo=null;bungeoMold=undefined;$("bungeo-status").hidden=true;
   guestbook.close();diningMenu.close();galleryLight=0;
   queuedDining=diningService=null;$("dining-status").hidden=true;
   minigameKiteCuts=[];
@@ -1595,7 +1600,7 @@ function sickLocked(time){
 }
 function canUseItem(time,slot){
   const item=me[slot];
-  return Boolean(!me.bus&&!riding&&!isCycling(me)&&!queuedBus&&!queuedBike&&!picnicInventoryBusy()&&
+  return Boolean(!me.bus&&!riding&&!isCycling(me)&&!queuedBus&&!queuedBike&&!picnicInventoryBusy()&&!bungeoInventoryPending()&&
     !alcoholSip&&!clinkLocked(time)&&!sickLocked(time)&&!feedingLocked(time)&&item?.remaining&&
     (!ITEMS[item.kind].meal||atDiningTable())&&
     !ITEM_SLOTS.some(slot=>itemAnimating(me[slot],time)));
@@ -1985,7 +1990,7 @@ $("pet-cat").addEventListener("click",()=>{
   dirty=true;nextCat=time+9000;sound.meow();focusGame();
 });
 $("take-item").addEventListener("click",()=>{
-  if(!session||riding||me.seat!=null||picnicInventoryBusy())return;
+  if(!session||riding||me.seat!=null||picnicInventoryBusy()||bungeoInventoryPending())return;
   const station=nearbyStation(),time=gameTime();
   const slot=freeItemSlot(me,time);
   if(!station||!slot||feedingLocked(time)||clinkLocked(time)||sickLocked(time))return;
@@ -2156,6 +2161,77 @@ function setActivity(id,label,disabled=false){
   if(button.disabled!==disabled)button.disabled=disabled;
   if(label&&button.textContent!==label)button.textContent=label;
 }
+const bungeoLabels={pour:"반죽 붓기",flip:"뒤집기",take:"붕어빵 꺼내기"};
+const bungeoKinds=new Set(Object.values(BUNGEO_ITEMS));
+function bungeoInventoryPending(){
+  return queuedBungeo?.action==="take"||queuedBungeo?.action==="gift";
+}
+function atBungeoCounter(position){
+  return near(BUNGEO_STALL,position.x,position.y)<=BUNGEO_STALL.radius;
+}
+function bungeoActions(time){
+  if(!session||!world||riding||me.bus||isCycling(me)||queuedBus||queuedBike||me.seat!=null||myLink()?.active||photoMode.camera||
+    minigames.active()||!atBungeoCounter(me)||!clearSegment(me,BUNGEO_STALL))return null;
+  const busy=Boolean(queuedBungeo||picnicInventoryBusy()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||time-me.jump<jumpDuration(me));
+  const step=bungeoStep(bungeoMold,time),slot=freeItemSlot(me,time);
+  const giftSlot=ITEM_SLOTS.find(hand=>bungeoKinds.has(me[hand]?.kind)&&me[hand].remaining>0&&!itemAnimating(me[hand],time));
+  let target=null,closest=BUNGEO_GIFT_REACH;
+  if(giftSlot)for(const person of people.values()){
+    const avatar=person.avatar,position=person.position;
+    if(!avatar.bungeoReady||!atBungeoCounter(position)||avatar.seat!=null||avatar.bus||isCycling(avatar)||
+      time-avatar.jump<jumpDuration(avatar)||!freeItemSlot(avatar,time))continue;
+    const distance=near(position,me.x,me.y);
+    if(distance<=closest){closest=distance;target=person;}
+  }
+  return {busy,step,slot,giftSlot,target};
+}
+function receiveBungeo(data,confirmed,command,watching){
+  if(!watching)bungeoMold=undefined;
+  else if(Object.hasOwn(data,"bungeo"))bungeoMold=data.bungeo;
+  const result=data.bungeoResult;
+  if(confirmed?.bungeoClaim&&confirmed.bungeoClaim!==me.bungeoClaim){
+    me.bungeoClaim=confirmed.bungeoClaim;
+    for(const slot of ITEM_SLOTS)me[slot]=confirmed[slot]??null;
+    dirty=true;
+    if(confirmed.bungeoClaim!==command?.id)toast("친구에게 붕어빵을 받았어요.");
+  }
+  if(!command||queuedBungeo!==command)return;
+  queuedBungeo=null;
+  if(result?.id!==command.id||!result.accepted){toast("틀과 빈손을 확인한 뒤 다시 해 주세요.");return;}
+  const item=ITEMS[BUNGEO_ITEMS[result.quality]];
+  if(command.action==="take"&&item)toast(item.name+"을 손에 들었어요.");
+  if(command.action==="gift")toast("친구에게 붕어빵을 건넸어요.");
+}
+function updateBungeoControls(time){
+  const actions=bungeoActions(time),step=actions?.step,status=$("bungeo-status"),gift=$("bungeo-gift");
+  status.hidden=!actions;
+  if(actions){
+    const {slot}=actions;
+    const message=bungeoMold===undefined?"붕어빵 틀을 확인하는 중이에요.":queuedBungeo?"좌판 상태를 맞추고 있어요.":
+      !slot?"굽거나 받으려면 한 손을 비워 주세요.":step.action==="pour"?"반죽을 부어 붕어빵을 구워 보세요.":
+      step.waitMs>0?`노릇해지기까지 ${Math.ceil(step.waitMs/1000)}초`:
+      step.quality==="burnt"?"붕어빵이 탔어요.":step.quality==="torn"?"붕어빵의 속이 터졌어요.":
+      step.action==="flip"?"한쪽이 노릇해졌어요. 뒤집어 보세요!":"양쪽이 노릇해졌어요. 지금 꺼내세요!";
+    setText(status,message);
+  }
+  setActivity("bungeo-cook",step?bungeoLabels[step.action]:null,Boolean(!actions||actions.busy||!actions.slot||!step.ready||bungeoMold===undefined));
+  setActivity("bungeo-gift",actions?.target?"붕어빵 건네기":null,Boolean(!actions||actions.busy));
+  if(actions?.target)attr(gift,"aria-label",actions.target.nickname+" 님에게 붕어빵 건네기");
+}
+$("bungeo-cook").addEventListener("click",()=>{
+  const actions=bungeoActions(gameTime());
+  if(!actions||actions.busy||!actions.slot||!actions.step.ready||bungeoMold===undefined)return;
+  const {action}=actions.step;
+  queuedBungeo={id:token(),action,stall:BUNGEO_STALL.id,
+    ...(action!=="pour"?{batch:bungeoMold.id}:null),...(action==="take"?{slot:actions.slot}:null)};
+  wakeSync();focusGame();
+});
+$("bungeo-gift").addEventListener("click",()=>{
+  const actions=bungeoActions(gameTime());
+  if(!actions?.target||actions.busy)return;
+  queuedBungeo={id:token(),action:"gift",stall:BUNGEO_STALL.id,slot:actions.giftSlot,to:actions.target.id};
+  wakeSync();focusGame();
+});
 function atShowControls(){
   return near(plazaShowSpot,me.x,me.y)<=PLAZA_SHOW_REACH&&!me.bus&&!isCycling(me);
 }
@@ -2282,6 +2358,7 @@ function updateActivities(time,guideNearby){
   if(!$("gesture-menu").hidden)for(const button of gestureButtons)button.disabled=!gestureReady(time,button.dataset.gesture);
   const eligible=world&&session&&!me.bus&&!isCycling(me)&&!queuedBus&&!queuedBike;
   updateSocial(time,eligible);
+  updateBungeoControls(time);
   setActivity("picnic",canPicnic(time)?picnic.label(me):null,Boolean(queuedPicnic));
   const available=eligible&&!riding&&me.seat==null&&!myLink()?.active;
   const venue=available&&!minigames.active()&&minigames.nearby(me);
@@ -2301,7 +2378,7 @@ function updateActivities(time,guideNearby){
   setActivity("pet-cat",cat?"쓰다듬기":null,feeding||!freeItemSlot(me,time)||time-(me.pet?.at??0)<PET_MS);
   if(cat)attr($("pet-cat"),"title",cat.name+" 쓰다듬기");
   const station=eligible&&me.seat==null&&nearbyStation();
-  const busy=Boolean(riding||picnicInventoryBusy()||feeding||clinkLocked(time)||sickLocked(time));
+  const busy=Boolean(riding||picnicInventoryBusy()||bungeoInventoryPending()||feeding||clinkLocked(time)||sickLocked(time));
   const free=!carryingDiningTray(time)&&freeItemSlot(me,time);
   const pickup=station&&(free?(station.kind==="churu"?"츄르 사기":ITEMS[station.kind].name+" 받기"):"두 손이 가득 찼어요");
   setActivity("take-item",pickup,busy||!free);
@@ -2483,6 +2560,9 @@ let lastFrame=performance.now(),interfaceAt=0,guideNearby=false;
 function preferredNearbyAction(time){
   if(me.bus||queuedBus)return "bus-action";
   if(!venueDoorButton.hidden&&!venueDoorButton.disabled&&interiorAt(me.x,me.y))return venueDoorButton.id;
+  const cook=$("bungeo-cook"),gift=$("bungeo-gift");
+  if(!gift.hidden&&!gift.disabled&&(cook.disabled||bungeoStep(bungeoMold,time).action==="pour"))return gift.id;
+  if(!cook.hidden)return cook.id;
   const bike=$("bike-action"),park=$("bike-park");
   const parkAvailable=!park.hidden&&!park.disabled;
   // Offer mounting (including the rear seat) ahead of unrelated actions. At a
@@ -2565,7 +2645,7 @@ function frame(now){
   lastScene={me:self,peers:[...others.values()],parkedBikes,view:ownView,firstPerson:firstPerson&&!photoMode.camera,
     photoCamera:photoMode.camera,environment,guideNearby,destination:course.at(-1),clock:time,fountainShow,galleryLight,
     diningService:diningService?.venue===currentDining()?.id?diningService?.tickets??[]:[],
-    minigames:minigames.states(),minigameAction:minigames.localAction(),picnics:picnic.states(),
+    minigames:minigames.states(),minigameAction:minigames.localAction(),picnics:picnic.states(),bungeo:bungeoMold,
     minigameFree:minigameKiteCuts.concat(minigames.freeStates()),
     minigameAimPreview:minigames.aimPreview()};
   world?.render(lastScene,now);
@@ -2973,7 +3053,7 @@ mapRouteWalk.addEventListener("click",()=>{
 });
 function drawDestinations(world){
   const layer=$("map-landscape");
-  const doors=[...world.stations,{...world.museum.outsideDoor,name:"전시관 입구"},
+  const doors=[...world.stations,{...BUNGEO_STALL,area:"plaza"},{...world.museum.outsideDoor,name:"전시관 입구"},
     {...mmcaVenue.outsideDoor,name:"국립현대미술관 입구",area:"bukchon"},
     ...diningVenues.map(venue=>({...venue.outsideDoor,name:venue.name,area:venue.area}))];
   for(const point of doors){
