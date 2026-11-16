@@ -198,6 +198,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 .held-actions{grid-area:held}
 #use-item{grid-column:1}
 #use-second-item{grid-column:2}
+#dining-eat{grid-column:1/-1}
 .held-actions button{display:grid;align-content:center;justify-items:center;gap:2px;white-space:normal;line-height:1.12}
 .held-actions small,.held-actions span{width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .held-actions small{font-size:10px;font-weight:650}
@@ -328,6 +329,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 #perspective{min-width:44px}
 .game-place small{max-width:100%}
 #travel-status{color:#f8d794;margin-top:4px}
+#dining-status{color:#f8d794;margin-top:4px;max-width:24ch;white-space:normal}
 .bus-seating{width:min(100%,310px);margin:0 auto;display:grid;gap:7px;text-align:center;color:#d9d7ba}
 #bus-seats{display:grid;grid-template-columns:1fr 1fr;column-gap:clamp(18px,10vw,60px);row-gap:7px;padding:12px;border:1px solid #788270;border-radius:22px;background:#16251e}
 #bus-seats button{min-height:44px;white-space:nowrap}

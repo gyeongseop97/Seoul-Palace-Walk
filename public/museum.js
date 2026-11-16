@@ -1,6 +1,6 @@
 import {addObstacle,courtAngle,gate,hall,pavilions,stoneHall} from "./layout.js";
-import {isInsideMuseum,museumBounds,museumHall,museumGalleries} from "./visit-layout.js";
-import {museumExhibits} from "./museum-catalog.js";
+import {isInsideMuseum,museumBounds,museumHall,museumGalleries,museumGalleryAt,museumInteriorOffsetY} from "./visit-layout.js";
+import {museumArtUrl,museumExhibits} from "./museum-catalog.js";
 import {createMuseumObject} from "./museum-objects.js";
 
 export {isInsideMuseum,museumBounds};
@@ -22,8 +22,8 @@ export const museumOutsideDoor={
   ...fromBuilding(museum,0,museum.d*.19+.75),
   heading:(museum.angle*180/Math.PI+360)%360
 };
-export const museumInsideDoor={x:80,y:92.5,heading:180};
-export const museumInsideSpawn={x:80,y:89.4,heading:0};
+export const museumInsideDoor={x:80,y:92.5+museumInteriorOffsetY,heading:180};
+export const museumInsideSpawn={x:80,y:89.4+museumInteriorOffsetY,heading:0};
 
 function ramp(profile,z){
   for(let i=1;i<profile.length;i++){
@@ -91,7 +91,6 @@ const galleryColors={
   modern:{wall:0xdadfe1,rug:0x536c7a,sign:"#3e576b"}
 };
 const framedExhibits=[
-  ["silla-buddha","silla",49.20,81.1,1.87,3.90,Math.PI/2],
   ["goryeo-avalokiteshvara","goryeo",61.6,48.20,2.00,3.90,0],
   ["inwang","joseon",91.9,48.20,5.10,2.94,0],
   ["irwol","joseon",103.9,48.20,6.31,2.73,0],
@@ -113,12 +112,12 @@ const wallSpots={
   goryeo:[[49.2,54.0,5.6,Math.PI/2],[49.2,63.3,5.6,Math.PI/2],[56.9,68.8,5.8,Math.PI],
     [67.3,68.8,5.8,Math.PI],[69.5,48.2,5.0,0],[54.5,48.2,5.0,0]],
   joseon:[[110.8,52.6,5.5,-Math.PI/2],[92.4,68.8,6.5,Math.PI],[110.8,65.0,5.5,-Math.PI/2],
-    [85.5,52.8,5.8,Math.PI/2],[85.5,65.0,5.4,Math.PI/2],[107.1,68.8,3.9,Math.PI]],
+    [85.5,52.8,5.8,Math.PI/2],[85.5,65.0,5.4,Math.PI/2],[107.1,68.8,3.9,Math.PI],[97.6,48.2,5.6,0]],
   modern:[[91.5,69.2,6.1,0],[102.6,69.2,6.6,0],[110.8,73.9,5.3,-Math.PI/2],
     [110.8,89.7,5.2,-Math.PI/2],[91.0,93.8,5.5,Math.PI],[105.0,93.8,6.0,Math.PI]]
 };
 const floorSpots={
-  silla:[[63.6,86.1],[54.5,80.4],[67.5,75.2]],
+  silla:[[54,74],[67.7,74],[53.5,82],[63,84],[68,87],[53.5,90],[61,90]],
   goryeo:[[59.8,61.7],[65.9,63.0],[55.3,55.8]],
   joseon:[[99.4,64.1],[94.4,54.7],[105.7,62.4]],
   modern:[[96.0,80.1],[101.1,86.5],[104.4,77.0]]
@@ -160,12 +159,15 @@ export function addMuseum(T,scene,{wx,wz}){
 
 export function registerMuseumNavigation(){
   for(const [x,z,w,d] of museumWalls)addObstacle(x,z,w,d,0,wallHeight);
-  for(const [, ,x,z] of casedExhibits)addObstacle(x,z,2.48,2.28,0,2.60);
+  for(const [, ,x,z] of casedExhibits)addObstacle(x,z+museumInteriorOffsetY,2.48,2.28,0,2.60);
 }
 
 export function* assembleMuseum(T,scene,{wx,wz}){
   const room=new T.Group();room.name="덕수궁 미술관";room.visible=false;scene.add(room);
   const boxGeometry=new T.BoxGeometry(1,1,1),colors=new Map(),exhibits=[],artworkMeshes=[];
+  const relicGroups=new Map(museumGalleries.map(({id})=>{
+    const group=new T.Group();room.add(group);return [id,group];
+  }));
   function block(color,x,y,z,w,h,d,rotation=0){
     if(!colors.has(color))colors.set(color,new T.MeshBasicMaterial({color,toneMapped:false}));
     const mesh=new T.Mesh(boxGeometry,colors.get(color));room.add(mesh);
@@ -238,16 +240,17 @@ export function* assembleMuseum(T,scene,{wx,wz}){
   block(0xc9a971,midX-.17,1.34,maxY-.43,.10,.26,.12);
   block(0xc9a971,midX+.17,1.34,maxY-.43,.10,.26,.12);
   artworkLabel(["정원으로 나가기"],"#395046","#fff4da",midX,3.81,maxY-.24,2.85,.52,Math.PI);
-  block(0x334d44,midX,4.16,84.7,9.1,1.0,.27);
-  artworkLabel(["덕수궁 전시관","삼국·통일신라부터 근대까지"],"#334d44","#fff1d1",midX,4.16,84.85,8.8,.9);
+  block(0x334d44,midX,4.16,84.7+museumInteriorOffsetY,9.1,1.0,.27);
+  artworkLabel(["덕수궁 전시관","삼국·통일신라부터 근대까지"],"#334d44","#fff1d1",midX,4.16,84.85+museumInteriorOffsetY,8.8,.9);
   artworkLabel(["← 고려관   조선관 →"],"#e9dfcb","#473b2d",midX,2.8,minY+.20,8.0,.70);
 
   const keyLight=new T.DirectionalLight(0xffe5c4,2.3);
   keyLight.position.set(8,16,10);room.add(keyLight);
   const fillLight=new T.DirectionalLight(0xdce8f5,.74);
   fillLight.position.set(-10,8,-5);room.add(fillLight);
-  for(const [index,[id,gallery,x,z,w,h,rotation]] of framedExhibits.entries()){
+  for(const [index,[id,gallery,x,localZ,w,h,rotation]] of framedExhibits.entries()){
     if(index%8===0)yield;
+    const z=localZ+museumInteriorOffsetY;
     const exhibit=museumExhibits[id],{file,title,credit}=exhibit;
     const y=h>3.5?2.85:2.64,s=Math.sin(rotation),c=Math.cos(rotation);
     block(0x78654e,x,y,z,w+.34,h+.34,.11,rotation);
@@ -264,14 +267,15 @@ export function* assembleMuseum(T,scene,{wx,wz}){
   const edges=new T.EdgesGeometry(glassGeometry);
   const glassMaterial=new T.MeshBasicMaterial({color:0xc9e3e0,transparent:true,opacity:.09,depthWrite:false});
   const edgeMaterial=new T.LineBasicMaterial({color:0xa6bbb1,transparent:true,opacity:.53});
-  for(const [index,[id,gallery,x,z]] of casedExhibits.entries()){
+  for(const [index,[id,gallery,x,localZ]] of casedExhibits.entries()){
     if(index%6===0)yield;
+    const z=localZ+museumInteriorOffsetY;
     const exhibit=museumExhibits[id],theme=galleryColors[gallery];
     block(0x3b3d37,x,.12,z,2.48,.24,2.28);
     block(theme.rug,x,.47,z,2.32,.70,2.10);
     block(0xf2e8d5,x,.85,z,2.40,.15,2.18);
     const object=createMuseumObject(T,exhibit.object);
-    object.position.set(wx(x),.93,wz(z));room.add(object);
+    object.position.set(wx(x),.93,wz(z));relicGroups.get(gallery).add(object);
     const glass=new T.Mesh(glassGeometry,glassMaterial);
     glass.position.set(wx(x),1.756,wz(z));room.add(glass);
     const outline=new T.LineSegments(edges,edgeMaterial);
@@ -285,13 +289,20 @@ export function* assembleMuseum(T,scene,{wx,wz}){
     if(!visible||loaded)return;
     loaded=true;
     const loader=new T.TextureLoader();
-    for(const {file,picture} of artworkMeshes)loader.load(new URL(`./art/${file}.webp`,import.meta.url).href,map=>{
+    for(const {file,picture} of artworkMeshes)loader.load(museumArtUrl(file),map=>{
       map.colorSpace=T.SRGBColorSpace;map.anisotropy=4;
       picture.material.map=map;picture.material.color.setHex(0xffffff);picture.material.needsUpdate=true;
     },undefined,error=>console.warn("Artwork unavailable",file,error));
   }
   return {
     outsideDoor:museumOutsideDoor,insideDoor:museumInsideDoor,insideSpawn:museumInsideSpawn,
-    isInside:isInsideMuseum,floorAt:stairHeight,setVisible,exhibits
+    isInside:isInsideMuseum,floorAt:stairHeight,setVisible,exhibits,
+    update(_clock,_light,_service,visitor){
+      if(!visitor)return;
+      const nearby=museumGalleryAt(visitor.x,visitor.y)?.id;
+      for(const gallery of museumGalleries){
+        relicGroups.get(gallery.id).visible=nearby===gallery.id||Math.hypot(visitor.x-gallery.doorX,visitor.y-gallery.doorY)<18;
+      }
+    }
   };
 }

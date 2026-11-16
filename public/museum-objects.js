@@ -1,3 +1,5 @@
+import {buildMuseumRelic} from "./museum-relics.js";
+
 // Reference: National Museum of Korea, 증616, 덕수2182, 접수702 and 동원420.
 // Profile pairs give radius and height as fractions of each object's display height.
 const celadonProfile = [
@@ -505,6 +507,8 @@ export function createMuseumObject(T, id) {
       pot(T,group,buncheongProfile,[[.099,1],[.096,.985],[.073,.955],[.057,.894],[.053,.837],[.084,.749],[.126,.660],[.211,.519],[.272,.367],[.271,.251],[.214,.145],[.119,.068],[0,.061]],
         1.18,{rgb:[194,181,153],grit:16,kiln:13,interior:0x8f8266},buncheongPaint,[.54,.23],.015);
       break;
+    default:
+      buildMuseumRelic(T,group,id);
   }
   return group;
 }

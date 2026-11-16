@@ -1,6 +1,8 @@
 import {mmcaExhibits,mmcaGalleryRooms,mmcaVenue,mmcaWalls} from "./mmca-gallery-layout.js";
 import {addHirstWork} from "./mmca-hirst.js";
 import {buildMueckSculpture} from "./mmca-mueck.js";
+import {addExtraMuseumWork} from "./mmca-extra-works.js";
+import {addGuestMuseumWork} from "./mmca-guest-works.js";
 
 const finish={walls:0xe8e6e1,ceiling:0x5d6064,metal:0x353a41,trim:0x777c7e};
 const exhibitColors={home:0xa2c7c1,"home-passage":0xc4a5c8,colors:0xd0a3bc,objects:0xe3ba70,
@@ -122,11 +124,13 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
   yield;
 
   const byId=new Map(mmcaExhibits.map(exhibit=>[exhibit.id,exhibit]));
+  const roomModels=new Map();
   for(const [x1,y1,x2,y2] of mmcaWalls){
     wall((x1+x2)/2,(y1+y2)/2,Math.max(.28,Math.abs(x2-x1)),Math.max(.28,Math.abs(y2-y1)));
   }
   for(const room of mmcaGalleryRooms){
     yield;
+    roomModels.set(room.id,group(0,0,0));
     const {minX:left,maxX:right,minY:front,maxY:back,doorX,doorY}=room;
     const west=doorX<centerX,roomX=(left+right)/2;
     const exhibit=byId.get(room.exhibitId??room.id);
@@ -150,7 +154,7 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
     }
     block(accent,west?left+.17:right-.17,2.82,(front+back)/2,.06,3.46,Math.min(10,back-front-3));
     const roomWorks=mmcaExhibits.filter(work=>work.gallery===room.id);
-    const wallCopy=roomWorks.length===1?[exhibit.title,exhibit.credit]:roomWorks.map(work=>work.title);
+    const wallCopy=[room.name,`${roomWorks.length}점 · ${exhibit.credit.split(" · ")[0]}`];
     label(wallCopy,west?left+.286:right-.286,2.72,(front+back)/2,6.9,1.45,
       west?Math.PI/2:-Math.PI/2,stripe);
   }
@@ -159,32 +163,41 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
   const fill=new T.DirectionalLight(0xcae4ff,1.35);fill.position.set(9,12,-8);gallery.add(fill);
   for(const exhibit of mmcaExhibits){
     yield;
-    if(exhibit.gallery==="hirst"){
-      addHirstWork(T,gallery,{wx,wz},exhibit);
+    const artRoom=roomModels.get(exhibit.gallery);
+    if(exhibit.id==="skull"||exhibit.id==="shark"){
+      addHirstWork(T,artRoom,{wx,wz},exhibit);
       const skull=exhibit.id==="skull";
       label([exhibit.title],exhibit.x,.64,exhibit.y+(skull?1.28:2.57),2.9,.45,0,"#77a7af",true);
       continue;
     }
-    const art=group(wx(exhibit.x),0,wz(exhibit.y));art.name=exhibit.title;
+    const art=group(wx(exhibit.x),0,wz(exhibit.y),artRoom);art.name=exhibit.title;
     if(exhibit.id==="home"||exhibit.id==="home-passage"){
       const house=exhibit.id==="home";
       block(house?0x7f9994:0x9d8eaa,exhibit.x,.022,exhibit.y,house?6.64:4.08,.014,6.48);
       block(house?0xb4c9bf:0xc4bbc5,exhibit.x,.033,exhibit.y,house?1.89:2.26,.012,6.52);
     }else{
-      block(0x303b42,exhibit.x,.115,exhibit.y,5.75,.23,5.52);
-      block(exhibitColors[exhibit.id],exhibit.x,.235,exhibit.y,5.61,.028,5.38);
-      block(0xdedbd2,exhibit.x,.276,exhibit.y,5.49,.087,5.27);
+      const {x,z}=art.position;
+      box(0x303b42,x,.115,z,5.75,.23,5.52,artRoom,true);
+      box(exhibitColors[exhibit.id]??exhibitColors[exhibit.gallery]??0xb4a08d,x,.235,z,5.61,.028,5.38,artRoom,true);
+      box(0xdedbd2,x,.276,z,5.49,.087,5.27,artRoom,true);
     }
     switch(exhibit.id){
       case "home": makeHome(art);batchArt(art);break;
       case "home-passage": makeHomePassage(art);batchArt(art);break;
+      case "home-pockets": case "home-thread": makeHomeStudy(art,exhibit.id==="home-thread");batchArt(art);break;
       case "colors": makeColorLight(art);break;
       case "objects": makeObjects(art);batchArt(art);break;
       case "weave": makeWeave(art);batchArt(art);break;
       case "tide": makeTide(art);break;
       case "wind": makeWind(art);break;
       case "mueck":art.rotation.y=-Math.PI*.28;buildMueckSculpture(T,art);break;
+      default:{
+        const build=exhibit.gallery==="hirst"||exhibit.gallery==="mueck"?addGuestMuseumWork:addExtraMuseumWork;
+        const animate=build(T,art,exhibit);
+        if(typeof animate==="function")animated.push(animate);
+      }
     }
+    if(exhibit.extra)label([exhibit.title],exhibit.x,.63,exhibit.y+2.77,2.9,.48,0,"#7c9f94",false);
   }
 
   function batchArt(art){
@@ -207,6 +220,41 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
       batch.computeBoundingSphere();
       art.add(batch);
     }
+  }
+
+  function makeHomeStudy(parent,threadRoom){
+    if(!threadRoom){
+      const color=0x719d94,material=fabric(0x95c6b5,.38);
+      for(const side of [-1,1]){
+        cloth(1.2,2.65,side*1.62,1.77,0,Math.PI/2,material,parent);
+        box(color,side*1.62,1.75,.61,.07,2.61,.08,parent);
+        box(color,side*1.62,1.75,-.61,.07,2.61,.08,parent);
+      }
+      for(const [index,z] of [.10,.28,.51,.77].entries()){
+        const y=.70+index*.57;
+        framePanel(cloth(3.22,.47,0,y,z,0,material,parent),3.22,.47,color);
+        for(const x of [-1.38,1.38])box(color,x,y,z-.28,.05,.05,.67,parent);
+        const grip=ring(0xc4a16a,0,y,z+.032,.105,parent);grip.scale.y*=.64;
+      }
+      box(color,0,3.10,0,3.32,.078,1.31,parent);
+      return;
+    }
+    const wire=[];
+    for(let i=0;i<=36;i++){
+      const x=-2.03+i*.1128,z=-1.46+i*.081;
+      if(Math.abs(x)>.91)wire.push(x,.33,1.45,x,3.18,1.45);
+      else wire.push(x,2.28,1.45,x,3.18,1.45);
+      wire.push(x,.34,-1.46,x,3.19,-1.46,-2.04,.34,z,-2.04,3.18,z,2.04,.34,z,2.04,3.18,z);
+    }
+    for(let i=0;i<=26;i++){
+      const y=.36+i*.108;
+      wire.push(-2.04,y,-1.46,2.04,y,-1.46,-2.04,y,-1.46,-2.04,y,1.45,2.04,y,-1.46,2.04,y,1.45);
+      if(y>2.26)wire.push(-2.04,y,1.45,2.04,y,1.45);
+    }
+    const geometry=new T.BufferGeometry();geometry.setAttribute("position",new T.Float32BufferAttribute(wire,3));
+    parent.add(new T.LineSegments(geometry,new T.LineBasicMaterial({color:0xa26150,opacity:.72,transparent:true})));
+    const curtain=cloth(1.88,1.24,0,1.92,-1.41,0,fabric(0xcf9082,.36),parent);
+    framePanel(curtain,1.88,1.24,0xa26e61,true);
   }
 
   function fabric(color,opacity){
@@ -515,8 +563,12 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
   }
 
   return {
-    update(clock,lightMode){
+    update(clock,lightMode,_service,viewer){
       if(!gallery.visible)return;
+      if(viewer)for(const room of mmcaGalleryRooms){
+        const inside=viewer.x>room.minX&&viewer.x<room.maxX&&viewer.y>room.minY&&viewer.y<room.maxY;
+        roomModels.get(room.id).visible=inside||Math.hypot(viewer.x-room.doorX,viewer.y-room.doorY)<26;
+      }
       const seconds=clock/1000;
       const mode=Number.isInteger(lightMode)&&lightMode>=0&&lightMode<=2?lightMode:0;
       for(const animate of animated)animate(seconds,mode);

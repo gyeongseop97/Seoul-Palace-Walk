@@ -34,6 +34,12 @@ export const ITEMS={
   buckwheatNoodles:meal("메밀국수","chopsticks"),
   jangGukbap:meal("장국밥"),
   sujebi:meal("수제비"),
+  mushroomPasta:meal("버섯 크림 파스타","fork"),
+  beefCurry:meal("소고기 카레라이스"),
+  chickenSandwich:meal("치킨 샌드위치","fork"),
+  udon:meal("가케 우동","chopsticks"),
+  jjajangmyeon:meal("짜장면","chopsticks"),
+  friedRice:meal("달걀 볶음밥"),
   makgeolli:{name:"막걸리",verb:"마시기",uses:3,duration:1350,alcohol:true},
   wine:{name:"와인",verb:"마시기",uses:3,duration:1350,alcohol:true},
   fruitWine:{name:"매실주",verb:"마시기",uses:3,duration:1350,alcohol:true},
@@ -41,8 +47,8 @@ export const ITEMS={
   churu:{name:"츄르",verb:"간식 주기",uses:3,duration:FEED_MS}
 };
 
-function heldProp(avatar,clock,slot,side){
-  const item=avatar[slot],spec=ITEMS[item?.kind];
+function heldProp(item,clock,slot,side){
+  const spec=ITEMS[item?.kind];
   if(!spec)return null;
   const itemAge=item.started?Math.max(0,clock-item.started):Infinity;
   if(item.remaining<=0&&itemAge>=spec.duration)return null;
@@ -50,15 +56,16 @@ function heldProp(avatar,clock,slot,side){
 }
 
 export function diningTray(avatar,clock){
-  const first=ITEMS[avatar.item?.kind]?.meal?heldProp(avatar,clock,"item",1):null;
-  return first??(ITEMS[avatar.secondItem?.kind]?.meal?heldProp(avatar,clock,"secondItem",-1):null);
+  if(avatar.diningMeal)return heldProp(avatar.diningMeal,clock,null,1);
+  const first=ITEMS[avatar.item?.kind]?.meal?heldProp(avatar.item,clock,"item",1):null;
+  return first??(ITEMS[avatar.secondItem?.kind]?.meal?heldProp(avatar.secondItem,clock,"secondItem",-1):null);
 }
 
 export function avatarHands(avatar,clock,{riding,seated,walking}){
   const claspSide=!riding&&(avatar.hand===-1||avatar.hand===1)?avatar.hand:0;
   const tray=riding?null:diningTray(avatar,clock);
-  const first=riding||tray?null:heldProp(avatar,clock,"item",1);
-  const second=riding||tray?null:heldProp(avatar,clock,"secondItem",-1);
+  const first=riding||tray?null:heldProp(avatar.item,clock,"item",1);
+  const second=riding||tray?null:heldProp(avatar.secondItem,clock,"secondItem",-1);
   const itemFor=side=>side===1?first:second;
   const feedAge=clock-avatar.feed?.at,petAge=clock-avatar.pet?.at;
   const feedActive=feedAge>=0&&feedAge<FEED_MS;

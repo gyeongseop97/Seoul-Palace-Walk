@@ -5,6 +5,7 @@ export function bindDiningMenu({onSelectDish}){
   const options=document.getElementById("dining-menu-options");
   const status=document.getElementById("dining-menu-status");
   const heading=dialog.querySelector("h2");
+  const help=document.getElementById("dining-menu-help");
   function dishOption({kind,name,description,source}){
     const button=document.createElement("button");
     button.type="button";button.className="quiet dining-dish";
@@ -23,8 +24,10 @@ export function bindDiningMenu({onSelectDish}){
     }
   }
   return {
-    open(venue=diningVenue){
+    open(venue=diningVenue,action){
       heading.textContent=venue.name+" 메뉴";
+      help.textContent=action==="kiosk"?"메뉴를 고르고 빈 식탁에 앉으면 로봇이 음식을 가져다줘요.":
+        action==="order"?"메뉴를 고르면 직원이 음식을 준비해 이 식탁으로 가져다줘요.":"메뉴를 고르고 트레이를 받아 빈 식탁에 앉으세요.";
       options.replaceChildren();
       venue.dishes.forEach(dishOption);
       status.textContent="";

@@ -308,7 +308,7 @@ export function makeItemProps(T,{box,cylinder,shape}){
   return parent=>{
     const instances=new Map();
     let previous=null;
-    function update(kind,activeAge=-1){
+    function update(kind,activeAge=-1,remaining){
       if(previous!==kind){
         const old=instances.get(previous);if(old)old.group.visible=false;
         previous=kind;
@@ -318,7 +318,7 @@ export function makeItemProps(T,{box,cylinder,shape}){
         }
       }
       const item=instances.get(kind);
-      if(item){item.group.visible=true;item.update?.(activeAge);}
+      if(item){item.group.visible=true;item.update?.(activeAge,remaining);}
     }
     update.dispose=()=>{for(const item of instances.values())item.dispose?.();};
     return update;

@@ -13,10 +13,10 @@ import { addHanbokRental } from "./wearables-models.js";
 import { assembleMuseum, registerMuseumNavigation, isInsideMuseum, museumOutsideDoor, museumInsideDoor, museumInsideSpawn, stairHeight } from "./museum.js";
 import { interiorAt } from "./interior-layout.js";
 import { mmcaVenue,mmcaExhibits,mmcaWalls } from "./mmca-gallery-layout.js";
-import { diningVenues } from "./dining-data.js";
+import { diningTrayPose,diningVenues } from "./dining-data.js";
 import { registerDiningNavigation } from "./dining-layout.js";
 import { buildDiningFacade } from "./dining-world.js";
-import { PET_MS, FEED_MS, diningTray, jumpLift, renderedJumpLift } from "./activities.js";
+import { PET_MS, FEED_MS, ITEMS, diningTray, jumpLift, renderedJumpLift } from "./activities.js";
 import { bikeFallAt } from "./avatar-gestures.js";
 import { makeWalkerModels } from "./walker-model.js";
 import { addMinigameMarkers, registerMinigameProps } from "./minigame-markers.js";
@@ -546,7 +546,27 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     return waiting;
   }
 
-  const models=new Map(),parkedModels=new Map(),emojiMaps=new Map(),tableTrays=new Map();
+  const models=new Map(),parkedModels=new Map(),emojiMaps=new Map(),tableTrays=new Map(),serviceTrays=new Map();
+  function updateServiceTrays(tickets,clock){
+    const placed=new Set();
+    for(const ticket of tickets){
+      if(!ticket.kind||!ticket.table||!(["served","clearQueued","clearing"].includes(ticket.phase)))continue;
+      placed.add(ticket.id);
+      let tray=serviceTrays.get(ticket.id);
+      if(!tray){
+        const root=new T.Group();root.name="식탁 트레이";root.userData.diningTicketId=ticket.id;scene.add(root);
+        const {x,y,height,heading}=diningTrayPose(ticket.table);
+        root.position.set(wx(x),height,wz(y));root.rotation.y=(180-heading)*Math.PI/180;
+        tray={root,show:createItemProp(root)};serviceTrays.set(ticket.id,tray);
+      }
+      const age=clock-ticket.ateAt;
+      tray.show(ticket.kind,age>=0&&age<ITEMS[ticket.kind].duration?age/1000:-1,ticket.remaining);
+    }
+    for(const [id,{root,show}] of serviceTrays){
+      if(placed.has(id))continue;
+      root.removeFromParent();show.dispose();serviceTrays.delete(id);
+    }
+  }
   function updateTableTray(player,seat,clock){
     const meal=seat?.tray&&diningTray(player,clock);
     let tableItem=tableTrays.get(player.id);
@@ -562,7 +582,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     tableItem.root.visible=true;
     tableItem.root.position.set(wx(x),height,wz(y));
     tableItem.root.rotation.y=(180-heading)*Math.PI/180;
-    tableItem.show(meal.item.kind,meal.itemAge<meal.spec.duration?meal.itemAge/1000:-1);
+    tableItem.show(meal.item.kind,meal.itemAge<meal.spec.duration?meal.itemAge/1000:-1,meal.item.remaining);
   }
   function labelSprite(nickname,coat){
     const canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");
@@ -790,6 +810,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     const anchor=me,angle=view.pan*Math.PI/180,insideId=interiorAt(anchor.x,anchor.y),indoors=Boolean(insideId),
       atPlaza=inGwanghwamunPlaza(anchor.x,anchor.y);
     const interior=indoorsById[insideId];
+    const service=diningById[insideId]?state.diningService??[]:[];
     const waiting=advanceWorld(anchor,interior);
     const blocked=waiting&&(indoors||cameraAnchor==null||Math.hypot(anchor.x-300-pivot.x,anchor.y-225-pivot.z)>65);
     loading?.classList?.toggle("loading-transition",blocked);
@@ -877,7 +898,8 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     }
     outdoors.visible=!indoors;
     for(const district of indoorDistricts)district.view?.setVisible(district===interior);
-    interior?.view?.update?.(clock,state.galleryLight??0);
+    interior?.view?.update?.(clock,state.galleryLight??0,service,anchor);
+    updateServiceTrays(service,clock);
     guideMarker.visible=!indoors&&Math.hypot(anchor.x-ticketGuide.x,anchor.y-ticketGuide.y)<22;
     showMarker.visible=atPlaza&&!indoors&&Math.hypot(anchor.x-plazaShowSpot.x,anchor.y-plazaShowSpot.y)<38;
     if(guideMarker.visible){
@@ -936,6 +958,13 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       for(const ring of ripples.get(id)??[]){ring.removeFromParent();ring.material.dispose();}
       ripples.delete(id);
     }
+    const diners=new Map(service.map(ticket=>[ticket.player,ticket]));
+    function diningPose(player){
+      const ticket=diners.get(player.id);
+      if(!ticket?.kind||!(ticket.phase==="carrying"||ticket.phase==="served"&&ticket.table.seat===player.seat&&
+        ticket.table.side===(player.seatSide??0)*2-1))return player;
+      return {...player,diningMeal:{kind:ticket.kind,remaining:ticket.remaining,started:ticket.ateAt}};
+    }
     roster.forEach(player=>{
       let model=models.get(player.id);
       const visible=interiorAt(player.x,player.y)===insideId&&Math.hypot(player.x-anchor.x,player.y-anchor.y)<135;
@@ -946,7 +975,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       const floor=footing(player.bikeDriverPosition??player);
       const tableSeat=seatAt(player,clock);
       updateTableTray(player,tableSeat,clock);
-      walkerModels.update(model,player,{now,clock,delta,seat:tableSeat,floor,jump:renderedJumpLift(player,clock,floor),emojiTexture,chatTexture,
+      walkerModels.update(model,diningPose(player),{now,clock,delta,seat:tableSeat,floor,jump:renderedJumpLift(player,clock,floor),emojiTexture,chatTexture,
         turnEase:player===me?1-Math.exp(-delta*22):1});
       minigameWorld.pose(player,model,state.photoCapture);
       if(model.label)model.label.visible=!state.photoCapture;
@@ -1090,7 +1119,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     renderer.render(scene,camera);
     if(firstPerson){
       firstPersonView??=makeFirstPersonView(T,createItemProp);
-      firstPersonView.render(renderer,camera,me,{now,clock,delta,seat,clink:me.clink,night});
+      firstPersonView.render(renderer,camera,diningPose(me),{now,clock,delta,seat,clink:me.clink,night});
     }
   }
   const ray=new T.Raycaster(),sample=new T.Vector3();

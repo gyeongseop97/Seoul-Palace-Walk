@@ -15,10 +15,10 @@ const works=[
     obstacles:[[-2.88,0,.12,5.46],[2.88,0,.12,5.46],[-1.98,-2.72,1.76,.12],[1.98,-2.72,1.76,.12],
       [-1.98,2.72,1.76,.12],[1.98,2.72,1.76,.12],[-1.71,.62,.10,2.65],[1.71,.62,.10,2.65]]},
   {id:"colors",title:"빛을 모으는 손",shortName:"빛의 방",credit:"김수자 · 2016 《마음의 기하학》",
-    original:"‹마음의 기하학›과 ‹호흡›",link:"https://www.mmca.go.kr/pr/employmentDetail.do?bdCId=201607270005387",color:"#927da4",
+    original:"‹마음의 기하학›과 ‹호흡›",source:"201606240000455",color:"#927da4",
     description:"2016년 전시에는 손으로 빚는 흙덩이와 유리를 통과하며 여러 색으로 나뉘는 빛이 함께 등장했어요. 이 방에서는 빛 바꾸기 버튼으로 세 가지 조명 아래 구슬과 프리즘의 색을 살펴볼 수 있어요."},
   {id:"objects",title:"찬장의 정원",shortName:"사물 정원",credit:"최정화 · 2018 《꽃, 숲》",
-    original:"‹민들레›와 일상용품 설치 연작",link:"https://www.mmca.go.kr/pr/employmentDetail.do?bdCId=201809040006455",color:"#ad784f",
+    original:"‹민들레›와 일상용품 설치 연작",source:"201801150000995",color:"#ad784f",
     description:"최정화는 그릇과 바구니처럼 자주 쓰는 물건을 모아 커다란 설치 작품으로 바꿨어요. 이곳에선 한데 모인 그릇과 바구니가 낮은 정원을 이뤄요. 둘레를 돌며 익숙한 사물이 낯설게 보이는 각도를 찾아보세요."},
   {id:"weave",title:"계절을 엮는 고리",shortName:"엮는 고리",credit:"양혜규 · 2020 《O2 & H2O》",
     original:"‹중간 유형 – 구렁이 생명체›",source:"202001090001232",color:"#788b62",
@@ -64,9 +64,66 @@ const newWorks=[
     description:"론 뮤익은 사람의 표정과 피부를 세밀하게 만들고, 크기를 크게 바꿔 관람객이 평범한 몸짓을 새로 보게 해요. 게임에서는 벤치에 앉아 볼을 괴고 잠시 쉬는 인물로 그 느낌을 표현했어요."},
 ];
 
-export const mmcaExhibits=[...works.map((work,index)=>({
-  ...work,gallery:work.id,x:index%2===0?326:376,y:[480,503,525][Math.floor(index/2)],radius:7.4,
-})),...newWorks].map(work=>({
+const extras={
+  home:[
+    ["home-pockets","기억의 서랍",318,476,"반투명한 서랍과 문고리 안쪽까지 들여다볼 수 있게 만들었어요.","서울관 설치의 건축 디테일"],
+    ["home-thread","실로 이어 붙인 방",318,488,"가느다란 실로 엮은 벽 사이에 창을 냈어요. 정면과 옆에서 서로 다르게 보이는 방을 살펴보세요.","서도호의 공간 드로잉과 천 작업"],
+  ],
+  colors:[
+    ["color-spectra","겹빛의 기둥","휘어진 여러 겹의 색유리를 비껴 보세요. 겹쳐지는 색과 빛의 띠가 달라져요."],
+    ["color-clay","손바닥의 별자리","손으로 빚은 듯 굴곡이 있는 작은 구슬을 색과 크기별로 모았어요."],
+    ["color-rays","새벽의 창","창틀을 지난 빛이 여러 방향으로 흩어지는 모습을 입체로 표현했어요."],
+  ],
+  objects:[
+    ["objects-wire","찬장 밖의 궤도","국자와 체를 매달아 회전하는 모빌로 만들었어요."],
+    ["objects-flower","철제 꽃밭","주방의 금속 그릇과 도구에서 따온 형태가 꽃처럼 펼쳐져요."],
+    ["objects-lattice","그릇의 단면","서로 다른 컵과 그릇을 격자에 넣었어요. 그릇 사이에 남는 빈칸도 살펴보세요."],
+  ],
+  weave:[
+    ["weave-screen","숨 쉬는 격자","실로 짠 발의 간격을 달리해 서 있는 위치에 따라 겹무늬가 달라져요."],
+    ["weave-bell","구름의 방울","여러 높이에서 흔들리는 실 타래와 종 모양을 바라보세요."],
+    ["weave-vessel","서리를 담는 항아리","가닥을 비틀어 짠 항아리예요. 열린 윗부분으로 안쪽의 짜임이 보여요."],
+  ],
+  tide:[
+    ["tide-sail","바람의 기관","여러 장의 작은 돛이 차례로 방향을 틀어요."],
+    ["tide-beam","수평을 찾는 저울","길이가 다른 균형추가 움직일 때 기울기를 살펴보세요."],
+    ["tide-step","느린 물결의 기어","톱니가 돌고 판이 차례로 올라오면서 작은 물결을 만들어요."],
+  ],
+  wind:[
+    ["wind-returns","되돌아오는 물결","먹빛과 옅은 물빛으로 파도가 되돌아오는 장면을 두 폭에 그렸어요."],
+    ["wind-tree","바람이 지나간 자리","나뭇가지와 천을 함께 놓아 바닥에도 바람 자국처럼 그림자가 생겨요."],
+    ["wind-trace","눌러 남긴 흔적","비어 있는 자리를 둘러보면 눌린 표면과 작은 흔적이 남아 있어요."],
+  ],
+  hirst:[
+    ["hirst-spin","색이 도는 자리",316,445,"원에서 바깥으로 뻗는 색이 회전할 때마다 다른 무늬를 만들어요.","‹스핀 페인팅› 연작"],
+    ["hirst-cabinet","유리병 선반",316,459,"병과 상자를 종류별로 모은 진열장입니다. 정렬된 물건과 비어 있는 칸을 살펴보세요.","‹희생 제물›과 약장 연작"],
+  ],
+  mueck:[
+    ["mueck-mask","눈을 감은 오후",365,444,"커다랗게 만든 얼굴에 감긴 눈꺼풀과 볼의 굴곡을 넣었어요.","‹마스크 II›"],
+    ["mueck-hand","빈 손의 온도",383,445,"손을 크게 확대했어요. 손가락 마디와 힘을 뺀 손바닥을 여러 각도에서 볼 수 있어요.","‹나뭇가지를 든 여인›의 손짓"],
+    ["mueck-scale","모퉁이의 사람",383,463,"작게 조형한 인물을 가까이서 보면 옷자락과 신발에 남은 몸짓이 보여요.","‹어두운 장소›의 인물 크기"],
+  ],
+};
+
+const firstWorks=works.map((work,index)=>({
+  ...work,gallery:work.id,x:index%2===0?326:376,y:[work.id==="home"?480:477,499.5,520][Math.floor(index/2)],radius:7.4,
+}));
+const referenceByRoom=new Map([...firstWorks,...newWorks].filter(work=>!["home-passage","skull"].includes(work.id))
+  .map(work=>[work.gallery,work]));
+const addedWorks=Object.entries(extras).flatMap(([gallery,entries])=>{
+  const reference=referenceByRoom.get(gallery),sameColumn=reference.x,secondColumn=sameColumn<351?338:364;
+  const lowerRow={colors:488,objects:509.5,weave:509.5,tide:528.4,wind:528.4}[gallery];
+  const positions=[[secondColumn,reference.y],[sameColumn,lowerRow],[secondColumn,lowerRow]];
+  return entries.map(([id,title,x,y,description,original],index)=>{
+    if(typeof x==="string"){
+      description=x;[x,y]=positions[index];
+    }
+    return {id,gallery,title,x,y,radius:6.2,description,original:original??reference.original,
+      credit:reference.credit,source:reference.source,link:reference.link,extra:true};
+  });
+});
+
+export const mmcaExhibits=[...firstWorks,...newWorks,...addedWorks].map(work=>({
   ...work,source:work.link??`https://www.mmca.go.kr/exhibitions/exhibitionsDetail.do?exhFlag=2&exhId=${work.source}`,
   sourceLabel:"국립현대미술관 전시 기록",
 }));

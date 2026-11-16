@@ -19,6 +19,7 @@ import {ensureUmbrellaPairs,umbrellaWeather,umbrellaActorsReady,umbrellaPairMark
   visibleUmbrellaPairs,markUmbrellaPair,purgeUmbrellaPairs,clearUmbrellaMarkers} from "./server/umbrella-pairs.mjs";
 import {ensurePicnicTables,validPicnic,picnicStatements,selectPicnics,picnicPayload,cleanupPicnics} from "./server/picnic.mjs";
 import {handleGuestbook} from "./server/guestbook.mjs";
+import {diningService,ensureDiningService,isDiningVenue,pruneDiningService,selectDiningService,validDiningCommand} from "./server/dining-service.mjs";
 
 const json = (data, status = 200) => Response.json(data,{status,headers:{"Cache-Control":"no-store"}});
 const validId = (value) => typeof value==="string" && /^[a-f0-9]{32}$/.test(value);
@@ -525,7 +526,8 @@ export async function api(request,env){
     return json({error:"잘못된 산책방 정보예요."},400);
   }
   const {room,id,key=null,avatar,view,signal,hand,feed,bus,bike,show,clink,leave,lookPings}=body;
-  const {minigame,picnic}=body;
+  const {minigame,picnic,dining}=body;
+  const diningVenue=dining?.venue??body.diningVenue;
   if(body.guestbook!==undefined){
     const now=Date.now();
     return handleGuestbook(db,{room,id,key,guestbook:body.guestbook,now,active:now-walkerLifetime});
@@ -559,6 +561,9 @@ export async function api(request,env){
   if(photo!=null&&(!key||avatar===undefined||!validPhoto(photo)))return json({error:"단체 사진 요청을 읽을 수 없어요."},400);
   if(minigame!=null&&(!key||avatar===undefined||!validMinigame(minigame)))return json({error:"민속놀이 요청을 읽을 수 없어요."},400);
   if(picnic!=null&&(!key||avatar===undefined||!validPicnic(picnic)))return json({error:"피크닉 요청을 읽을 수 없어요."},400);
+  if(diningVenue!=null&&(!key||!isDiningVenue(diningVenue))||dining!=null&&(!key||avatar===undefined||!validDiningCommand(dining))){
+    return json({error:"식당 요청을 읽을 수 없어요."},400);
+  }
   if(signal!=null&&(avatar===undefined||!validSignal(signal,id)))return json({error:"‘여기 봐’ 위치를 읽을 수 없어요."},400);
   if(avatar!==undefined&&(!validAvatar(avatar)||!validView(view)))return json({error:"산책 위치를 읽을 수 없어요."},400);
   const chat=avatar?.chat==null?null:cleanChat(avatar.chat);
@@ -570,6 +575,7 @@ export async function api(request,env){
   await ensurePicnicTables(db);
   const tandem=Boolean(key&&(body.bikeOffers===true||tandemActions.has(bike?.action)));
   if(tandem)await ensureBikeOffers(db);
+  if(diningVenue)await ensureDiningService(db);
   const now=Date.now(),active=now-walkerLifetime,online=now-9000,bikeCutoff=now-bikeParkDuration;
   const weather=await getRoomWeather(db,now),wet=umbrellaWeather(weather);
   const currentFeed=feed&&feed.at>=now-FEED_MS&&feed.at<=now+1500;
@@ -586,6 +592,7 @@ export async function api(request,env){
       operations.push(...cleanupSocial(db,room,now-86400000));
       operations.push(...cleanupMinigames(db,room,now-600000));
       operations.push(...cleanupPicnics(db,room,now));
+      if(diningVenue)operations.push(pruneDiningService(db,now));
       operations.push(db.prepare(`
         DELETE FROM handholds WHERE created < ? AND
           (SELECT COUNT(*) FROM walkers WHERE room=handholds.room AND updated>=?
@@ -622,6 +629,7 @@ export async function api(request,env){
   const picnicContext={room,id,key,now,online,picnic};
   if(picnic)operations.push(...picnicStatements(db,picnicContext));
   const picnicSelection=operations.push(selectPicnics(db,picnicContext))-1;
+  const diningSelection=diningVenue?operations.push(selectDiningService(db,room,diningVenue))-1:-1;
   const socialContext={room,id,key,now,online,show,clink};
   if(show)operations.push(startFountainShow(db,socialContext));
   if(clink)operations.push(clinkStatement(db,socialContext));
@@ -656,6 +664,9 @@ export async function api(request,env){
     }else delete avatar.bikeRide;
   }
   const receiver={id,avatar:avatars.get(id)};
+  const tableService=diningVenue?await diningService(db,{room,id,key,venueId:diningVenue,command:dining,now,active,
+    players:new Map(rows.filter(row=>row.updated>=active).map(row=>[row.id,avatars.get(row.id)])),
+    state:results[diningSelection].results[0]}):undefined;
   const receiverIndoors=interiorAt(receiver.avatar.x,receiver.avatar.y)!==null;
   const walkers=[],parkedBikes=[];
   for(const row of rows){
@@ -684,6 +695,7 @@ export async function api(request,env){
     photoSession:roomPhotoPayload(results[photoSelection],receiver.avatar),
     ...minigamePayload(results[minigameSelection].results[0],minigame),
     ...picnicPayload(results[picnicSelection].results[0],picnic),
+    dining:tableService,
     handholds,umbrellas,
     bikeOffer:tandem?bikeOffer:undefined,
     transport:transportResult(bus,bike,receiver.avatar,walkers,id,now,bikeOffer,results[bikeReplySelection]?.results[0]),walkers,parkedBikes

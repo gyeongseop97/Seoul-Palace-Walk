@@ -35,13 +35,13 @@ export const lateExhibits={
   "empire-gold-book":{
     gallery:"modern",title:"순종 황태자 책봉 금책",credit:"대한제국 · 1897년 · 동합금",
     description:"대한제국을 선포한 해에 고종이 순종을 황태자로 책봉하며 내린 금책입니다. 책봉문을 금속판에 새겼습니다.",
-    file:"empire-gold-book",ratio:1.33333,sourceLabel:nationalMuseum,
+    object:"empire-gold-book",sourceLabel:nationalMuseum,
     source:"https://www.museum.go.kr/MUSEUM/contents/M0502000000.do?relicId=7012&schM=view"
   },
   "empire-jade-seal":{
     gallery:"modern",title:"고종 가상존호 옥보",credit:"대한제국 · 1900년 · 옥",
     description:"고종 황제에게 올린 존호를 새긴 옥보입니다. 조선 왕의 어보에 주로 쓰였던 거북 손잡이 대신 황제를 상징하는 용을 올렸습니다.",
-    file:"empire-jade-seal",ratio:1.5,sourceLabel:nationalMuseum,
+    object:"empire-jade-seal",sourceLabel:nationalMuseum,
     source:"https://www.museum.go.kr/MUSEUM/contents/M0502000000.do?relicId=8292&schM=view"
   },
   "na-self-portrait":{
@@ -49,5 +49,23 @@ export const lateExhibits={
     description:"나혜석이 자신의 모습을 그린 유화입니다. 어두운 배경과 밝은 얼굴을 대비시키고 정면을 보는 눈에 시선이 모이도록 그렸습니다.",
     file:"na-self-portrait",ratio:.79048,sourceLabel:"수원시립미술관 소장 · 위키미디어 공용 · 퍼블릭 도메인",
     source:"https://commons.wikimedia.org/wiki/File:Self-Portrait_by_Na_Hye-sok,_c._1928.jpg"
+  },
+  "joseon-miindo":{
+    gallery:"joseon",title:"미인도",credit:"혜원 신윤복 · 조선 후기 · 비단에 채색",
+    description:"가체를 얹고 옷고름을 만지는 여인의 표정과 옷의 선을 그렸어요. 간송미술문화재단 소장 회화입니다.",
+    file:"joseon-miindo.jpg",ratio:400/1050,sourceLabel:"위키미디어 공용 · 회화 이미지",
+    source:"https://commons.wikimedia.org/wiki/File:Hyewon-Miindo.jpg"
+  },
+  "joseon-orchid":{
+    gallery:"joseon",title:"불이선란도",credit:"추사 김정희 · 조선 후기 · 종이에 먹",
+    description:"몇 줄기의 난초 옆에 글을 쓴 김정희의 묵란입니다. 잎을 가로지르는 먹선과 그 주변의 글씨를 함께 볼 수 있어요.",
+    file:"joseon-orchid.jpg",ratio:2/3,sourceLabel:nationalMuseum,
+    source:"https://www.museum.go.kr/MUSEUM/contents/M0502000000.do?relicId=36549500&schM=view&searchId=search"
+  },
+  "joseon-sehando":{
+    gallery:"joseon",title:"세한도",credit:"추사 김정희 · 1844년 · 종이에 먹",
+    description:"제주 유배 중에 그린 문인화입니다. 마른 붓으로 그린 집과 소나무, 잣나무가 넓은 여백 속에 놓여 있어요.",
+    file:"joseon-sehando.jpg",ratio:12424/3325,sourceLabel:"위키미디어 공용 · 퍼블릭 도메인",
+    source:"https://commons.wikimedia.org/wiki/File:Sehando.jpg"
   }
 };

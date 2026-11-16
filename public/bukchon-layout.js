@@ -294,11 +294,7 @@ export const bukchonLandmarks=[
   ...bukchonLawns.map(({name,outline})=>({name,x:outline.reduce((sum,p)=>sum+p.x,0)/outline.length,
     y:outline.reduce((sum,p)=>sum+p.y,0)/outline.length}))
 ];
-export const bukchonShortcuts=[
-  {label:"삼청로",aria:"삼청로로 순간이동",...bukchonLandmarks[4],heading:0},
-  {label:"북촌 8경",aria:"삼청동 돌계단길로 순간이동",...bukchonLandmarks[7],heading:144},
-  {label:"한옥 골목",aria:"가회동 한옥 골목으로 순간이동",...bukchonLandmarks[9],heading:20}
-];
+export const bukchonAlleyShortcut={label:"한옥 골목",aria:"가회동 한옥 골목으로 순간이동",...bukchonLandmarks[9],heading:20};
 // These fronts are fictional shops. Their door thresholds are on the corresponding lane.
 export const bukchonShopPlots={
   churu:{x:724.3,y:-970.3,w:7.8,d:5.7,angle:-Math.PI/2,level:.72},

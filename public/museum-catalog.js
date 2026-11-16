@@ -1,6 +1,8 @@
 import {earlyExhibits} from "./museum-more-early.js";
 import {lateExhibits} from "./museum-more-late.js";
 
+export const museumArtUrl=file=>new URL("./art/"+(file.endsWith(".jpg")?file:`${file}.webp`),import.meta.url).href;
+
 export const museumExhibits={
   "silla-cup":{
     title:"뚜껑 있는 손잡이 달린 굽다리 접시",credit:"신라 · 토기 · 높이 13.7cm",
@@ -9,10 +11,28 @@ export const museumExhibits={
     source:"https://www.museum.go.kr/MUSEUM/contents/M0502000000.do?relicId=219415&schM=view"
   },
   "silla-buddha":{
-    title:"금동불입상",credit:"통일신라 · 금동 · 높이 16.2cm",
+    gallery:"silla",title:"금동불입상",credit:"통일신라 · 금동 · 높이 16.2cm",
     description:"청동으로 만든 뒤 표면에 금을 입힌 불상입니다. 서 있는 부처의 옷 주름과 손 모양을 살펴볼 수 있어요.",
-    file:"silla-buddha",sourceLabel:"메트로폴리탄 미술관 · 퍼블릭 도메인",
+    object:"silla-buddha",sourceLabel:"메트로폴리탄 미술관 소장품 기록",
     source:"https://www.metmuseum.org/art/collection/search/57374"
+  },
+  "silla-pensive":{
+    gallery:"silla",title:"금동미륵보살 반가사유상",credit:"삼국시대 · 금동 · 높이 90.8cm",
+    description:"국립중앙박물관 사유의 방에 전시된 덕수3312입니다. 낮은 삼산관을 쓰고 한쪽 다리를 무릎 위에 올렸으며, 손가락을 볼에 가볍게 댄 자세를 볼 수 있어요.",
+    object:"silla-pensive",sourceLabel:"국립중앙박물관 소장품 기록",
+    source:"https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=1256&schM=view&searchId=search"
+  },
+  "silla-gold-crown":{
+    gallery:"silla",title:"황남대총 북분 금관",credit:"신라 · 5세기 · 높이 27.3cm",
+    description:"머리띠 위에 나뭇가지 모양 세 줄과 사슴뿔 모양 두 줄이 솟아 있어요. 얇은 금판에 달린 작은 금 장식과 비취색 곡옥을 가까이에서 살펴보세요.",
+    object:"silla-gold-crown",sourceLabel:"국립경주박물관 소장품 기록",
+    source:"https://gyeongju.museum.go.kr/kor/html/sub02/0202.html?d_mng_no=64&mng_no=47&mode=V"
+  },
+  "silla-baekje-burner":{
+    gallery:"silla",title:"백제금동대향로",credit:"백제 · 금동 · 높이 61.8cm",
+    description:"봉황이 산 모양 뚜껑 위에 앉고, 용이 연꽃 모양 몸체를 받쳐요. 산봉우리 사이의 인물과 동물은 뚜껑을 한 바퀴 돌아보며 찾을 수 있어요.",
+    object:"silla-baekje-burner",sourceLabel:"국립부여박물관 소장품 기록",
+    source:"https://buyeo.museum.go.kr/rprsPsn/view.do?key=2302150017&rprsPsnCmdtyMngSn=2001010001"
   },
   "goryeo-celadon":{
     title:"청자 상감 구름 학무늬 매병",credit:"고려 · 12세기 후반~13세기 · 높이 30cm",

@@ -8,13 +8,13 @@ export const earlyExhibits={
   "early-silla-earring":{
     gallery:"silla",title:"금제 귀걸이",credit:"신라 · 5세기 · 길이 7.9cm",
     description:"신라 귀족이 착용하던 금 귀걸이입니다. 고리에서 늘어진 장식과 표면에 붙인 작은 금알을 살펴보세요.",
-    file:"early-silla-earring",ratio:.75,sourceLabel:"메트로폴리탄 미술관 · 퍼블릭 도메인",
+    object:"early-silla-earring",sourceLabel:"메트로폴리탄 미술관 소장품 기록",
     source:"https://www.metmuseum.org/art/collection/search/53014"
   },
   "early-baekje-vessel":{
     gallery:"silla",title:"손잡이 달린 잔",credit:"삼국시대 · 백제 계통 · 5~6세기",
     description:"두 손잡이와 몸체를 두르는 도드라진 띠가 금속 그릇을 닮았습니다. 백제 토기에서 볼 수 있는 독특한 형태입니다.",
-    file:"early-baekje-vessel",ratio:.75,sourceLabel:"메트로폴리탄 미술관 · 퍼블릭 도메인",
+    object:"early-baekje-vessel",sourceLabel:"메트로폴리탄 미술관 소장품 기록",
     source:"https://www.metmuseum.org/art/collection/search/39520"
   },
   "early-gaya-jar":{
@@ -31,8 +31,8 @@ export const earlyExhibits={
   },
   "early-goryeo-mirror":{
     gallery:"goryeo",title:"청동 거울",credit:"고려 · 청동 · 지름 9.6cm",
-    description:"손잡이 역할을 하는 가운데 꼭지를 중심으로 작은 돌기와 여러 겹의 띠무늬가 둘러 있습니다. 사진은 무늬가 새겨진 뒷면입니다.",
-    file:"early-goryeo-mirror",ratio:1,sourceLabel:"클리블랜드 미술관 · CC0",
+    description:"손잡이 역할을 하는 가운데 꼭지 주위로 작은 돌기와 여러 겹의 띠무늬가 둘러 있습니다. 진열장을 돌아 양면을 살펴보세요.",
+    object:"early-goryeo-mirror",sourceLabel:"클리블랜드 미술관 소장품 기록",
     source:"https://www.clevelandart.org/art/1921.658"
   },
   "early-goryeo-sutra":{
@@ -44,7 +44,7 @@ export const earlyExhibits={
   "early-goryeo-ornament":{
     gallery:"goryeo",title:"금제 연꽃 새 무늬 장식",credit:"고려 · 금 · 지름 약 2.1cm",
     description:"작은 금 장식에 연꽃과 그 사이의 새를 표현했습니다. 확대해 보면 좁은 원 안에 무늬가 촘촘히 들어 있습니다.",
-    file:"early-goryeo-ornament",ratio:1.47,sourceLabel:"메트로폴리탄 미술관 · 퍼블릭 도메인",
+    object:"early-goryeo-ornament",sourceLabel:"메트로폴리탄 미술관 소장품 기록",
     source:"https://www.metmuseum.org/art/collection/search/44816"
   }
 };

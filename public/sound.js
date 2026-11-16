@@ -190,6 +190,10 @@ export function makeSound(){
       tone(2294,2284,{gain:.019,attack:.005,decay:.095,delay:.003});
       tone(3181,3164,{gain:.009,attack:.005,decay:.058,delay:.004});
     },
+    diningBell(){
+      tone(2060,2052,{gain:.065,attack:.004,decay:.24});
+      tone(3090,3080,{gain:.022,attack:.003,decay:.15});
+    },
     step(surface){
       if(surface==="water")burst({type:"bandpass",frequency:620,q:.7,gain:.2,decay:.24,rate:.6});
       else if(surface==="wood")burst({frequency:380,gain:.17,decay:.07});

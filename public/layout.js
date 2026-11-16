@@ -1,4 +1,3 @@
-import {isInsideMuseum} from "./visit-layout.js";
 import {interiorAt,interiorBounds} from "./interior-layout.js";
 
 const origin = {lat:37.56780,lng:126.97150};
@@ -403,7 +402,7 @@ export function wadeSegment(from,to,step=.36,feet=0){
 const deoksugungNorthEdge=30;
 export function walkable(x,y,feet=0){
   const interior=interiorAt(x,y);
-  if(interior&&interior!=="museum")return !solidAt(x,y,feetLevel(feet));
+  if(interior)return !solidAt(x,y,feetLevel(feet));
   const inDeoksugung=x>=45&&x<=560&&y>=deoksugungNorthEdge&&y<=420;
   if(solidAt(x,y,feetLevel(feet))||(inDeoksugung&&inPolygon(x,y,palacePond.outline)))return false;
   let open=false;
@@ -414,7 +413,7 @@ export function walkable(x,y,feet=0){
   }
   if(open)return true;
   if(!inDeoksugung)return false;
-  return isInsideMuseum(x,y) || inPolygon(x,y,estateOutline) || distance(spawn,x,y)<23 || distance(fountain,x,y)<15 ||
+  return inPolygon(x,y,estateOutline) || distance(spawn,x,y)<23 || distance(fountain,x,y)<15 ||
     inPolygon(x,y,stonewallVerge) || distance(garden,x,y)<9 || nearPath(entranceWalk,x,y,7.4) || nearPath(stationWalk,x,y,3.6) || nearPath(route,x,y,5.4) ||
     nearPath(palace,x,y,4.1);
 }
@@ -516,7 +515,7 @@ function takeCandidate(heap){
 export function planWalk(from,target,feet=0,wade=false){
   if(!inWalkingBounds(from)||!inWalkingBounds(target))return [];
   const fromInterior=interiorAt(from.x,from.y),targetInterior=interiorAt(target.x,target.y);
-  if(fromInterior!==targetInterior&&(targetInterior&&targetInterior!=="museum"||fromInterior&&fromInterior!=="museum"))return [];
+  if(fromInterior!==targetInterior)return [];
   const ground=wade?wadeable:walkable;
   const open=(x,y)=>ground(x,y,platformAt(x,y)+.19),clear=(a,b,step,level)=>strideSegment(a,b,wade,level);
   const exact=open(target.x,target.y);
