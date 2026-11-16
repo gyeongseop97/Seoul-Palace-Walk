@@ -1,4 +1,5 @@
 import {isInsideMuseum} from "./visit-layout.js";
+import {interiorAt,interiorBounds} from "./interior-layout.js";
 
 const origin = {lat:37.56780,lng:126.97150};
 export const eastMetres=88263, northMetres=111000;
@@ -401,6 +402,8 @@ export function wadeSegment(from,to,step=.36,feet=0){
 }
 const deoksugungNorthEdge=30;
 export function walkable(x,y,feet=0){
+  const interior=interiorAt(x,y);
+  if(interior&&interior!=="museum")return !solidAt(x,y,feetLevel(feet));
   const inDeoksugung=x>=45&&x<=560&&y>=deoksugungNorthEdge&&y<=420;
   if(solidAt(x,y,feetLevel(feet))||(inDeoksugung&&inPolygon(x,y,palacePond.outline)))return false;
   let open=false;
@@ -426,7 +429,7 @@ export function clearSegment(from,to,step=.36,feet=0){
 const spacing=2;
 const around=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
 const gridPoint=(i,{ox,oy,cols})=>({x:ox+i%cols*spacing,y:oy+Math.floor(i/cols)*spacing});
-const walkingBounds={minX:0,maxX:1160,minY:-1890,maxY:450};
+const walkingBounds={minX:0,maxX:1160,minY:-1890,maxY:Math.max(450,...Object.values(interiorBounds).map(bounds=>bounds.maxY))};
 const gateLink=[gate,...entranceWalk,...stationWalk];
 const gridDown=value=>Math.floor(value/spacing)*spacing,gridUp=value=>Math.ceil(value/spacing)*spacing;
 const gateClearance=6*spacing;
@@ -512,6 +515,8 @@ function takeCandidate(heap){
 // wade plans a route that may cross shallow water.
 export function planWalk(from,target,feet=0,wade=false){
   if(!inWalkingBounds(from)||!inWalkingBounds(target))return [];
+  const fromInterior=interiorAt(from.x,from.y),targetInterior=interiorAt(target.x,target.y);
+  if(fromInterior!==targetInterior&&(targetInterior&&targetInterior!=="museum"||fromInterior&&fromInterior!=="museum"))return [];
   const ground=wade?wadeable:walkable;
   const open=(x,y)=>ground(x,y,platformAt(x,y)+.19),clear=(a,b,step,level)=>strideSegment(a,b,wade,level);
   const exact=open(target.x,target.y);

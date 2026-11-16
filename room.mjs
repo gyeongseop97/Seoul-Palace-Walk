@@ -2,7 +2,7 @@ import {validWishArt, WISH_FLIGHT_MS} from "./public/wish-art.js";
 import {FEED_MS, ITEMS} from "./public/activities.js";
 import {validItemSlot} from "./public/held-items.js";
 import {BIKE_FALL_DURATION_MS,GESTURE_DURATIONS,MAX_ALCOHOL_DRINKS,MAX_ALCOHOL_LEVEL} from "./public/avatar-gestures.js";
-import {isInsideMuseum} from "./public/visit-layout.js";
+import {interiorAt} from "./public/interior-layout.js";
 import {BUS_COUNT,BUS_SEATS,BUS_BOARD_REACH,busAt,busStopById,busSeatPose} from "./public/sejong-bus.js";
 import {bikeDockReach,bikeDocks,bikeMountReach,bikeParkDuration,bikePassengerPose} from "./public/sejong-bike.js";
 import {bikePassenger,boardBikePassenger,dismountBikePassenger,dropBikePassengers,mountedBike,refreshBikePassenger,ridingBike} from "./server/bike-passengers.mjs";
@@ -17,6 +17,7 @@ import {cleanupMinigames,leaveMinigames,minigamePayload,minigameStatements,selec
 import {ensureUmbrellaPairs,umbrellaWeather,umbrellaActorsReady,umbrellaPairMarked,umbrellaPairJoin,
   visibleUmbrellaPairs,markUmbrellaPair,purgeUmbrellaPairs,clearUmbrellaMarkers} from "./server/umbrella-pairs.mjs";
 import {ensurePicnicTables,validPicnic,picnicStatements,selectPicnics,picnicPayload,cleanupPicnics} from "./server/picnic.mjs";
+import {handleGuestbook} from "./server/guestbook.mjs";
 
 const json = (data, status = 200) => Response.json(data,{status,headers:{"Cache-Control":"no-store"}});
 const validId = (value) => typeof value==="string" && /^[a-f0-9]{32}$/.test(value);
@@ -273,7 +274,7 @@ function chatUpdate(db,room,id,key,chat,now,active){
 function signalUpdate(db,room,id,key,signal,avatar,now,active){
   const location={x:avatar.x,y:avatar.y};
   const point=signal.point?{x:signal.point.x,y:signal.point.y}:location;
-  const sameArea=isInsideMuseum(point.x,point.y)===isInsideMuseum(location.x,location.y);
+  const sameArea=interiorAt(point.x,point.y)===interiorAt(location.x,location.y);
   const payload={id:signal.id,point:sameArea&&Math.hypot(point.x-location.x,point.y-location.y)<=5?point:location,
     receivedAt:now};
   if(signal.audience===undefined)payload.view=signal.view;
@@ -297,7 +298,7 @@ function visibleSignal(row,avatar,receiver,lookPings,room,now){
   const audience=signal.audience??(room===openRoomId?"nearby":"room");
   if(audience==="person"&&signal.target!==receiver.id)return null;
   if(audience==="nearby"&&(
-    isInsideMuseum(point.x,point.y)!==isInsideMuseum(receiver.avatar.x,receiver.avatar.y)||
+    interiorAt(point.x,point.y)!==interiorAt(receiver.avatar.x,receiver.avatar.y)||
     Math.hypot(point.x-receiver.avatar.x,point.y-receiver.avatar.y)>lookPingDistance))return null;
   return {id:signal.id,point,receivedAt:signal.receivedAt};
 }
@@ -519,6 +520,10 @@ export async function api(request,env){
   }
   const {room,id,key=null,avatar,view,signal,hand,feed,bus,bike,show,clink,leave,lookPings}=body;
   const {minigame,picnic}=body;
+  if(body.guestbook!==undefined){
+    const now=Date.now();
+    return handleGuestbook(db,{room,id,key,guestbook:body.guestbook,now,active:now-walkerLifetime});
+  }
   if(leave===true){
     await ensureSocialTables(db);
     await ensureMinigameTables(db);
@@ -635,7 +640,7 @@ export async function api(request,env){
     }else delete avatar.bikeRide;
   }
   const receiver={id,avatar:avatars.get(id)};
-  const receiverIndoors=isInsideMuseum(receiver.avatar.x,receiver.avatar.y);
+  const receiverIndoors=interiorAt(receiver.avatar.x,receiver.avatar.y)!==null;
   const walkers=[],parkedBikes=[];
   for(const row of rows){
     const avatar=avatars.get(row.id);

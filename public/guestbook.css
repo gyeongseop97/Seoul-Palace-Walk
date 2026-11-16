@@ -1,0 +1,55 @@
+#guestbook-dialog {
+  max-width: min(480px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-color: #787358;
+  touch-action: pan-y;
+}
+#guestbook-dialog .dialog-top { gap: 12px; }
+#guestbook-dialog h2 { margin: 0; }
+#guestbook-dialog button { min-height: 44px; }
+#guestbook-dialog .guestbook-place { margin: 0 0 14px; color: #d6bb80; }
+#guestbook-dialog textarea {
+  display: block;
+  width: 100%;
+  min-height: 72px;
+  padding: 9px 11px;
+  resize: vertical;
+  border: 1px solid #66735f;
+  border-radius: 8px;
+  background: #101a14;
+  color: var(--ink);
+  font: inherit;
+  font-size: max(16px, 1em);
+  user-select: text;
+  -webkit-user-select: text;
+}
+.guestbook-actions, .guestbook-entry-head, .guestbook-entries li > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.guestbook-actions { margin-top: 8px; }
+.guestbook-actions small, .guestbook-entries time { color: #b8baac; }
+.guestbook-actions .guestbook-too-long { color: #ffc197; }
+#guestbook-dialog .guestbook-status {
+  min-height: 1.5em;
+  margin: 8px 0 4px;
+  color: #ecd4a3;
+}
+.guestbook-entry-head { padding-top: 8px; border-top: 1px solid #4b5848; }
+.guestbook-entry-head h3 { margin: 0; font-size: 1em; }
+.guestbook-entries { display: grid; gap: 8px; margin: 8px 0 0; padding: 0; list-style: none; }
+.guestbook-entries li {
+  padding: 10px 12px;
+  border: 1px solid #4b5848;
+  border-radius: 10px;
+  background: #142018;
+  overflow-wrap: anywhere;
+}
+.guestbook-entries li > div { flex-wrap: wrap; }
+.guestbook-entries time { font-size: .8em; }
+#guestbook-dialog .guestbook-entries p { margin: 4px 0 0; }
+[data-guestbook-more] { display: block; width: 100%; margin-top: 10px; }

@@ -5,6 +5,8 @@ import {bukchonBusRoads,busStopById} from "./sejong-bus.js";
 import {gradePalaceMeshes,sampleMeshHeight} from "./gyeongbok-terrain.js";
 import {mmcaReserved} from "./mmca-layout.js";
 import {buildMmca} from "./mmca.js";
+import {diningPlot} from "./dining-layout.js";
+import {buildDiningFacade} from "./dining-world.js";
 
 const stone=0x9a9385, mortar=0x6e6559, charcoal=0x393b3c;
 const timber=0x573c2c, darkWood=0x352c27, brass=0xbc9052, asphalt=0x4b4a4a;
@@ -464,8 +466,10 @@ export function* buildBukchon(T,root,kit){
     }
   }
   yield* buildMmca(T,root,kit,tiledRoof);
+  yield* buildDiningFacade(T,root,kit);
   const limits={alley:15,lane:21,pavement:33};
   const occupied=[
+    {...diningPlot,radius:Math.hypot(diningPlot.w,diningPlot.d)/2+1.4},
     ...Object.values(bukchonShopPlots).map(({x,y,w,d})=>({x,y,radius:Math.hypot(w,d)/2+1.4})),
     ...bikeDocks.filter(dock=>dock.area==="bukchon").map(({x,y})=>({x,y,radius:4.6})),
     ...["bukchon-upper","bukchon-terminal"].map(id=>({...busStopById(id).shelter,radius:5.5})),

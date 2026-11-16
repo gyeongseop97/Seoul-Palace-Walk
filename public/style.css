@@ -888,3 +888,11 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   .game-fullscreen :is(#fullscreen-map,.fullscreen-exit-icon){display:initial}
   .game-fullscreen .fullscreen-enter-icon{display:none}
 }
+
+#dining-menu-dialog{max-width:420px}
+#dining-menu-options{display:grid;gap:8px}
+.dining-dish{display:grid;gap:2px;padding:10px 14px;text-align:left;white-space:normal}
+.dining-dish strong{color:#f0cf97}
+.dining-dish span{color:var(--muted);font-size:13px;font-weight:400}
+#dining-menu-status{margin:9px 0 0;color:#f0cf97}
+#dining-menu-status:empty{margin:0}

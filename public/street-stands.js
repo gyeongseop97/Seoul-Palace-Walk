@@ -2,6 +2,7 @@ import {addObstacle,route,stoneFountain} from "./layout.js";
 import {sparklerStall} from "./gyeongbok-layout.js";
 import {addConvenienceStore,standBatcher,standSign} from "./regional-stands.js";
 import {makeRegionalItemProps} from "./regional-item-props.js";
+import {makeDiningDishes} from "./dining-dishes.js";
 
 export {addRegionalStands,regionalStations,registerRegionalStands} from "./regional-stands.js";
 
@@ -302,7 +303,8 @@ export function makeItemProps(T,{box,cylinder,shape}){
     }
     return {update,dispose:()=>geometry.dispose()};
   }
-  const models={coffee,crepe,parfait:crepe,beer,sparkler,churu,...makeRegionalItemProps(T,{box,cylinder,shape})};
+  const models={coffee,crepe,parfait:crepe,beer,sparkler,churu,...makeRegionalItemProps(T,{box,cylinder,shape}),
+    ...makeDiningDishes(T,{box,cylinder,shape})};
   return parent=>{
     const instances=new Map();
     let previous=null;

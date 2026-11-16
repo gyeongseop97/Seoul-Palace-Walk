@@ -28,6 +28,8 @@ export const ITEMS={
   bingsu:{name:"팥빙수",verb:"먹기",uses:3,duration:1300},
   bungeoppang:{name:"붕어빵",verb:"먹기",uses:3,duration:1300},
   riceCake:{name:"꿀떡",verb:"먹기",uses:3,duration:1300},
+  bibimbap:{name:"나물 비빔밥",verb:"먹기",uses:3,duration:1450},
+  mushroomSoup:{name:"버섯 국밥",verb:"먹기",uses:3,duration:1450},
   makgeolli:{name:"막걸리",verb:"마시기",uses:3,duration:1350,alcohol:true},
   wine:{name:"와인",verb:"마시기",uses:3,duration:1350,alcohol:true},
   fruitWine:{name:"매실주",verb:"마시기",uses:3,duration:1350,alcohol:true},
