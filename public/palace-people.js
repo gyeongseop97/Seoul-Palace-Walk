@@ -80,9 +80,12 @@ export function addPalacePeople(T,scene,kit,walkerModels,{floorHeight,labelSprit
     cylinder(0x232326,0,.69,0,.2,.2,12,hat,.82);
     cylinder(0xb3261e,0,.81,0,.05,.07,8,hat);
     box(0xb3261e,0,.69,-.24,.03,.24,.03,hat);
-    model.headJoint.add(hat);
+    // The hat was shaped around a head centred .30 above the neck joint.
+    hat.position.y=-.300;
+    model.headwear.add(hat);
+    model.labelLift=.20;
     const hold=new T.Group();
-    hold.position.set(.44,-.3,.16);
+    hold.position.set(.31,-.3,.07);
     cylinder(0x5a4334,0,1.3,0,.022,3.1,6,hold);
     if(gear==="flag"){
       box(0xd9a520,.36,2.42,0,.7,.84,.02,hold);

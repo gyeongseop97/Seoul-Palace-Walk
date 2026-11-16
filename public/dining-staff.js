@@ -122,7 +122,7 @@ const uniforms={
 
 function addUniform(T,kit,model,uniform,venue){
   const {box,cylinder,shape}=kit;
-  const {apron,hat}=uniform,{garb,face}=model;
+  const {apron,hat}=uniform,{garb,headwear:face}=model;
   const outline=new T.Shape([[-.125,.32],[.125,.32],[.184,.055],[.194,-.148],
     [.154,-.183],[-.154,-.183],[-.194,-.148],[-.184,.055]].map(([x,y])=>new T.Vector2(x,y)));
   const fabric=new T.ExtrudeGeometry(outline,{depth:.016,bevelSize:.014,bevelThickness:.008,bevelSegments:2});

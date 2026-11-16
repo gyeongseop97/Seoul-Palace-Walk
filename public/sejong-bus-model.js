@@ -95,7 +95,7 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
       const mesh=new T.Mesh(geometry,matte(color));mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);parent.add(mesh);
       return mesh;
     };
-    const cap=new T.Group();cap.name="운전 모자";driver.face.add(cap);
+    const cap=new T.Group();cap.name="운전 모자";driver.headwear.add(cap);
     part(cap,capCrown,0x263a55,0,0,-.024,1,1,.945);
     part(cap,capBand,0x1b2b43,0,.277,-.024,1,1,.985);
     part(cap,round,0x13243a,0,.248,.232,.248,.027,.164).rotation.x=.10;

@@ -28,10 +28,10 @@ import { plazaShowSpot } from "./plaza-show.js";
 import { gbSurveyModels, gbNightGlow } from "./gyeongbok.js";
 import { gbSite, gwanghwamun, gbBounds, inGyeongbok, gbLightSpots, gbPhotoZone,wishPond } from "./gyeongbok-layout.js";
 import { gbEastOpenings } from "./gyeongbok-perimeter.js";
-import { outsideGroundOffset,palaceGroundOffset,sampleMeshHeight,southWorldTerrainHeight } from "./gyeongbok-terrain.js";
+import { outsideGroundOffset,palaceGroundOffset,sampleMeshHeight,southWorldSurfaceHeight,southWorldTerrainHeight } from "./gyeongbok-terrain.js";
 import { gradeAvenueMeshes } from "./avenue-terrain.js";
 import { gradeJeongdongMeshes } from "./jeongdong-terrain-render.js";
-import { prepareSurveyTerrain } from "./survey-terrain.js";
+import { prepareSurveyTerrain,surveyGroundField } from "./survey-terrain.js";
 import { assembleGwanghwamunPlaza, registerPlazaNavigation } from "./gwanghwamun-plaza.js";
 import { inGwanghwamunPlaza, plazaBounds, plazaGroundHeight, plazaSites } from "./plaza-layout.js";
 import { buildSejongCorridor } from "./sejong-corridor.js";
@@ -54,6 +54,8 @@ import { decodeWishFace, WISH_WIDTH, WISH_HEIGHT, WISH_COLORS, WISH_FLIGHT_MS } 
 
 export function makeWorld(container,{onCatFlee,catSeed}={}) {
   const scene=new T.Scene();
+  // Height samplers for the ground that comes with scanned buildings.
+  const scannedGrounds=[];
   const camera=new T.PerspectiveCamera(57,1,.15,1290);
   const renderer=new T.WebGLRenderer({antialias:true,powerPreference:"high-performance"});
   renderer.toneMapping=T.ACESFilmicToneMapping;
@@ -336,33 +338,14 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       new T.Plane(up.clone(),-(floor+height)),new T.Plane(up.clone().negate(),floor)
     ];
   }
-  async function loadGltf(path){
-    landmarkLoaders??=Promise.all([
-      import("https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js"),
-      import("https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/meshopt_decoder.module.js")
-    ]);
-    const [{GLTFLoader},{MeshoptDecoder}]=await landmarkLoaders;
-    return new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(new URL(path,import.meta.url).href);
-  }
-  async function loadYiStatue({yiFigure,yiFallback}){
-    try{
-      const {scene:statue}=await loadGltf("./art/yi-sun-sin.glb");
-      if(new T.Box3().setFromObject(statue).isEmpty())throw new Error("이순신 장군상 모델에 형상이 없습니다.");
-      statue.name="이순신 장군상 STL 변환 모델";
-      statue.traverse(mesh=>{
-        if(mesh.isMesh)mesh.castShadow=mesh.receiveShadow=true;
-      });
-      yiFigure.add(statue);
-      yiFallback.visible=false;
-      document.getElementById("yi-stl-credit")?.removeAttribute("hidden");
-      container.dataset.yiStatue="stl";
-    }catch{
-      container.dataset.yiStatue="modeled";
-    }
-  }
   async function loadLandmark({name,point,groups,angle,root,onLoaded}){
     try{
-      const asset=await loadGltf(`./${name}.glb`);
+      landmarkLoaders??=Promise.all([
+        import("https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js"),
+        import("https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/meshopt_decoder.module.js")
+      ]);
+      const [{GLTFLoader},{MeshoptDecoder}]=await landmarkLoaders;
+      const asset=await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(new URL(`./${name}.glb`,import.meta.url).href);
       const replaced=prepareSurveyTerrain(T,asset.scene,name,groups);
       asset.scene.position.set(wx(point.x),outsideGroundOffset(point),wz(point.y));
       asset.scene.rotation.y=angle;
@@ -385,6 +368,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
         mesh.castShadow=mesh.receiveShadow=true;
       });
       root.add(asset.scene);
+      scannedGrounds.push(surveyGroundField(T,asset.scene,asset.scene.position.y));
       for(const group of replaced)group.visible=false;
       container.dataset[name]="survey";
       onLoaded?.();
@@ -403,7 +387,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   const deoksBounds={minX:jeongdongExtensionBounds.minX,maxX:560,minY:jeongdongExtensionBounds.minY,maxY:420};
   const plazaRoot=new T.Group(),palaceRoot=new T.Group(),museumRoot=new T.Group();
   const deoks={root:deoksRoot,bounds:deoksBounds,*build(){
-    yield* gradeJeongdongMeshes(T,deoksRoot,southWorldTerrainHeight,{trees,catWalls});
+    yield* gradeJeongdongMeshes(T,deoksRoot,southWorldSurfaceHeight,{trees,catWalls});
     yield* addDiningFronts(deoksRoot,"jeongdong");
     deoksRoot.add(deoksExtras);
     const models=[classical,middleModel,hallModel,...surveyedPavilions.flatMap(pavilion=>pavilion.groups)];
@@ -411,11 +395,11 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     return yield* consolidate(deoksRoot,replaceable,foliage.register);
   }};
   const corridor={root:corridorRoot,bounds:corridorBounds,*build(){
-    yield* gradeAvenueMeshes(T,corridorGround,southWorldTerrainHeight);
+    yield* gradeAvenueMeshes(T,corridorGround,southWorldSurfaceHeight);
     return yield* consolidate(corridorRoot,new Set(),foliage.register);
   }};
   const transport={*build(){
-    yield* gradeAvenueMeshes(T,transportGround,southWorldTerrainHeight);
+    yield* gradeAvenueMeshes(T,transportGround,southWorldSurfaceHeight);
     return yield* consolidate(transportRoot,new Set());
   }};
   let updatePlaza,updateHwangudan,northWildlife,plazaWildlife,southWildlife,buildTurn=false;
@@ -423,17 +407,13 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     .map(([id,bounds])=>({id,bounds,steps:null,ready:false}));
   const plaza={root:plazaRoot,bounds:plazaBounds,*build(){
     const birdPerches=[];
-    let monuments;
-    updatePlaza=yield* assembleGwanghwamunPlaza(T,plazaRoot,makeKit(plazaRoot),{
-      birdPerches,terrainHeight:southWorldTerrainHeight,onMonuments:built=>{monuments=built;}
-    });
+    updatePlaza=yield* assembleGwanghwamunPlaza(T,plazaRoot,makeKit(plazaRoot),{birdPerches,terrainHeight:southWorldTerrainHeight});
     addRegionalStands(T,plazaRoot,makeKit(plazaRoot),"gwanghwamun");
     addDocks(plazaRoot,dock=>dock.y<=-280&&dock.y>-790);
-    yield* gradeAvenueMeshes(T,plazaRoot.children,southWorldTerrainHeight);
+    yield* gradeAvenueMeshes(T,plazaRoot.children,southWorldSurfaceHeight);
     yield* addDiningFronts(plazaRoot,"gwanghwamun");
     addMinigameMarkers(T,plazaRoot,kit,["kite"],floorHeight);
-    const chunks=yield* consolidate(plazaRoot,new Set([monuments.yiFallback]),foliage.register);
-    void loadYiStatue(monuments);
+    const chunks=yield* consolidate(plazaRoot,new Set(),foliage.register);
     plazaWildlife=birds.loadPlaza(birdPerches);
     return chunks;
   }};
@@ -487,7 +467,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   },()=>import("./bukchon.js"));
   const hwangudan=expansionDistrict(hwangudanBounds,hwangudanWalkable,function*(root,localKit,{assembleHwangudan}){
     updateHwangudan=(yield* assembleHwangudan(T,root,localKit))?.update;
-    yield* gradeAvenueMeshes(T,root.children,southWorldTerrainHeight);
+    yield* gradeAvenueMeshes(T,root.children,southWorldSurfaceHeight);
   },()=>import("./seoul-hwangudan.js"));
   const stationsDistrict=expansionDistrict({minX:55,maxX:1160,minY:-965,maxY:410},()=>false,function*(root,localKit){
     yield* buildSubwayAccess(T,root,localKit,floorHeight,{terrainHeight:outsideGroundOffset});
@@ -704,7 +684,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     if(!walkerPreview){
       const stage=new T.Scene(),camera=new T.PerspectiveCamera(33,width/height,.1,20);
       stage.background=new T.Color(0x26392d);
-      camera.position.set(1.05,1.12,3.42);camera.lookAt(0,.76,0);
+      camera.position.set(.95,1.04,3.30);camera.lookAt(0,.70,0);
       const key=new T.DirectionalLight(0xffe1ba,1.45);
       key.position.set(4,7,5);
       stage.add(new T.HemisphereLight(0xf5f1df,0x8b7863,2.05),key);
@@ -745,7 +725,16 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     const terrain=interiorAt(position.x,position.y)?0:outsideGroundOffset(position);
     const basin=plazaGroundHeight(position);
     if(basin!=null)return terrain+basin;
-    return Math.max(groundHeight(position),terrain+Math.max(platformAt(position.x,position.y,true),loftHeight(position)));
+    let level=Math.max(groundHeight(position),terrain+Math.max(platformAt(position.x,position.y,true),loftHeight(position)));
+    // A scanned lawn or step a little above the ground lifts the walker onto it.
+    if(scannedGrounds.length&&!interiorAt(position.x,position.y)){
+      const x=wx(position.x),z=wz(position.y),ground=level;
+      for(const scanned of scannedGrounds){
+        const height=scanned(x,z);
+        if(height>level&&height<ground+.6)level=height;
+      }
+    }
+    return level;
   }
   // Where a walker's feet are drawn: waist-deep below the surface while wading a pond.
   const footing=position=>floorHeight(position)-waterDepth(position.x,position.y);
@@ -784,7 +773,10 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     const stair=stairHeight(position);
     if(stair!=null)return terrain+stair;
     if(Math.abs(position.y-bridge.y)<3.15&&Math.abs(position.x-bridge.x)<3.6)return terrain+Math.max(0,.23-(Math.abs(position.x-bridge.x)-2.70)*.34);
-    if(Math.abs(position.y-gate.y)<2.0&&Math.abs(position.x-gate.x)<4.1)return terrain+.265;
+    // Daehanmun: the stone base under the gate, then the terrace and its steps to the street.
+    const gateAhead=position.x-gate.x,gateAside=Math.abs(position.y-gate.y);
+    if(gateAhead>-4.6&&gateAhead<4.6&&gateAside<7.7)return terrain+.29;
+    if(gateAhead>=4.6&&gateAhead<13.6&&gateAside<8.75)return terrain+.20*Math.max(0,Math.min(1,(13.6-gateAhead)/1.4));
     const dx=position.x-middle.x,dy=position.y-middle.y;
     const localX=dx*Math.cos(courtAngle)-dy*Math.sin(courtAngle),localZ=dx*Math.sin(courtAngle)+dy*Math.cos(courtAngle);
     if(Math.abs(localX)<2.0&&Math.abs(localZ)<7.2){

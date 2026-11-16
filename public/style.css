@@ -376,9 +376,9 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   #run,#sit,.map-links button{min-height:44px}
   #game-presence{max-width:105px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
-#character-dialog{max-width:min(665px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto}
+#character-dialog{max-width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto}
 .character-settings{display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:17px;margin-top:17px}
-.character-preview{display:grid;place-items:center;border:1px solid #576654;border-radius:13px;overflow:hidden;background:#26392d}
+.character-preview{display:grid;place-items:center;border:1px solid #576654;border-radius:13px;overflow:hidden;background:#26392d;position:sticky;top:0;align-self:start;z-index:1}
 .character-preview canvas{display:block;width:100%;height:auto}
 .character-options{display:grid;gap:9px}
 .character-options fieldset{min-width:0;margin:0;padding:0;border:0}

@@ -1,5 +1,5 @@
 import {gbEastWallX,gbOuterWallRuns,insideGbWall,onGbWestPath} from "./gyeongbok-perimeter.js";
-import {court,courtAngle,hall,middle,palacePond,pavilions,stoneFountain,stoneHall,ticket} from "./layout.js";
+import {court,courtAngle,gate as daehanmun,hall,middle,palacePond,pavilions,stoneFountain,stoneHall,ticket} from "./layout.js";
 import {plazaSites} from "./plaza-layout.js";
 
 const gate=plazaSites.gate;
@@ -15,7 +15,9 @@ const gardenProfile=[[6,6.1],[70,5.4],[140,4.3],[216,3.05],[300,2.0],[386,.9],[4
 const northeastBlend=gbOuterWallRuns[1].slice(0,4).map(({x,y})=>[y,x]);
 const levelPads=[
   [stoneHall,34,24,.85],[stoneFountain,12,12,.90],[palacePond,23,23,.15],
-  [court,20,13,-.20],[middle,13,13,-.26],[ticket,7,5,-3.16]
+  [court,20,13,-.20],[middle,13,13,-.26],[ticket,7,5,-3.16],
+  // Daehanmun stands level, so the ground under its stone base must be level too.
+  [{x:daehanmun.x+3.8,y:daehanmun.y+.5},10,9.2,-2.83]
 ];
 const clamp=value=>Math.max(0,Math.min(1,value));
 const pavilion=name=>pavilions.find(site=>site.name===name);
@@ -66,8 +68,11 @@ export function southWorldTerrainHeight({x,y}){
   return level*gateBlend;
 }
 
+// The ground is drawn as flat triangles over a coarse grid. Everything that stands on it
+// reads the height of those triangles, so walkers and props meet the surface they are on.
+export const southWorldSurfaceHeight=point=>sampleMeshHeight(southWorldTerrainHeight,point);
 export function outsideGroundOffset({x,y}){
-  if(y>=gate.y)return southWorldTerrainHeight({x,y});
+  if(y>=gate.y)return southWorldSurfaceHeight({x,y});
   return palaceGroundOffset(x,y);
 }
 export function gyeongbokTerrainHeight({x,y}){
@@ -238,6 +243,28 @@ function* drapeTerrainMesh(T,object,grid){
   geometry.computeVertexNormals();
   object.geometry=geometry;
   if(!object.userData.sharedTerrainGeometry)old.dispose();
+}
+
+// Paving slabs, kerbs and other thin pieces laid on the ground. Moved as one rigid block
+// they float at one end of a slope and sink at the other, so they follow the terrain.
+const footprint={box:null};
+// Marks such a piece to be draped. They usually share one unit box, which must outlive them.
+export function groundPiece(T,object){
+  if(!hugsGround(T,object))return false;
+  object.userData.followTerrain=object.userData.sharedTerrainGeometry=true;
+  return true;
+}
+function hugsGround(T,object){
+  const {geometry,userData}=object;
+  if(!object.isMesh||object.isInstancedMesh||userData.followTerrain===false||userData.dynamic||object.children.length||
+    !geometry?.attributes.position||geometry.attributes.color)return false;
+  const material=Array.isArray(object.material)?object.material[0]:object.material;
+  if(material?.transparent)return false;
+  if(!geometry.boundingBox)geometry.computeBoundingBox();
+  object.updateMatrix();
+  const box=(footprint.box??=new T.Box3()).copy(geometry.boundingBox).applyMatrix4(object.matrix);
+  const thick=box.max.y-box.min.y;
+  return thick<=.45&&box.max.y<=.6&&box.min.y>=-.6&&Math.max(box.max.x-box.min.x,box.max.z-box.min.z)>=3;
 }
 
 // The pavilion and trees stand upright, while paving and long walls conform.

@@ -40,6 +40,7 @@ import {canClink,clinkItemSlot,CLINK_REACH,CLINK_LEAD_MS} from "./social-events.
 import {gameApiUrl,isGitHubPages} from "./hosting.js";
 import {resolveSeoulEnvironment} from "./seoul-environment.js";
 import {HEADWEAR,KEEPSAKES} from "./wearable-options.js";
+import {LOOK_DEFAULTS,LOOK_OPTIONS} from "./look-options.js";
 import {hanbokRental,passportStamps} from "./passport-data.js";
 import {bindPassport} from "./passport.js";
 import {makeMinigames} from "./minigames-client.js";
@@ -57,8 +58,7 @@ const $=id=>document.getElementById(id);
 const token=()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),byte=>byte.toString(16).padStart(2,"0")).join("");
 const entranceHeading=285;
 const initialView=()=>({pan:entranceHeading,tilt:0,zoom:0,night:false});
-const lookChoices={hair:["short","bob","long","bun"],eyes:["round","soft","bright"],outfit:["coat","puffer","tee","hanbok"],
-  headwear:HEADWEAR,keepsake:KEEPSAKES};
+const lookChoices={...LOOK_OPTIONS,headwear:HEADWEAR,keepsake:KEEPSAKES};
 const timeChoices=["auto","day","sunset","night"],storedTime=localStorage.getItem("jeongdong-time");
 const environment={time:timeChoices.includes(storedTime)?storedTime:"auto",weather:"live",season:"live",liveWeather:null};
 const seasonNames={spring:"봄",summer:"여름",autumn:"가을",winter:"겨울"};
@@ -67,10 +67,9 @@ let currentEnvironment=resolveSeoulEnvironment(environment),umbrellaFolded=false
 const defaultHair=character=>character==="woman"?"long":"short";
 function initialAvatar(){
   const character=localStorage.getItem("jeongdong-character")==="woman"?"woman":"man";
-  const look={hair:defaultHair(character),eyes:"round",outfit:"coat",headwear:"none",keepsake:"none"};
+  const look={hair:defaultHair(character),eyes:"round",...LOOK_DEFAULTS,outfit:"coat",headwear:"none",keepsake:"none"};
   try{
     const saved=JSON.parse(localStorage.getItem("jeongdong-look"));
-    if(saved?.outfit==="hoodie")saved.outfit="puffer";
     for(const [feature,choices] of Object.entries(lookChoices)){
       if(choices.includes(saved?.[feature]))look[feature]=saved[feature];
     }

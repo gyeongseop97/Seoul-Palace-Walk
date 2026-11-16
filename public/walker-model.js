@@ -5,21 +5,33 @@ import {CLINK_DURATION_MS} from "./social-events.js";
 import {makeUmbrella,makeWearables} from "./wearables-models.js";
 import {alcoholGlasses,alcoholLevel,gestureBody,gestureHands,MAX_ALCOHOL_LEVEL} from "./avatar-gestures.js";
 import {DINING_TRAY_WIDTH,diningGesture,makeDiningUtensil} from "./dining-dishes.js";
+import {FACE_LINES,sculptedHead} from "./avatar-head.js";
+import {HAIR_STYLES,TALL_HAIR,makeHairGeometry} from "./avatar-hair.js";
+import {LOOK_OPTIONS} from "./look-options.js";
 
 const TAU = Math.PI * 2;
-const HAIR = ["short", "bob", "long", "bun"];
-const EYES = ["round", "soft", "bright"];
-const OUTFITS = ["coat", "puffer", "tee", "hanbok"];
+const HAIR = HAIR_STYLES;
+const EYES = LOOK_OPTIONS.eyes;
+const BROWS = LOOK_OPTIONS.brows, MOUTHS = LOOK_OPTIONS.mouth;
+const OUTFITS = LOOK_OPTIONS.outfit;
 const SIDE = [-1, 1];
-const LEG = [.322, .304];
-const ARM = [.252, .228];
-const SOLE = .124;
-// SD proportions: the rig keeps its limb lengths in body units, the whole body is drawn
-// at BODY scale and the head is enlarged on top of it, giving a two-heads-tall figure.
-const BODY = .74;
-const HEAD = .93;
-const WIDE = 1.14;
-const SEAT_LIFT = .17;
+// Shorter limbs than the first rig; HIP_DROP lowers the hips by the length the legs lost.
+const LEG = [.284, .268];
+const ARM = [.228, .206];
+const HIP_DROP = .070;
+const SOLE = .096;
+// The rig keeps its limb lengths in body units and the whole body is drawn at BODY scale.
+// Proportions sit between the reference sculpt and a chibi: about three and a half heads
+// tall with the head resting on the collar, a slim trunk and rounded limbs. Limb lengths
+// and joint heights are unchanged, so every pose still fits.
+const BODY = .72;
+const HEAD = .72;
+const WIDE = 1.0;
+const HIP = .084, SHOULDER = .232, STANCE = .090, REACH = .76, GESTURE_REACH = .84;
+const LIMB = {leg:[.106,.088], roomy:[.122,.102], arm:[.078,.068], bare:[.068,.061], padded:[.092,.080]};
+const FOOT = [.76,.84,.74], HAND = .76;
+// Keeps the hips at bench height (.57 m) whatever the body scale.
+const SEAT_LIFT = .574-(.546-HIP_DROP)*BODY;
 const CYCLING_HIP = .704;
 const CYCLING_LIFT = bikeFit.saddleY+.09-CYCLING_HIP*BODY;
 const CHAT_BUBBLE_MS = 6000;
@@ -63,87 +75,172 @@ function softTint(ctx, x, y, radius, color) {
   oval(ctx, x, y, radius, radius, glow);
 }
 
-function faceTexture(T, eyes, blink, blushLevel) {
-  const colors = FACE_TONES[blushLevel];
+// Skin tones multiply the base complexion; the painted features keep their own colours.
+const SKIN_TONES = {fair:[1.035,1.045,1.075], light:[1,1,1], warm:[.975,.925,.87], tan:[.89,.80,.715],
+  brown:[.735,.615,.53], deep:[.565,.445,.385]};
+const SKIN = Object.keys(SKIN_TONES);
+function tinted(hex, tone) {
+  const channel = i => Math.min(255, Math.round(parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16) * tone[i]));
+  const alpha = hex.length > 7 ? parseInt(hex.slice(7, 9), 16) / 255 : 1;
+  return `rgba(${channel(0)},${channel(1)},${channel(2)},${alpha.toFixed(3)})`;
+}
+const EYE_SHAPES = {
+  round:{wide:14.4,tall:19.6,tilt:0}, bright:{wide:15.2,tall:20.6,tilt:0,sparkle:true},
+  almond:{wide:16.2,tall:15.0,tilt:-.20,wing:1.5}, gentle:{wide:14.6,tall:18.2,tilt:.17},
+  sleepy:{wide:15.0,tall:18.4,tilt:.05,lid:.42},
+  // Narrower eyes under a firm, straight lid.
+  sharp:{wide:15.6,tall:15.6,tilt:-.04,lid:.17,level:true}, fierce:{wide:15.8,tall:13.6,tilt:-.21,lid:.30,level:true}
+};
+
+function faceTexture(T, eyes, blink, blushLevel, brows = "soft", mouth = "smile", skin = "light") {
+  const colors = FACE_TONES[blushLevel], tone = SKIN_TONES[skin] ?? SKIN_TONES.light;
+  const liner = "#2f1f1d", angleOf = height => Math.acos(height) / Math.PI * 256;
+  const eyeY = angleOf(FACE_LINES.eye), browY = eyeY - 28.5, mouthY = angleOf(FACE_LINES.mouth);
+  const cheekY = angleOf(FACE_LINES.cheek), noseY = angleOf(FACE_LINES.nose) + 4.5, gap = 33;
   return canvasTexture(T, 1024, 512, ctx => {
     ctx.scale(2, 2);
-    const tone = ctx.createLinearGradient(0, 42, 0, 204);
-    tone.addColorStop(0, colors.top);
-    tone.addColorStop(.47, colors.middle);
-    tone.addColorStop(1, colors.chin);
-    ctx.fillStyle = tone;
+    const complexion = ctx.createLinearGradient(0, 50, 0, 290);
+    complexion.addColorStop(0, tinted(colors.top, tone));
+    complexion.addColorStop(.5, tinted(colors.middle, tone));
+    complexion.addColorStop(1, tinted(colors.chin, tone));
+    ctx.fillStyle = complexion;
     ctx.fillRect(0, 0, 512, 256);
-    softTint(ctx, 128, 116, 56, colors.light);
+    softTint(ctx, 128, 108, 58, tinted(colors.light, tone));
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    const eyeY = 139;
     for (const side of SIDE) {
-      const x = 128 + side * 33;
-      softTint(ctx, 128 + side * 50, 161, colors.radius + 7, colors.cheek);
-      ctx.strokeStyle = "#5a3a2e";
-      ctx.lineWidth = 2.6;
+      const x = 128 + side * gap;
+      softTint(ctx, 128 + side * 57, cheekY + 3, colors.radius + 8, tinted(colors.cheek, [1,.94,.94]));
+      ctx.strokeStyle = "#4a302a";
+      ctx.lineWidth = brows === "straight" || brows === "raised" ? 3.2 : brows === "thick" || brows === "short" ? 5.4
+        : brows === "thin" ? 1.5 : 2.5;
       ctx.beginPath();
-      ctx.moveTo(x - 9, 116 + side * .6);
-      ctx.quadraticCurveTo(x, eyes === "soft" ? 112 : 110, x + 9, 116 - side * .6);
+      if (brows === "droopy") {
+        // The outer ends fall away, for a gentle, worried look.
+        ctx.moveTo(x - side * 10.5, browY - 2.5);
+        ctx.quadraticCurveTo(x + side * 1, browY - 3.5, x + side * 11.5, browY + 4.5);
+      } else if (brows === "raised") {
+        // Low over the nose and swept up toward the temples.
+        ctx.moveTo(x - side * 11, browY + 4);
+        ctx.quadraticCurveTo(x + side * 1, browY - .5, x + side * 11.5, browY - 5);
+      } else if (brows === "short") {
+        ctx.moveTo(x - side * 6.5, browY + .8);
+        ctx.lineTo(x + side * 1.5, browY - 1.2);
+      } else if (brows === "thick") {
+        ctx.moveTo(x - 10, browY + 1.5 + side * .8);
+        ctx.quadraticCurveTo(x, browY - 2.5, x + 10, browY + 1.5 - side * .8);
+      } else if (brows === "arched") {
+        ctx.moveTo(x - side * 11, browY + 3);
+        ctx.quadraticCurveTo(x + side * 1, browY - 8, x + side * 11.5, browY + 1.5);
+      } else if (brows === "straight") {
+        ctx.moveTo(x - 10.5, browY - side * 1.3);
+        ctx.lineTo(x + 10.5, browY + side * 1.3);
+      } else {
+        ctx.moveTo(x - 10, browY + 2 + side * .6);
+        ctx.quadraticCurveTo(x, browY - 4, x + 10, browY + 2 - side * .6);
+      }
       ctx.stroke();
       if (eyes === "sick") {
         ctx.strokeStyle="#412723";ctx.lineWidth=4;
-        ctx.beginPath();ctx.moveTo(x-10,eyeY-3);ctx.quadraticCurveTo(x-3,eyeY+5,x+1,eyeY+3);
-        ctx.quadraticCurveTo(x+6,eyeY+2,x+11,eyeY-2);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(x-11,eyeY-3);ctx.quadraticCurveTo(x-3,eyeY+5,x+1,eyeY+3);
+        ctx.quadraticCurveTo(x+6,eyeY+2,x+12,eyeY-2);ctx.stroke();
       } else if (eyes === "woozy") {
         const y=eyeY+side*3;
-        oval(ctx,x,y,11,8.7,"#ffddd1",side*.15);
-        oval(ctx,x-side*2,y+1,5.4,5.1,"#4d302c");
-        oval(ctx,x-side*2-1.4,y-.6,1.6,1.4,"#fff0df");
-        ctx.strokeStyle="#694033";ctx.lineWidth=2.6;
-        ctx.beginPath();ctx.moveTo(x-11,y-1);ctx.quadraticCurveTo(x,y-9+side*2,x+11,y+1);ctx.stroke();
+        oval(ctx,x,y,12,9.4,"#ffe9df",side*.15);
+        oval(ctx,x-side*2,y+1,5.8,5.5,"#4d302c");
+        oval(ctx,x-side*2-1.4,y-.6,1.7,1.5,"#fff0df");
+        ctx.strokeStyle="#694033";ctx.lineWidth=2.8;
+        ctx.beginPath();ctx.moveTo(x-12,y-1);ctx.quadraticCurveTo(x,y-10+side*2,x+12,y+1);ctx.stroke();
       } else if (blink || eyes === "soft") {
-        ctx.strokeStyle = "#3d2a26";
-        ctx.lineWidth = blink ? 3.2 : 4.2;
+        ctx.strokeStyle = liner;
+        ctx.lineWidth = blink ? 3.4 : 4.4;
         ctx.beginPath();
-        ctx.moveTo(x - 11, eyeY + 2);
-        ctx.quadraticCurveTo(x, blink ? eyeY + 8 : eyeY - 11, x + 11, eyeY + 2);
+        ctx.moveTo(x - 13.5, eyeY + 3);
+        ctx.quadraticCurveTo(x, blink ? eyeY + 11 : eyeY - 14, x + 13.5, eyeY + 3);
         ctx.stroke();
+      } else if (eyes === "dot") {
+        oval(ctx, x, eyeY + 1, 7.6, 10.2, "#2a1c1c");
+        oval(ctx, x - 2.2, eyeY - 2.8, 2.5, 3.1, "#ffffff");
       } else {
-        const wide = eyes === "bright" ? 10.4 : 11.6, tall = 16.2;
-        if (eyes === "bright") oval(ctx, x, eyeY, 13.6, 17.8, "#fffaf0");
-        oval(ctx, x, eyeY, wide, tall, "#33221f");
-        oval(ctx, x, eyeY + 4.5, wide * .78, tall * .62, eyes === "bright" ? "#7a5a3f" : "#6b4332");
-        oval(ctx, x, eyeY + .5, wide * .58, tall * .56, "#241718");
-        oval(ctx, x - 3.6, eyeY - 6.4, 4.3, 5.0, "#ffffff");
-        oval(ctx, x + 3.8, eyeY + 6.6, 2.0, 2.3, "#ffe9cf");
-        ctx.strokeStyle = "#33221f";
-        ctx.lineWidth = 2.4;
+        const {wide, tall, tilt, sparkle, lid, level, wing = 0} = EYE_SHAPES[eyes] ?? EYE_SHAPES.round;
+        ctx.save();
+        ctx.translate(x, eyeY);
+        ctx.rotate(side * tilt);
+        oval(ctx, 0, 0, wide, tall, "#fffaf3");
+        const iris = ctx.createLinearGradient(0, -tall, 0, tall);
+        iris.addColorStop(0, "#2b1a17"); iris.addColorStop(.5, "#5b3827"); iris.addColorStop(1, sparkle ? "#b98658" : "#96633f");
+        // Under a straight lid the iris is a smaller circle, partly covered.
+        const [irisWide, irisTall] = level ? [tall * .80, tall * .88] : [wide * .80, tall * .86];
+        oval(ctx, 0, level ? -.6 : 1.1, irisWide, irisTall, iris);
+        oval(ctx, 0, level ? -.8 : .2, irisWide * .50, irisTall * .51, "#1d1213");
+        oval(ctx, -wide * .30, -tall * .38, wide * .30, tall * .23, "#ffffff", -.3);
+        oval(ctx, wide * .30, tall * .42, wide * .15, tall * .11, "#ffe6c8");
+        if (sparkle) { oval(ctx, wide * .26, -tall * .14, wide * .12, tall * .09, "#ffffff"); oval(ctx, -wide * .10, tall * .50, wide * .22, tall * .10, "#ffd9a8"); }
+        if (lid) {
+          // A heavy upper lid covers the top of the eye.
+          ctx.fillStyle = tinted(colors.middle, tone);
+          ctx.fillRect(-wide - 3, -tall - 4, wide * 2 + 6, tall * 2 * lid + 4);
+        }
+        const top = lid ? -tall + tall * 2 * lid : -tall;
+        ctx.strokeStyle = liner;
+        ctx.lineWidth = 4.3;
         ctx.beginPath();
-        ctx.moveTo(x + side * (wide - 1), eyeY - tall * .62);
-        ctx.lineTo(x + side * (wide + 4.5), eyeY - tall * .86);
+        if (level) { ctx.lineWidth = 5.2; ctx.moveTo(-side * (wide + 1.5), top + 2.2); ctx.lineTo(side * (wide + 4.2), top - 1.4); }
+        else if (lid) { ctx.moveTo(-wide - 1.5, top + 2.5); ctx.quadraticCurveTo(0, top - 2.5, wide + 1.5, top + 2.5); }
+        else { ctx.moveTo(-wide - 1.2, -tall * .20); ctx.bezierCurveTo(-wide * .82, -tall * 1.20, wide * .82, -tall * 1.20, wide + 1.2, -tall * .20); }
         ctx.stroke();
+        // Lashes flick outward at the corner.
+        ctx.lineWidth = 2.6;
+        ctx.beginPath();
+        const cornerY = lid ? top + 2.5 : -tall * .20;
+        if (level) {
+          // No lashes: the lid simply turns down at the outer corner.
+          ctx.moveTo(side * (wide + 4.0), top - 1.2);
+          ctx.lineTo(side * (wide + 1.2), top + tall * .62);
+        } else {
+          ctx.moveTo(side * (wide + .8), cornerY);
+          ctx.lineTo(side * (wide + 5.6 + wing), cornerY - 5.2 - wing);
+          ctx.moveTo(side * (wide - .5), cornerY - tall * .26);
+          ctx.lineTo(side * (wide + 3.6), cornerY - tall * .26 - 5);
+        }
+        ctx.stroke();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "#5a3a33";
+        ctx.beginPath();
+        ctx.moveTo(side * wide * .15, tall + .6);
+        ctx.quadraticCurveTo(side * wide * .82, tall * .86, side * (wide + .4), tall * .34);
+        ctx.stroke();
+        ctx.restore();
       }
     }
-    oval(ctx, 128, 154.5, 2.1, 1.3, "#d99577");
-    if(eyes==="sick"){oval(ctx,128,165,4.3,5.2,"#6e3a35");return;}
-    ctx.lineWidth = 2.4;
+    oval(ctx, 128, noseY, 2.4, 1.2, tinted("#cf8d73a8", tone));
+    if(eyes==="sick"){oval(ctx,128,mouthY,4.4,5.4,"#6e3a35");return;}
+    ctx.lineWidth = 2.5;
     ctx.strokeStyle = "#8a4a40";
     ctx.beginPath();
-    ctx.moveTo(121.5, 164);
-    ctx.quadraticCurveTo(128, 171.5, 134.5, 164);
+    if (mouth === "grin") {
+      // An open smile showing a strip of teeth.
+      ctx.moveTo(119, mouthY - 3.5);
+      ctx.quadraticCurveTo(128, mouthY + 11, 137, mouthY - 3.5);
+      ctx.closePath();
+      ctx.fillStyle = "#8f4038";ctx.fill();
+      ctx.fillStyle = "#fff6ea";ctx.fillRect(122.4, mouthY - 3.1, 11.2, 2.7);
+    } else if (mouth === "calm") {
+      ctx.moveTo(123, mouthY);
+      ctx.quadraticCurveTo(128, mouthY + 1.8, 133, mouthY);
+    } else if (mouth === "cat") {
+      ctx.moveTo(120.5, mouthY - 1.5);
+      ctx.quadraticCurveTo(124, mouthY + 4, 128, mouthY - .5);
+      ctx.quadraticCurveTo(132, mouthY + 4, 135.5, mouthY - 1.5);
+    } else if (mouth === "pout") {
+      ctx.fillStyle = "#c9665f";
+      ctx.ellipse(128, mouthY, 3.4, 2.6, 0, 0, TAU);ctx.fill();ctx.beginPath();
+    } else {
+      ctx.moveTo(121, mouthY - 2.5);
+      ctx.quadraticCurveTo(128, mouthY + 5.5, 135, mouthY - 2.5);
+    }
     ctx.stroke();
   });
-}
-
-// A rounder head with soft cheeks and a slightly flattened chin.
-function chibiHead(T) {
-  const geometry = new T.SphereGeometry(1, 32, 24), points = geometry.attributes.position;
-  for (let i = 0; i < points.count; i++) {
-    let x = points.getX(i), y = points.getY(i), z = points.getZ(i);
-    const cheek = 1 + .075 * Math.exp(-(((y + .36) / .34) ** 2));
-    x *= cheek;
-    z *= z > 0 ? 1 + (cheek - 1) * .6 : 1;
-    if (y < -.5) y = -.5 + (y + .5) * .92;
-    points.setXYZ(i, x, y, z);
-  }
-  geometry.computeVertexNormals();
-  return geometry;
 }
 
 function garmentTexture(T, style) {
@@ -163,6 +260,39 @@ function garmentTexture(T, style) {
         ctx.strokeStyle = "#64575685"; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(x-5,168); ctx.lineTo(x+5,190); ctx.stroke();
       }
+    } else if (style === "hoodie") {
+      // Kangaroo pocket and a ribbed hem.
+      ctx.strokeStyle = "#5a504e66"; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(97,200); ctx.lineTo(104,158); ctx.lineTo(152,158); ctx.lineTo(159,200); ctx.stroke();
+      for (let x = 0; x < 256; x += 5) { ctx.fillStyle = "#45352822"; ctx.fillRect(x,224,2,32); }
+    } else if (style === "knit") {
+      for (let x = 0; x < 256; x += 6) {
+        ctx.fillStyle = "#4535281c"; ctx.fillRect(x,0,2,256);
+        ctx.fillStyle = "#fffaf038"; ctx.fillRect(x+3,0,1,256);
+      }
+      // A cable twisting down the front.
+      ctx.strokeStyle = "#5a463a55"; ctx.lineWidth = 2.2;
+      for (let y = 18; y < 214; y += 14) {
+        ctx.beginPath(); ctx.moveTo(120,y); ctx.quadraticCurveTo(136,y+7,120,y+14);
+        ctx.moveTo(136,y); ctx.quadraticCurveTo(120,y+7,136,y+14); ctx.stroke();
+      }
+      for (let x = 0; x < 256; x += 4) { ctx.fillStyle = "#45352826"; ctx.fillRect(x,222,2,34); }
+    } else if (style === "shirt") {
+      ctx.fillStyle = "#ffffff55"; ctx.fillRect(122,0,12,256);
+      ctx.fillStyle = "#5a504e44"; ctx.fillRect(122,0,1,256); ctx.fillRect(133,0,1,256);
+      for (let y = 44; y < 240; y += 44) {
+        ctx.fillStyle = "#fbf7ee"; ctx.beginPath(); ctx.arc(128,y,3.4,0,TAU); ctx.fill();
+        ctx.strokeStyle = "#6b5f5880"; ctx.lineWidth = 1; ctx.stroke();
+      }
+      ctx.strokeStyle = "#6b5f5870"; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.roundRect(146,72,19,23,2); ctx.stroke();
+    } else if (style === "dress") {
+      for (let row = 0; row < 12; row++) for (let column = 0; column < 12; column++) {
+        ctx.fillStyle = "#fffaf0a8";
+        ctx.beginPath(); ctx.arc(column*22+(row%2)*11+5,row*21+9,2.6,0,TAU); ctx.fill();
+      }
+    } else if (style === "stripes") {
+      for (let y = 6; y < 256; y += 18) { ctx.fillStyle = "#3f587fcc"; ctx.fillRect(0,y,256,8); }
     } else if (style === "tee") {
       ctx.strokeStyle = "#70655f7e"; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.ellipse(128,-4,17,23,0,0,TAU); ctx.stroke();
@@ -182,91 +312,10 @@ function garmentTexture(T, style) {
   });
 }
 
-// Vertex colours store only light and shade; the material supplies the hair colour.
-const HAIR_BASE = 0x46312e;
-const HAIR_SHADES = [0x2e2528,0x46312e,0x6a4733,0x8b6340,0x3b2d3d,0xa77b4c,0x54382c];
-const ease = (edge0, edge1, n) => smooth((n-edge0)/(edge1-edge0));
-
-// How far down the head the hair reaches at each side angle (0 = front), in radians from the crown.
-function hairline(style, angle) {
-  const side = Math.abs(Math.atan2(Math.sin(angle),Math.cos(angle)));
-  const back = ease(.70,1.30,side);
-  if (style === "short") {
-    const fringe = 1.02+.20*Math.sin(angle*1.15+.55)+.045*Math.cos(angle*9);
-    return mix(fringe,1.62+.10*ease(1.7,2.6,side),back);
-  }
-  if (style === "bob") {
-    const fringe = 1.25+.028*Math.cos(angle*11);
-    return mix(fringe,2.02,back);
-  }
-  if (style === "long") {
-    const fringe = .90+.42*ease(0,.72,side)**1.25;
-    return mix(fringe,1.86,back);
-  }
-  const fringe = .93+.14*ease(0,.9,side)+.03*Math.cos(angle*7);
-  return mix(fringe,1.60,back);
-}
-
-function hairCap(T, style) {
-  const geometry = new T.BufferGeometry();
-  const positions = [], colors = [], triangles = [];
-  const rings = 16, sides = 56;
-  for (let row = 0; row <= rings; row++) {
-    for (let side = 0; side <= sides; side++) {
-      const angle = side / sides * TAU, t = row / rings;
-      const reach = hairline(style,angle);
-      const pitch = .009 + t * reach;
-      const strand = Math.sin(angle * (style === "bob" ? 22 : 14) + pitch * 1.6);
-      // Puff the crown slightly and curl the ends back toward the head.
-      const puff = 1.035 + .030*Math.sin(Math.min(pitch,1.6)) - .050*t**6
-        + (style === "bob" ? .055*ease(1.45,2.0,pitch) : 0) + strand*.0045*Math.sin(pitch);
-      const below = Math.max(0,pitch-1.571), level = Math.min(pitch,1.571);
-      // Past the widest point the hair hangs instead of wrapping under the chin.
-      const hang = style === "bob" ? .86 : 1;
-      const radius = Math.sin(level)*(1-below*(1-hang)*.55);
-      positions.push(Math.sin(angle) * radius * .362 * puff,
-        .012 + (Math.cos(level) - below*.94) * .348 * puff,
-        -.016 + Math.cos(angle) * radius * .346 * puff);
-      const sheen = .86 + .09 * Math.sin(angle * 2 + .3) + .075 * strand
-        + .30 * Math.max(0, 1 - Math.abs(pitch - .72) * 2.1) * Math.max(0, Math.cos(angle - .55))
-        - .10*t**3;
-      colors.push(sheen, sheen, sheen);
-      if (row && side) {
-        const a = (row - 1) * (sides + 1) + side - 1, b = a + sides + 1;
-        triangles.push(a, b, a + 1, a + 1, b, b + 1);
-      }
-    }
-  }
-  geometry.setAttribute("position", new T.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute("color", new T.Float32BufferAttribute(colors, 3));
-  geometry.setIndex(triangles);
-  geometry.computeVertexNormals();
-  return geometry;
-}
-
-function hairLock(T, points, width, depth, tint) {
-  const path = new T.CatmullRomCurve3(points.map(point => new T.Vector3(...point)));
-  const geometry = new T.TubeGeometry(path, 14, 1, 9, false);
-  const position = geometry.attributes.position;
-  const colors = [];
-  const reference = new T.Color(HAIR_BASE), base = new T.Color(tint);
-  base.setRGB(base.r/reference.r,base.g/reference.g,base.b/reference.b);
-  for (let row = 0; row <= 14; row++) {
-    const p = row / 14, center = path.getPointAt(p);
-    const volume = .025 + .975 * Math.sin(Math.PI * p) ** .52;
-    for (let side = 0; side <= 9; side++) {
-      const i = row * 10 + side;
-      position.setXYZ(i, center.x + (position.getX(i) - center.x) * width * volume,
-        center.y + (position.getY(i) - center.y) * width * volume,
-        center.z + (position.getZ(i) - center.z) * depth * volume);
-      const shade = .91 + .19 * Math.max(0, Math.sin(p * Math.PI)) + .12 * Math.cos(side / 9 * TAU);
-      colors.push(base.r * shade, base.g * shade, base.b * shade);
-    }
-  }
-  geometry.setAttribute("color", new T.Float32BufferAttribute(colors, 3));
-  geometry.computeVertexNormals();
-  return geometry;
-}
+// Named hair colours; walkers who have not chosen one get a shade from their name.
+const HAIR_COLORS = {black:0x2a2326, dark:0x46312e, brown:0x6a4733, chestnut:0x8b6340, plum:0x3b2d3d, honey:0xa77b4c,
+  auburn:0x7d3d2b, blonde:0xd8b473, ash:0x8f8b88, pink:0xd88c9c};
+const HAIR_SHADES = ["black","dark","brown","chestnut","plum","honey","dark"];
 
 function combineParts(T, parts) {
   const geometry = new T.BufferGeometry();
@@ -286,57 +335,6 @@ function combineParts(T, parts) {
   geometry.setAttribute("color", new T.Float32BufferAttribute(colors, 3));
   geometry.setIndex(indices);
   return geometry;
-}
-
-function hairBall(T, x, y, z, rx, ry, rz, twist = 6) {
-  const ball = new T.SphereGeometry(1,24,16), points = ball.attributes.position, colors = [];
-  for (let i = 0; i < points.count; i++) {
-    const px = points.getX(i), py = points.getY(i), pz = points.getZ(i);
-    const ridge = Math.sin(Math.atan2(pz,px)*twist+py*5.7)*(1-py*py);
-    const volume = 1+ridge*.05;
-    points.setXYZ(i,x+px*rx*volume,y+py*ry,z+pz*rz*volume);
-    const light = .92+.12*ridge+.16*py;
-    colors.push(light,light,light);
-  }
-  ball.setAttribute("color",new T.Float32BufferAttribute(colors,3));
-  ball.computeVertexNormals();
-  return ball;
-}
-
-function styledHair(T, style) {
-  const parts = [hairCap(T, style)];
-  const lock = (points, width, depth, tint) => parts.push(hairLock(T, points, width, depth, tint));
-  if (style === "short") {
-    // Side-swept fringe and a small cowlick.
-    lock([[-.262,.170,.186],[-.190,.300,.224],[-.046,.345,.262],[.118,.292,.286],[.250,.150,.238]],
-      .092,.060,0x4d3430);
-    lock([[-.268,.120,.178],[-.170,.214,.268],[-.030,.196,.322],[.120,.150,.306]], .060,.034,0x553934);
-    lock([[.020,.352,-.040],[.050,.420,-.020],[.110,.432,.020],[.150,.398,.050]], .034,.030,0x553934);
-  } else if (style === "bob") {
-    parts.push(hairBall(T,.262,.258,.118,.040,.030,.026,3));
-  } else if (style === "long") {
-    for (const side of SIDE) {
-      // Strands framing the face, then falling in front of the shoulders.
-      lock([[side*.030,.330,.150],[side*.120,.300,.248],[side*.232,.196,.262],[side*.300,.050,.212],
-        [side*.318,-.110,.170]], .060,.040,side===1 ? 0x573932 : 0x4b322e);
-      lock([[side*.310,.060,.090],[side*.330,-.110,.100],[side*.300,-.290,.110],
-        [side*.262,-.440,.118],[side*.236,-.540,.118]], .056,.050,0x503732);
-    }
-    // Back panel reaching the shoulder blades.
-    lock([[0,.120,-.250],[0,-.120,-.330],[0,-.380,-.330],[0,-.600,-.300],[0,-.730,-.262]],.300,.120,0x442f30);
-    for (const side of SIDE) {
-      lock([[side*.190,.080,-.210],[side*.250,-.160,-.240],[side*.250,-.420,-.240],[side*.210,-.660,-.220]],
-        .130,.100,0x49312f);
-    }
-  } else {
-    // Twin buns with a few loose strands at the temples.
-    for (const side of SIDE) {
-      parts.push(hairBall(T,side*.232,.330,-.060,.132,.124,.128,5));
-      lock([[side*.070,.318,.170],[side*.170,.300,.200],[side*.270,.200,.170],[side*.316,.050,.130]],
-        .050,.036,0x4a3437);
-    }
-  }
-  return combineParts(T, parts);
 }
 
 function modeledDetails(T, sphere, specifications) {
@@ -391,8 +389,8 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
   const makeUtensil=makeDiningUtensil(T);
   const wearables=makeWearables(T),umbrellaTemplate=makeUmbrella(T);
   const sphere = new T.SphereGeometry(1,16,12);
-  const head = chibiHead(T);
-  const shadowGeometry = new T.CircleGeometry(.40,24);
+  const head = sculptedHead(T);
+  const shadowGeometry = new T.CircleGeometry(.30,24);
   const segment = roundedLathe(T, [[0,-1.125],[.49,-1.109],[.72,-1.068],[.86,-.994],
     [.92,-.67],[1,-.28],[.99,-.035],[.87,.048],[.56,.111],[0,.14]],1,12);
   const paddedSleeve = roundedLathe(T,[[0,-1.12],[.53,-1.075],[.91,-1],[1,-.82],[.84,-.65],
@@ -410,6 +408,12 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     [[.114,.473],[.142,.455],[.069,.325],[.047,.301]]
   ]);
   const skirtGeometry = chimaGeometry(T);
+  // A short jacket worn open over a tee, and the strap of a crossbody bag.
+  const jacketShell = coatShell(T,[[.262,-.150],[.276,-.128],[.272,.06],[.286,.262],
+    [.296,.366],[.266,.436],[.184,.486],[.146,.489]],.54,.86);
+  const jacketCollar = collarPanels(T,SIDE.map(side=>[[.060,.474],[.176,.432],[.186,.330],[.120,.268],[.070,.372]]
+    .map(([x,y])=>[x*side,y])));
+  const strapGeometry = new T.TorusGeometry(.318,.013,6,36);
   const torsoGeometry = {
     coat: roundedLathe(T,[[0,-.128],[.202,-.128],[.225,-.079],[.224,.160],[.237,.355],
       [.227,.42],[.155,.475],[.121,.48],[0,.48]],.74),
@@ -422,30 +426,72 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     hanbok: roundedLathe(T,[[0,-.021],[.234,-.021],[.255,-.009],[.256,.035],[.246,.20],
       [.254,.32],[.262,.385],[.235,.443],[.163,.475],[.126,.476],[0,.476]],.75)
   };
-  const hairGeometry = Object.fromEntries(HAIR.map(style => [style,styledHair(T,style)]));
-  const hairMaterials = HAIR_SHADES.map(color =>
-    new T.MeshStandardMaterial({color,vertexColors:true,roughness:.72,side:T.DoubleSide}));
-  const textileStyles = OUTFITS.filter(style=>style!=="coat");
+  for (const style of ["jacket","knit","shirt","dress","overalls","suit","school","shorts"]) torsoGeometry[style] = torsoGeometry.tee;
+  torsoGeometry.hoodie = roundedLathe(T,[[0,-.150],[.232,-.150],[.262,-.138],[.270,-.108],[.260,-.088],[.262,.06],
+    [.270,.25],[.266,.365],[.232,.432],[.168,.474],[.122,.478],[0,.478]],.76,28);
+  torsoGeometry.varsity = torsoGeometry.hoodie;
+  const hoodRing = new T.TorusGeometry(.150,.050,10,26).rotateX(Math.PI/2);
+  const neckRib = new T.TorusGeometry(.124,.034,8,24).rotateX(Math.PI/2);
+  // Collars are drawn around their own base line so they can lean back against the chest.
+  const shirtCollar = collarPanels(T,SIDE.map(side=>[[.014,.050],[.150,.040],[.138,-.044],[.026,-.014]].map(([x,y])=>[x*side,y])));
+  const roundCollar = collarPanels(T,SIDE.map(side=>[[.010,.048],[.110,.050],[.150,.020],[.146,-.022],[.100,-.050],[.040,-.044],[.010,-.012]]
+    .map(([x,y])=>[x*side,y])));
+  const bibGeometry = new T.ExtrudeGeometry(new T.Shape([[-.100,.300],[.100,.300],[.112,.282],[.132,-.030],[-.132,-.030],[-.112,.282]]
+    .map(([x,y])=>new T.Vector2(x,y))),{depth:.014,bevelThickness:.007,bevelSize:.007,bevelSegments:1,steps:1});
+  // Hair is built the first time a style is worn.
+  const hairGeometries = new Map(), hairMaterials = new Map();
+  const hairGeometry = style => {
+    if (!hairGeometries.has(style)) hairGeometries.set(style,makeHairGeometry(T,style));
+    return hairGeometries.get(style);
+  };
+  const hairMaterial = name => {
+    if (!hairMaterials.has(name)) hairMaterials.set(name,new T.MeshStandardMaterial({
+      color:HAIR_COLORS[name],vertexColors:true,roughness:.66,side:T.DoubleSide}));
+    return hairMaterials.get(name);
+  };
+  const textileStyles = ["puffer","tee","hanbok","hoodie","knit","shirt","dress"];
   const garmentMaps = Object.fromEntries(textileStyles.map(style => [style,garmentTexture(T,style)]));
   const faces = new Map(), clothes = new Map();
   const matte = (color, roughness = .84) => new T.MeshStandardMaterial({color,roughness});
-  const skin = matte(0xf0bc99), details = new T.MeshStandardMaterial({vertexColors:true,roughness:.86});
-  const earMaterials=Array.from({length:MAX_ALCOHOL_LEVEL+1},(_,level)=>new T.MeshStandardMaterial({
-    color:new T.Color(0xffffff).lerp(new T.Color(0xff8f9c),level/MAX_ALCOHOL_LEVEL),vertexColors:true,roughness:.86
-  }));
+  const details = new T.MeshStandardMaterial({vertexColors:true,roughness:.86});
+  // Each skin tone has a plain material, and a multiplier for parts whose colour is baked in.
+  const skinBase = new T.Color(0xf0bc99), skinSets = new Map();
+  function skinSet(name) {
+    if (!skinSets.has(name)) {
+      const tone = SKIN_TONES[name], srgb = skinBase.clone().convertLinearToSRGB();
+      const colour = new T.Color().setRGB(Math.min(1,srgb.r*tone[0]),Math.min(1,srgb.g*tone[1]),Math.min(1,srgb.b*tone[2]),T.SRGBColorSpace);
+      const factor = new T.Color(colour.r/skinBase.r,colour.g/skinBase.g,colour.b/skinBase.b);
+      skinSets.set(name,{plain:matte(colour),baked:new T.MeshStandardMaterial({color:factor,vertexColors:true,roughness:.86}),
+        ears:Array.from({length:MAX_ALCOHOL_LEVEL+1},(_,level)=>new T.MeshStandardMaterial({
+          color:new T.Color(0xffffff).lerp(new T.Color(0xff8f9c),level/MAX_ALCOHOL_LEVEL).multiply(factor),vertexColors:true,roughness:.86
+        }))});
+    }
+    return skinSets.get(name);
+  }
+  const skin = skinSet("light").plain, earMaterials = skinSet("light").ears;
   const hanbokPants = matte(0xb9b295);
-  const trousers = {coat:matte(0x3f4452),puffer:matte(0x4d6787),tee:matte(0xc7b089),hanbok:hanbokPants};
+  const trousers = {coat:matte(0x3f4452),puffer:matte(0x4d6787),tee:matte(0xc7b089),hanbok:hanbokPants,jacket:matte(0x5d7193),
+    hoodie:matte(0x8d919b),knit:matte(0x6f5b4b),shirt:matte(0x353f58),dress:matte(0xf0e6d6),
+    varsity:matte(0x5d7193),shorts:matte(0x6d7f99)};
+  const whiteShirt = new T.MeshStandardMaterial({color:0xf7f3ea,map:garmentMaps.shirt,roughness:.9}), navySock = matte(0x2f3a55);
+  const stripedTee = new T.MeshStandardMaterial({color:0xf6f0e4,map:garmentTexture(T,"stripes"),roughness:.92});
+  const brass = matte(0xd9b25f,.5), beltLeather = matte(0x3a2c26,.6);
+  const innerTee = matte(0xf3ede0), bagLeather = matte(0xb98a5a,.7), bagStrap = matte(0x8a6442,.7);
   const pants = trousers.coat;
   const ivory = matte(0xf0debd), hairpin = matte(0xdfb475), scarfCloth = matte(0xf2e4c8,.95);
   const earGeometry = modeledDetails(T,sphere,SIDE.flatMap(side => [
-    [0xf0bc99,side*.330,-.040,.004,.066,.086,.052], [0xd8947e,side*.362,-.038,.038,.026,.048,.018]
+    [0xf0bc99,side*.374,-.100,-.010,.062,.092,.050], [0xd8947e,side*.404,-.098,.022,.024,.050,.017]
   ]));
   const shoe = (sole,upper,toe) => modeledDetails(T,sphere,[
     [sole,0,-.100,.046,.136,.030,.200],[upper,0,-.050,.042,.134,.072,.194],[toe,0,.010,.100,.080,.012,.024]
   ]);
   const footGeometries = {
     coat:shoe(0xcdbda2,0x5a4034,0x7a5a48), puffer:shoe(0xf2efe8,0xf7f4ee,0xd8dde4),
-    tee:shoe(0xf2efe8,0xe9695b,0xf7f4ee), hanbok:shoe(0xe9e1cf,0xf6f1e6,0xc65a52)
+    tee:shoe(0xf2efe8,0xe9695b,0xf7f4ee), hanbok:shoe(0xe9e1cf,0xf6f1e6,0xc65a52),
+    jacket:shoe(0xf4f1ea,0xfaf8f3,0xcfd5dc), hoodie:shoe(0xf2efe8,0xf7f4ee,0x9aa3b0), knit:shoe(0xcdbda2,0x6a4a38,0x86624c),
+    shirt:shoe(0x2c2a2c,0x3a363b,0x4c484e), dress:shoe(0xf6f1e6,0xa33f43,0xf6f1e6), overalls:shoe(0xf2efe8,0xe2b23f,0xf7f4ee),
+    varsity:shoe(0xf2efe8,0xf7f4ee,0xc24f45), suit:shoe(0x2c2a2c,0x3a363b,0x4c484e), school:shoe(0x2c2a2c,0x4a3a34,0x5a4a44),
+    shorts:shoe(0xf2efe8,0x4f8fb0,0xf7f4ee)
   };
   const footGeometry = footGeometries.coat;
   const scarfGeometry = new T.TorusGeometry(.150,.058,10,26);
@@ -466,10 +512,10 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     [0xc1a184,.095,.285,.213,.016,.016,.011]
   ]);
 
-  function faceMaterial(eye, blink, blush) {
-    const key = `${eye}/${blink}/${blush}`;
+  function faceMaterial(eye, blink, blush, brows = "soft", mouth = "smile", tone = "light") {
+    const key = `${eye}/${blink}/${blush}/${brows}/${mouth}/${tone}`;
     if (!faces.has(key)) faces.set(key, new T.MeshStandardMaterial({
-      color:0xffffff, map:faceTexture(T,eye,blink,blush), roughness:.84
+      color:0xffffff, map:faceTexture(T,eye,blink,blush,brows,mouth,tone), roughness:.84
     }));
     return faces.get(key);
   }
@@ -521,7 +567,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
   function create(coat, nickname, labelSprite, seedName) {
     const group = joint(scene), body = joint(group);
     body.scale.setScalar(BODY);
-    const pelvis = joint(body,0,.705), chest = joint(pelvis,0,.045);
+    const pelvis = joint(body,0,.705-HIP_DROP), chest = joint(pelvis,0,.045);
     // Clothes are widened around the trunk; the limbs keep their own joints.
     const garb = joint(chest), lower = joint(pelvis);
     garb.scale.set(WIDE,1,WIDE);
@@ -529,7 +575,8 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const palette = outfitMaterials(coat ?? 0xab5947);
     const torso = part(garb,torsoGeometry.coat,palette.lining,0,0,0,1,1,1);
     const waist = part(lower,sphere,pants,0,-.036,0,.190,.108,.132);
-    part(garb,sphere,skin,0,.470,0,.100,.080,.096);
+    // Skin just inside the collar; kept flat so only the neck itself stands above the clothes.
+    const collarbone = part(garb,sphere,skin,0,.462,0,.092,.026,.088);
     const overcoat = joint(garb);
     part(overcoat,coatTop,palette.outer,0,0,0,1,1,1);
     part(overcoat,lapelGeometry,palette.trim,0,0,.223,1,1,1);
@@ -541,36 +588,101 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const hem = part(lower,coatTail,palette.outer,0,.025,0,1,1,1);
     const pufferCollar = part(garb,sphere,palette.collar,0,.452,-.042,.180,.093,.159);
     const teeHem = part(garb,sphere,palette.sleeve,0,-.082,0,.240,.074,.176);
+    // Open jacket over a tee, with a small bag slung across the body.
+    const jacket = joint(garb), bag = joint(garb);
+    part(jacket,jacketShell,palette.outer,0,0,0,1,1,1);
+    part(jacket,jacketCollar,palette.trim,0,0,.214,1,1,1);
+    const strap = part(bag,strapGeometry,bagStrap,-.012,.214,.004,.84,.60,1);
+    // The strap runs from the right shoulder to the left hip.
+    strap.rotation.order="ZXY";strap.rotation.set(Math.PI/2,0,.62);
+    const pouch = part(bag,sphere,bagLeather,-.236,-.008,.196,.094,.066,.048);
+    pouch.rotation.z=.5;
+    part(bag,sphere,bagStrap,-.236,.030,.226,.070,.012,.020).rotation.z=.5;
+    // Hoodie: the hood bunched behind the neck and two drawstrings.
+    const hoodie = joint(garb);
+    part(hoodie,hoodRing,palette.sleeve,0,.458,-.016,1,1.2,1);
+    part(hoodie,sphere,palette.sleeve,0,.420,-.176,.196,.150,.108).rotation.x = .42;
+    for (const side of SIDE) {
+      part(hoodie,sphere,ivory,side*.046,.350-side*.008,.236,.010,.074,.010);
+      part(hoodie,sphere,brass,side*.046,.272-side*.008,.238,.013,.016,.012);
+    }
+    // Knit: a ribbed neck and hem in the trim colour.
+    const knit = joint(garb);
+    part(knit,neckRib,palette.trim,0,.466,.002,1,1.25,1);
+    part(knit,sphere,palette.trim,0,-.088,0,.250,.050,.180);
+    // Shirt: a pointed collar, tucked in under a belt.
+    const shirt = joint(garb);
+    const shirtWings = part(shirt,shirtCollar,palette.collar,0,.438,.128,1,1,1);
+    shirtWings.rotation.x = -.62;
+    const belt = joint(lower);
+    part(belt,sphere,beltLeather,0,.050,0,.200,.028,.142);
+    part(belt,sphere,brass,0,.050,.136,.026,.022,.010);
+    // Dress: a round collar, a ribbon at the waist and a skirt to the knee.
+    const dress = joint(garb);
+    const dressCollar = part(dress,roundCollar,ivory,0,.440,.128,1,1,1);
+    dressCollar.rotation.x = -.62;
+    part(dress,sphere,palette.trim,0,-.074,0,.252,.030,.184);
+    part(dress,knotGeometry,details,0,-.070,.176,1,1,1);
+    const dressSkirt = part(lower,skirtGeometry,palette.chima,0,.094,0,.92,.50,.92);
+    // Overalls: a bib and straps over a striped tee.
+    const overalls = joint(garb);
+    part(overalls,bibGeometry,palette.outer,0,0,.172,1,1,1);
+    part(overalls,sphere,palette.outer,0,-.074,0,.254,.060,.186);
+    part(overalls,sphere,palette.trim,0,.150,.196,.074,.052,.010);
+    for (const side of SIDE) {
+      const strap = part(overalls,sphere,palette.outer,side*.108,.392,.092,.030,.118,.020);
+      strap.rotation.x = -.74;
+      const back = part(overalls,sphere,palette.outer,side*.090,.300,-.176,.030,.200,.020);
+      back.rotation.set(.16,0,side*.20);
+      part(overalls,sphere,brass,side*.106,.290,.192,.018,.018,.010);
+    }
+    // Varsity jacket: ribbed neck and hem, snap buttons and a chest patch.
+    const varsity = joint(garb);
+    part(varsity,neckRib,palette.trim,0,.466,.002,1.04,1.2,1.04);
+    part(varsity,sphere,palette.trim,0,-.132,0,.262,.044,.196);
+    for (let i = 0; i < 4; i++) part(varsity,sphere,ivory,0,.34-i*.115,.208-(i===0?.012:0),.014,.014,.010);
+    part(varsity,sphere,ivory,-.110,.300,.176,.040,.046,.012);
+    // Suit and school uniform share a tie; the uniform wears a ribbon-sized one.
+    const tie = joint(garb);
+    const tieKnot = part(tie,sphere,palette.trim,0,.418,.146,.026,.024,.018);
+    const tieBlade = part(tie,sphere,palette.trim,0,.270,.182,.030,.150,.012);
     const hanbokDetails = joint(garb);
     part(hanbokDetails,jeogoriCollar,ivory,0,0,.186,1,1,1);
     part(hanbokDetails,knotGeometry,details,.066,.31,.190,1,1,1);
     const skirt = part(lower,skirtGeometry,palette.chima,0,.259,0,1,1,1);
 
+    // A short neck shows between the collar and the chin.
+    const neck = part(chest,sphere,skin,0,.500,.000,.066,.080,.064);
     const headJoint = joint(chest,0,.487,.011);
     headJoint.scale.setScalar(HEAD/BODY);
-    const face = joint(headJoint,0,.300,.012);
+    const face = joint(headJoint,0,.334,.012);
+    // The whole head is a touch narrower than it is deep; hair and hats follow.
+    face.scale.set(.93,1,1);
+    // Hats were shaped around a plain ball; this fits them to the taller, fuller skull.
+    const headwear = joint(face);
+    headwear.scale.set(1.14,1.14,1.06);
     const faceMesh = part(face,head,faceMaterial("round",false,0),0,0,0,.338,.322,.314);
     const ears = part(face,earGeometry,earMaterials[0],0,0,0,1,1,1);
     let offset = 0;
     for (const letter of String(seedName ?? nickname ?? "")) offset = (offset * 31 + letter.charCodeAt(0)) >>> 0;
-    const hairMesh = part(face,hairGeometry.short,hairMaterials[offset % hairMaterials.length],0,0,0,1.06,1,1.05);
-    const pin = part(face,sphere,hairpin,.262,.258,.150,.050,.016,.012);
+    const hairMesh = part(face,hairGeometry("short"),hairMaterial(HAIR_SHADES[offset % HAIR_SHADES.length]),0,0,0,1,1,1);
+    const pin = part(face,sphere,hairpin,.262,.196,.262,.050,.016,.012);
     pin.rotation.z = .5;
 
     const legs = SIDE.map(side => {
-      const leg = chain(pelvis,side*.135,-.014,LEG,[.142,.122],pants);
-      leg.foot = part(leg.end,footGeometry,details,0,0,0,1,1,1);
+      const leg = chain(pelvis,side*HIP,-.014,LEG,LIMB.leg,pants);
+      leg.foot = part(leg.end,footGeometry,details,0,0,0,...FOOT);
       return leg;
     });
     const arms = SIDE.map((side,i) => {
-      const arm = chain(chest,side*.300,.405,ARM,[.110,.098],palette.sleeve);
-      arm.cuff = part(arm.lower,sphere,palette.trim,0,-.204,0,.102,.046,.100);
-      arm.shortSleeve = part(arm.upper,shortSleeve,palette.sleeve,0,0,0,.114,.165,.114);
-      arm.hand=part(arm.end,handGeometry[i],details,0,0,0,1,1,1);
+      const arm = chain(chest,side*SHOULDER,.412,ARM,LIMB.arm,palette.sleeve);
+      arm.cuff = part(arm.lower,sphere,palette.trim,0,-.204,0,.055,.034,.054);
+      arm.shortSleeve = part(arm.upper,shortSleeve,palette.sleeve,0,0,0,.078,.150,.078);
+      arm.hand=part(arm.end,handGeometry[i],details,0,0,0,HAND,HAND,HAND);
       return arm;
     });
     const itemPivots=SIDE.map(()=>{
-      const pivot=joint(chest);pivot.scale.setScalar(1.35);pivot.visible=false;
+      const pivot=joint(chest);pivot.scale.setScalar(1/BODY);pivot.visible=false;
       return {pivot,show:createItemProp(pivot)};
     });
     const tray=joint(chest,0,.112,.408);
@@ -588,7 +700,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     group.add(shadow);
     group.visible = false;
     group.traverse(mesh => { if (mesh.isMesh && mesh !== shadow) mesh.castShadow = true; });
-    return {group,body,floorY:null,teeHem,pelvis,chest,torso,waist,face,garb,faceMesh,ears,headJoint,hairMesh,pin,overcoat,hem,pufferCollar,hanbokDetails,skirt,legs,arms,label,
+    return {group,body,floorY:null,headwear,bag,varsity,tie,tieBlade,hoodie,knit,shirt,belt,dress,dressSkirt,overalls,skinParts:[collarbone,neck],skin:skinSet("light"),teeHem,pelvis,chest,torso,waist,face,garb,faceMesh,ears,headJoint,hairMesh,pin,overcoat,hem,pufferCollar,hanbokDetails,jacket,skirt,legs,arms,label,
       shadow,emote,chatSprite:null,chatMessage:null,itemPivots,tray,showTray,utensil:null,palette,offset,phase:(offset%100)/100,
       stride:0,sprint:0,seatBlend:0,petBlend:0,appearance:"",lastX:null,lastY:null,bike:null,hat:null,charm:null,umbrella:null};
   }
@@ -618,45 +730,82 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const look = position.look;
     const hair = HAIR.includes(look?.hair) ? look.hair : position.character === "woman" ? "long" : "short";
     const eyes = EYES.includes(look?.eyes) ? look.eyes : "round";
-    const requestedOutfit = look?.outfit === "hoodie" ? "puffer" : look?.outfit;
-    const outfit = OUTFITS.includes(requestedOutfit) ? requestedOutfit : "coat";
+    const brows = BROWS.includes(look?.brows) ? look.brows : "soft";
+    const mouth = MOUTHS.includes(look?.mouth) ? look.mouth : "smile";
+    const tone = SKIN.includes(look?.skin) ? look.skin : "light";
+    const hairColor = Object.hasOwn(HAIR_COLORS,look?.hairColor) ? look.hairColor : HAIR_SHADES[model.offset % HAIR_SHADES.length];
+    const woman = position.character === "woman";
+    const outfit = OUTFITS.includes(look?.outfit) ? look.outfit : "coat";
     const chima = outfit === "hanbok" && position.character === "woman";
     const headwear=Object.hasOwn(wearables.headwear,look?.headwear)?look.headwear:"none";
     const keepsake=Object.hasOwn(wearables.keepsakes,look?.keepsake)?look.keepsake:"none";
-    const key = `${hair}/${eyes}/${outfit}/${chima}/${headwear}/${keepsake}`;
+    const key = `${hair}/${eyes}/${outfit}/${chima}/${headwear}/${keepsake}/${woman}/${tone}/${hairColor}`;
     if (key !== model.appearance) {
       model.appearance = key;
-      model.hairMesh.geometry = hairGeometry[hair];
+      model.hairMesh.geometry = hairGeometry(hair);
+      model.hairMesh.material = hairMaterial(hairColor);
+      model.tallHair = TALL_HAIR.has(hair);
+      model.skin = skinSet(tone);
+      for (const mesh of model.skinParts) mesh.material = model.skin.plain;
+      for (const arm of model.arms) arm.hand.material = model.skin.baked;
       model.pin.visible = hair === "bob"&&headwear==="none";
       model.hat?.removeFromParent();model.charm?.removeFromParent();
       model.hat=wearables.headwear[headwear]?.clone()??null;
       model.charm=wearables.keepsakes[keepsake]?.clone()??null;
-      if(model.hat){model.hat.name=headwear;model.face.add(model.hat);}
+      if(model.hat){model.hat.name=headwear;model.headwear.add(model.hat);}
       if(model.charm){model.charm.name=keepsake;model.garb.add(model.charm);}
       model.torso.geometry = torsoGeometry[outfit];
-      model.torso.material = outfit === "coat" ? model.palette.lining : model.palette.tops[outfit];
+      const uniform = outfit === "school", pleats = uniform && woman;
+      model.torso.material = outfit === "coat" ? model.palette.lining : outfit === "jacket" ? innerTee
+        : outfit === "overalls" ? stripedTee : outfit === "varsity" ? model.palette.sleeve
+        : outfit === "suit" || uniform ? whiteShirt : model.palette.tops[outfit === "shorts" ? "tee" : outfit];
+      model.jacket.visible = outfit === "jacket" || outfit === "suit";
+      model.bag.visible = outfit === "jacket";
+      model.varsity.visible = outfit === "varsity";
+      model.tie.visible = outfit === "suit" || uniform;
+      model.tieBlade.scale.y = uniform ? .070 : .150;
+      model.tieBlade.position.y = uniform ? .350 : .270;
+      model.tieBlade.position.z = uniform ? .166 : .182;
+      model.hoodie.visible = outfit === "hoodie";
+      model.knit.visible = outfit === "knit";
+      model.shirt.visible = outfit === "shirt" || outfit === "suit" || uniform;
+      model.belt.visible = outfit === "shirt" || uniform && !woman;
+      model.dress.visible = outfit === "dress";
+      model.dressSkirt.visible = outfit === "dress" || pleats;
+      model.overalls.visible = outfit === "overalls";
+      // Men are a little broader across the shoulders, women narrower with slimmer arms.
+      const build = woman ? .95 : 1.07;
+      model.garb.scale.set(WIDE*build,1,WIDE*(woman ? .96 : 1.02));
+      model.arms.forEach((arm,i)=>{arm.upper.position.x=SIDE[i]*SHOULDER*build;});
       model.torso.scale.set(chima ? .94 : 1,1,chima ? .94 : 1);
       model.overcoat.visible = model.hem.visible = outfit === "coat";
       model.pufferCollar.visible = outfit === "puffer";
-      model.teeHem.visible = outfit === "tee";
+      model.teeHem.visible = outfit === "tee" || outfit === "shorts";
       model.hanbokDetails.visible = outfit === "hanbok";
       model.skirt.visible = chima;
-      model.waist.material = trousers[outfit];
+      model.waist.material = outfit === "overalls" ? model.palette.sleeve : outfit === "suit" || uniform ? model.palette.trim
+        : trousers[outfit];
       for (const leg of model.legs) {
         const roomy = outfit === "hanbok" && !chima;
-        leg.top.material = leg.bottom.material = model.waist.material;
+        const bareLegs = outfit === "dress" || pleats;
+        leg.top.material = bareLegs ? model.skin.plain : model.waist.material;
+        // Shorts leave the shins bare; a uniform skirt comes with knee socks.
+        leg.bottom.material = pleats ? navySock : bareLegs || outfit === "shorts" ? model.skin.plain : model.waist.material;
         leg.foot.geometry = footGeometries[outfit];
-        leg.top.scale.set(roomy ? .164 : .142,LEG[0],roomy ? .158 : .142);
-        leg.bottom.scale.set(roomy ? .142 : .122,LEG[1],roomy ? .136 : .122);
+        const [thigh,calf] = roomy ? LIMB.roomy : outfit === "shorts" ? [LIMB.roomy[0],LIMB.leg[1]*.92] : LIMB.leg;
+        leg.top.scale.set(thigh,LEG[0],thigh*.97);
+        leg.bottom.scale.set(calf,LEG[1],calf*.97);
         leg.top.visible = !chima;
         leg.bottom.visible = !chima;
       }
       for (const arm of model.arms) {
-        const bare = outfit === "tee", padded = outfit === "puffer";
+        const bare = outfit === "tee" || outfit === "dress" || outfit === "shorts", padded = outfit === "puffer";
+        const roomy = padded || outfit === "hoodie" || outfit === "varsity";
         arm.top.geometry = arm.bottom.geometry = padded ? paddedSleeve : segment;
-        arm.top.material = arm.bottom.material = bare ? skin : padded ? model.palette.padded : model.palette.sleeve;
-        const upperRadius = bare ? .092 : padded ? .126 : .110;
-        const lowerRadius = bare ? .084 : padded ? .112 : .098;
+        arm.top.material = arm.bottom.material = bare ? model.skin.plain : padded ? model.palette.padded
+          : outfit === "overalls" ? stripedTee : outfit === "varsity" || uniform ? innerTee : model.palette.sleeve;
+        const slim = woman ? .94 : 1;
+        const [upperRadius,lowerRadius] = (bare ? LIMB.bare : roomy ? LIMB.padded : LIMB.arm).map(radius=>radius*slim);
         arm.top.scale.set(upperRadius,ARM[0],upperRadius);
         arm.bottom.scale.set(lowerRadius,ARM[1],lowerRadius);
         arm.cuff.visible = !bare;
@@ -664,8 +813,8 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       }
     }
     const expression=sick?"sick":woozy?"woozy":eyes;
-    model.faceMesh.material = faceMaterial(expression,expression===eyes&&blink,blush);
-    model.ears.material = earMaterials[blush];
+    model.faceMesh.material = faceMaterial(expression,expression===eyes&&blink,blush,brows,mouth,tone);
+    model.ears.material = model.skin.ears[blush];
   }
 
   function clearChat(model) {
@@ -801,7 +950,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       const idleGesture=seat||!walking?1:.40;
       const wobble=woozy?Math.sin(clock*.0048+model.offset)*.062:0;
       pelvis.position.set(.020*pendulum*sway+(bodyPose?.x??0)*(1-seated),
-        .691+bob-strideDip+idleRise+breath*.004-seated*.145-crouch*.225+(bodyPose?.y??0)*idleGesture,0);
+        .691-HIP_DROP+bob-strideDip+idleRise+breath*.004-seated*.145-crouch*.225+(bodyPose?.y??0)*idleGesture,0);
       chest.rotation.set(.020+sprint*.13+crouch*.34+seated*.03+clink*.22+(eatingMeal?.dip??0)*.13+(bodyPose?.pitch??0)*idleGesture,
         pendulum*sway*.10+(bodyPose?.yaw??0)*idleGesture,pendulum*sway*.065+(bodyPose?.roll??0)*idleGesture+wobble*.41);
       headJoint.rotation.set(-.030-sprint*.070+crouch*.16+(eatingMeal?.dip??0)*.18+(eatingMeal?.lift??0)*.078+(bodyPose?.headPitch??0)*idleGesture,
@@ -824,6 +973,10 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       model.skirt.rotation.set(-seated*.72-sprint*.085,pendulum*sway*.065,pendulum*sway*.059);
       for (const leg of legs) leg.bottom.visible = seated > .64;
     }
+    if (model.dressSkirt.visible) {
+      model.dressSkirt.scale.set(.92*(1+seated*.10),.50*(1-seated*.16),.92*(1+stride*.14+seated*.20));
+      model.dressSkirt.rotation.set(-seated*.80-sprint*.085,pendulum*sway*.065,pendulum*sway*.059);
+    }
     for (let i=0;i<2;i++) {
       const side = SIDE[i], leg = legs[i];
       if (riding) {
@@ -836,13 +989,13 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       const footPhase = (phase + i*.5)%1;
       const swing = clamp((footPhase-stance)/(1-stance));
       const stroke = footPhase < stance ? stance*.5-footPhase : stance*(smooth(swing)-.5);
-      const step = clamp(cycleDistance/BODY*stroke*stride,-.38,.38);
+      const step = clamp(cycleDistance/BODY*stroke*stride,-.31,.31);
       const lift = (.13+sprint*.12)*Math.sin(Math.PI*swing)*stride;
       const dance=acting?.kind==="dance"&&!walking?acting.weight*(1-seated):0;
       const danceStep=dance?Math.sin(acting.time*TAU*1.36+side*Math.PI*.5):0;
       const ankleY = SOLE+lift*(1-seated)+seated*.10+airborne*(.17+i*.05)+Math.max(0,danceStep)*dance*.081;
-      leg.target.set(side*(.140+crouch*.033+dance*.044)-pelvis.position.x,ankleY-pelvis.position.y,
-        mix(step+crouch*.09,.47,seated)+airborne*(.10+i*.05)+danceStep*dance*.10);
+      leg.target.set(side*(STANCE+crouch*.033+dance*.044)-pelvis.position.x,ankleY-pelvis.position.y,
+        mix(step+crouch*.09,.42,seated)+airborne*(.10+i*.05)+danceStep*dance*.10);
       solve(leg,leg.target,forward);
       const roll = (footPhase < stance ? 0 : Math.sin(swing*TAU)*.24*stride) * (1-seated);
       pitch.setFromAxisAngle(xAxis,roll+seated*.06);
@@ -885,7 +1038,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
         show(null);
         continue;
       }
-      let x = side*.385, y = -.015+seated*.09, z = .020+seated*.21;
+      let x = side*.385*REACH, y = .012+seated*.09, z = .020+seated*.19;
       z += side*pendulum*sway*(.17+sprint*.10);
       y += sprint*sway*(.050+Math.max(0,side*pendulum)*.12);
       x += side*airborne*.14; y += airborne*.30; z += airborne*.08;
@@ -897,41 +1050,43 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       } else if(eatingMeal){
         if(side===-1){
           const {lift,dip}=eatingMeal;
-          x=side*mix(.179,.198,lift);
-          y=mix(.442+(seat.tray.height-.843)/BODY-.039*dip,.620,lift);
-          z=mix(.446,.343,lift);
+          x=side*mix(.150,.085,lift);
+          y=mix(.360+(seat.tray.height-.843)/BODY-.039*dip,.500,lift);
+          z=mix(.400,.330,lift);
         }else{
-          x=.230;y=.236;z=.349;
+          x=.170;y=.215;z=.330;
         }
         pole.set(side*.70,-.74,-.28);
       } else if (clasping) {
         inverseChest.copy(chest.quaternion).invert();
-        clasp.set(side*.608-pelvis.position.x,.930-pelvis.position.y-chest.position.y,.078).applyQuaternion(inverseChest);
+        clasp.set(side*.45/BODY-pelvis.position.x,.75/BODY-pelvis.position.y-chest.position.y,.078).applyQuaternion(inverseChest);
         x = clasp.x; y = clasp.y; z = clasp.z;
       } else if (side === umbrellaSide) {
-        x=side*.288;y=.385+seated*.075;z=.205;
+        x=side*.288*REACH;y=.385+seated*.075;z=.205;
         if(umbrellaHand&&side!==position.sharedUmbrella){x=position.sharedUmbrella*.065;z=.34;}
         pole.set(side*.67,-.32,-.33);
       } else if (toasting) {
-        x=mix(side*.370,side*.055,toasting);
+        x=mix(side*.370*REACH,side*.055,toasting);
         y=mix(.110,.375,toasting);
         z=mix(.330,.445,toasting)-contact;
         pole.set(side*.8,-.42,-.11);
       } else if (prop) {
-        x = side*mix(.370,.170,eat); y = mix(.110,.395,eat); z = mix(.330,.440,eat);
-        if (spark) { x = side*.440; y = .150; z = .320; }
+        x = side*mix(.370,.170,eat)*REACH; y = mix(.110,.395,eat); z = mix(.330,.440,eat);
+        if (spark) { x = side*.440*REACH; y = .150; z = .320; }
         if (serving) {
-          x = side*mix(.370,.18,serving);
+          x = side*mix(.370,.18,serving)*REACH;
           y = mix(.110,-.215,serving);
           z = mix(.330,.46,serving);
         }
         pole.set(side*.8,-.69,-.16);
       } else if (pet && side === petSide) {
         const pat = Math.sin(petAge*.018)*.041;
-        x = mix(x,side*.290,crouch); y = mix(y,.030+pat,crouch); z = mix(z,.390+pat,crouch);
+        x = mix(x,side*.290*REACH,crouch); y = mix(y,.030+pat,crouch); z = mix(z,.390+pat,crouch);
         pole.set(side*.42,-.48,-.76);
       } else if (performanceHand) {
-        x=mix(x,performanceHand.x,acting.weight);y=mix(y,performanceHand.y,acting.weight);
+        // Gestures were posed for a broader body and a larger head.
+        x=mix(x,performanceHand.x*GESTURE_REACH,acting.weight);
+        y=mix(y,performanceHand.y-(acting.kind==="heart"?.27:0),acting.weight);
         z=mix(z,performanceHand.z,acting.weight);pole.set(side*.96,-.39,-.28);
       }
       const armEase = wasVisible && !clasping ? 1 - Math.exp(-delta*29) : 1;
@@ -969,9 +1124,9 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
 
     const reaction = position.emote, age = (clock-reaction?.at)/1000;
     emote.visible = age >= -.3 && age < 3.15 && Boolean(emojiTexture);
-    const labelY = (model.hat ? 2.03 : model.hairMesh.geometry === hairGeometry.bun ? 1.90 : 1.84)+
-      (riding ? CYCLING_LIFT : seated*(SEAT_LIFT-.107)-crouch*.166);
-    if (model.label) model.label.position.y = labelY;
+    const labelY = (model.hat ? 1.74 : model.tallHair ? 1.64 : 1.57)+
+      (riding ? CYCLING_LIFT : seated*(SEAT_LIFT-.145*BODY)-crouch*.225*BODY);
+    if (model.label) model.label.position.y = labelY+(model.labelLift??0);
     if (emote.visible) {
       const map = emojiTexture(reaction.emoji);
       if (emote.material.map !== map) { emote.material.map = map; emote.material.needsUpdate = true; }

@@ -1,4 +1,4 @@
-import {gradePalaceMeshes} from "./gyeongbok-terrain.js";
+import {gradePalaceMeshes,groundPiece} from "./gyeongbok-terrain.js";
 
 // Map geometry uses one metre per scene unit and a shared origin. Some
 // buildings have local group coordinates, while older parts and instance
@@ -30,7 +30,7 @@ export function* gradeAvenueMeshes(T,objects,height){
       object.computeBoundingSphere();
       object.boundingBox=null;
       delete userData.terrainAnchors;
-    }else if(object.isMesh&&userData.followTerrain){
+    }else if(object.isMesh&&(userData.followTerrain||groundPiece(T,object))){
       yield* gradePalaceMeshes(T,[object],height);
     }else if(object.isMesh){
       if(position.x||position.z)position.y+=offset(position.x,position.z);
