@@ -1,5 +1,5 @@
 import {ITEMS} from "../public/activities.js";
-import {diningTables,diningVenues} from "../public/dining-data.js";
+import {DINING_SERVICE_SPEED,diningServiceRoute,diningTables,diningVenues} from "../public/dining-data.js";
 
 const venues=new Map(diningVenues.map(venue=>[venue.id,venue]));
 const readyDatabases=new WeakMap();
@@ -60,8 +60,7 @@ function findSeat(avatar,venue){
 }
 
 function travelTime({table},venue){
-  const metres=Math.abs(table.y+1.06-(venue.center.y-8))+Math.abs(table.x+table.side*2.75-venue.center.x);
-  return Math.ceil(metres/4.3*1000);
+  return Math.ceil(diningServiceRoute(table,venue).length/DINING_SERVICE_SPEED*1000);
 }
 
 function setPhase(ticket,phase,now,duration=null){

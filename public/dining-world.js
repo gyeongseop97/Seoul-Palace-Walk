@@ -104,7 +104,7 @@ export function* buildDiningFacade(T,root,kit,venue=diningVenue,groundHeight=poi
   yield;
 }
 
-export function* buildDiningInterior(T,root,kit,venue=diningVenue){
+export function* buildDiningInterior(T,root,kit,venue,walkerModels){
   const {wx,wz,box,cylinder}=kit;
   const room=new T.Group(),{center,cuisine}=venue,style=styles[cuisine]??styles[venue.area];
   const modern=venue.service==="robot",western=cuisine==="western",japanese=cuisine==="japanese",chinese=cuisine==="chinese";
@@ -186,15 +186,16 @@ export function* buildDiningInterior(T,root,kit,venue=diningVenue){
   yield;
 
   const counter=diningFurniture.counter;
-  part(modern?0x758d86:wood,counter.x,.52,counter.z,counter.w,1.04,counter.d);
-  part(modern?0xc0cbc1:heartwood,0,1.06,counter.z,counter.w+.22,.14,counter.d+.16);
-  part(modern?0xa2b1a6:0x936946,0,.55,counter.z+.60,counter.w-.39,.63,.082);
-  for(let x=-4.15;x<4.24;x+=modern?1.06:.32)part(frame,x,.55,counter.z+.652,.043,.61,.029);
+  const counterBody=counter.h-.13;
+  part(modern?0x758d86:wood,counter.x,counterBody/2,counter.z,counter.w,counterBody,counter.d);
+  part(modern?0xc0cbc1:heartwood,0,counter.h-.07,counter.z,counter.w+.22,.14,counter.d+.16);
+  part(modern?0xa2b1a6:0x936946,0,.46,counter.z+.60,counter.w-.39,.53,.082);
+  for(let x=-4.15;x<4.24;x+=modern?1.06:.32)part(frame,x,.46,counter.z+.652,.043,.51,.029);
   panel(venue.name,venue.dishes.map(dish=>dish.name).join(" · "),5.16,0,3.67,-11.64,.86);
   staticGroups.push(buildDiningKitchen(T,room,kit,venue));
-  for(const x of [-3.25,3.25]){
-    const cabinet=diningFurniture.cupboard;
-    part(wood,x,1.04,cabinet.z,1.6,2.10,cabinet.d);
+  for(const cabinet of [diningFurniture.cupboardLeft,diningFurniture.cupboardRight]){
+    const {x,z,w,d}=cabinet;
+    part(wood,x,1.04,z,w,2.10,d-.16);
     for(const y of [.74,1.23,1.79]){
       part(heartwood,x,y,cabinet.z+.37,1.61,.062,.17);
       for(const offset of [-.44,0,.44])cylinder((y>1?cream:teal),x+offset,y+.085,cabinet.z+.373,.138,.16,11,room,1.08);
@@ -270,7 +271,7 @@ export function* buildDiningInterior(T,root,kit,venue=diningVenue){
   const foyerLight=new T.PointLight(modern?0xebfff0:0xffdcac,26,19,1.65);
   foyerLight.position.set(1.5,4.1,7.0);room.add(foyerLight);
   staticGroups.forEach(standBatcher(T));
-  const staff=makeDiningStaff(T,room,kit,venue);
+  const staff=makeDiningStaff(T,room,kit,venue,walkerModels);
   yield;
   return {update(clock,_lightMode,tickets){staff.update(clock,tickets);}};
 }

@@ -710,7 +710,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     }
   }
 
-  function update(model, position, {now,clock,delta=1/60,seat,floor=0,jump=0,emojiTexture,chatTexture,turnEase=1}) {
+  function update(model, position, {now,clock,delta=1/60,seat,floor=0,jump=0,emojiTexture,chatTexture,turnEase=1,steeringGrips}) {
     const {group,body,pelvis,chest,headJoint,legs,arms,itemPivots,emote} = model;
     const wasVisible = group.visible;
     group.visible = true;
@@ -860,7 +860,20 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       pivot.visible=Boolean(prop);
       const performanceHand=performance.hand(side);
       const fist=performanceHand?.curl<-.8&&acting.weight>.4;
-      arm.hand.geometry=fist?fistGeometry[i]:handGeometry[i];
+      arm.hand.geometry=fist||steeringGrips?fistGeometry[i]:handGeometry[i];
+      if(steeringGrips){
+        // Convert the grip from the seated driver's local frame into the chest joint's frame.
+        inverseChest.copy(chest.quaternion).invert();
+        pitch.setFromAxisAngle(xAxis,-.25);
+        target.set(0,-.044,.024).applyQuaternion(pitch).multiplyScalar(BODY);
+        arm.target.copy(steeringGrips[i]).sub(target).multiplyScalar(1/BODY)
+          .addScaledVector(body.position,-1/BODY).sub(pelvis.position).sub(chest.position).applyQuaternion(inverseChest);
+        pole.set(side*.58,-.73,-.24);
+        solve(arm,arm.target,pole);
+        arm.end.quaternion.copy(globalLower).invert().multiply(inverseChest).multiply(pitch);
+        show(null);
+        continue;
+      }
       if (riding) {
         // The driver holds the bars. The rear rider steadies themselves near the driver's waist.
         const grip=passenger?{x:.177,y:.90,z:.44}:{x:bikeFit.gripX,y:bikeFit.gripY,z:bikeFit.gripZ};

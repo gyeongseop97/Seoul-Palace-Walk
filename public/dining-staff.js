@@ -1,54 +1,61 @@
 import {makeDiningDishes} from "./dining-dishes.js";
+import {DINING_SERVICE_SPEED,diningCounter,diningRobotDock,diningServiceRoute,diningStaffStation} from "./dining-data.js";
 import {standSign} from "./regional-stands.js";
 
-const kitchen={x:0,z:-8};
-const walkingSpeed=4.3;
-const localTableSide=2.75;
-const aisleOffset=1.06;
 const travelPhases=new Set(["summoned","serving","served","clearing","returning"]);
 const servingPhases=new Set(["serving","returning"]);
 const clamp=value=>Math.max(0,Math.min(1,value));
 const mix=(a,b,t)=>a+(b-a)*t;
 const angleDelta=(a,b)=>Math.atan2(Math.sin(b-a),Math.cos(b-a));
+const idleStaff={...diningStaffStation,face:0,walking:false,travel:0,cooking:false,writing:false,carrying:false};
+const stoveZ=-9.70;
+const stoveLift=diningCounter.h-1.13;
+const burner={x:-.39,z:-.21};
 
-function tableRoute(table,venue){
-  const x=table.x-venue.center.x,z=table.y-venue.center.y;
-  return {x:x+table.side*localTableSide,z:z+aisleOffset,
-    face:Math.atan2(table.side*(1.46-localTableSide),-aisleOffset)};
+function atDistance({segments},distance){
+  for(const {from,to,length} of segments){
+    if(length>0&&distance<length){
+      const t=Math.max(0,distance/length);
+      return {x:mix(from.x,to.x,t),z:mix(from.z,to.z,t)};
+    }
+    distance-=length;
+  }
+  return segments.at(-1).to;
 }
 
-function walkPose(table,progress,back){
-  // Follow the aisle and approach the table across its unobstructed short side.
-  const aisle=table.z-kitchen.z,cross=Math.abs(table.x),length=aisle+cross;
+function walkPose(route,progress,back){
+  const {length}=route;
   const distance=(back?1-progress:progress)*length;
-  const x=Math.sign(table.x)*Math.max(0,distance-aisle),z=kitchen.z+Math.min(distance,aisle);
-  const turn=clamp((distance-aisle+.26)/.52);
-  const across=Math.sign(table.x)*Math.PI/2;
-  let face=mix(0,across,turn);
+  const before=atDistance(route,distance-.38),after=atDistance(route,distance+.38);
+  let face=Math.atan2(after.x-before.x,after.z-before.z);
   if(back)face+=Math.PI;
-  else face+=angleDelta(face,table.face)*clamp((progress-.90)*10);
-  return {x,z,face,walking:progress<.998,travel:progress*length};
+  face+=angleDelta(face,back?0:route.face)*clamp(1-(1-progress)*length/.7);
+  return {...atDistance(route,distance),face,walking:progress<.998,travel:progress*length};
+}
+
+function cookingPose(clock,ready,finished){
+  const lean=clamp((clock-ready)/320)*clamp((finished-clock)/320);
+  return {...idleStaff,z:idleStaff.z+.30*lean,cooking:true};
 }
 
 export function diningStaffPose(venue,ticket,clock){
   const robot=venue.service==="robot";
-  const idle={...kitchen,face:robot?0:Math.PI,walking:false,travel:0,cooking:false,writing:false,carrying:false};
+  const idle=robot?{...idleStaff,...diningRobotDock}:idleStaff;
   if(!ticket?.table)return idle;
   const {phase,phaseAt,phaseUntil}=ticket;
-  const table=tableRoute(ticket.table,venue);
-  const standing={...idle,x:table.x,z:table.z,face:table.face};
-  if(phase==="ordering")return {...standing,writing:true};
+  const route=diningServiceRoute(ticket.table,venue);
+  if(phase==="ordering")return {...idle,...route.segments.at(-1).to,face:route.face,writing:true};
   if(phase==="cooking"){
+    if(robot)return {...idle,cooking:true};
+    const travel=1000*route.length/DINING_SERVICE_SPEED;
     const time=clock-phaseAt;
-    const travel=1000*(table.z-kitchen.z+Math.abs(table.x))/walkingSpeed;
-    if(!robot&&time<travel)return {...idle,...walkPose(table,clamp(time/travel),true)};
-    const approachingStove=clamp((time-travel)/320)*clamp((phaseUntil-clock)/320);
-    return {...idle,z:robot?kitchen.z:kitchen.z-.55*approachingStove,cooking:true};
+    if(time<travel)return {...idle,...walkPose(route,clamp(time/travel),true)};
+    return cookingPose(clock,phaseAt+travel,phaseUntil);
   }
   if(!travelPhases.has(phase)||!phaseUntil)return idle;
   const back=phase==="served"||phase==="returning";
   const progress=clamp((clock-phaseAt)/Math.max(1,phaseUntil-phaseAt));
-  return {...idle,...walkPose(table,progress,back),carrying:servingPhases.has(phase)};
+  return {...idle,...walkPose(route,progress,back),carrying:servingPhases.has(phase)};
 }
 
 export function buildDiningKiosk(T,room,kit,venue){
@@ -80,103 +87,114 @@ export function buildDiningKitchen(T,room,kit,venue){
   const {box,cylinder}=kit;
   const modern=venue.service==="robot";
   const stove=new T.Group();stove.name="조리대";room.add(stove);
+  stove.position.set(diningStaffStation.x,stoveLift,stoveZ);
   const block=(color,x,y,z,w,h,d)=>box(color,x,y,z,w,h,d,stove);
-  block(modern?0x808d8d:0x665e51,0,1.134,-9.25,2.62,.036,1.04);
-  for(const [x,z] of [[.23,-9.04],[-.68,-9.36]]){
-    cylinder(0x252526,x,1.157,z,.279,.041,24,stove,1);
-    cylinder(0x555453,x,1.181,z,.226,.014,24,stove,1);
-    cylinder(0x625e58,x,1.196,z+.37,.046,.022,11,stove,.87);
+  const round=(color,x,y,z,r,h,sides,top)=>cylinder(color,x,y,z,r,h,sides,stove,top);
+  block(modern?0x808d8d:0x665e51,0,1.134,0,2.62,.036,1.04);
+  for(const {x,z} of [burner,{x:.58,z:.11}]){
+    round(0x252526,x,1.157,z,.279,.041,24,1);
+    round(0x555453,x,1.181,z,.226,.014,24,1);
+    round(0x625e58,x,1.196,z+.37,.046,.022,11,.87);
   }
   const pot=modern?0x596268:0x85623d;
-  cylinder(pot,.23,1.314,-9.04,.226,.244,20,stove,1.10);
-  cylinder(0xcec6b3,.23,1.446,-9.04,.240,.025,24,stove,1.02);
-  for(const side of [-1,1])block(0x342e26,.23+side*.274,1.363,-9.04,.121,.036,.095);
-  cylinder(0x4d4a41,.23,1.477,-9.04,.042,.052,12,stove);
-  block(0xa68c70,1.55,1.146,-9.27,.60,.048,.45);
-  block(0x736f65,1.56,1.194,-9.27,.42,.024,.088).rotation.y=.27;
-  block(0x514339,1.78,1.200,-9.33,.19,.028,.058).rotation.y=.28;
+  round(pot,burner.x,1.314,burner.z,.226,.244,20,1.10);
+  round(0xcec6b3,burner.x,1.446,burner.z,.240,.025,24,1.02);
+  for(const side of [-1,1])block(0x342e26,burner.x+side*.274,1.363,burner.z,.121,.036,.095);
+  round(0x4d4a41,burner.x,1.477,burner.z,.042,.052,12);
+  block(0xa68c70,1.55,1.146,.02,.60,.048,.45);
+  block(0x736f65,1.56,1.194,.02,.42,.024,.088).rotation.y=-.27;
+  block(0x514339,1.78,1.200,.08,.19,.028,.058).rotation.y=-.28;
   if(modern){
-    block(0x39464a,.52,.075,-7.22,1.20,.15,.74);
-    block(0x69c4b7,.52,.149,-6.86,1.04,.012,.026);
+    box(0x39464a,diningRobotDock.x,.022,diningRobotDock.z,1.20,.044,.74,room);
+    box(0x69c4b7,diningRobotDock.x,.047,diningRobotDock.z+.36,1.04,.012,.026,room);
   }
   return stove;
 }
 
-function makeHuman(T,root,kit,venue){
+const uniforms={
+  "bukchon-dining":{character:"woman",hair:"bob",eyes:"soft",outfit:"tee",shirt:0xc1a988,apron:0x425a4d,hat:0xefdec1},
+  "jeongdong-dining":{character:"man",hair:"short",eyes:"round",outfit:"tee",shirt:0x687c6b,apron:0x2b504a,hat:0xe1d6c3},
+  "plaza-dining":{character:"woman",hair:"bob",eyes:"round",outfit:"tee",shirt:0xd3e1da,apron:0x296368,hat:0x4a777a},
+  "jeongdong-bistro":{character:"woman",hair:"long",eyes:"bright",outfit:"tee",shirt:0xe8d9bf,apron:0x3c1722,hat:0xf6e7d0},
+  "plaza-japanese":{character:"man",hair:"short",eyes:"soft",outfit:"tee",shirt:0x4f617c,apron:0x283950,hat:0xf2e9cf},
+  "bukchon-chinese":{character:"man",hair:"short",eyes:"bright",outfit:"tee",shirt:0xb65e48,apron:0x6a2929,hat:0x742d2a},
+};
+
+function addUniform(T,kit,model,uniform,venue){
   const {box,cylinder,shape}=kit;
-  const group=new T.Group();group.name=venue.area==="jeongdong"?"정동 메밀집 주인":"북촌 작은 식탁 직원";root.add(group);
-  const sphere=new T.SphereGeometry(1,15,11);
-  const skin=venue.area==="jeongdong"?0xca8b65:0xe0ae85;
-  const sweater=venue.area==="jeongdong"?0x60766a:0x84684c;
-  const apron=venue.area==="jeongdong"?0x2d504c:0x554e5a;
-  const hair=venue.area==="jeongdong"?0x5a5653:0x383331;
-  function ellipsoid(color,x,y,z,a,b,c,parent=group){
-    const part=shape(sphere,color,x,y,z,parent);part.scale.set(a,b,c);return part;
-  }
-  const body=new T.Group();group.add(body);
-  ellipsoid(sweater,0,.956,0,.233,.277,.137,body);
-  ellipsoid(0x3f4142,0,.723,0,.169,.185,.105,body);
-  box(apron,0,.889,.133,.313,.405,.036,body);
-  box(apron,0,.665,.123,.361,.250,.041,body).rotation.x=-.12;
-  box(0xc2b4a3,0,.789,.160,.161,.096,.021,body);
-  for(const side of [-1,1])box(apron,side*.103,1.114,.097,.035,.203,.029,body).rotation.x=.45;
-  cylinder(skin,0,1.209,0,.056,.116,12,body);
-  const head=new T.Group();head.position.y=1.406;body.add(head);
-  ellipsoid(skin,0,0,0,.153,.187,.132,head);
-  ellipsoid(hair,0,.105,-.027,.158,.110,.144,head);
-  ellipsoid(hair,0,.007,-.094,.151,.149,.073,head);
-  ellipsoid(skin,0,-.019,.132,.031,.031,.029,head);
-  const cap=ellipsoid(0xdcd6c5,0,.181,-.006,.151,.047,.143,head);
-  cap.rotation.z=.04;
-  ellipsoid(0xe6e2cb,0,.147,.040,.164,.035,.148,head);
+  const {apron,hat}=uniform,{garb,face}=model;
+  const outline=new T.Shape([[-.125,.32],[.125,.32],[.184,.055],[.194,-.148],
+    [.154,-.183],[-.154,-.183],[-.194,-.148],[-.184,.055]].map(([x,y])=>new T.Vector2(x,y)));
+  const fabric=new T.ExtrudeGeometry(outline,{depth:.016,bevelSize:.014,bevelThickness:.008,bevelSegments:2});
+  const bib=shape(fabric,apron,0,0,.196,garb);bib.name="앞치마";
+  box(apron,0,.055,-.004,.460,.061,.358,garb);
   for(const side of [-1,1]){
-    ellipsoid(skin,side*.148,-.025,.013,.031,.047,.024,head);
-    ellipsoid(0x392c29,side*.052,.007,.124,.012,.014,.009,head);
-    box(hair,side*.054,.037,.117,.044,.009,.012,head).rotation.z=side*.12;
+    const strap=box(apron,side*.107,.374,.140,.034,.148,.029,garb);
+    strap.rotation.set(-.59,0,side*.10);
   }
-  ellipsoid(0x945d50,0,-.078,.112,.037,.009,.009,head);
-
-  const arms=[],legs=[];
-  for(const side of [-1,1]){
-    const shoulder=new T.Group(),elbow=new T.Group();
-    shoulder.position.set(side*.225,1.119,0);elbow.position.y=-.224;
-    body.add(shoulder);shoulder.add(elbow);
-    ellipsoid(sweater,0,-.11,0,.078,.151,.075,shoulder);
-    ellipsoid(sweater,0,-.096,0,.058,.127,.059,elbow);
-    cylinder(0xc5b5a1,0,-.183,0,.056,.039,12,elbow,.98);
-    ellipsoid(skin,0,-.230,.006,.052,.061,.044,elbow);
-    arms.push({shoulder,elbow,side});
-
-    const leg=new T.Group();leg.position.set(side*.093,.670,0);body.add(leg);
-    ellipsoid(0x404445,0,-.257,0,.087,.307,.079,leg);
-    ellipsoid(0x322b29,0,-.584,.044,.089,.081,.122,leg);
-    legs.push({leg,side});
+  box(apron,.066,-.067,.223,.142,.094,.016,garb);
+  box(hat,.066,-.027,.233,.148,.013,.010,garb);
+  box(0xe6c279,-.061,.244,.226,.090,.041,.012,garb).name="명찰";
+  if(venue.cuisine==="western"){
+    cylinder(0xf2e5cc,0,.391,.013,.290,.102,21,face,.91).scale.z*=.97;
+    const crown=shape(new T.SphereGeometry(1,18,12),hat,0,.508,.013,face);
+    crown.scale.set(.300,.146,.276);crown.name="조리모";
+  }else if(venue.cuisine==="japanese"||(venue.cuisine==="korean"&&venue.service==="staff")){
+    const profile=[[.372,.190],[.382,.201],[.384,.233],[.376,.266],[.363,.278]];
+    const band=shape(new T.LatheGeometry(profile.map(([radius,y])=>new T.Vector2(radius,y)),36),hat,0,0,.001,face);
+    band.scale.z=.99;band.name="두건";
+    for(const side of [-1,1])box(hat,side*.06,.165,-.357,.059,.16,.032,face).rotation.z=side*.35;
+  }else{
+    const cap=shape(new T.SphereGeometry(1,21,12,0,Math.PI*2,0,Math.PI/2),hat,0,.252,0,face);
+    cap.scale.set(.350,.201,.318);cap.name="근무 모자";
+    const visor=shape(new T.SphereGeometry(1,18,10),hat,0,.249,.270,face);
+    visor.scale.set(.267,.028,.219);
   }
-  const notice=new T.Group();notice.position.set(-.144,.960,.351);body.add(notice);
-  box(0x67503b,0,0,0,.203,.015,.257,notice);
-  box(0xf1dfb8,0,.010,0,.161,.007,.213,notice);
-  for(const z of [-.064,-.026,.017])box(0x9f8f72,0,.015,z,.108,.002,.005,notice);
-  const spoon=new T.Group();spoon.position.set(-.200,.941,.459);body.add(spoon);
-  cylinder(0xa08159,0,0,0,.016,.279,12,spoon).rotation.x=Math.PI/2;
-  ellipsoid(0x863e27,0,0,.146,.047,.016,.080,spoon);
+}
 
-  const tray=new T.Group();tray.position.set(0,.866,.387);body.add(tray);
-  function pose(state,time){
-    const stride=state.walking?Math.sin(state.travel*6.85):0;
-    body.position.y=state.walking?Math.abs(stride)*.024:Math.sin(time*2)*.005;
-    head.rotation.x=state.writing?.16+Math.sin(time*3)*.051:state.cooking?.13:0;
-    for(const {leg,side} of legs)leg.rotation.x=stride*side*.41;
-    for(const {shoulder,elbow,side} of arms){
-      const pressing=state.cooking&&side===-1;
-      shoulder.rotation.x=state.carrying?-.68:state.writing?-.93:pressing?-.77+Math.sin(time*5.4)*.20:stride*side*-.48;
-      shoulder.rotation.z=state.carrying?side*.16:state.writing?side*.27:side*.043;
-      elbow.rotation.x=state.carrying?-.65:state.writing?-.94:pressing?-.63:-.13;
+function makeHuman(T,room,kit,venue,walkerModels){
+  const {box,cylinder,shape}=kit;
+  const uniform=uniforms[venue.id];
+  const model=walkerModels.create(uniform.shirt,null,null,venue.id);
+  model.group.name=venue.name+" 직원";
+  room.add(model.group);
+  addUniform(T,kit,model,uniform,venue);
+  const [left,right]=model.arms;
+  const notice=new T.Group();notice.position.set(.06,-.035,.091);left.end.add(notice);
+  box(0x67503b,0,0,0,.221,.018,.242,notice);
+  box(0xf1dfb8,0,.012,0,.188,.009,.212,notice);
+  for(const z of [-.067,-.029,.008])box(0x92907b,0,.018,z,.119,.004,.006,notice);
+  const pencil=cylinder(0xc09354,0,-.053,.083,.008,.151,9,right.end);
+  pencil.rotation.x=.64;
+  const spoon=new T.Group();spoon.position.set(0,-.015,.061);left.end.add(spoon);
+  cylinder(0xb38c58,0,0,.125,.014,.260,10,spoon).rotation.x=Math.PI/2;
+  const bowl=shape(new T.SphereGeometry(1,9,7),0xa47048,0,-.006,.279,spoon);
+  bowl.scale.set(.042,.019,.071);
+
+  function update(state,clock,ticket,delta){
+    const {x,z,face,walking,cooking,writing,carrying}=state;
+    const kind=carrying?ticket?.kind:null;
+    const time=clock/1000;
+    walkerModels.update(model,{x:venue.center.x+x,y:venue.center.y+z,heading:180-face*180/Math.PI,
+      look:uniform,character:uniform.character,stepping:walking,item:kind?{kind,remaining:1}:null},
+      {now:clock,clock,delta,turnEase:Math.min(1,delta*20)});
+    // The shared rig gets world coordinates for its stride; the room already carries the world transform.
+    model.group.position.set(x,0,z);
+    if(kind&&ticket.phase==="returning")model.showTray(kind,-1,0);
+    notice.visible=pencil.visible=writing;spoon.visible=cooking;
+    if(writing){
+      model.headJoint.rotation.x=.13+Math.sin(time*4)*.024;
+      left.upper.rotation.set(-.79,.11,-.13);left.lower.rotation.x=-.77;left.end.rotation.set(-.23,.03,.06);
+      right.upper.rotation.set(-.71,-.19,.14);right.lower.rotation.x=-.81+Math.sin(time*8)*.076;
+    }else if(cooking){
+      model.headJoint.rotation.x=.18;
+      model.chest.rotation.x+=.08;
+      left.upper.rotation.set(-2.06,Math.sin(time*4.2)*.14,-.16);
+      left.lower.rotation.x=-.52+Math.cos(time*4.2)*.10;
+      spoon.rotation.x=2.13;
     }
-    notice.visible=state.writing;notice.rotation.x=-.17;
-    spoon.visible=state.cooking;spoon.rotation.z=Math.sin(time*5.4)*.15;
-    spoon.rotation.y=Math.cos(time*5.4)*.24;
   }
-  return {group,tray,pose};
+  return update;
 }
 
 function makeRobot(T,root,kit){
@@ -222,17 +240,18 @@ function makeRobot(T,root,kit){
   return {group,tray,pose};
 }
 
-export function makeDiningStaff(T,room,kit,venue){
-  const actor=venue.service==="robot"?makeRobot(T,room,kit):makeHuman(T,room,kit,venue);
-  const dishes=makeDiningDishes(T,kit);
+export function makeDiningStaff(T,room,kit,venue,walkerModels){
+  const human=makeHuman(T,room,kit,venue,walkerModels);
+  const robot=venue.service==="robot"?makeRobot(T,room,kit):null;
+  const dishes=robot?makeDiningDishes(T,kit):null;
   const servings=new Map();
-  let servingKind=null;
+  let servingKind=null,previousClock=null;
   const steamGeometry=new T.SphereGeometry(1,7,5);
   const steam=Array.from({length:6},()=>{
     const puff=new T.Mesh(steamGeometry,new T.MeshBasicMaterial({color:0xe8d9b8,transparent:true,depthWrite:false}));
     puff.visible=false;room.add(puff);return puff;
   });
-  function showDish(ticket,state){
+  function showRobotDish(ticket,state){
     const kind=state.carrying?ticket.kind:null;
     if(kind!==servingKind){
       const previous=servings.get(servingKind);if(previous)previous.group.visible=false;
@@ -240,7 +259,7 @@ export function makeDiningStaff(T,room,kit,venue){
     }
     if(!dishes[kind])return;
     if(!servings.has(kind)){
-      const group=new T.Group();actor.tray.add(group);
+      const group=new T.Group();robot.tray.add(group);
       servings.set(kind,{group,...dishes[kind](group)});
     }
     const dish=servings.get(kind);dish.group.visible=true;
@@ -251,13 +270,20 @@ export function makeDiningStaff(T,room,kit,venue){
       entry.phase!=="queued"&&entry.phase!=="clearQueued"&&
       (entry.phase!=="served"||Number.isFinite(entry.phaseUntil)&&clock<entry.phaseUntil));
     const state=diningStaffPose(venue,ticket,clock),time=clock/1000;
-    actor.group.position.set(state.x,0,state.z);actor.group.rotation.y=state.face;
-    actor.pose(state,time);showDish(ticket,state);
+    const delta=previousClock===null?1/60:Math.max(1/120,Math.min(.064,(clock-previousClock)/1000));
+    previousClock=clock;
+    const person=robot?(state.cooking?cookingPose(clock,ticket.phaseAt,ticket.phaseUntil):idleStaff):state;
+    human(person,clock,ticket,delta);
+    if(robot){
+      robot.group.position.set(state.x,0,state.z);robot.group.rotation.y=state.face;
+      robot.pose(state,time);showRobotDish(ticket,state);
+    }
     steam.forEach((puff,index)=>{
-      puff.visible=state.cooking;
-      if(!state.cooking)return;
+      puff.visible=person.cooking;
+      if(!person.cooking)return;
       const rise=(time*.66+index/steam.length)%1;
-      puff.position.set(.23+Math.sin(time*2.1+index)*rise*.14,1.47+rise*.58,-9.04+Math.cos(time*1.5+index)*rise*.14);
+      puff.position.set(diningStaffStation.x+burner.x+Math.sin(time*2.1+index)*rise*.14,1.47+stoveLift+rise*.58,
+        stoveZ+burner.z+Math.cos(time*1.5+index)*rise*.14);
       puff.scale.setScalar(.042+rise*.082);puff.material.opacity=.23*(1-rise);
     });
   }

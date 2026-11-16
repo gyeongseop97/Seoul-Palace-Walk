@@ -1,7 +1,7 @@
 import {addObstacle} from "./layout.js";
 import {BUS_COUNT, BUS_FLOOR, BUS_LENGTH, BUS_SEATS, BUS_WIDTH, busAt, busLocalPose, busSeatOffset, busStops} from "./sejong-bus.js";
 
-export function buildSejongBusModels(T,scene,kit,height=()=>0,shelterHeight=height){
+export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelterHeight=height){
   const {wx,wz,box,matte}=kit;
   const stopGroup=new T.Group();stopGroup.name="세종대로 순환버스 정류장";scene.add(stopGroup);
   const busGroup=new T.Group();busGroup.name="세종대로 순환버스";scene.add(busGroup);
@@ -73,93 +73,75 @@ export function buildSejongBusModels(T,scene,kit,height=()=>0,shelterHeight=heig
   const headlight=new T.MeshStandardMaterial({color:0xf6ead0,emissive:0xf2dca3,emissiveIntensity:.6,roughness:.55});
   const taillight=new T.MeshStandardMaterial({color:0xc9473d,emissive:0xc93b2b,emissiveIntensity:.38,roughness:.6});
   const interiorGlow=new T.MeshStandardMaterial({color:0xecf1d8,emissive:0xe6eac7,emissiveIntensity:.26,roughness:.58});
-  const driverSeat={x:.59,z:4.41},uniform=0x294969,lapel=0x8cadd0,skin=0xe9b389,hair=0x2d2729;
-  const driverSphere=new T.SphereGeometry(1,14,10),sleeveShape=new T.CylinderGeometry(.86,1,1,9);
-  const steeringRim=new T.TorusGeometry(.178,.018,8,30);
-  const driverPaint=new T.MeshStandardMaterial({roughness:.83});
-  const steeringPaint=matte(0x252e36),driverTint=new T.Color();
-  const up=new T.Vector3(0,1,0),axis=new T.Vector3(),grip=new T.Vector3(),elbow=new T.Vector3();
-  const shoulder=new T.Vector3(),wrist=new T.Vector3();
+  const driverSeat={x:.59,z:4.38,base:BUS_FLOOR+.014};
+  const steeringRim=new T.TorusGeometry(.178,.018,8,30),round=new T.SphereGeometry(1,14,10);
+  const steeringShaft=new T.CylinderGeometry(.027,.037,.23,10),steeringPaint=matte(0x252e36);
+  const capCrown=new T.LatheGeometry([[0,.277],[.320,.277],[.333,.305],[.336,.363],
+    [.320,.397],[.278,.425],[0,.425]].map(([radius,y])=>new T.Vector2(radius,y)),24);
+  const capBand=new T.CylinderGeometry(.329,.325,.052,24);
+  const driverSeatPose={x:0,y:0,heading:180,base:driverSeat.base};
+  const driverLooks=[
+    {character:"man",look:{hair:"short",eyes:"soft",outfit:"tee"}},
+    {character:"woman",look:{hair:"bob",eyes:"bright",outfit:"tee"}},
+    {character:"man",look:{hair:"short",eyes:"round",outfit:"tee"}},
+  ];
 
-  function driverRig(bus){
-    const driver=new T.Group();driver.name="운전기사";driver.position.set(driverSeat.x,0,driverSeat.z);bus.add(driver);
-    const shell=[
-      [uniform,0,1.302,-.071,.184,.222,.125,-.14],
-      [0x273a51,0,1.113,-.036,.176,.091,.171],
-      [skin,0,1.531,-.050,.065,.089,.063],
-      [skin,0,1.667,-.017,.168,.184,.143],
-      [hair,0,1.720,-.068,.173,.137,.116],
-      [0x244462,0,1.812,-.031,.185,.094,.153],
-      [0x1e303f,0,1.770,.091,.157,.025,.116,.10],
-      [0xd89975,0,1.641,.128,.024,.027,.025],
-      [0x9a5f52,0,1.597,.113,.034,.007,.010]
-    ];
-    const details=[
-      [0xc9d8e0,0,1.450,.046,.091,.136,.029,-.13],
-      [0x3d5670,0,1.400,.067,.027,.105,.022,-.13],
-      [0xeac978,.101,1.422,.039,.065,.031,.019],
-      [0xe4bd69,0,1.832,.116,.046,.029,.023]
-    ];
+  function driverRig(bus,index){
+    const cab=new T.Group();cab.position.set(driverSeat.x,0,driverSeat.z);bus.add(cab);
+    const uniform=0x243a57,driver=walkerModels.create(uniform,null,null,`bus-driver-${index}`);
+    driver.group.name="운전기사";cab.add(driver.group);
+    driver.hairMesh.scale.set(.998,.875,.963);
+    const part=(parent,geometry,color,x,y,z,sx=1,sy=1,sz=1)=>{
+      const mesh=new T.Mesh(geometry,matte(color));mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);parent.add(mesh);
+      return mesh;
+    };
+    const cap=new T.Group();cap.name="운전 모자";driver.face.add(cap);
+    part(cap,capCrown,0x263a55,0,0,-.024,1,1,.945);
+    part(cap,capBand,0x1b2b43,0,.277,-.024,1,1,.985);
+    part(cap,round,0x13243a,0,.248,.232,.248,.027,.164).rotation.x=.10;
+    part(cap,round,0xe3be6c,0,.334,.294,.045,.033,.016);
+    const shirt=new T.Group();shirt.name="운전복 셔츠와 명찰";driver.garb.add(shirt);
     for(const side of [-1,1]){
-      shell.push([0x263d55,side*.096,1.083,.103,.083,.087,.171],
-        [0x233749,side*.104,.929,.235,.066,.151,.065,-.14],
-        [0x20262f,side*.104,.779,.279,.077,.057,.111],
-        [skin,side*.162,1.657,-.016,.034,.044,.028],
-        [0x3b2e2a,side*.065,1.670,.113,.020,.026,.012],
-        [0xffeedd,side*.064-.006,1.680,.124,.005,.005,.004],
-        [0xd99073,side*.107,1.629,.090,.030,.014,.012]);
-      details.push([lapel,side*.055,1.474,.066,.055,.069,.022,-.13,0,side*.38]);
+      part(shirt,unit,0xdce2e7,side*.046,.413,.210,.071,.095,.032).rotation.z=side*.49;
+      part(shirt,unit,0x334c68,side*.198,.447,.012,.101,.030,.079).rotation.z=side*-.29;
     }
-    function poseBatch(geometry,poses){
-      const batch=new T.InstancedMesh(geometry,driverPaint,poses.length);
-      poses.forEach(([color,x,y,z,w,h,d,rx=0,ry=0,rz=0],i)=>{
-        transform.position.set(x,y,z);transform.rotation.set(rx,ry,rz);transform.scale.set(w,h,d);
-        transform.updateMatrix();batch.setMatrixAt(i,transform.matrix);batch.setColorAt(i,driverTint.setHex(color));
-      });
-      batch.computeBoundingSphere();driver.add(batch);
-    }
-    poseBatch(driverSphere,shell);poseBatch(unit,details);
+    part(shirt,unit,0x172944,0,.345,.219,.039,.126,.028).rotation.z=-.04;
+    part(shirt,unit,0xe0c184,-.125,.314,.218,.069,.027,.023).rotation.z=.12;
 
     const column=new T.Group(),wheel=new T.Group();wheel.name="운전대";
-    column.position.set(0,1.491,.357);column.rotation.x=.92;column.add(wheel);driver.add(column);
-    const shaft=new T.Mesh(sleeveShape,steeringPaint);
-    shaft.position.set(0,1.405,.390);shaft.scale.set(.033,.190,.033);shaft.rotation.x=-.40;driver.add(shaft);
+    column.position.set(0,1.51,.262);column.rotation.x=.84;column.add(wheel);cab.add(column);
+    const shaft=new T.Mesh(steeringShaft,steeringPaint);
+    shaft.position.set(0,1.409,.318);shaft.rotation.x=-.36;cab.add(shaft);
     wheel.add(new T.Mesh(steeringRim,steeringPaint));
-    for(const [w,h] of [[.322,.030],[.035,.170]]){
-      const spoke=new T.Mesh(unit,steeringPaint);spoke.scale.set(w,h,.034);wheel.add(spoke);
+    for(const [w,h] of [[.322,.026],[.032,.167]]){
+      const spoke=new T.Mesh(unit,steeringPaint);spoke.scale.set(w,h,.032);wheel.add(spoke);
     }
-    const hub=new T.Mesh(driverSphere,steeringPaint);hub.scale.set(.055,.055,.032);wheel.add(hub);
+    const hub=new T.Mesh(round,steeringPaint);hub.scale.set(.055,.055,.031);wheel.add(hub);
 
-    const sleeves=new T.InstancedMesh(sleeveShape,matte(uniform),4);
-    const hands=new T.InstancedMesh(driverSphere,matte(skin),2);hands.name="운전기사 양손";
-    for(const mesh of [sleeves,hands]){
-      mesh.frustumCulled=false;mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);driver.add(mesh);
-    }
-    function sleeve(index,from,to,radius){
-      const length=axis.subVectors(to,from).length();
-      transform.position.copy(from).lerp(to,.5);
-      transform.quaternion.setFromUnitVectors(up,axis.multiplyScalar(1/length));
-      transform.scale.set(radius,length+.032,radius);
-      transform.updateMatrix();sleeves.setMatrixAt(index,transform.matrix);
-    }
-    function placeHands(steering){
-      wheel.rotation.z=steering;
-      for(let i=0;i<2;i++){
-        const side=i*2-1;
-        grip.set(side*.152,.092,0).applyEuler(wheel.rotation).applyEuler(column.rotation).add(column.position);
-        shoulder.set(side*.163,1.428,-.057);
-        elbow.set(side*.196,1.345,.102);
-        wrist.copy(grip);wrist.y-=.023;wrist.z-=.035;
-        sleeve(i*2,shoulder,elbow,.066);sleeve(i*2+1,elbow,wrist,.053);
-        transform.position.copy(grip);transform.rotation.set(-.32,side*.28,steering);
-        transform.scale.set(.043,.044,.055);transform.updateMatrix();hands.setMatrixAt(i,transform.matrix);
+    const position={x:0,y:0,...driverLooks[index%driverLooks.length]},grips=[new T.Vector3(),new T.Vector3()];
+    const options={now:0,clock:0,delta:0,seat:driverSeatPose,steeringGrips:grips};
+    let angle=0,last=-Infinity,uniformBuilt=false;
+    return (target,time,near)=>{
+      if(!near){driver.group.visible=false;last=-Infinity;return;}
+      const elapsed=time-last;
+      if(elapsed>=0&&elapsed<42)return;
+      const delta=Number.isFinite(elapsed)&&elapsed<300?Math.max(.016,elapsed/1000):.17;
+      angle+=(target-angle)*(1-Math.exp(-delta*10));
+      wheel.rotation.z=angle;
+      for(const [i,grip] of grips.entries()){
+        grip.set((i*2-1)*.151,.093,0).applyEuler(wheel.rotation).applyEuler(column.rotation).add(column.position);
+        grip.y-=driverSeat.base;
       }
-      sleeves.instanceMatrix.needsUpdate=hands.instanceMatrix.needsUpdate=true;
-    }
-    let angle=0;placeHands(angle);
-    return target=>{
-      const eased=Math.abs(target-angle)<.002?target:angle+(target-angle)*.20;
-      if(eased!==angle)placeHands(angle=eased);
+      options.now=options.clock=time;options.delta=delta;
+      walkerModels.update(driver,position,options);
+      if(!uniformBuilt){
+        driver.pin.visible=false;
+        driver.group.traverse(object=>{if(object.isMesh)object.userData.dynamic=true;});
+        uniformBuilt=true;
+      }
+      // The shared rig normally uses map coordinates. Its driver stays in the vehicle frame.
+      driver.group.position.set(0,driverSeat.base,0);
+      last=time;
     };
   }
 
@@ -285,7 +267,7 @@ export function buildSejongBusModels(T,scene,kit,height=()=>0,shelterHeight=heig
     fixedSign(placard(number,1.97,.29,{sub:"덕수궁 · 경복궁"}),0,2.70,front+.021);
     fixedSign(placard(number,1.19,.28),0,2.68,-front-.016,Math.PI);
     fixedSign(placard(number,1.25,.32,{sub:"세종대로"}),-wide-.018,2.52,3.00,-Math.PI/2);
-    const steer=driverRig(bus);
+    const steer=driverRig(bus,index);
     bus.traverse(object=>{if(object.isMesh)object.userData.dynamic=true;});
     return {bus,doors,wheels,steer,previous:null,spin:0};
   }
@@ -294,15 +276,16 @@ export function buildSejongBusModels(T,scene,kit,height=()=>0,shelterHeight=heig
   function update(time,anchor){
     for(const [index,entry] of vehicles.entries()){
       const {bus,doors,wheels,steer,previous}=entry,state=busAt(index,time);
-      bus.visible=Boolean(state&&anchor&&Math.hypot(anchor.x-state.x,anchor.y-state.y)<145);
-      if(!bus.visible){entry.previous=null;continue;}
+      const distance=state&&anchor?Math.hypot(anchor.x-state.x,anchor.y-state.y):Infinity;
+      bus.visible=distance<145;
+      if(!bus.visible){entry.previous=null;steer(0,time,false);continue;}
       bus.position.set(wx(state.x),height(state)+.015,wz(state.y));bus.rotation.y=(180-state.heading)*Math.PI/180;
       const moved=previous?Math.hypot(previous.x-state.x,previous.y-state.y):0;
       if(moved<14&&state.traveling)entry.spin=(entry.spin+moved/.465)%(Math.PI*2);
       for(const wheel of wheels)wheel.rotation.x=entry.spin;
       const ahead=state.traveling?busAt(index,time+400):null;
       const turn=ahead?.traveling?((ahead.heading-state.heading+540)%360-180)*Math.PI/180:0;
-      steer(Math.max(-.46,Math.min(.46,turn*1.35)));
+      steer(Math.max(-.46,Math.min(.46,turn*1.35)),time,distance<82);
       const open=state.stopId?Math.max(0,Math.min(1,state.elapsed/650,state.remaining/700)):0;
       for(const {panel,offset} of doors)panel.position.z=3.49+offset*(1+open*1.57);
       entry.previous=state;

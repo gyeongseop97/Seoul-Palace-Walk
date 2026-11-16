@@ -51,6 +51,27 @@ export const diningVenues=[diningVenue,
 ];
 export const diningMenu=diningVenues.flatMap(place=>place.dishes);
 
+export const diningCounter={x:0,z:-9.55,w:9.4,d:1.15,h:.97};
+export const diningStaffStation={x:-1.24,z:diningCounter.z-diningCounter.d/2-.73};
+export const diningRobotDock={x:0,z:-7.22};
+export const DINING_SERVICE_SPEED=4.3;
+
+export function diningServiceRoute(table,venue){
+  const approach=2.75,aisleOffset=1.06;
+  const x=table.x-venue.center.x+table.side*approach,z=table.y-venue.center.y+aisleOffset;
+  const end={x,z},face=Math.atan2(table.side*(1.46-approach),-aisleOffset);
+  const counterEnd=Math.sign(x)*(diningCounter.w/2+.86);
+  const customerSide=diningCounter.z+diningCounter.d/2+.95;
+  const points=venue.service==="robot"?[diningRobotDock,{x:0,z},end]:[
+    diningStaffStation,{x:counterEnd,z:diningStaffStation.z},{x:counterEnd,z:customerSide},{x,z:customerSide},end
+  ];
+  const segments=points.slice(1).map((to,index)=>{
+    const from=points[index];
+    return {from,to,length:Math.hypot(to.x-from.x,to.z-from.z)};
+  });
+  return {segments,face,length:segments.reduce((sum,segment)=>sum+segment.length,0)};
+}
+
 export const diningTables=[[-5.8,-3.0],[5.8,-3.0],[-5.8,4.45],[5.8,4.45]].map(([x,z])=>({x,z,
   chairs:[-1,1].map(side=>({x:x+side*1.46,z,side,heading:side<0?90:270}))
 }));

@@ -1,14 +1,14 @@
 import * as T from "three";
 import { buildJeongdong, hallRooms } from "./streets.js";
 import { addWater } from "./water.js";
-import { addObstacle, solidAt, platformAt, waterDepth, loftHeight, bridge, gate, middle, hall, stoneHall, courtAngle, ticketGuide } from "./layout.js";
+import { addObstacle, solidAt, platformAt, waterDepth, loftHeight, bridge, gate, middle, hall, stoneHall, courtAngle, fountain,ticketGuide } from "./layout.js";
 import { addParkLife } from "./park-life.js";
 import { addPalaceBirds } from "./palace-birds.js";
 import { addPalaceSky } from "./palace-sky.js";
 import { resolveSeoulEnvironment } from "./seoul-environment.js";
 import { addSeoulPrecipitation, makeSeasonFoliage } from "./seoul-weather-scene.js";
 import { addStands, addRegionalStands, makeItemProps, regionalStations, registerRegionalStands, underDoldamAwning } from "./street-stands.js";
-import { registerHanbokRental } from "./passport-data.js";
+import { hanbokRental,registerHanbokRental } from "./passport-data.js";
 import { addHanbokRental } from "./wearables-models.js";
 import { assembleMuseum, registerMuseumNavigation, isInsideMuseum, museumOutsideDoor, museumInsideDoor, museumInsideSpawn, stairHeight } from "./museum.js";
 import { interiorAt } from "./interior-layout.js";
@@ -21,10 +21,12 @@ import { bikeFallAt } from "./avatar-gestures.js";
 import { makeWalkerModels } from "./walker-model.js";
 import { addMinigameMarkers, registerMinigameProps } from "./minigame-markers.js";
 import { makeMinigameWorld } from "./minigame-world.js";
+import { makeInteractionMarkers } from "./interaction-markers.js";
+import { minigamePickup,traditionalGames } from "./traditional-games.js";
 import { makeFirstPersonView } from "./first-person.js";
 import { plazaShowSpot } from "./plaza-show.js";
 import { gbSurveyModels, gbNightGlow } from "./gyeongbok.js";
-import { gbSite, gwanghwamun, gbBounds, inGyeongbok, gbLightSpots } from "./gyeongbok-layout.js";
+import { gbSite, gwanghwamun, gbBounds, inGyeongbok, gbLightSpots, gbPhotoZone,wishPond } from "./gyeongbok-layout.js";
 import { gbEastOpenings } from "./gyeongbok-perimeter.js";
 import { outsideGroundOffset,palaceGroundOffset,sampleMeshHeight,southWorldTerrainHeight } from "./gyeongbok-terrain.js";
 import { gradeAvenueMeshes } from "./avenue-terrain.js";
@@ -37,7 +39,8 @@ import { corridorBounds, corridorWalkable } from "./sejong-corridor-layout.js";
 import { buildBikeDocks, makeRidingBike, registerBikeDocks } from "./sejong-bike-model.js";
 import { bikeDocks, isBikePassenger, isCycling } from "./sejong-bike.js";
 import { buildSejongBusModels } from "./sejong-bus-model.js";
-import { BUS_FLOOR, busAt, busSeatPose } from "./sejong-bus.js";
+import { BUS_FLOOR, busAt, busSeatPose,busStops } from "./sejong-bus.js";
+import { transitStops } from "./transit-routes.js";
 import { addPalacePeople } from "./palace-people.js";
 import { addStreetPeople } from "./street-people.js";
 import { addBukchonPeople } from "./bukchon-people.js";
@@ -179,9 +182,11 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   const addDocks=(root,where,height)=>buildBikeDocks(T,root,makeKit(root),{docks:bikeDocks.filter(where),register:false,height});
   addDocks(deoksExtras,dock=>dock.y>=28,southWorldTerrainHeight);
   addDocks(corridorRoot,dock=>dock.y<28&&dock.y>-280,southWorldTerrainHeight);
+  const createItemProp=makeItemProps(T,kit);
+  const walkerModels=makeWalkerModels(T,scene,kit,createItemProp);
   const busInBukchon=point=>point.x>=680&&point.y< -890;
   const busGround=point=>busInBukchon(point)?sampleMeshHeight(bukchonSurfaceGrade,point):southWorldTerrainHeight(point);
-  const buses=buildSejongBusModels(T,transportRoot,kit,busGround,
+  const buses=buildSejongBusModels(T,transportRoot,kit,walkerModels,busGround,
     point=>busInBukchon(point)?bukchonGroundHeight(point)??busGround(point):busGround(point));
   registerPlazaNavigation(benches);
   const drawWater=addWater(T,deoksExtras,fountains,{...makeKit(deoksExtras),terrain:southWorldTerrainHeight});
@@ -195,9 +200,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   const stations=[...addStands(T,transportRoot,makeKit(transportRoot)),...regionalStations];
   const transportGround=transportRoot.children.slice(transportCount);
   outdoors.add(transportRoot);
-  const createItemProp=makeItemProps(T,kit);
   const picnicWorld=makePicnicWorld(T,outdoors,kit,floorHeight,createItemProp);
-  const walkerModels=makeWalkerModels(T,scene,kit,createItemProp);
   let firstPersonView,firstPersonUmbrella;
   const spotLights=[gate,middle,stoneHall].map((point,i)=>{
     const light=new T.PointLight(0xffc47f,0,i===2?55:30,2);
@@ -287,6 +290,28 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   registerDiningNavigation(benches);
   const museum={outsideDoor:museumOutsideDoor,insideDoor:museumInsideDoor,insideSpawn:museumInsideSpawn,
     id:"museum",name:"덕수궁 전시관",outsideName:"석조전 서관",isInside:isInsideMuseum,floorAt:stairHeight,exhibits:[]};
+  const amenity=(point,label)=>({...point,kind:"activity",label});
+  const interactionMarkers=makeInteractionMarkers(T,scene,{wx,wz,floorHeight},[
+    ...stations.map(station=>({...station,kind:"food",label:station.kind==="churu"?"츄르 사기":ITEMS[station.kind].name+" 받기"})),
+    ...[museum,mmcaVenue,...diningVenues].flatMap(venue=>[
+      {...venue.outsideDoor,kind:"enter",label:diningById[venue.id]?"식당 입장":"전시관 입장"},
+      {...venue.insideDoor,kind:"exit",label:"나가기"}
+    ]),
+    ...diningVenues.map(venue=>({...(venue.kioskPoint??venue.menuPoint),kind:"food",
+      label:venue.kioskPoint?"키오스크 주문":"카운터 주문"})),
+    ...bikeDocks.map(dock=>amenity(dock.access,"따릉이 대여")),
+    ...busStops.map(stop=>amenity(stop.board,"버스 정류장")),
+    ...transitStops.filter(stop=>stop.mode==="subway").map(stop=>amenity(stop.door,"지하철 타기")),
+    ...traditionalGames.map(game=>{
+      if(game.id!=="tuho")return amenity(game.point,game.action);
+      const {x,y}=minigamePickup(game);
+      return amenity({x:x+.87,y},"투호 화살 받기");
+    }),
+    amenity(hanbokRental,"한복 대여"),amenity(gbPhotoZone,"사진 찍기"),
+    amenity({x:fountain.x+4.8,y:fountain.y+5.3},"소원등 날리기"),
+    amenity({x:wishPond.x,y:wishPond.y-wishPond.reach+5},"소원등 날리기"),
+    amenity(mmcaVenue.guestbookPoint,"방명록"),...diningVenues.map(venue=>amenity(venue.guestbookPoint,"방명록"))
+  ]);
   const birds=addPalaceBirds(T,outdoors,{...kit,floorHeight},{trees,walls:catWalls,seed:catSeed,deferNorth:true,deferPopulation:true});
   const parkLife=addParkLife(T,outdoors,{...kit,trees,floorHeight,terrainHeight:outsideGroundOffset,catWalls,benches,onCatFlee,catSeed,birds,
     deferNorth:true,deferPopulation:true});
@@ -414,7 +439,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     const root=new T.Group();
     root.name=venue.name;root.visible=false;scene.add(root);
     return {outsideDoor:venue.outsideDoor,load,*build(){
-      const features=yield* this.module[builder](T,root,makeKit(root),venue);
+      const features=yield* this.module[builder](T,root,makeKit(root),venue,walkerModels);
       this.view={...features,setVisible(visible){root.visible=visible;features?.setVisible?.(visible);}};
       return [];
     }};
@@ -815,6 +840,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     const blocked=waiting&&(indoors||cameraAnchor==null||Math.hypot(anchor.x-300-pivot.x,anchor.y-225-pivot.z)>65);
     loading?.classList?.toggle("loading-transition",blocked);
     if(blocked)return;
+    interactionMarkers.update(state.photoCapture||anchor.bus?null:anchor,now);
     picnicWorld.update(indoors?null:anchor,state.picnics);
     const weather=state.environment&&resolveSeoulEnvironment(state.environment,clock);
     const ease=environmentShown?Math.min(1,delta*4.2):1;
@@ -1150,6 +1176,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     camera.lookAt(wx(to.x),groundHeight(to)+to.height,wz(to.y));
     guideMarker.visible=false;
     showMarker.visible=false;
+    interactionMarkers.update(null,performance.now());
     renderer.render(scene,camera);
     const picture=renderer.domElement.toDataURL("image/jpeg",.92);
     guideMarker.visible=marker;showMarker.visible=musicMarker;camera.fov=previous;camera.updateProjectionMatrix();

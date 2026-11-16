@@ -1,5 +1,5 @@
 import {addLandmarks,addObstacle} from "./layout.js";
-import {diningPoint as point,diningTables,diningTrayPose,diningVenue,diningVenues} from "./dining-data.js";
+import {diningCounter,diningPoint as point,diningTables,diningTrayPose,diningVenue,diningVenues} from "./dining-data.js";
 
 export {diningMenu,diningTables,diningVenue} from "./dining-data.js";
 
@@ -10,8 +10,9 @@ export const diningWalls=[
 ];
 
 export const diningFurniture={
-  counter:{x:0,z:-9.55,w:9.4,d:1.15},
-  cupboard:{x:0,z:-11.2,w:8.2,d:.66},
+  counter:diningCounter,
+  cupboardLeft:{x:-7.45,z:-11.2,w:1.64,d:.82},
+  cupboardRight:{x:7.45,z:-11.2,w:1.64,d:.82},
   sideboard:{x:10.8,z:-5.5,w:.74,d:5.1},
   guestbook:{x:5.6,z:10.65,w:2.25,d:.68}
 };
