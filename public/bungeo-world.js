@@ -1,5 +1,5 @@
 import {addLandmarks,addObstacle} from "./layout.js";
-import {BUNGEO_GOOD_MS,BUNGEO_MOLD_COUNT,BUNGEO_STALL,bungeoStep} from "./bungeo-data.js";
+import {BUNGEO_GOOD_MS,BUNGEO_MOLD_COUNT,BUNGEO_STALL,BUNGEO_STOCK_CAPACITY,bungeoStep} from "./bungeo-data.js";
 import {bungeoppangOutline,makeBungeoppangProps} from "./regional-item-props.js";
 import {standSign} from "./regional-stands.js";
 
@@ -57,30 +57,76 @@ export function addBungeoStall(T,parent,kit,groundHeight){
   }
   box(shade,0,1.918,.47,1.58,.39,.081,root);
   standSign(T,root,"붕어빵","직접 굽기",1.52,0,1.918,.517,"#973c30","#ffe6b7",.365);
-  standSign(T,root,"팥 붕어빵",null,.75,-.75,.66,.537,"#edcf9b","#6f332a",.168);
+  standSign(T,root,"팥 · 슈크림",null,.75,-.75,.66,.537,"#edcf9b","#6f332a",.168);
   for(const x of [-.988,.988]){
     box(0x523a31,x,1.96,.396,.21,.051,.21,root);
     cylinder(0xffcc78,x,1.918,.396,.081,.054,10,root);
   }
 
-  function pan(x,z,inside){
-    cylinder(0x769192,x,1.062,z,.163,.071,16,root,1.19);
-    cylinder(0x9daaaa,x,1.111,z,.167,.028,16,root);
-    cylinder(inside,x,1.127,z,.145,.010,16,root);
+  const targets=[],toolLights=new Map();
+  const proxyMaterial=new T.MeshBasicMaterial();
+  function hit(parent,key,x,y,z,width,height,depth){
+    const proxy=new T.Mesh(new T.BoxGeometry(width,height,depth),proxyMaterial);
+    proxy.position.set(x,y,z);proxy.userData.bungeoTarget=key;proxy.visible=false;
+    parent.add(proxy);targets.push(proxy);
+    return proxy;
   }
-  pan(-1.064,.115,0xf6dba3);pan(-1.064,-.212,0x713a2e);
-  box(0xacb9ad,-.985,1.198,.131,.021,.20,.021,root).rotation.z=-.52;
-  const bags=box(0xe4bd83,.947,1.061,-.325,.36,.068,.23,root);bags.rotation.y=.10;
-  for(let i=0;i<3;i++)box(0xebcb96,.947-i*.016,1.102+i*.009,-.327+i*.009,.33,.009,.205,root).rotation.y=.10+i*.042;
-  for(const x of [.79,.91]){
-    box(0x524f43,x,1.04,.431,.029,.042,.212,root).rotation.y=(x-.85)*1.14;
-    cylinder(0x33372f,x,1.07,.515,.023,.032,8,root);
+  function counterLabel(text,x,z,color){
+    const before=root.children.length;
+    standSign(T,root,text,null,.17,x,1.025,z,color,"#fff3d7",.061);
+    if(root.children.length>before)root.children.at(-1).rotation.x=-Math.PI/2;
   }
-  const tray=new T.Group();tray.name="완성된 붕어빵 쟁반";tray.position.set(.934,1.029,.058);root.add(tray);
-  box(0xb6925c,0,.008,0,.627,.026,.395,tray);
-  box(0xf3dba8,0,.027,0,.566,.012,.335,tray);
-  for(const x of [-.305,.305])box(0xa27849,x,.036,0,.027,.054,.39,tray);
-  for(const z of [-.189,.189])box(0xa27849,0,.036,z,.583,.054,.027,tray);
+  const lightGeometry=new T.TorusGeometry(.131,.009,6,24).rotateX(-Math.PI/2);
+  const toolLightMaterial=new T.MeshBasicMaterial({color:0xffd36f,toneMapped:false});
+  function highlight(tool,x,z){
+    const light=new T.Mesh(lightGeometry,toolLightMaterial);
+    light.position.set(x,1.026,z);light.visible=false;root.add(light);toolLights.set(tool,light);
+  }
+  const pitcherX=-1.185,pitcherZ=.291;
+  const pitcherProfile=[[0,.025],[.090,.025],[.114,.07],[.117,.182],[.103,.254],
+    [.093,.279],[.083,.279],[.088,.249],[.096,.180],[.091,.084],[0,.051]];
+  const pitcher=new T.Group();pitcher.name="반죽 주전자";pitcher.position.set(pitcherX,1.024,pitcherZ);root.add(pitcher);
+  shape(new T.LatheGeometry(pitcherProfile.map(([r,y])=>new T.Vector2(r,y)),24),0x90c7bd,0,0,0,pitcher);
+  cylinder(0xf9dfac,0,.218,0,.087,.012,20,pitcher);
+  shape(new T.TorusGeometry(.070,.018,7,16),0x7cb7ab,0,.16,-.119,pitcher).rotation.y=Math.PI/2;
+  cylinder(0x9ed4c7,0,.255,.097,.044,.082,12,pitcher,1.2).rotation.x=Math.PI*.37;
+  box(0x609f95,0,.062,.077,.157,.024,.085,pitcher);
+  pitcher.traverse(object=>{if(object.isMesh)object.userData.dynamic=true;});
+  counterLabel("반죽",pitcherX,.482,"#346c66");highlight("batter",pitcherX,pitcherZ);
+  const pitcherHit=hit(root,{tool:"batter"},pitcherX,1.16,pitcherZ,.28,.33,.27);
+
+  const fillingProfile=[[0,.009],[.058,.009],[.094,.034],[.118,.083],[.116,.103],
+    [.104,.103],[.103,.086],[.083,.047],[.056,.027],[0,.021]];
+  const bowlGeometry=new T.LatheGeometry(fillingProfile.map(([r,y])=>new T.Vector2(r,y)),20);
+  const beanGeometry=new T.SphereGeometry(1,8,5);
+  const fillingColors={redBean:0x743531,custard:0xffce70};
+  for(const [tool,label,z,bodyColor,labelColor] of [["redBean","팥",-.042,0xa85e61,"#843b4d"],
+    ["custard","슈크림",-.338,0xefd59a,"#795423"]]){
+    const x=-1.052,bowl=new T.Group();bowl.name=label+" 그릇";bowl.position.set(x,1.024,z);root.add(bowl);
+    shape(bowlGeometry,bodyColor,0,0,0,bowl);
+    cylinder(fillingColors[tool],0,.080,0,.101,.024,18,bowl);
+    if(tool==="redBean")for(let i=0;i<9;i++){
+      const angle=i*2.399,radius=Math.sqrt((i+1)/10)*.079;
+      shape(beanGeometry,i%3?0x6d2a2a:0x93514a,Math.cos(angle)*radius,.097,Math.sin(angle)*radius,bowl).scale.set(.012,.006,.008);
+    }else{
+      const curl=new T.TorusGeometry(.039,.008,5,18,Math.PI*1.7).rotateX(-Math.PI/2);
+      shape(curl,0xffe6a0,-.015,.095,.009,bowl);
+    }
+    shape(beanGeometry,0xbabcb1,.039,.102,.008,bowl).scale.set(.025,.010,.044);
+    box(0x776454,.069,.141,-.057,.018,.125,.017,bowl).rotation.x=.68;
+    counterLabel(label,x,z+.144,labelColor);highlight(tool,x,z);
+    // Keep bowl targets close to the rims so the foreground one can't mask the custard at a shallow angle.
+    hit(root,{tool},x,1.084,z,.244,.128,.248);
+  }
+
+  const tray=new T.Group();tray.name="완성된 붕어빵 쟁반";tray.position.set(.938,1.029,.029);root.add(tray);
+  for(const [height,depth] of [[0,.141],[.184,-.239]]){
+    box(0xb6925c,0,height+.008,depth,.627,.030,.356,tray);
+    box(0xf3dba8,0,height+.028,depth,.568,.012,.306,tray);
+    for(const x of [-.305,.305])box(0xa27849,x,height+.035,depth,.027,.048,.349,tray);
+    for(const z of [depth-.166,depth+.166])box(0xa27849,0,height+.035,z,.583,.048,.023,tray);
+  }
+  for(const x of [-.28,.28])for(const z of [-.369,-.110])box(0x9c7246,x,.096,z,.041,.191,.041,tray);
 
   const work=new T.Group();work.name="붕어빵 틀";work.position.set(-.127,1.019,.003);root.add(work);
   box(0x7f8580,0,.056,0,1.45,.111,.739,work);
@@ -105,12 +151,26 @@ export function addBungeoStall(T,parent,kit,groundHeight){
     box(0x985c39,0,.022,.322,.076,.047,.124,face);
   }
   const pastryProps=makeBungeoppangProps(T,kit);
-  const stockPies=Array.from({length:3},(_,index)=>{
-    const fish=new T.Group();fish.name="쟁반의 붕어빵 "+(index+1);
-    fish.position.set((index-1)*.178,.046,0);fish.rotation.y=-Math.PI/2+(index-1)*.11;
-    fish.scale.setScalar(.92);fish.visible=false;tray.add(fish);pastryProps(fish,"good");
-    fish.traverse(object=>{if(object.isMesh)object.userData.dynamic=true;});
-    return fish;
+  // One instance batch per pastry part keeps twelve visible pieces inexpensive.
+  const stockPrototype=new T.Group(),stockParts=new Map(),stockPose=new T.Object3D(),stockMatrix=new T.Matrix4();
+  pastryProps(stockPrototype,"good");stockPrototype.updateMatrixWorld(true);
+  stockPrototype.traverse(mesh=>{
+    if(!mesh.isMesh)return;
+    const id=`${mesh.geometry.id}/${mesh.material.id}`;
+    if(!stockParts.has(id))stockParts.set(id,[]);
+    stockParts.get(id).push(mesh);
+  });
+  const stockPies=[...stockParts.values()].map(parts=>{
+    const {geometry,material}=parts[0],instances=new T.InstancedMesh(geometry,material,BUNGEO_STOCK_CAPACITY*parts.length);
+    instances.name="쟁반의 붕어빵";instances.userData.dynamic=true;instances.frustumCulled=false;tray.add(instances);
+    for(let index=0;index<BUNGEO_STOCK_CAPACITY;index++){
+      const top=index>=6,row=Math.floor(index%6/3),column=index%3;
+      stockPose.position.set((column-1)*.182,top?.230:.046,(top?-.239:.141)+(row-.5)*.154);
+      stockPose.rotation.y=-Math.PI/2+(column-1)*.09;stockPose.scale.setScalar(.66);stockPose.updateMatrix();
+      parts.forEach((part,i)=>instances.setMatrixAt(index*parts.length+i,stockMatrix.multiplyMatrices(stockPose.matrix,part.matrixWorld)));
+    }
+    instances.instanceMatrix.needsUpdate=true;
+    return {instances,perPastry:parts.length};
   });
   function steamMap(){
     if(typeof document==="undefined")return null;
@@ -141,6 +201,8 @@ export function addBungeoStall(T,parent,kit,groundHeight){
   function addCavity(index){
     const bay=new T.Group();bay.name=`${index+1}번 붕어빵 틀`;
     bay.position.x=(index-(BUNGEO_MOLD_COUNT-1)/2)*.477;work.add(bay);
+    hit(bay,{cavity:index},0,.203,.021,.455,.163,.70);
+    hit(bay,{cavity:index},0,.428,-.268,.455,.374,.22);
     const hinge=new T.Group();hinge.name="주물 틀 뚜껑";hinge.position.set(0,.248,-.260);bay.add(hinge);
     plate(bay,.157,-.030);plate(hinge,0,.230,true);
     cylinder(0x6b6256,.006,.209,-.265,.036,.439,10,bay).rotation.z=Math.PI/2;
@@ -155,6 +217,10 @@ export function addBungeoStall(T,parent,kit,groundHeight){
     dough.name="붕어빵 반죽";dough.scale.set(.94,1,.92);dough.userData.dynamic=true;
     const pour=cylinder(0xf2cd94,0,.35,-.030,.021,.18,9,bay,1.30);
     pour.userData.dynamic=true;
+    const paste=shape(beanGeometry,0x743531,.018,.207,-.034,bay);paste.name="붕어빵 속";
+    paste.material=new T.MeshStandardMaterial({color:0x743531,roughness:.69});paste.userData.dynamic=true;
+    const drop=shape(beanGeometry,0x743531,.018,.292,-.034,bay);drop.name="떨어지는 붕어빵 속";
+    drop.material=paste.material;drop.userData.dynamic=true;
     const pastries=Object.fromEntries(["good","torn","burnt"].map(quality=>{
       const group=new T.Group();group.name=quality+" 붕어빵";group.visible=false;bay.add(group);pastryProps(group,quality);
       group.traverse(object=>{if(object.isMesh)object.userData.dynamic=true;});
@@ -167,7 +233,7 @@ export function addBungeoStall(T,parent,kit,groundHeight){
 
     let previous=null,removal=null;
     return (mold,clock,nearby)=>{
-      const step=bungeoStep(mold,clock),active=step.action!=="pour",first=step.action==="flip";
+      const step=bungeoStep(mold,clock),active=step.action!=="pour",needsFilling=step.action==="fill",first=step.action==="flip";
       if(!nearby||active)removal=null;
       else if(!mold&&previous?.stage==="second"){
         const removed=bungeoStep(previous,clock);
@@ -178,14 +244,22 @@ export function addBungeoStall(T,parent,kit,groundHeight){
       const lift=removal?ease((clock-removal.at)/removalDuration):0;
       const age=active?Math.max(0,clock-(mold.flippedAt??mold.pouredAt)):0;
       const reveal=ease((age-BUNGEO_GOOD_MS+280)/360);
-      const rocking=first?0:Math.sin(clamp(age/690)*Math.PI);
-      const opening=!active?1:first?1-ease((age-160)/535):Math.max(reveal,rocking*.78);
+      const rocking=first||needsFilling?0:Math.sin(clamp(age/690)*Math.PI);
+      const opening=!active||needsFilling?1:first?1-ease((age-210)/535):Math.max(reveal,rocking*.78);
       hinge.rotation.x=-openAngle*opening;
-      dough.visible=active&&first&&opening>.16;
-      pour.visible=dough.visible&&age<220;
+      dough.visible=active&&(first||needsFilling)&&opening>.16;
+      pour.visible=needsFilling&&age<245;
       const pourHeight=.18*(1-clamp(age/245));
       pour.position.y=.202+pourHeight*.5;pour.scale.y=pourHeight;
-      const visibleQuality=active&&!first&&opening>.19?step.quality:removal?.quality;
+      paste.visible=first&&dough.visible&&age>=155;
+      drop.visible=first&&dough.visible&&age<155;
+      if(paste.visible||drop.visible){
+        paste.material.color.setHex(fillingColors[mold.filling]??fillingColors.redBean);
+        const swell=ease((age-155)/185),dropProgress=ease(age/155);
+        paste.scale.set(.033+swell*.025,.012+swell*.028,.028+swell*.011);
+        drop.position.y=.403-dropProgress*.179;drop.scale.set(.028,.035,.023);
+      }
+      const visibleQuality=active&&!first&&!needsFilling&&opening>.19?step.quality:removal?.quality;
       for(const [quality,group] of Object.entries(pastries)){
         group.visible=quality===visibleQuality;
         if(!group.visible)continue;
@@ -194,12 +268,12 @@ export function addBungeoStall(T,parent,kit,groundHeight){
         group.rotation.x=rocking*Math.PI*.71-lift*.53;
       }
       const hot=active&&step.quality==="burnt";
-      const ready=active&&step.waitMs===0&&!hot;
-      const indicator=hot?0xe96b46:ready?0x9cda82:active?0xf7b34d:0x77735e;
+      const ready=active&&step.waitMs===0&&!hot&&!needsFilling;
+      const indicator=hot?0xe96b46:ready?0x9cda82:needsFilling?0xffe2ae:active?0xf7b34d:0x77735e;
       lamp.material.color.setHex(indicator);lamp.material.emissive.setHex(indicator);
       lamp.material.emissiveIntensity=active?.67:.12;
       steam.forEach((puff,i)=>{
-        puff.visible=nearby&&active&&age>260;
+        puff.visible=nearby&&active&&!needsFilling&&age>260;
         if(!puff.visible)return;
         const t=(age/1090+i/steam.length)%1;
         puff.position.set((i-.5)*.084+t*.088,.268+t*.60,.05+Math.sin(t*2.6+i)*.063);
@@ -210,12 +284,32 @@ export function addBungeoStall(T,parent,kit,groundHeight){
   }
 
   const cavities=Array.from({length:BUNGEO_MOLD_COUNT},(_,index)=>addCavity(index));
-  function update(molds,clock,viewer,stock=0){
-    stockPies.forEach((fish,index)=>{fish.visible=index<stock;});
+  let lastClock=0,pitcherLift=0;
+  function update(molds,clock,viewer,stock=0,baking=null){
+    const stocked=Math.max(0,Math.min(BUNGEO_STOCK_CAPACITY,stock));
+    for(const {instances,perPastry} of stockPies){instances.count=stocked*perPastry;instances.visible=stocked>0;}
+    for(const [tool,light] of toolLights)light.visible=baking?.tool===tool;
+    const pickingUp=baking?.tool==="batter"?1:0,elapsed=Math.max(0,Math.min(64,clock-lastClock));
+    pitcherLift+=(pickingUp-pitcherLift)*(1-Math.exp(-elapsed*.024));
+    lastClock=clock;
+    pitcher.position.y=1.024+.17*pitcherLift;pitcher.position.z=pitcherZ+.032*pitcherLift;
+    pitcher.rotation.z=-.18*pitcherLift;pitcherHit.position.y=1.16+.17*pitcherLift;pitcherHit.position.z=pitcher.position.z;
     const nearby=Boolean(viewer&&Math.hypot(viewer.x-body.x,viewer.y-body.y)<=watchRadius);
     cavities.forEach((updateCavity,index)=>updateCavity(molds?.[index]??null,clock,nearby));
   }
 
+  const targetCenter=new T.Vector3();
+  function pick(ray){
+    root.updateWorldMatrix(true,true);
+    let target=null,best=Infinity;
+    // At a shallow camera angle two hit boxes can overlap while the tools are still visibly separate.
+    for(const {object} of ray.intersectObjects(targets,false)){
+      const offset=ray.ray.distanceSqToPoint(object.getWorldPosition(targetCenter));
+      if(offset<best){best=offset;target=object.userData.bungeoTarget;}
+    }
+    return target;
+  }
+
   update(null,0,null);
-  return {update};
+  return {update,pick};
 }

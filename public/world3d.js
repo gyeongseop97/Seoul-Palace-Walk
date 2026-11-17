@@ -11,6 +11,8 @@ import { addStands, addRegionalStands, makeItemProps, regionalStations, register
 import { BUNGEO_STALL } from "./bungeo-data.js";
 import { addBungeoStall, registerBungeoStall } from "./bungeo-world.js";
 import { makeBungeoCustomer } from "./bungeo-customer.js";
+import { ARCADE_GAMES,ARCADE_SITE,registerArcade } from "./arcade-layout.js";
+import { addArcade } from "./arcade-world.js";
 import { hanbokRental,registerHanbokRental } from "./passport-data.js";
 import { addHanbokRental } from "./wearables-models.js";
 import { assembleMuseum, registerMuseumNavigation, isInsideMuseum, museumOutsideDoor, museumInsideDoor, museumInsideSpawn, stairHeight } from "./museum.js";
@@ -198,6 +200,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   const drawWater=addWater(T,deoksExtras,fountains,{...makeKit(deoksExtras),terrain:southWorldTerrainHeight});
   registerRegionalStands();
   registerBungeoStall();
+  registerArcade();
   registerBukchonTrees();
   registerExpandedSubway();
   registerHanbokRental();
@@ -427,7 +430,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     yield* gradeAvenueMeshes(T,transportGround,southWorldSurfaceHeight);
     return yield* consolidate(transportRoot,new Set());
   }};
-  let updatePlaza,updateHwangudan,bungeoStall,northWildlife,plazaWildlife,southWildlife,buildTurn=false;
+  let updatePlaza,updateHwangudan,bungeoStall,arcadeRoom,northWildlife,plazaWildlife,southWildlife,buildTurn=false;
   const wildlife=[["jeongdong",jeongdongExtensionBounds],["hwangudan",hwangudanBounds],["bukchon",bukchonBounds]]
     .map(([id,bounds])=>({id,bounds,steps:null,ready:false}));
   const plaza={root:plazaRoot,bounds:plazaBounds,*build(){
@@ -441,6 +444,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     yield* gradeAvenueMeshes(T,plazaRoot.children,southWorldSurfaceHeight);
     yield* addDiningFronts(plazaRoot,"gwanghwamun");
     bungeoStall=addBungeoStall(T,plazaRoot,makeKit(plazaRoot),southWorldSurfaceHeight);
+    arcadeRoom=addArcade(T,plazaRoot,makeKit(plazaRoot),southWorldSurfaceHeight);
     addMinigameMarkers(T,plazaRoot,kit,["kite"],floorHeight);
     const chunks=yield* consolidate(plazaRoot,new Set([monuments.yiFallback]),foliage.register);
     void loadYiStatue(monuments);
@@ -994,7 +998,8 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     if(plazaRoot.parent===outdoors){
       const viewer=indoors?null:anchor;
       updatePlaza(now,night,viewer,fountainShow?.startedAt??0,clock);
-      bungeoStall?.update(state.bungeoMolds,clock,viewer,state.bungeoOrder?.stock);
+      bungeoStall?.update(state.bungeoMolds,clock,viewer,state.bungeoStock,state.bungeoMode);
+      arcadeRoom?.update(state.arcade,clock,viewer);
     }
     bungeoCustomer.update(state.bungeoOrder,!indoors&&plazaRoot.parent===outdoors?anchor:null,now,clock,delta);
     if(hwangudan.root.parent===outdoors)updateHwangudan?.(night);
@@ -1109,7 +1114,23 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
         camera.lookAt(gaze.add(camera.position));
       }
     }
-    if(state.photoCamera){
+    if(state.bungeoMode){
+      const body=BUNGEO_STALL.body,portrait=camera.aspect<.85,fov=portrait?73:54;
+      const distance=Math.max(2.14,1.49/(Math.tan(fov*Math.PI/360)*camera.aspect)+.45);
+      const ground=southWorldSurfaceHeight(body),side=Math.sin(BUNGEO_STALL.angle),forward=Math.cos(BUNGEO_STALL.angle);
+      camera.position.set(wx(body.x)+side*distance,ground+2.43,wz(body.y)+forward*distance);
+      camera.lookAt(wx(body.x),ground+1.05,wz(body.y));
+      if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix();}
+      cameraDistance=0;
+    }else if(state.arcade?.kind==="claw"||state.arcade?.kind==="basket"){
+      const claw=state.arcade.kind==="claw",machine=ARCADE_GAMES[state.arcade.kind].machine;
+      const fov=camera.aspect<.75?69:53,ground=southWorldSurfaceHeight(ARCADE_SITE.body);
+      const distance=Math.max(claw?2.56:3.0,1.27/(Math.tan(fov*Math.PI/360)*camera.aspect)+.23);
+      camera.position.set(wx(machine.x)+distance,ground+(claw?2.15:2.04),wz(machine.y));
+      camera.lookAt(wx(machine.x),ground+(claw?1.20:1.15),wz(machine.y));
+      if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix();}
+      cameraDistance=0;
+    }else if(state.photoCamera){
       const photo=state.photoCamera,yaw=photo.pan*Math.PI/180,tilt=photo.tilt*Math.PI/180;
       camera.position.set(wx(photo.x),floorHeight(photo)+photo.height,wz(photo.y));
       gaze.set(Math.sin(yaw)*Math.cos(tilt),-Math.sin(tilt),-Math.cos(yaw)*Math.cos(tilt));
@@ -1194,17 +1215,24 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       sheltered:Boolean(shelter||anchor.umbrella),sharedShelter:Boolean(shelter),inside:indoors||Boolean(anchor.bus&&firstPerson),
       sparse:quality.sparse,pixelRatio:quality.pinned?quality.max:quality.ratio,night});
     renderer.render(scene,camera);
-    if(firstPerson){
+    if(firstPerson&&!state.bungeoMode){
       firstPersonView??=makeFirstPersonView(T,createItemProp);
       firstPersonView.render(renderer,camera,diningPose(me),{now,clock,delta,seat,clink:me.clink,night});
     }
   }
   const ray=new T.Raycaster(),sample=new T.Vector3();
-  function pick(clientX,clientY){
+  function pointRay(clientX,clientY){
     const rect=renderer.domElement.getBoundingClientRect();
     if(cameraAnchor==null||!rect.width||!rect.height||
-       clientX<rect.left||clientX>rect.right||clientY<rect.top||clientY>rect.bottom)return null;
+       clientX<rect.left||clientX>rect.right||clientY<rect.top||clientY>rect.bottom)return false;
     ray.setFromCamera(new T.Vector2((clientX-rect.left)/rect.width*2-1,-(clientY-rect.top)/rect.height*2+1),camera);
+    return true;
+  }
+  function pickBungeo(clientX,clientY){
+    return pointRay(clientX,clientY)?bungeoStall?.pick(ray)??null:null;
+  }
+  function pick(clientX,clientY){
+    if(!pointRay(clientX,clientY))return null;
     if(guideMarker.visible&&ray.intersectObject(guideMarker,false).length)return {...ticketGuide.approach,guide:true};
     if(showMarker.visible&&ray.intersectObject(showMarker,false).length)return {x:plazaShowSpot.x,y:plazaShowSpot.y};
     for(let step=.25;step<=105;step+=.25){
@@ -1239,7 +1267,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   }
   const renderStats=()=>({...renderer.info.render,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,
     areas:{plaza:Boolean(plaza.chunks),palace:Boolean(palace.chunks),museum:Boolean(gallery.chunks)}});
-  return {render,pick,previewWalker,clearChat,floorHeight,groundHeight,renderStats,snapshot,capturePhoto,
+  return {render,pick,pickBungeo,previewWalker,clearChat,floorHeight,groundHeight,renderStats,snapshot,capturePhoto,
     benches,stations,parkLife,birds,palacePeople,museum,underDoldamAwning};
 }
 

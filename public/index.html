@@ -105,7 +105,14 @@
             <p id="loading-game">산책길을 열고 있어요.</p>
             <div class="game-info">
               <div class="game-place"><span id="game-season">정동의 가을</span><strong id="game-place">매표소 앞</strong><small class="desktop-controls-hint">WASD · 방향키로 이동</small><small id="travel-status" hidden></small><small id="dining-status" role="status" hidden></small><small id="bungeo-order-status" role="status" hidden></small><small id="bungeo-status" role="status" hidden></small></div>
+              <div id="bungeo-tools" class="bungeo-tools" role="group" aria-label="붕어빵 재료와 도구" hidden>
+                <button type="button" class="quiet" data-bungeo-tool="batter" aria-pressed="false">반죽통</button>
+                <button type="button" class="quiet" data-bungeo-tool="redBean" aria-pressed="false">팥</button>
+                <button type="button" class="quiet" data-bungeo-tool="custard" aria-pressed="false">슈크림</button>
+                <button id="bungeo-close" type="button" class="quiet">굽기 끝내기</button>
+              </div>
               <div class="bungeo-molds" id="bungeo-molds" role="group" aria-label="붕어빵 틀 3칸" hidden>
+                <small id="bungeo-stock" role="status"></small>
                 <div class="bungeo-cavity"><strong id="bungeo-number-1">1번 틀</strong><small id="bungeo-phase-1"></small><button type="button" class="quiet" id="bungeo-mold-1" aria-labelledby="bungeo-number-1 bungeo-mold-1" aria-describedby="bungeo-phase-1">반죽 붓기</button><button type="button" class="quiet" id="bungeo-hand-1" aria-labelledby="bungeo-number-1 bungeo-hand-1" hidden>손에 들기</button></div>
                 <div class="bungeo-cavity"><strong id="bungeo-number-2">2번 틀</strong><small id="bungeo-phase-2"></small><button type="button" class="quiet" id="bungeo-mold-2" aria-labelledby="bungeo-number-2 bungeo-mold-2" aria-describedby="bungeo-phase-2">반죽 붓기</button><button type="button" class="quiet" id="bungeo-hand-2" aria-labelledby="bungeo-number-2 bungeo-hand-2" hidden>손에 들기</button></div>
                 <div class="bungeo-cavity"><strong id="bungeo-number-3">3번 틀</strong><small id="bungeo-phase-3"></small><button type="button" class="quiet" id="bungeo-mold-3" aria-labelledby="bungeo-number-3 bungeo-mold-3" aria-describedby="bungeo-phase-3">반죽 붓기</button><button type="button" class="quiet" id="bungeo-hand-3" aria-labelledby="bungeo-number-3 bungeo-hand-3" hidden>손에 들기</button></div>
@@ -179,8 +186,12 @@
                   <button id="dining-call" type="button" class="quiet activity-button" hidden>벨 누르기</button>
                   <button id="dining-order" type="button" class="quiet activity-button" aria-haspopup="dialog" aria-controls="dining-menu-dialog" hidden>주문하기</button>
                   <button id="bungeo-accept" type="button" class="quiet activity-button" aria-describedby="bungeo-order-status" hidden>주문 받기</button>
+                  <button id="bungeo-open" type="button" class="quiet activity-button" hidden>붕어빵 굽기</button>
                   <button id="bungeo-serve" type="button" class="quiet activity-button" aria-describedby="bungeo-order-status" hidden>손님에게 건네기</button>
                   <button id="bungeo-gift" type="button" class="quiet activity-button" hidden>붕어빵 건네기</button>
+                  <button id="arcade-claw" type="button" class="quiet activity-button" hidden>인형뽑기</button>
+                  <button id="arcade-pump" type="button" class="quiet activity-button" hidden>펌프 시작</button>
+                  <button id="arcade-basket" type="button" class="quiet activity-button" hidden>농구 슛</button>
                   <button id="fountain-show" type="button" class="quiet activity-button" hidden>분수쇼 시작</button>
                   <button id="picnic" type="button" class="quiet activity-button" aria-haspopup="dialog" hidden>돗자리 펴기</button>
                   <button id="minigame" type="button" class="quiet activity-button" hidden>민속놀이</button>
@@ -222,6 +233,18 @@
             <button type="button" class="quiet" data-gesture="heart">하트</button>
             <button type="button" class="quiet" data-gesture="cheer">환호</button>
           </div>
+          <section id="arcade-panel" class="arcade-panel" aria-label="오락실 게임 조작" hidden>
+            <div class="arcade-head"><strong id="arcade-title"></strong><button id="arcade-exit" type="button" class="quiet">그만하기</button></div>
+            <p id="arcade-status" role="status"></p>
+            <progress id="arcade-beat" aria-label="다음 박자까지" max="1" value="0" hidden></progress>
+            <div id="arcade-move" class="arcade-move" role="group" aria-label="기계 조작">
+              <button type="button" class="quiet" data-arcade-move="left" aria-label="왼쪽">←</button>
+              <button type="button" class="quiet" data-arcade-move="up" aria-label="앞">↑</button>
+              <button type="button" class="quiet" data-arcade-move="down" aria-label="뒤">↓</button>
+              <button type="button" class="quiet" data-arcade-move="right" aria-label="오른쪽">→</button>
+            </div>
+            <button id="arcade-act" type="button" class="primary" hidden></button>
+          </section>
           <section class="photo-controls" id="photo-controls" aria-label="사진 모드" hidden>
             <div class="photo-toolbar">
               <button id="photo-exit" type="button" class="quiet">닫기</button>
@@ -500,7 +523,8 @@
       <section><h3>석조전 서관 전시관</h3><p>계단을 올라 문 앞에서 <strong>입장하기</strong>를 누르세요. 삼국·통일신라부터 근대까지 한국 그림과 공예품을 시대별로 볼 수 있어요. 전시품 가까이에서 <strong>작품 설명</strong>을 열어 보세요.</p></section>
       <section><h3>미술관과 동네 식당</h3><p>북촌의 국립현대미술관 서울에서 서도호, 데이미언 허스트, 론 뮤익 등 역대 전시를 바탕으로 만든 작품을 만나 보세요. 지도에서 한식집과 정동 비스트로, 세종 우동집, 삼청 중화식당을 찾을 수 있어요. 직원이 있는 곳에서는 앉아서 <strong>벨 누르기</strong>를, 키오스크가 있는 곳에서는 주문한 뒤 빈 식탁에 앉아 보세요. 음식이 도착하면 <strong>먹기</strong>를 누르세요. 미술관과 식당에는 같은 방 친구와 함께 쓰는 <strong>방명록</strong>도 있어요.</p></section>
       <section><h3>길에서 만나는 가게</h3><p>광화문에서는 팥빙수·붕어빵·하이볼을, 북촌에서는 꿀떡·매실주를 받아요. 기존 커피, 크레페, 맥주, 약과, 막걸리와 와인도 즐길 수 있어요. 지도에서 가게 이름을 누르면 입구로 걸어갑니다.</p></section>
-      <section><h3>광화문 붕어빵 좌판</h3><p>손님이 오면 <strong>주문 받기</strong>를 누르세요. 좌판의 세 칸은 반죽 붓기, 뒤집기, 꺼내는 시간을 각각 조절할 수 있어요. 노릇하게 구운 붕어빵은 <strong>판매대에 올리기</strong>로 모으고, 수량이 차면 <strong>손님에게 건네기</strong>를 누르세요. 같은 방 친구와 각자 다른 칸을 맡거나 혼자 세 칸을 구울 수 있어요.</p></section>
+      <section><h3>광화문 붕어빵 좌판</h3><p><strong>붕어빵 굽기</strong>를 누르면 1인칭에서 도구와 틀을 직접 누를 수 있어요. 반죽통을 집어 빈 틀에 한 칸씩 붓고, 팥이나 슈크림을 골라 담아 보세요. 익은 틀을 눌러 뒤집고 완성품은 판매대에 미리 모아 둘 수 있어요. 주문한 만큼만 건네고 남은 붕어빵은 다음 손님에게 팔 수 있어요.</p></section>
+      <section><h3>광화문 오락실</h3><p>지도에서 광화문 오락실을 찾아 보세요. 기계 앞에서 집게를 움직여 인형을 뽑거나 농구공을 던질 수 있어요. 펌프는 밝아지는 발판을 조이스틱이나 방향키로 이동해 박자에 맞춰 밟아요.</p></section>
       <section><h3>고양이와 새</h3><p>고양이에게 천천히 다가가 <strong>쓰다듬기</strong>를 눌러 보세요. 츄르를 들고 기다리면 다가오는 고양이에게 <strong>간식 주기</strong>를 할 수 있어요. 친해진 고양이는 잠깐 멈춰 기다리면 먼저 다가오기도 해요. 산책길에서는 까치와 비둘기가 바닥을 쪼거나 나무에 쉬는 모습도 볼 수 있어요.</p></section>
       <section><h3>잔디밭 피크닉과 우산</h3><p>광화문광장 육조마당 잔디밭에서 <strong>돗자리 펴기</strong>를 누르고 음식이나 음료를 한 몫씩 나눠 보세요. 비나 눈이 오면 가까운 친구에게 <strong>우산 같이 쓰기</strong>를 요청할 수 있어요. 친구가 수락하면 우산을 든 사람이 앞장서요.</p></section>
       <section><h3>친구와 함께</h3><p>오픈서버에서 다른 산책자와 만나거나 초대코드로 친구와 같은 방에 들어오세요. 가까이에서 손을 잡고 벤치에 나란히 앉거나, 둘 다 음료를 들고 <strong>건배하기</strong>를 눌러 보세요. <strong>여기 봐</strong>를 누르면 상대에게 내 위치가 5초 동안 표시돼요.</p></section>

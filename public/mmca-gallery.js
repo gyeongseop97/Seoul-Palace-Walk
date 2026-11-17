@@ -3,6 +3,8 @@ import {addHirstWork} from "./mmca-hirst.js";
 import {buildMueckSculpture} from "./mmca-mueck.js";
 import {addExtraMuseumWork} from "./mmca-extra-works.js";
 import {addGuestMuseumWork} from "./mmca-guest-works.js";
+import {addMmcaSculpture} from "./mmca-sculpture-series.js";
+import {addMmcaWallpaper} from "./mmca-wallpaper.js";
 
 const finish={walls:0xe8e6e1,ceiling:0x5d6064,metal:0x353a41,trim:0x777c7e};
 const exhibitColors={home:0xa2c7c1,"home-passage":0xc4a5c8,colors:0xd0a3bc,objects:0xe3ba70,
@@ -53,7 +55,7 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
     const canvas=document.createElement("canvas");canvas.width=width;canvas.height=height;
     paint(canvas.getContext("2d"),width,height);return canvas;
   }
-  function label(lines,x,h,z,w,height,rotation=0,accent="#509c9d",dark=false){
+  function label(lines,x,h,z,w,height,rotation=0,accent="#509c9d",dark=false,parent=gallery){
     const resolution=w>8.5?1024:512;
     return surface(w,height,wx(x),h,wz(z),rotation,()=>sheet(resolution,resolution/4,ink=>{
       ink.scale(resolution/1024,resolution/1024);
@@ -65,7 +67,7 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
         ink.font='500 43px "Malgun Gothic", sans-serif';ink.fillStyle=dark?"#c2ccd0":"#535c62";
         ink.fillText(lines[1],52,180,912);
       }
-    }));
+    }),parent);
   }
 
   const {minX,maxX,minY,maxY}=mmcaVenue.bounds;
@@ -130,19 +132,18 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
   }
   for(const room of mmcaGalleryRooms){
     yield;
-    roomModels.set(room.id,group(0,0,0));
+    const roomModel=group(0,0,0);
+    roomModels.set(room.id,roomModel);
     const {minX:left,maxX:right,minY:front,maxY:back,doorX,doorY}=room;
     const west=doorX<centerX,roomX=(left+right)/2;
     const exhibit=byId.get(room.exhibitId??room.id);
     const accent=exhibitColors[exhibit.id],stripe=`#${accent.toString(16).padStart(6,"0")}`;
     if(room.id==="hirst"){
       block(0x263141,roomX,.024,(front+back)/2,right-left-.22,.022,back-front-.23);
-      block(0x243041,left+.20,3.16,(front+back)/2,.14,6.19,back-front-.28);
-      for(const y of [front+.24,back-.22])block(0x374457,roomX,3.16,y,right-left-.26,6.19,.12);
     }else if(room.id==="mueck"){
       block(0x9e8d80,roomX,.021,(front+back)/2,right-left-.22,.016,back-front-.23);
-      block(0xc9b6a5,right-.18,3.15,(front+back)/2,.13,6.17,back-front-.30);
     }
+    addMmcaWallpaper(T,roomModel,{wx,wz},room,ceilingHeight);
     block(0x424953,doorX,5.32,doorY,.32,2.76,6.1);
     label([room.name,"게임 오마주"],doorX+(west?.176:-.176),4.56,doorY,5.7,.91,
       west?Math.PI/2:-Math.PI/2,stripe,true);
@@ -152,7 +153,6 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
       block(finish.metal,roomX,ceilingHeight-.43,y,right-left-5,.104,.18);
       block(0xf7f3e3,roomX,ceilingHeight-.50,y,right-left-5.1,.041,.105);
     }
-    block(accent,west?left+.17:right-.17,2.82,(front+back)/2,.06,3.46,Math.min(10,back-front-3));
     const roomWorks=mmcaExhibits.filter(work=>work.gallery===room.id);
     const wallCopy=[room.name,`${roomWorks.length}점 · ${exhibit.credit.split(" · ")[0]}`];
     label(wallCopy,west?left+.286:right-.286,2.72,(front+back)/2,6.9,1.45,
@@ -171,6 +171,18 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
       continue;
     }
     const art=group(wx(exhibit.x),0,wz(exhibit.y),artRoom);art.name=exhibit.title;
+    if(exhibit.series!==undefined){
+      const accent=exhibitColors[exhibit.gallery]??(exhibit.gallery==="hirst"?0x72a5a5:0xc19682);
+      box(0x303b42,0,.12,0,3.28,.24,2.78,art,true);
+      box(accent,0,.247,0,3.22,.032,2.70,art,true);
+      box(0xe2dfd7,0,.282,0,3.17,.059,2.66,art,true);
+      const animate=addMmcaSculpture(T,art,exhibit);
+      if(animate)animated.push(seconds=>{if(artRoom.visible)animate(seconds);});
+      else batchArt(art);
+      label([exhibit.title],exhibit.x,.45,exhibit.y+1.37,2.61,.38,0,
+        `#${accent.toString(16).padStart(6,"0")}`,true,artRoom);
+      continue;
+    }
     if(exhibit.id==="home"||exhibit.id==="home-passage"){
       const house=exhibit.id==="home";
       block(house?0x7f9994:0x9d8eaa,exhibit.x,.022,exhibit.y,house?6.64:4.08,.014,6.48);

@@ -194,6 +194,11 @@ export function makeSound(){
       tone(2060,2052,{gain:.065,attack:.004,decay:.24});
       tone(3090,3080,{gain:.022,attack:.003,decay:.15});
     },
+    arcadeBeat(lane,strong){
+      const pitch=[262,330,392,440][lane];
+      tone(pitch,pitch,{gain:.075,attack:.006,decay:.21,type:"triangle"});
+      tone(strong?139:95,53,{gain:strong?.16:.085,attack:.003,decay:.20});
+    },
     step(surface){
       if(surface==="water")burst({type:"bandpass",frequency:620,q:.7,gain:.2,decay:.24,rate:.6});
       else if(surface==="wood")burst({frequency:380,gain:.17,decay:.07});

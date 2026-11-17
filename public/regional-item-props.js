@@ -22,9 +22,9 @@ export function makeBungeoppangProps(T,{box,shape}){
   const scale=new T.TorusGeometry(.012,.0018,4,9,Math.PI*.70).rotateX(-Math.PI/2);
   const spot=new T.SphereGeometry(1,9,6);
   return (parent,quality="good")=>{
-    const torn=quality==="torn",burnt=quality==="burnt";
+    const torn=quality==="torn",burnt=quality==="burnt",custard=quality==="custard";
     const toast=burnt?0x39231b:0xa46136;
-    shape(crusts[Number(torn)],burnt?0x543420:torn?0xd19a55:0xc27a3b,0,0,0,parent);
+    shape(crusts[Number(torn)],burnt?0x543420:torn?0xd19a55:custard?0xd9a055:0xc27a3b,0,0,0,parent);
     if(!torn){
       shape(eye,burnt?toast:0x86502d,.063,.034,-.012,parent);
       shape(spot,burnt?toast:0x8d512c,.063,.035,-.011,parent).scale.set(.004,.003,.004);
@@ -125,6 +125,7 @@ export function makeRegionalItemProps(T,{box,cylinder,shape}){
       berry(parent,0x9ea9a9,-.066,.105,-.103,.022,.009,.033);
     },
     bungeoppang,
+    bungeoppangCustard:parent=>bungeoppang(parent,"custard"),
     bungeoppangBurnt:parent=>bungeoppang(parent,"burnt"),
     bungeoppangTorn:parent=>bungeoppang(parent,"torn"),
     riceCake(parent){

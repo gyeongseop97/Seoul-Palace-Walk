@@ -973,7 +973,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const smiling = acting?.kind==="peace"&&acting.weight>.26;
     const snack=position[position.itemUse==="secondItem"?"secondItem":"item"];
     const biteAge=clock-snack?.started;
-    const taste=biteAge>=410&&biteAge<1250?{bungeoppang:"grin",bungeoppangBurnt:"pout",bungeoppangTorn:"cat"}[snack.kind]:null;
+    const taste=biteAge>=410&&biteAge<1250?{bungeoppang:"grin",bungeoppangCustard:"grin",bungeoppangBurnt:"pout",bungeoppangTorn:"cat"}[snack.kind]:null;
     appearance(model,position,blinkTick>3970&&blinkTick<4100,blushLevel,woozy,Boolean(sick?.weight>.38),smiling?"peace":taste);
     if (model.hem.visible) {
       model.hem.scale.set(1+seated*.08,1-seated*.61,1+stride*.10);

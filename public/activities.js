@@ -29,6 +29,7 @@ export const ITEMS={
   cake:{name:"조각 케이크",verb:"먹기",uses:3,duration:1300},
   bingsu:{name:"팥빙수",verb:"먹기",uses:3,duration:1300},
   bungeoppang,
+  bungeoppangCustard:{...bungeoppang,name:"슈크림 붕어빵"},
   bungeoppangBurnt:{...bungeoppang,name:"탄 붕어빵"},
   bungeoppangTorn:{...bungeoppang,name:"속이 터진 붕어빵"},
   riceCake:{name:"꿀떡",verb:"먹기",uses:3,duration:1300},
