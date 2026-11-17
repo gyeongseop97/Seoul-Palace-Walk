@@ -23,7 +23,8 @@ import {subwayAccessPaths} from "./subway-expansion.js";
 import {jeongdongExtensionLandmarks,jeongdongExtensionPaths} from "./jeongdong-extension-layout.js";
 import {bukchonAlleyShortcut,bukchonBounds,bukchonPaths,bukchonLandmarks,bukchonWalkable,bukchonLawns} from "./bukchon-layout.js";
 import {hwangudanBounds,hwangudanGround,hwangudanPaths,hwangudanLandmarks,hwangudanBuildings,hwangudanWalkable} from "./seoul-hwangudan-layout.js";
-import {cheonggyeBounds,cheonggyeDeckExits,cheonggyeDeckStep,cheonggyeLandmarks,cheonggyeLevel,cheonggyeRoadLeads,cheonggyeSurfaces,cheonggyeWalkable} from "./cheonggye-layout.js";
+import {cheonggyeBounds,cheonggyeDeckExits,cheonggyeDeckStep,cheonggyeLandmarks,cheonggyeLevel,cheonggyeRoadLeads,cheonggyeStations,cheonggyeSurfaces,cheonggyeWalkable,inCheonggye,riverAt} from "./cheonggye-layout.js";
+import {FOOT_BATH_PERIOD} from "./walker-model.js";
 import {inSonghyeon,songhyeonBounds,songhyeonOutline,songhyeonPaths,songhyeonLawns,songhyeonLandmarks} from "./songhyeon-layout.js";
 import {uijeongbuOutline,uijeongbuEntry,uijeongbuGarden,uijeongbuWalks,uijeongbuConnections,uijeongbuSideRoad,uijeongbuBusPavement,uijeongbuRemains,sajikEastRoad} from "./uijeongbu-layout.js";
 import {BUS_COUNT,BUS_SEATS,bukchonBusRoads,busAt,busSeatPose,busStopById,busStops,busStopTimes,nearBus} from "./sejong-bus.js";
@@ -254,7 +255,9 @@ function placeViewControls(){
     $("desktop-view-controls").append($("perspective"));
     $("desktop-presence-controls").append($("presence"));
     menu.append($("sound"),$("night"),$("character"),$("photo-mode-open"),$("passport-open"),$("invite"),$("desktop-map-settings"));
-    $("desktop-map-settings").append(mapLinks,mapKey);
+    // The teleport buttons stay under the map; only the legend moves into the settings menu.
+    $("map-footer").append(mapLinks);
+    $("desktop-map-settings").append(mapKey);
     $("desktop-room-controls").append($("settings-leave"));
     $("map-toolbar").prepend(filter);
   }
@@ -481,8 +484,24 @@ function updateBusSound(time,indoors){
   const speed=ahead?near(ahead,source.x,source.y)/.15:0;
   sound.bus({distance,moving:source.traveling,inside:Boolean(bus),speed});
 }
+// How close the walker is to the Cheonggyecheon water (0 to 1) and to the waterfall at its head.
+const streamFalls={x:625,y:-151};
+function streamNearness({x,y}){
+  if(!inCheonggye(x,y))return null;
+  const falls=Math.max(0,1-near(streamFalls,x,y)/46);
+  if(x<cheonggyeStations[0]-2)return {flow:0,falls};
+  const [centre,north,south]=riverAt(Math.min(x,cheonggyeStations.at(-1)));
+  const off=y<centre?centre-north+3.3-y:y-centre-south+3.1;
+  return {flow:Math.max(0,1-Math.max(0,off)/15),falls};
+}
+let lastPaddle=0;
 function soundscape(time,travelled,wading,running=false){
   if(!session||!world||riding)return;
+  // Paddling feet at a waterside seat splash once on every kick.
+  if(me.seat!=null&&world.benches[me.seat]?.footBath){
+    const kick=Math.floor(time/(FOOT_BATH_PERIOD/2));
+    if(kick!==lastPaddle){if(lastPaddle)sound.splash();lastPaddle=kick;}
+  }else lastPaddle=0;
   const indoors=Boolean(interiorAt(me.x,me.y));
   if(!indoors&&!document.hidden){
     const distance=near(buskingSpot,me.x,me.y),cue=buskingBeat(time);
@@ -510,6 +529,9 @@ function soundscape(time,travelled,wading,running=false){
       nextBusSound=time+125;updateBusSound(time,indoors);
       const rain=indoors||me.bus?0:currentEnvironment.rain;
       sound.rain(rain,rain>0&&(me.umbrella||sharingUmbrella()||world.underDoldamAwning(me)));
+      // The stream is heard from the banks, and the waterfall at its head from further off.
+      const water=indoors||me.bus?null:streamNearness(me);
+      sound.stream(water?.flow??0,water?.falls??0);
     }
     if(!indoors&&!me.bus){
       if(time>=nextBird){
@@ -1161,7 +1183,7 @@ function returnToLobby(message=""){
   minigameKiteCuts=[];
   lastBuskingBeat=-1;umbrellaFolded=false;environment.liveWeather=null;
   parkedBikes=[];
-  sound.bus(null);sound.plazaShow(null);sound.rain(0);
+  sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);
   busStatus.hidden=true;
   chatInput.value="";composingChat=false;lastChatAt=0;updateChatSend();
   $("invite").disabled=$("look").disabled=$("look-target").disabled=true;
@@ -1329,10 +1351,10 @@ document.querySelectorAll("dialog").forEach(dialog=>dialog.addEventListener("clo
 $("model-credits").addEventListener("click",()=>$("credits-dialog").showModal());
 window.addEventListener("pagehide",()=>{
   rememberWalkPosition();
-  active=false;pageVersion++;clearSyncTimer();sound.bus(null);sound.plazaShow(null);sound.rain(0);leaveBeacon();
+  active=false;pageVersion++;clearSyncTimer();sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);leaveBeacon();
 });
 document.addEventListener("visibilitychange",()=>{
-  if(document.hidden){rememberWalkPosition();clearManualInput();exitPress=null;sound.bus(null);sound.plazaShow(null);sound.rain(0);}
+  if(document.hidden){rememberWalkPosition();clearManualInput();exitPress=null;sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);}
   clearSyncTimer();scheduleSync(document.hidden?1150:0);
 });
 window.addEventListener("online",()=>{if(!document.hidden)scheduleSync(0);});
@@ -2092,7 +2114,7 @@ function rideTransit(stop,{target,area,line}){
   rememberWalkPosition();
   const linkId=myLink()?.id??(queuedHand?.action==="offer"?queuedHand.id:null);
   if(linkId){queuedHand={action:"release",id:linkId};changeLinks(links);}
-  transitDialog.close();setMap(false);riding=true;resetInput();sound.bus(null);sound.plazaShow(null);sound.rain(0);
+  transitDialog.close();setMap(false);riding=true;resetInput();sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);
   Object.assign(me,{vx:0,vy:0,blocked:false,running:false});dirty=true;wakeSync();
   $("transit-title").textContent=area;
   $("transit-line").textContent=line;

@@ -908,9 +908,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   .mobile-settings-actions{width:244px;grid-template-columns:repeat(2,minmax(0,1fr));padding:8px}
   .mobile-settings-actions button{min-height:36px;padding:5px 9px;text-align:center}
   #desktop-map-settings{display:block;grid-column:1/-1;border-top:1px solid var(--pine-7);margin-top:3px;padding-top:7px}
-  #desktop-map-settings .map-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
-  #desktop-map-settings .map-links button{min-height:34px;white-space:normal}
-  #desktop-map-settings .map-key{margin-top:8px;padding-top:7px;border-top:1px solid var(--pine-7);
+  #desktop-map-settings .map-key{
     color:var(--sage-3);font-size:11px}
   #game-shell>main{display:flex;flex:1;min-height:0;width:100%;max-width:none;padding:8px}
   .experience{flex:1;min-width:0;min-height:0;margin:0;align-items:stretch;gap:8px;
@@ -923,7 +921,9 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   .game-sidebar .panel{border-radius:10px;box-shadow:none}
   .game-sidebar .map-panel{flex:1 0 180px}
   .game-sidebar .map-wrap{min-height:96px}
-  .game-sidebar .map-footer{display:none}
+  .game-sidebar .map-footer{flex:none;min-height:0;margin-top:0;padding:5px 6px}
+  .game-sidebar .map-footer .map-links{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;width:100%}
+  .game-sidebar .map-footer .map-links :is(button,select){min-height:30px;min-width:0;padding:3px 5px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .game-sidebar .panel-head{flex:none;min-height:0;padding:5px 8px}
   .game-sidebar .panel-head{flex-wrap:nowrap}
   .game-sidebar .panel-head h2{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:14px;margin:0}

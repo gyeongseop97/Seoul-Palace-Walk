@@ -11,6 +11,10 @@ import {HAIR_STYLES,TALL_HAIR,makeHairGeometry} from "./avatar-hair.js";
 import {LOOK_OPTIONS,SKIN_TONES} from "./look-options.js";
 
 const TAU = Math.PI * 2;
+// Feet paddling in the stream: each foot flicks up and forward in turn. The splash drawn in
+// the world and its sound use the same clock, so they land together.
+export const FOOT_BATH_PERIOD = 1500;
+export const footBathSwing = (clock, foot) => Math.sin((clock/FOOT_BATH_PERIOD+foot*.5)*TAU);
 const HAIR = HAIR_STYLES;
 const EYES = LOOK_OPTIONS.eyes;
 const BROWS = LOOK_OPTIONS.brows, MOUTHS = LOOK_OPTIONS.mouth;
@@ -1009,12 +1013,14 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       const lift = (.13+sprint*.12)*Math.sin(Math.PI*swing)*stride;
       const dance=acting?.kind==="dance"&&!walking?acting.weight*(1-seated):0;
       const danceStep=dance?Math.sin(acting.time*TAU*1.36+side*Math.PI*.5):0;
-      const ankleY = SOLE+lift*(1-seated)+seated*(seat?.footBath?-.082:.10)+airborne*(.17+i*.05)+Math.max(0,danceStep)*dance*.081;
+      const paddle = seat?.footBath ? seated*footBathSwing(clock,i) : 0;
+      const ankleY = SOLE+lift*(1-seated)+seated*(seat?.footBath?-.082:.10)+Math.max(0,paddle)*.085
+        +airborne*(.17+i*.05)+Math.max(0,danceStep)*dance*.081;
       leg.target.set(side*(STANCE+crouch*.033+dance*.044)-pelvis.position.x,ankleY-pelvis.position.y,
-        mix(step+crouch*.09,seat?.footBath?.57:.42,seated)+airborne*(.10+i*.05)+danceStep*dance*.10);
+        mix(step+crouch*.09,seat?.footBath?.50:.42,seated)+paddle*.085+airborne*(.10+i*.05)+danceStep*dance*.10);
       solve(leg,leg.target,forward);
       const roll = (footPhase < stance ? 0 : Math.sin(swing*TAU)*.24*stride) * (1-seated);
-      pitch.setFromAxisAngle(xAxis,roll+seated*.06);
+      pitch.setFromAxisAngle(xAxis,roll+seated*.06-Math.max(0,paddle)*.35);
       leg.end.quaternion.copy(globalLower).invert().multiply(pitch);
     }
 

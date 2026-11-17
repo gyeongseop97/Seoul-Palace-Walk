@@ -4,7 +4,7 @@ import {PLAZA_SHOW_BEAT_MS,PLAZA_SHOW_BEATS,PLAZA_SHOW_DURATION_MS,PLAZA_SHOW_HE
 // transit chimes, passing buses and the guard drum. Everything is generated with Web Audio, so there are no
 // audio files to load. Sound starts on the first tap or key press, as browsers require.
 export function makeSound(){
-  let context=null,master=null,noise=null,engine=null,engineStop=null,show=null,rainfall=null,rainStop=null;
+  let context=null,master=null,noise=null,engine=null,engineStop=null,show=null,rainfall=null,rainStop=null,brook=null,brookStop=null;
   let enabled=localStorage.getItem("jeongdong-sound")!=="off";
   const fraction=value=>Math.max(0,Math.min(1,Number.isFinite(value)?value:0));
   function ready(){
@@ -96,6 +96,43 @@ export function makeSound(){
     rainfall.filter.frequency.setTargetAtTime(covered?760:3600,ctx.currentTime,.18);
     rainfall.volume.gain.setTargetAtTime(amount*(covered?.036:.095),ctx.currentTime,.15);
   }
+  function stopStream(){
+    clearTimeout(brookStop);brookStop=null;
+    if(!brook)return;
+    const {source,parts}=brook;
+    source.stop();source.disconnect();
+    for(const part of parts)part.disconnect();
+    brook=null;
+  }
+  // Running water: a bright babble beside the stream and a deeper rush by the waterfall.
+  function stream(nearness,falls=0){
+    const ctx=playing(),flow=fraction(nearness),rush=fraction(falls);
+    if(!ctx||flow<.02&&rush<.02){
+      if(brook&&brookStop===null){
+        brook.babble.gain.setTargetAtTime(0,context.currentTime,.12);
+        brook.roar.gain.setTargetAtTime(0,context.currentTime,.12);
+        brookStop=setTimeout(stopStream,600);
+      }
+      return;
+    }
+    if(!brook){
+      const source=ctx.createBufferSource(),bright=ctx.createBiquadFilter(),babble=ctx.createGain();
+      const deep=ctx.createBiquadFilter(),roar=ctx.createGain(),ripple=ctx.createOscillator(),depth=ctx.createGain();
+      source.buffer=noise;source.loop=true;source.playbackRate.value=.83;
+      bright.type="bandpass";bright.frequency.value=1750;bright.Q.value=.55;
+      deep.type="lowpass";deep.frequency.value=620;deep.Q.value=.4;
+      babble.gain.value=0;roar.gain.value=0;
+      // A slow wobble keeps the babble from sounding like steady hiss.
+      ripple.frequency.value=.37;depth.gain.value=420;ripple.connect(depth);depth.connect(bright.frequency);
+      source.connect(bright);bright.connect(babble);babble.connect(master);
+      source.connect(deep);deep.connect(roar);roar.connect(master);
+      source.start();ripple.start();
+      brook={source,babble,roar,parts:[bright,babble,deep,roar,ripple,depth]};
+    }
+    clearTimeout(brookStop);brookStop=null;
+    brook.babble.gain.setTargetAtTime(flow**1.4*.05+rush*.05,ctx.currentTime,.25);
+    brook.roar.gain.setTargetAtTime(rush**1.3*.17+flow*.012,ctx.currentTime,.25);
+  }
   // A short burst of filtered noise: the body of a footstep, a splash or a drum.
   function burst({type="lowpass",frequency=900,q=1,gain=.2,attack=.004,decay=.09,rate=1}){
     const ctx=playing();
@@ -173,10 +210,15 @@ export function makeSound(){
     toggle(){
       enabled=!enabled;localStorage.setItem("jeongdong-sound",enabled?"on":"off");
       if(enabled)ready();
-      else{stopEngine();stopShow();stopRain();context?.suspend().catch(()=>{});}
+      else{stopEngine();stopShow();stopRain();stopStream();context?.suspend().catch(()=>{});}
       return enabled;
     },
-    bus,plazaShow,rain,
+    bus,plazaShow,rain,stream,
+    // A foot flicking the surface of the stream.
+    splash(){
+      burst({type:"bandpass",frequency:1500+Math.random()*500,q:.8,gain:.085,attack:.006,decay:.15,rate:.9});
+      burst({type:"lowpass",frequency:420,gain:.05,decay:.11,rate:.5});
+    },
     busking(note,proximity){
       const gain=.072*fraction(proximity)**1.8;
       if(note==null||gain<.001)return;

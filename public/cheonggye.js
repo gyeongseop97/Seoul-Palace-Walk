@@ -1,5 +1,5 @@
 import {makeTreeBuilder} from "./lowpoly-trees.js";
-import {bankAt,cheonggyeAccess,cheonggyeBedLevel,cheonggyeBridges,cheonggyeRailOpening,cheonggyeRoadLeads,
+import {bankAt,cheonggyeAccess,cheonggyeAccessDrop,cheonggyeBedLevel,cheonggyeBridges,cheonggyeRailOpening,cheonggyeRoadLeads,
   cheonggyeStations,cheonggyeSurfaces,cheonggyeTrees,riverAt,stepStoneXs} from "./cheonggye-layout.js";
 import {CHEONGGYE_WATER_LEVEL,cheonggyeSeats} from "./cheonggye-seats.js";
 
@@ -124,11 +124,18 @@ export function* buildCheonggye(T,root,kit,terrain){
     const x=616+i*1.27,y=-149.7+i*.21;
     block(i%2?cap:granite,x,y,1.28,10.1,.27,at(x,y)-i*.23-.08);
   }
-  for(const {points,width,kind} of cheonggyeAccess){
+  // True where a point lies in the bank behind the wall face, so a cut there needs retaining walls.
+  function inBank({x,y}){
+    if(x<cheonggyeStations[0])return false;
+    const [centre,north,south]=riverAt(x);
+    return y<centre?centre-north-y>.3:y-centre-south>.3;
+  }
+  for(const route of cheonggyeAccess){
+    const {points,width,kind,landing}=route;
     const length=points.slice(1).map((b,i)=>Math.hypot(b.x-points[i].x,b.y-points[i].y));
     const total=length.reduce((sum,value)=>sum+value,0);
-    const stations=[0],risers=kind==="steps"?23:Math.ceil(total/2);
-    for(let i=1;i<=risers;i++)stations.push(i/risers);
+    const risers=kind==="steps"?23:Math.ceil(total/2),stations=landing?[0,landing]:[0];
+    for(let i=1;i<=risers;i++)stations.push(landing+(1-landing)*i/risers);
     function cross(t,level){
       let d=t*total,i=0;
       while(i<length.length-1&&d>length[i])d-=length[i++];
@@ -136,7 +143,7 @@ export function* buildCheonggye(T,root,kit,terrain){
       const x=a.x+d*dx/length[i],y=a.y+d*dy/length[i],s=width/(2*length[i]);
       return [{x:x-dy*s,y:y+dx*s,level},{x:x+dy*s,y:y-dx*s,level}];
     }
-    const level=t=>.041+Math.max(0,t)*cheonggyeBedLevel;
+    const level=t=>.041+cheonggyeAccessDrop(route,Math.max(0,t))*cheonggyeBedLevel;
     const rows=[cross(0,level(0))];
     for(let i=1;i<stations.length;i++){
       const end=stations[i];
@@ -144,17 +151,24 @@ export function* buildCheonggye(T,root,kit,terrain){
       rows.push(cross(end,level(end)));
     }
     grid(rows,darkPaving);
-    // Cover the exposed cut on either side of the sloping pavement.
+    // Wall in the cut on either side: below the paving everywhere, and up to the street
+    // where the route passes through the bank.
     for(let side=0;side<2;side++)grid(rows.map(row=>{
-      const lip=row[side];return [lip,{...lip,level:waterLevel-.35}];
+      const lip=row[side];
+      return [{...lip,level:inBank(lip)?.041:lip.level},lip,{...lip,level:waterLevel-.35}];
     }),darkPaving);
-    for(let i=0;i<rows.length;i+=Math.max(2,Math.floor(rows.length/15))){
-      for(const p of rows[i])cylinder(rail,wx(p.x),at(p.x,p.y)+p.level+.36,wz(p.y),.032,.77,7,root);
+    // Handrails follow the slope below the landing; a guard rail edges the stairwell above.
+    const sloped=stations.filter(t=>t>=landing);
+    for(let i=0;i<sloped.length;i+=Math.max(1,Math.floor(sloped.length/8))){
+      for(const p of cross(sloped[i],level(sloped[i])))cylinder(rail,wx(p.x),at(p.x,p.y)+p.level+.36,wz(p.y),.032,.77,7,root);
     }
-    const rails=stations.map(t=>cross(t,level(t)+.78));
+    const rails=sloped.map(t=>cross(t,level(t)+.78));
     for(let i=1;i<rails.length;i++)for(let side=0;side<2;side++){
       const a=rails[i-1][side],b=rails[i][side];
       bar(rail,a,b,.038);
+      if(level(sloped[i-1])>-.5||!inBank(a)||!inBank(b))continue;
+      bar(rail,{...a,level:.91},{...b,level:.91},.037);
+      if(i%4===0)cylinder(rail,wx(a.x),at(a.x,a.y)+.47,wz(a.y),.036,.85,6,root);
     }
     yield;
   }
@@ -165,31 +179,67 @@ export function* buildCheonggye(T,root,kit,terrain){
     mesh.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),delta.normalize());
   }
 
+  // Stretches of the bank, as [from, to] along x, where a test holds; ends are refined so
+  // walls and paving stop exactly at the edge of a stairwell.
+  function runs(test){
+    const first=cheonggyeStations[0],last=cheonggyeStations.at(-1),found=[];
+    const edge=(inside,outside)=>{
+      for(let i=0;i<14;i++){const mid=(inside+outside)/2;if(test(mid))inside=mid;else outside=mid;}
+      return inside;
+    };
+    let start=null,before=first;
+    for(let x=first;x<last+.2;x+=.2){
+      const here=Math.min(last,x),holds=test(here);
+      if(holds&&start===null)start=here===first?first:edge(here,before);
+      if(!holds&&start!==null){found.push([start,edge(before,here)]);start=null;}
+      before=here;
+    }
+    if(start!==null)found.push([start,last]);
+    return found.filter(([from,to])=>to-from>.05);
+  }
+  const pieces=(from,to)=>{
+    const cuts=[from,...cheonggyeStations.filter(x=>x>from+.2&&x<to-.2),to],stops=[from];
+    for(let i=1;i<cuts.length;i++){
+      const count=Math.ceil((cuts[i]-cuts[i-1])/3.6);
+      for(let j=1;j<=count;j++)stops.push(cuts[i-1]+(cuts[i]-cuts[i-1])*j/count);
+    }
+    return stops;
+  };
   for(const side of [-1,1]){
     const faceAt=x=>bankAt(x,side,.3),lipAt=x=>bankAt(x,side,3.53);
-    const stations=[...new Set([...cheonggyeStations,...Array.from({length:121},(_,i)=>624+i*3.6),1056])].sort((a,b)=>a-b);
+    const open=(x,inset)=>{const p=bankAt(x,side,inset);return cheonggyeRailOpening(p.x,p.y);};
     const backing=new T.MeshStandardMaterial({color:0x656961,roughness:1,side:T.DoubleSide});
-    for(let i=1;i<stations.length;i++){
-      const a=stations[i-1],b=stations[i],x=(a+b)/2,p=faceAt(x);
-      if(cheonggyeRailOpening(p.x,p.y)||cheonggyeRailOpening(a,faceAt(a).y)||cheonggyeRailOpening(b,faceAt(b).y))continue;
-      // Dark backing fills the mortar joints and continues below the water.
-      grid([faceAt(a),faceAt(b)].map(p=>[{...p,level:waterLevel-.55},{...p,level:.032}]),backing);
-      for(let row=0;row<7;row++){
-        const shift=row%2===0?0:Math.min(.21,(b-a)*.12);
-        const level=cheonggyeBedLevel+row*.54;
-        const from=faceAt(a+shift),to=faceAt(b+shift-.025);
-        strip(stone[(row*3+i*7)%stone.length],from,to,.34,.51,level);
+    let count=0;
+    for(const [from,to] of runs(x=>!open(x,.3))){
+      const stations=pieces(from,to);
+      for(let i=1;i<stations.length;i++){
+        const a=stations[i-1],b=stations[i],x=(a+b)/2,p=faceAt(x);
+        // Dark backing fills the mortar joints and continues below the water.
+        grid([faceAt(a),faceAt(b)].map(p=>[{...p,level:waterLevel-.55},{...p,level:.032}]),backing);
+        for(let row=0;row<7;row++){
+          const shift=row%2===0?0:Math.min(.21,(b-a)*.12);
+          const level=cheonggyeBedLevel+row*.54;
+          strip(stone[(row*3+count*7)%stone.length],faceAt(Math.min(to,a+shift)),faceAt(Math.min(to,b+shift-.025)),.34,.51,level);
+        }
+        count++;
+        if(open(x,1.9))continue;
+        const upperA=faceAt(a),upperB=faceAt(b);
+        strip(cap,upperA,upperB,.42,.17,.026);
+        bar(rail,{...upperA,level:.91},{...upperB,level:.91},.037);
+        bar(rail,{...upperA,level:.51},{...upperB,level:.51},.026);
+        if(b-a>.95)cylinder(rail,wx(p.x),at(p.x,p.y)+.47,wz(p.y),.036,.85,6,root);
+        if(count%12===0)yield;
       }
-      const upperA=faceAt(a),upperB=faceAt(b),lipA=lipAt(a),lipB=lipAt(b);
-      const upper=surface([upperA,upperB,lipB,lipA],paving,.038);
-      upper.userData.terrainSurface=true;
-      if(cheonggyeRailOpening(x,(p.y+lipAt(x).y)/2))continue;
-      strip(cap,upperA,upperB,.42,.17,.026);
-      bar(rail,{...upperA,level:.91},{...upperB,level:.91},.037);
-      bar(rail,{...upperA,level:.51},{...upperB,level:.51},.026);
-      if(b-a>.95)cylinder(rail,wx(p.x),at(p.x,p.y)+.47,wz(p.y),.036,.85,6,root);
-      if(i%12===0)yield;
     }
+    // The paved strip between the wall and the walk, left open over stairs and ramps.
+    for(const [from,to] of runs(x=>![.45,1.1,1.9,2.7,3.4].some(inset=>open(x,inset)))){
+      const stations=pieces(from,to);
+      for(let i=1;i<stations.length;i++){
+        const a=stations[i-1],b=stations[i];
+        surface([faceAt(a),faceAt(b),lipAt(b),lipAt(a)],paving,.038);
+      }
+    }
+    yield;
   }
 
   for(const bridge of cheonggyeBridges){

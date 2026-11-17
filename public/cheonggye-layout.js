@@ -38,11 +38,29 @@ const plaza=ring([[518.1,-167.8],[531.3,-171.8],[548.5,-170.7],[591,-166.85],[60
   [610,-161.3],[622.9,-159.6],[627.2,-156.1],[624,-152.8],[621,-146.9],[619.8,-144.75],
   [599.6,-145],[580,-146.62],[573,-147.0],[568,-147.1],[555.3,-144.9],
   [535.6,-140.6],[524.4,-132.6],[519.7,-133.3],[522.4,-144.6],[519.2,-152.6]]);
-const walkersNorth=streamBand([[-1,-3.35],[-1,.2]]);
-const walkersSouth=streamBand([[1,-3.15],[1,.2]]);
+// The lower paving runs up to the bank wall; walkers keep a body's width clear of it.
+const pavedNorth=streamBand([[-1,-3.35],[-1,.2]]);
+const pavedSouth=streamBand([[1,-3.15],[1,.2]]);
+const walkersNorth=streamBand([[-1,-3.35],[-1,-.42]]);
+const walkersSouth=streamBand([[1,-3.15],[1,-.42]]);
 const water=streamBand([[-1,-3.26],[1,-3.08]]);
-const northWalk=streamBand([[-1,3.5],[-1,6.9]]);
-const southWalk=streamBand([[1,4],[1,7.6]]);
+// Stairs straight down the bank, as [x, side]. Each starts on a landing in the pavement,
+// so the pavement is laid in pieces that leave the stairwells open.
+const flightWidth=2.6,flightTop={[-1]:6.9,1:7.6},flightLanding=2.35,flightFoot=-1.25;
+const flightSites=[["모전교 하류 북쪽 계단",751,-1],["모전교 남쪽 계단",756,1],["광통교 북쪽 계단",873,-1],
+  ["광교 북쪽 계단",961,-1],["광교 동편 출입계단",1045,1]];
+function walkPieces(side,inner,outer){
+  const pieces=[];
+  let from=624;
+  for(const [,x] of flightSites.filter(site=>site[2]===side).sort((a,b)=>a[1]-b[1])){
+    pieces.push(streamBand([[side,inner],[side,outer]],from,x-flightWidth/2));
+    from=x+flightWidth/2;
+  }
+  pieces.push(streamBand([[side,inner],[side,outer]],from,1056));
+  return pieces;
+}
+const northWalk=walkPieces(-1,3.5,6.9);
+const southWalk=walkPieces(1,4,7.6);
 const northRoad=streamBand([[-1,6.9],[-1,12.1]]);
 const southRoad=streamBand([[1,7.6],[1,12.3]]);
 const northFrontage=streamBand([[-1,12.05],[-1,16.7]]);
@@ -66,19 +84,23 @@ const ribbon=(points,width)=>{
 };
 function access(name,vertices,width,kind){
   const points=ring(vertices);
-  return {name,kind,points,width,outline:ribbon(points,width)};
+  return {name,kind,points,width,outline:ribbon(points,width),landing:0};
 }
+function flight([name,x,side]){
+  const top=flightTop[side],corner=inset=>{const p=bankAt(x,side,inset);return [p.x,p.y];};
+  return {...access(name,[corner(top),corner(top-flightLanding),corner(flightFoot)],flightWidth,"steps"),
+    landing:flightLanding/(top-flightFoot)};
+}
+// How far down a route has dropped at t along it, from 0 at street level to 1 on the lower path.
+export const cheonggyeAccessDrop=({landing},t)=>clamp((t-landing)/(1-landing));
 export const cheonggyeAccess=[
   access("청계광장 남쪽 경사로",[[570.7,-145.9],[580,-145.3],[600,-143.3],[620,-143.1],[635,-144.1]],2.55,"ramp"),
   access("청계광장 북쪽 계단",[[609,-164.2],[623.5,-162.6],[630.7,-162],[639,-157.7]],2.7,"steps"),
-  access("모전교 하류 북쪽 경사로",[[704,-166],[710,-165.6],[733.5,-163.8],[750,-162.3],[753,-157],[751,-151]],2.45,"ramp"),
-  access("모전교 남쪽 계단",[[749,-128.8],[751.5,-132.8],[756,-136.1]],3.0,"steps"),
-  access("광통교 북쪽 계단",[[855,-151.7],[861.2,-150.8],[870,-146],[873.4,-138.5]],2.5,"steps"),
-  access("광교 북쪽 계단",[[951.5,-143.6],[963,-142.8],[968.7,-138.7],[960.5,-131]],2.6,"steps"),
-  access("광교 동편 출입계단",[[1025,-98.5],[1031,-99.8],[1040,-101.7],[1046,-105.1]],3.15,"steps")
+  ...flightSites.map(flight)
 ];
 
-const approachNorth=access("청계광장 북쪽 보도",[[537.4,-170.8],[568,-169.7],[609.8,-165.7],[624,-165.35]],3.25,"paving");
+// East of the plaza this pavement bends north, clear of the stairs that drop beside it.
+const approachNorth=access("청계광장 북쪽 보도",[[537.4,-170.8],[568,-169.7],[605,-166.5],[612,-167.2],[624,-166.9]],3.25,"paving");
 const approachSouth=access("청계광장 남쪽 보도",[[525.3,-132.9],[538.6,-138.3],[563.4,-138.7],[595,-137.7],[624,-137.6],[638,-137.6]],4.2,"paving");
 const startRamp=access("청계광장 경사로 입구",[[561,-151],[566,-148.1],[570.83,-145.86]],3.65,"paving");
 const sidePlaza=access("청계광장 보도 연결",[[536,-165],[540,-169],[548,-172.05],[559,-171]],3.7,"paving");
@@ -121,9 +143,9 @@ const steppingWay=ribbon([bankAt(660,-1,-3.6),bankAt(660,1,-3.55)],1.8);
 export const cheonggyeSurfaces=[
   {kind:"road",outline:northRoad},{kind:"road",outline:southRoad},
   {kind:"plaza",outline:plaza},approachNorth,approachSouth,startRamp,sidePlaza,plazaSouthShoulder,...plazaSouthCrossings,
-  {kind:"paving",outline:northWalk},{kind:"paving",outline:southWalk},
+  ...[...northWalk,...southWalk].map(outline=>({kind:"paving",outline})),
   {kind:"paving",outline:northFrontage},{kind:"paving",outline:southFrontage},...crossings,
-  {kind:"lower",outline:walkersNorth},{kind:"lower",outline:walkersSouth},
+  {kind:"lower",outline:pavedNorth},{kind:"lower",outline:pavedSouth},
   {kind:"water",outline:water},{kind:"wood",outline:footbridge.footprint},
   {kind:"stones",outline:steppingWay},...cheonggyeAccess,
   ...decks.map(({footprint})=>({kind:"bridge",outline:footprint}))
@@ -133,7 +155,7 @@ const inside=(outline,x,y)=>insideCorridorPolygon(x,y,outline);
 const surfaceKinds=kinds=>cheonggyeSurfaces.filter(({kind})=>kinds.includes(kind)).map(({outline})=>outline);
 const accessWalks=cheonggyeAccess.map(({outline})=>outline);
 const upperWalks=surfaceKinds(["plaza","paving","crossing"]);
-const lowerWalks=surfaceKinds(["lower","wood","stones"]);
+const lowerWalks=[walkersNorth,walkersSouth,...surfaceKinds(["wood","stones"])];
 const walkPolygons=[...accessWalks,...upperWalks,...lowerWalks];
 const polygonTest=(outline=>{
   const xs=outline.map(p=>p.x),ys=outline.map(p=>p.y),lowX=Math.min(...xs),highX=Math.max(...xs),lowY=Math.min(...ys),highY=Math.max(...ys);
@@ -172,7 +194,10 @@ export function cheonggyeLevel({x,y,up}){
   if(up&&onDeck.some(contains=>contains(x,y)))return .12;
   for(const route of cheonggyeAccess){
     const t=accessProgress(route,x,y);
-    if(t!=null)return -depth*(route.kind==="steps"?Math.floor(t*23)/23:t)+.04;
+    if(t!=null){
+      const drop=cheonggyeAccessDrop(route,t);
+      return -depth*(route.kind==="steps"?Math.floor(drop*23)/23:drop)+.04;
+    }
   }
   if(inside(footbridge.footprint,x,y)){
     const t=clamp((y-footbridge.north)/(footbridge.south-footbridge.north));
@@ -192,7 +217,9 @@ export function cheonggyeCameraCeiling(x,y,approaching=false){
 export function cheonggyeCameraWall(x,y,height){
   if(x<cheonggyeStations[0]||x>cheonggyeStations.at(-1)||height>.16||height<cheonggyeBedLevel-.9)return false;
   const north=bankAt(x,-1,.12).y,south=bankAt(x,1,.12).y;
-  return (y<=north||y>=south)&&!cheonggyeRailOpening(x,y);
+  if(y>north&&y<south)return false;
+  // In a stairwell the camera stays clear above the steps and the landing, never under them.
+  return !cheonggyeRailOpening(x,y)||height<cheonggyeLevel({x,y})+.3;
 }
 export const cheonggyeBedLevel=-depth;
 export function cheonggyeDeckStep(from,x,y){

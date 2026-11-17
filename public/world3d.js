@@ -26,7 +26,7 @@ import { registerDiningNavigation } from "./dining-layout.js";
 import { buildDiningFacade } from "./dining-world.js";
 import { PET_MS, FEED_MS, ITEMS, diningTray, jumpLift, renderedJumpLift } from "./activities.js";
 import { bikeFallAt } from "./avatar-gestures.js";
-import { makeWalkerModels } from "./walker-model.js";
+import { FOOT_BATH_PERIOD,makeWalkerModels } from "./walker-model.js";
 import { addMinigameMarkers, registerMinigameProps } from "./minigame-markers.js";
 import { makeMinigameWorld } from "./minigame-world.js";
 import { makeInteractionMarkers } from "./interaction-markers.js";
@@ -829,9 +829,35 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   const footing=position=>floorHeight(position)-waterDepth(position.x,position.y);
   const rippleGeometry=new T.RingGeometry(.5,.58,30),ripples=new Map();
   rippleGeometry.rotateX(-Math.PI/2);
+  const dropGeometry=new T.SphereGeometry(.024,6,5);
+  const dropMaterial=new T.MeshBasicMaterial({color:0xe6f6f7,transparent:true,opacity:.85,depthWrite:false});
+  // Droplets a paddling foot throws up. They follow the room clock, as the kick does.
+  function drawSplash(rings,surface){
+    if(!surface?.seat){
+      if(rings?.drops)for(const drop of rings.drops)drop.visible=false;
+      return;
+    }
+    rings.drops??=Array.from({length:10},()=>{const drop=new T.Mesh(dropGeometry,dropMaterial);scene.add(drop);return drop;});
+    const ahead=Math.hypot(surface.x-surface.seat.x,surface.y-surface.seat.y)||1;
+    const fx=(surface.x-surface.seat.x)/ahead,fy=(surface.y-surface.seat.y)/ahead;
+    rings.drops.forEach((drop,index)=>{
+      const foot=index%2,side=foot?1:-1;
+      // The foot breaks the surface as its swing turns upward.
+      const age=((surface.clock/FOOT_BATH_PERIOD+foot*.5)%1+1)%1*FOOT_BATH_PERIOD/1000;
+      const spread=(index*2.399)%1.5-.75,speed=.45+(index*.618%1)*.55,rise=1.25+(index*.382%1)*.75;
+      const height=rise*age-4.9*age*age;
+      drop.visible=height>0;
+      if(!drop.visible)return;
+      const reach=speed*age,cos=Math.cos(spread),sin=Math.sin(spread);
+      const x=surface.x-fy*side*.075+(fx*cos-fy*sin)*reach,y=surface.y+fx*side*.075+(fy*cos+fx*sin)*reach;
+      drop.position.set(wx(x),surface.level+height,wz(y));
+      drop.scale.setScalar(1-age*1.4);
+    });
+  }
   function drawRipples(id,player,now,wet,surface=null){
     let rings=ripples.get(id);
     if(!wet){
+      drawSplash(rings,null);
       if(rings)for(const ring of rings)ring.visible=false;
       return;
     }
@@ -840,6 +866,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       for(const ring of rings)scene.add(ring);
       ripples.set(id,rings);
     }
+    drawSplash(rings,surface);
     const busy=Math.hypot(player.vx||0,player.vy||0)>.05;
     const {x,y}=surface??player,level=surface?.level??groundHeight(player)+.062;
     rings.forEach((ring,i)=>{
@@ -1152,6 +1179,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       const tray=tableTrays.get(id);
       if(tray){tray.show.dispose();tray.root.removeFromParent();tableTrays.delete(id);}
       for(const ring of ripples.get(id)??[]){ring.removeFromParent();ring.material.dispose();}
+      for(const drop of ripples.get(id)?.drops??[])drop.removeFromParent();
       ripples.delete(id);
     }
     const diners=new Map(service.map(ticket=>[ticket.player,ticket]));
@@ -1172,7 +1200,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       const tableSeat=seatAt(player,clock);
       const waterPoint=tableSeat?.waterPoint;
       drawRipples(player.id,player,now,Boolean(waterPoint)||waterDepth(player.x,player.y)>0&&jumpLift(player,clock)<.3,
-        waterPoint?{...waterPoint,level:outsideGroundOffset(waterPoint)+CHEONGGYE_WATER_LEVEL+.016}:null);
+        waterPoint?{...waterPoint,level:outsideGroundOffset(waterPoint)+CHEONGGYE_WATER_LEVEL+.016,seat:tableSeat,clock}:null);
       updateTableTray(player,tableSeat,clock);
       walkerModels.update(model,diningPose(player),{now,clock,delta,seat:tableSeat,floor,jump:renderedJumpLift(player,clock,floor),emojiTexture,chatTexture,
         turnEase:player===me?1-Math.exp(-delta*22):1});
