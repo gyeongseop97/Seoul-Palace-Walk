@@ -1,7 +1,7 @@
 import {gradePalaceMeshes,palaceMeshHeight} from "./gyeongbok-terrain.js";
 import {
   route,entranceWalk,pavilions,city,estateOutline,stonewallVerge,palacePaths,palaceCourts,palaceGardens,palacePlantings,palacePond,palaceWalls,
-  gate,ticket,ticketGuide,bridge,middle,hall,stoneHall,stoneFountain,court,courtAngle,fountain,garden,spawn,addObstacle,solidAt,withObstacleScope
+  gate,ticket,ticketGuide,ticketForecourt,bridge,middle,hall,stoneHall,stoneFountain,court,courtAngle,fountain,garden,spawn,addObstacle,solidAt,withObstacleScope
 } from "./layout.js";
 import {buildWestern} from "./western.js";
 import {fromBuilding,pavilionStairAccess} from "./museum.js";
@@ -224,8 +224,8 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
       ribbon(points,half-.02,half+.12,curb,height+.022);
     }
   }
-  const s=placed(spawn);
-  paved(s.x-1,s.z+4,39,39,.025);
+  const s=placed(spawn),forecourt=placed(ticketForecourt);
+  paved(forecourt.x,forecourt.z,ticketForecourt.width,ticketForecourt.depth,.025);
 
   function line(a,b){
     const dx=b.x-a.x,dz=b.y-a.y,len=Math.hypot(dx,dz),angle=-Math.atan2(dz,dx);

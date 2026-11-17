@@ -1,6 +1,8 @@
 import {CLAW_PRIZES} from "./arcade-games.js";
 import {baseballBatterSide} from "./arcade-baseball.js";
 import {TARGET_LANES,readTargetSnapshot,targetSnapshot} from "./arcade-targets.js";
+import {classicSnapshot,isClassic} from "./arcade-classics.js";
+import {MOLE_HOLES,moleSwing} from "./arcade-mole.js";
 
 const headFields=["x","y","z","grip","swingX","swingZ","tiltX","tiltZ"];
 const figureFields=["x","y","z","rotX","rotY","rotZ"];
@@ -14,13 +16,14 @@ const blend=(a,b,portion)=>a+(b-a)*portion;
 export function arcadeSnapshot(state){
   if(!state)return null;
   const {kind,phase,score,level,basket,claw,pump,rimX}=state;
+  if(isClassic(kind))return classicSnapshot(state);
   if(Object.hasOwn(TARGET_LANES,kind))return targetSnapshot(state);
   if(kind==="baseball")return state;
   if(kind==="basket")return {kind,phase,score,level,ball:sample(ballFields,basket),rimX:round(rimX)};
   if(kind==="bowling")return {kind,roll:state.bowling?.roll??null};
   if(kind==="mole"){
-    const {target,height,swingAt,finished,remaining}=state;
-    return {kind,score,target,height:round(height),swingAt,finished,remaining};
+    const {target,height,swingAt,swingHole,hit,finished,remaining}=state;
+    return {kind,score,target,height:round(height),swingAt,swingHole,hit,finished,remaining};
   }
   if(kind==="claw"){
     const prizes=[];
@@ -37,6 +40,7 @@ export function arcadeSnapshot(state){
 }
 
 function decode(packet,at){
+  if(isClassic(packet.kind))return {...packet,at};
   if(Object.hasOwn(TARGET_LANES,packet.kind))return {...readTargetSnapshot(packet),at};
   if(packet.kind==="baseball")return {...packet,at};
   if(packet.kind==="bowling")return {kind:packet.kind,at,bowling:{roll:packet.roll}};
@@ -82,6 +86,11 @@ export function visibleArcade(samples,now){
   if(!prior)return next;
   const portion=clamp((now-155-prior.at)/(next.at-prior.at)),display=portion<.5?prior:next;
   if(portion===1)return next;
+  if(isClassic(next.kind)){
+    if(prior.phase!==next.phase)return next;
+    const point=key=>next[key].map((value,index)=>blend(prior[key][index],value,portion));
+    return {...display,ball:point("ball"),paddle:point("paddle"),rival:point("rival"),flippers:point("flippers")};
+  }
   if(next.kind==="mole")return prior.target===next.target?{...display,height:blend(prior.height,next.height,portion)}:display;
   if(next.kind==="basket")return {...display,rimX:blend(prior.rimX,next.rimX,portion),
     basket:interpolate(prior.basket,next.basket,ballFields,portion)};
@@ -96,7 +105,17 @@ export function visibleArcade(samples,now){
 }
 
 export function poseArcade(state,model,clock){
-  if(state?.kind==="claw"){
+  if(isClassic(state?.kind)){
+    if(state.kind==="airHockey"){
+      const arm=model.arms[1];
+      arm.upper.rotateX(-.79);arm.upper.rotateZ(state.paddle[0]*.36);arm.lower.rotateX(-.64-state.paddle[1]*.11);
+    }else{
+      model.arms.forEach((arm,i)=>{
+        const motion=state.kind==="pinball"?state.flippers[i]:i===1?Math.abs(state.paddle[0]):0;
+        arm.upper.rotateX(-.58-motion*.19);arm.lower.rotateX(-.58-motion*.34);
+      });
+    }
+  }else if(state?.kind==="claw"){
     const [button,stick]=model.arms;
     stick.upper.rotateX(-.66);stick.lower.rotateX(-.56);
     const press=Math.min(1,Math.max(0,(1.72-state.claw.y)*3));
@@ -112,13 +131,14 @@ export function poseArcade(state,model,clock){
     const bowl=state.kind==="bowling";
     const roll=bowl?state.bowling?.roll:null;
     const age=clock-(bowl?roll?.at:state.swingAt);
-    const swing=age>=0&&age<520?Math.sin(Math.PI*age/520):0;
-    const arm=model.arms[1];
+    const swing=bowl?(age>=0&&age<520?Math.sin(Math.PI*age/520):0):moleSwing(clock,state.swingAt);
+    const arm=model.arms[bowl?1:0];
     arm.upper.rotateX(bowl?-.25-1.55*swing:-.48-.95*swing);
     arm.lower.rotateX(bowl?-.33+.25*swing:-.62-1.00*swing);
     if(swing){
-      const turn=-Math.PI/2-(roll?.angle??0)-model.group.rotation.y;
-      model.group.rotation.y+=Math.atan2(Math.sin(turn),Math.cos(turn))*Math.min(1,swing*2.8);
+      const shift=bowl?-(roll?.angle??0):Math.atan2(MOLE_HOLES[state.swingHole]?.x??0,1.43);
+      const turn=-Math.PI/2+shift-model.group.rotation.y;
+      model.group.rotation.y+=Math.atan2(Math.sin(turn),Math.cos(turn))*Math.min(1,Math.max(0,swing*2.8));
       model.chest.rotateX(.20*swing);
     }
   }else if(state?.kind==="baseball"&&state.hand){

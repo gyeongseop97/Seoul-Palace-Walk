@@ -4,6 +4,7 @@ import {CLINK_DURATION_MS} from "./social-events.js";
 import {gestureHands,peaceHandParts} from "./avatar-gestures.js";
 import {DINING_TRAY_WIDTH,diningGesture,makeDiningUtensil} from "./dining-dishes.js";
 import {LOOK_OPTIONS,SKIN_TONES} from "./look-options.js";
+import {moleSwing} from "./arcade-mole.js";
 
 const clamp=(value,min=0,max=1)=>Math.max(min,Math.min(max,value));
 const ease=value=>{const t=clamp(value);return t*t*(3-2*t);};
@@ -46,7 +47,17 @@ export function makeFirstPersonView(T,createItemProp){
   const trayPivot=new T.Group();trayPivot.name="First-person two-handed meal tray";scene.add(trayPivot);
   const showTray=createItemProp(trayPivot),utensil=makeDiningUtensil(T)(scene);
   utensil.group.name="First-person eating utensil";
+  const mallet=new T.Group();mallet.name="First-person mole mallet";scene.add(mallet);
+  const wood=matte(0xd5a471),malletTeal=matte(0x377d7e),caps=matte(0xd4a96f),grip=matte(0x343943);
+  for(const [material,x,y,radius,length,crosswise] of [
+    [wood,0,.083,.023,.25,false],[grip,0,.010,.028,.105,false],
+    [malletTeal,0,.220,.056,.152,true],[caps,-.073,.220,.058,.023,true],[caps,.073,.220,.058,.023,true]
+  ]){
+    const part=make(mallet,tube,material);part.position.set(x,y,0);part.scale.set(radius,length,radius);
+    if(crosswise)part.rotation.z=Math.PI/2;
+  }
   const up=new T.Vector3(0,1,0),direction=new T.Vector3(),joint=new T.Vector3(),tip=new T.Vector3();
+  const malletDirection=new T.Vector3(),malletPoint=new T.Vector3();
   const mealForward=new T.Vector3(),mealRight=new T.Vector3(),cameraRotation=new T.Quaternion();
   const utensilRotation=new T.Euler(0,0,0,"YXZ");
   let phase=0,stride=0,lookKey="";
@@ -59,7 +70,7 @@ export function makeFirstPersonView(T,createItemProp){
     mesh.scale.set(radius,length+overlap,radius);
   }
 
-  function update(position,worldCamera,{now,clock,delta=1/60,seat,clink,night=0}){
+  function update(position,worldCamera,{now,clock,delta=1/60,seat,clink,night=0,mole=null}){
     if(camera.fov!==worldCamera.fov||camera.aspect!==worldCamera.aspect){
       camera.fov=worldCamera.fov;camera.aspect=worldCamera.aspect;camera.updateProjectionMatrix();
     }
@@ -94,14 +105,14 @@ export function makeFirstPersonView(T,createItemProp){
       mealForward.set(Math.sin(angle),0,-Math.cos(angle));mealRight.set(Math.cos(angle),0,Math.sin(angle));
       seeingMeal=worldCamera.getWorldDirection(direction).dot(mealForward)>.12;
     }
-    trayPivot.visible=carryingTray;
+    trayPivot.visible=carryingTray&&!mole;
     const trayScale=Math.min(.90,viewWidth*1.60*.92/DINING_TRAY_WIDTH);
     if(carryingTray){
       const bob=Math.sin(phase*2)*stride*.024;
       frame(trayPivot.position,0,-.72+bob,.94);trayPivot.rotation.y=Math.PI;trayPivot.scale.setScalar(trayScale);
     }
     showTray(carryingTray?tray.item.kind:null);
-    utensil.show(seeingMeal?eating.utensil:null);
+    utensil.show(seeingMeal&&!mole?eating.utensil:null);
     const cheersEvent=clink??position.clink,clinkAge=clock-cheersEvent?.startedAt;
     const clinkSide=cheersEvent?.slot==="secondItem"?-1:1;
     const cheers=itemFor(clinkSide)?.spec.verb==="마시기"&&!seated&&!claspSide&&clinkAge>=0&&clinkAge<CLINK_DURATION_MS
@@ -113,9 +124,10 @@ export function makeFirstPersonView(T,createItemProp){
     }
     const performance=gestureHands(position,clock,hands,{riding,busy:Boolean(cheers||carryingTray||eating)});
     const {pose:acting,umbrellaSide}=performance;
-    lap.visible=seated;handlebar.visible=driving;
+    lap.visible=seated&&!mole;handlebar.visible=driving&&!mole;mallet.visible=Boolean(mole);
     for(const [i,arm] of forearms.entries()){
       const {side,palm,wrist,elbow,shoulder,sleeve,lower,cuff,ribs,mitten,peaceHand}=arm;
+      palm.parent.visible=!mole||side===1;
       const step=Math.sin(phase+side*Math.PI/2)*stride,bob=seated||riding?0:Math.sin(phase*2)*stride;
       // The camera faces -Z, so its horizontal axis is the reverse of the avatar's.
       const avatarSide=-side;
@@ -161,6 +173,20 @@ export function makeFirstPersonView(T,createItemProp){
           utensil.group.quaternion.setFromEuler(utensilRotation).premultiply(cameraRotation);
         }
       }
+      if(mole&&side===1){
+        const swing=moleSwing(clock,mole.swingAt),strike=Math.max(0,swing);
+        frame(shoulder,1.14,-1.30,.53);
+        frame(elbow,.93,-.97,.68);
+        frame(wrist,.71,-.59+Math.min(0,swing)*.52,.78);
+        malletDirection.set(.21*(1-strike),.94-.66*strike,-.26-.67*strike).normalize();
+        if(strike&&mole.point){
+          malletPoint.copy(mole.point).project(worldCamera);
+          frame(malletPoint,malletPoint.x,malletPoint.y,.99);
+          wrist.lerp(malletPoint.addScaledVector(malletDirection,-.220*size),strike);
+        }
+        mallet.position.copy(wrist);mallet.scale.setScalar(size);
+        mallet.quaternion.setFromUnitVectors(up,malletDirection);
+      }
       const short=outfit==="tee",padded=outfit==="puffer";
       lower.material=short?skin:fabric;cuff.material=outfit==="hanbok"?ivory:trim;cuff.visible=!short;
       segment(sleeve,shoulder,elbow,(padded?.072:.060)*size);
@@ -175,12 +201,13 @@ export function makeFirstPersonView(T,createItemProp){
         side*(holding?.39:.21),mix(side*(driving?.08:.32),performanceHand?.roll??side*.32,weight));
       if(carryingTray)palm.rotation.set(-.81,side*.19,side*.46);
       else if(seeingMeal&&side===1)palm.rotation.set(-.80,-.34,.32);
-      peaceHand.visible=acting?.kind==="peace"&&weight>.26;
+      if(mole&&side===1)palm.rotation.set(-.40,-.18,.20);
+      peaceHand.visible=!mole&&acting?.kind==="peace"&&weight>.26;
       mitten.visible=!peaceHand.visible;
-      const gripping=driving||holding||holdingUmbrella||carryingTray||seeingMeal&&side===1;
+      const gripping=mole||driving||holding||holdingUmbrella||carryingTray||seeingMeal&&side===1;
       mitten.scale.y=gripping?.042:mix(.058,performanceHand?.curl<-.8?.043:.058,weight);
       const {pivot:itemPivot,show}=props[i];
-      itemPivot.visible=holding;
+      itemPivot.visible=holding&&!mole;
       if(holding){
         itemPivot.position.copy(wrist);itemPivot.position.x-=side*(spec.snack?.035:.050)*size;
         itemPivot.position.y+=(spec.snack?.022:.002)*size;itemPivot.position.z-=(spec.snack?.023:.036)*size;

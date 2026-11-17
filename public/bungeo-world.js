@@ -1,6 +1,6 @@
 import {addLandmarks,addObstacle} from "./layout.js";
 import {BUNGEO_GOOD_MS,BUNGEO_MOLD_COUNT,BUNGEO_STALL,BUNGEO_STOCK_CAPACITY,COOKING_STALLS,bungeoStep} from "./bungeo-data.js";
-import {bungeoppangOutline,makeBungeoppangProps} from "./regional-item-props.js";
+import {bungeoppangOutline,makeBungeoppangProps,makeHotteokProps} from "./regional-item-props.js";
 import {standSign} from "./regional-stands.js";
 import {addHotteokGriddle} from "./hotteok-griddle.js";
 
@@ -93,9 +93,62 @@ export function addBungeoStall(T,parent,kit,groundHeight,stall=BUNGEO_STALL){
     }
     return target;
   }
+  const pastryProps=hotteok?makeHotteokProps(T,kit):makeBungeoppangProps(T,kit);
+  const tray=new T.Group();
+  tray.name=hotteok?"구운 호떡 매대":"완성된 붕어빵 쟁반";
+  tray.position.set(hotteok?1.022:.938,1.029,hotteok?.269:.029);
+  root.add(tray);
+  const shelves=hotteok?[[0,0]]:[[0,.141],[.184,-.239]];
+  const trayWidth=hotteok?.500:.627,trayDepth=hotteok?.421:.356;
+  for(const [height,depth] of shelves){
+    box(0xb6925c,0,height+.008,depth,trayWidth,.030,trayDepth,tray);
+    box(0xf3dba8,0,height+.028,depth,trayWidth-.059,.012,trayDepth-.050,tray);
+    for(const x of [-1,1])box(0xa27849,x*(trayWidth/2-.009),height+.035,depth,.027,.048,trayDepth-.007,tray);
+    for(const z of [-1,1])box(0xa27849,0,height+.035,depth+z*(trayDepth/2-.012),trayWidth-.044,.048,.023,tray);
+    if(hotteok||stall.customer)hit(tray,{tray:true},0,height+.066,depth,trayWidth,.13,trayDepth);
+  }
   if(hotteok){
-    const grill=addHotteokGriddle(T,root,kit,{hit,highlight,counterLabel,watchRadius,body});
-    function update(molds,clock,viewer,_stock,baking){
+    for(const x of [-.203,.203])for(const z of [-.169,.169])box(0x876340,x,-.022,z,.061,.047,.061,tray);
+    counterLabel("매대",tray.position.x,.517,"#765536",1.040);
+  }else{
+    for(const x of [-.28,.28])for(const z of [-.369,-.110])box(0x9c7246,x,.096,z,.041,.191,.041,tray);
+    if(stall.customer){
+      counterLabel("판매대",tray.position.x,.408,"#765536",1.041);
+      highlight("tray",tray.position.x,.422);
+    }
+  }
+  // Batch each pastry part so twelve display items take only a few draw calls.
+  const stockPrototype=new T.Group(),stockParts=new Map(),stockPose=new T.Object3D(),stockMatrix=new T.Matrix4();
+  if(hotteok||stall.customer)pastryProps(stockPrototype,"good");
+  stockPrototype.updateMatrixWorld(true);
+  stockPrototype.traverse(mesh=>{
+    if(!mesh.isMesh)return;
+    const id=`${mesh.geometry.id}/${mesh.material.id}`;
+    if(!stockParts.has(id))stockParts.set(id,[]);
+    stockParts.get(id).push(mesh);
+  });
+  const stockPies=[...stockParts.values()].map(parts=>{
+    const {geometry,material}=parts[0],instances=new T.InstancedMesh(geometry,material,BUNGEO_STOCK_CAPACITY*parts.length);
+    instances.name=hotteok?"매대의 호떡":"쟁반의 붕어빵";instances.userData.dynamic=true;instances.frustumCulled=false;tray.add(instances);
+    for(let index=0;index<BUNGEO_STOCK_CAPACITY;index++){
+      const top=index>=6,row=Math.floor(index%6/3),column=index%3;
+      if(hotteok)stockPose.position.set((column-1)*.137,top?.083:.047,(row-.5)*.206);
+      else stockPose.position.set((column-1)*.182,top?.230:.046,(top?-.239:.141)+(row-.5)*.154);
+      stockPose.rotation.y=hotteok?(column-row)*.28:-Math.PI/2+(column-1)*.09;
+      stockPose.scale.setScalar(hotteok?.69:.66);stockPose.updateMatrix();
+      parts.forEach((part,i)=>instances.setMatrixAt(index*parts.length+i,stockMatrix.multiplyMatrices(stockPose.matrix,part.matrixWorld)));
+    }
+    instances.instanceMatrix.needsUpdate=true;
+    return {instances,perPastry:parts.length};
+  });
+  function updateStock(stock=0){
+    const count=Math.max(0,Math.min(BUNGEO_STOCK_CAPACITY,stock));
+    for(const {instances,perPastry} of stockPies){instances.count=count*perPastry;instances.visible=count>0;}
+  }
+  if(hotteok){
+    const grill=addHotteokGriddle(T,root,kit,{hit,highlight,counterLabel,watchRadius,body,bake:pastryProps});
+    function update(molds,clock,viewer,stock,baking){
+      updateStock(stock);
       for(const [tool,light] of toolLights)light.visible=baking?.tool===tool;
       grill.update(molds,clock,viewer,baking);
     }
@@ -139,15 +192,6 @@ export function addBungeoStall(T,parent,kit,groundHeight,stall=BUNGEO_STALL){
     hit(root,{tool},x,1.084,z,.244,.128,.248);
   }
 
-  const tray=new T.Group();tray.name="완성된 붕어빵 쟁반";tray.position.set(.938,1.029,.029);root.add(tray);
-  for(const [height,depth] of [[0,.141],[.184,-.239]]){
-    box(0xb6925c,0,height+.008,depth,.627,.030,.356,tray);
-    box(0xf3dba8,0,height+.028,depth,.568,.012,.306,tray);
-    for(const x of [-.305,.305])box(0xa27849,x,height+.035,depth,.027,.048,.349,tray);
-    for(const z of [depth-.166,depth+.166])box(0xa27849,0,height+.035,z,.583,.048,.023,tray);
-  }
-  for(const x of [-.28,.28])for(const z of [-.369,-.110])box(0x9c7246,x,.096,z,.041,.191,.041,tray);
-
   const work=new T.Group();work.name="붕어빵 틀";work.position.set(-.127,1.019,.003);root.add(work);
   box(0x7f8580,0,.056,0,1.45,.111,.739,work);
   box(iron,0,.092,.355,1.415,.145,.041,work);
@@ -170,29 +214,6 @@ export function addBungeoStall(T,parent,kit,groundHeight,stall=BUNGEO_STALL){
     box(0x474446,0,.022,.254,.057,.033,.102,face);
     box(0x985c39,0,.022,.322,.076,.047,.124,face);
   }
-  const pastryProps=makeBungeoppangProps(T,kit);
-  // One instance batch per pastry part keeps twelve visible pieces inexpensive.
-  const stockPrototype=new T.Group(),stockParts=new Map(),stockPose=new T.Object3D(),stockMatrix=new T.Matrix4();
-  if(stall.customer)pastryProps(stockPrototype,"good");
-  stockPrototype.updateMatrixWorld(true);
-  stockPrototype.traverse(mesh=>{
-    if(!mesh.isMesh)return;
-    const id=`${mesh.geometry.id}/${mesh.material.id}`;
-    if(!stockParts.has(id))stockParts.set(id,[]);
-    stockParts.get(id).push(mesh);
-  });
-  const stockPies=[...stockParts.values()].map(parts=>{
-    const {geometry,material}=parts[0],instances=new T.InstancedMesh(geometry,material,BUNGEO_STOCK_CAPACITY*parts.length);
-    instances.name="쟁반의 붕어빵";instances.userData.dynamic=true;instances.frustumCulled=false;tray.add(instances);
-    for(let index=0;index<BUNGEO_STOCK_CAPACITY;index++){
-      const top=index>=6,row=Math.floor(index%6/3),column=index%3;
-      stockPose.position.set((column-1)*.182,top?.230:.046,(top?-.239:.141)+(row-.5)*.154);
-      stockPose.rotation.y=-Math.PI/2+(column-1)*.09;stockPose.scale.setScalar(.66);stockPose.updateMatrix();
-      parts.forEach((part,i)=>instances.setMatrixAt(index*parts.length+i,stockMatrix.multiplyMatrices(stockPose.matrix,part.matrixWorld)));
-    }
-    instances.instanceMatrix.needsUpdate=true;
-    return {instances,perPastry:parts.length};
-  });
   function steamMap(){
     if(typeof document==="undefined")return null;
     const canvas=document.createElement("canvas");canvas.width=canvas.height=32;
@@ -307,8 +328,7 @@ export function addBungeoStall(T,parent,kit,groundHeight,stall=BUNGEO_STALL){
   const cavities=Array.from({length:BUNGEO_MOLD_COUNT},(_,index)=>addCavity(index));
   let lastClock=0,pitcherLift=0;
   function update(molds,clock,viewer,stock=0,baking=null){
-    const stocked=Math.max(0,Math.min(BUNGEO_STOCK_CAPACITY,stock));
-    for(const {instances,perPastry} of stockPies){instances.count=stocked*perPastry;instances.visible=stocked>0;}
+    updateStock(stock);
     for(const [tool,light] of toolLights)light.visible=baking?.tool===tool;
     const pickingUp=baking?.tool==="batter"?1:0,elapsed=Math.max(0,Math.min(64,clock-lastClock));
     pitcherLift+=(pickingUp-pitcherLift)*(1-Math.exp(-elapsed*.024));

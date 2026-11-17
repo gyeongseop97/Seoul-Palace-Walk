@@ -30,7 +30,7 @@ export function* buildArcadeUpper(T,parent,kit){
   }
   for(let index=0;index<17;index++)block(index%2?0x52616b:0x5b6a70,(index-8)*1.14,.009,5.23,1.07,.017,.52);
   standSign(T,room,"광화문 오락실 2층","사격 · 양궁 · 스크린 야구",5.18,.55,2.98,-6.8,"#293e51","#ffe6ae",.56);
-  addArcadeStairwell(T,room,kit,ARCADE_STAIRS[floor.id]);
+  for(const stairs of ARCADE_STAIRS[floor.id])addArcadeStairwell(T,room,kit,stairs);
   yield;
   const targets=addArcadeTargets(T,room,kit);
   yield;

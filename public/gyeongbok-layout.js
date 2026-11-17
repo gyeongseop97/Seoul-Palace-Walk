@@ -1,19 +1,24 @@
 import {addLandmarks,addZone,addLoft,spawn} from "./layout.js";
-import {plazaSites,plazaAt} from "./plaza-layout.js";
-import {uijeongbuEntry,uijeongbuGarden,uijeongbuBusBerth,isUijeongbuWalkable} from "./uijeongbu-layout.js";
+import {plazaSites,plazaAt,sajikRoad,insidePlazaPolygon} from "./plaza-layout.js";
+import {sajikNorthKerb,uijeongbuCrossings,uijeongbuEntry,uijeongbuGarden,uijeongbuBusBerth,isUijeongbuWalkable} from "./uijeongbu-layout.js";
 import {gbEastOpenings,gbBoundaryGates,gbWestPaths,insideGbWall,onGbWestPath} from "./gyeongbok-perimeter.js";
 
 // Positions are metres east of the palace's central axis and north of Gwanghwamun,
 // which shares the same geographic projection as the square and Deoksugung.
 export const gwanghwamun=plazaSites.gate;
 export const at=(east,north,name="")=>({name,x:gwanghwamun.x+east,y:gwanghwamun.y-north});
-export const gbBounds={minX:gwanghwamun.x-300,maxX:gwanghwamun.x+300,minY:gwanghwamun.y-900,maxY:gwanghwamun.y+170};
+export const gbBounds={minX:gwanghwamun.x-300,maxX:gwanghwamun.x+300,minY:gwanghwamun.y-900,
+  maxY:Math.max(gwanghwamun.y+170,...uijeongbuCrossings.flatMap(({outline})=>outline.map(p=>p.y)))};
 const inGbBounds=(x,y)=>x>=gbBounds.minX&&x<=gbBounds.maxX&&y>=gbBounds.minY&&y<=gbBounds.maxY;
-const onFrontApron=(east,north)=>north>=-52&&north<1.2&&east>-92&&east<48;
+const apronLeft=at(-92,1.2),apronRight=at(48,1.2),sajikWestKerb=plazaAt(20,sajikRoad.north);
+const [kerbFrom,kerbTo]=sajikNorthKerb;
+const kerbT=(apronRight.x-kerbFrom.x)/(kerbTo.x-kerbFrom.x);
+export const gbFrontApron=[apronLeft,{x:apronLeft.x,y:sajikWestKerb.y},sajikWestKerb,kerbFrom,
+  {x:apronRight.x,y:kerbFrom.y+(kerbTo.y-kerbFrom.y)*kerbT},apronRight];
+const onFrontApron=(x,y)=>insidePlazaPolygon(x,y,gbFrontApron);
 export function inGyeongbok(x,y){
   if(!inGbBounds(x,y))return false;
-  const east=x-gwanghwamun.x,north=gwanghwamun.y-y;
-  return insideGbWall(x,y)||onGbWestPath(x,y)||onFrontApron(east,north)||isUijeongbuWalkable(x,y);
+  return insideGbWall(x,y)||onGbWestPath(x,y)||onFrontApron(x,y)||isUijeongbuWalkable(x,y);
 }
 
 const eastGate=gbEastOpenings.find(opening=>opening.id==="geonchunmun");
@@ -252,7 +257,7 @@ export const gbShortcuts=[
 
 export function gyeongbokWalkable(x,y){
   const east=x-gwanghwamun.x,north=gwanghwamun.y-y;
-  if(onFrontApron(east,north)||isUijeongbuWalkable(x,y)||onGbWestPath(x,y))return true;
+  if(onFrontApron(x,y)||isUijeongbuWalkable(x,y)||onGbWestPath(x,y))return true;
   if(!insideGbWall(x,y))return false;
   return !inLake(east,north)&&!inPond(east,north);
 }

@@ -108,6 +108,11 @@ export const cheonggyeAccess=[
 // East of the plaza this pavement bends north, clear of the stairs that drop beside it.
 const approachNorth=access("청계광장 북쪽 보도",[[537.4,-170.8],[568,-169.7],[605,-166.5],[612,-167.2],[624,-166.9]],3.25,"paving");
 const approachSouth=access("청계광장 남쪽 보도",[[525.3,-132.9],[538.6,-138.3],[563.4,-138.7],[595,-137.7],[624,-137.6],[638,-137.6]],4.2,"paving");
+// Continue the level sidewalk past the sunken ramp to the southern bank.
+const rampShoulder={name:"청계광장 남쪽 경사로 옆 보도",kind:"paving",outline:ring([
+  [567,-145.2],[580,-145.1],[600,-143.1],[620,-142.85],[631,-143.55],
+  [636,-143.05],[641,-142.65],[643,-140.15],[641,-137.3],[624,-137.2],[595,-137.1],[568,-138.4]
+])};
 // The granite landing connects the square and the north walk on both sides
 // of the stair opening. Its east edge stops at the upper bank.
 const stairHead={name:"청계광장 북쪽 계단 앞",kind:"paving",outline:ring([
@@ -165,7 +170,7 @@ export const cheonggyeSteppingRows=stepStoneXs.map(x=>{
 });
 export const cheonggyeSurfaces=[
   {kind:"road",outline:northRoad},{kind:"road",outline:southRoad},
-  {kind:"plaza",outline:plaza},approachNorth,approachSouth,startRamp,stairHead,sidePlaza,plazaSouthShoulder,...plazaSouthCrossings,
+  {kind:"plaza",outline:plaza},approachNorth,approachSouth,rampShoulder,startRamp,stairHead,sidePlaza,plazaSouthShoulder,...plazaSouthCrossings,
   ...[...northWalk,...southWalk].map(outline=>({kind:"paving",outline})),
   {kind:"paving",outline:northFrontage},{kind:"paving",outline:southFrontage},...crossings,
   {kind:"lower",outline:pavedNorth},{kind:"lower",outline:pavedSouth},
@@ -183,12 +188,11 @@ const upperWalks=[...surfaceKinds(["plaza","paving","crossing"]).filter(outline=
 const lowerWalks=[walkersNorth,walkersSouth,...surfaceKinds(["wood","stones"])];
 // The riverside roads carry little traffic and may be walked on.
 const roadWalks=[...surfaceKinds(["road"]),...cheonggyeRoadLeads.map(({outline})=>outline)];
-const walkPolygons=[...accessWalks,...upperWalks,...roadWalks,...lowerWalks];
 const polygonTest=(outline=>{
   const xs=outline.map(p=>p.x),ys=outline.map(p=>p.y),lowX=Math.min(...xs),highX=Math.max(...xs),lowY=Math.min(...ys),highY=Math.max(...ys);
   return (x,y)=>x>=lowX&&x<=highX&&y>=lowY&&y<=highY&&inside(outline,x,y);
 });
-const onWalk=walkPolygons.map(polygonTest),onDeck=deckLanes.map(({outline})=>polygonTest(outline));
+const onAccess=accessWalks.map(polygonTest),onDeck=deckLanes.map(({outline})=>polygonTest(outline));
 const onLower=lowerWalks.map(polygonTest),onUpper=upperWalks.map(polygonTest),onRoad=roadWalks.map(polygonTest);
 const onBanks=[walkersNorth,walkersSouth].map(polygonTest);
 const onStones=cheonggyeSteppingRows.map(({outline})=>polygonTest(outline));
@@ -200,7 +204,8 @@ export function inCheonggye(x,y){
   return x>=minX&&x<=maxX&&y>=minY&&y<=maxY;
 }
 export function cheonggyeWalkable(x,y){
-  return inCheonggye(x,y)&&onWalk.some(contains=>contains(x,y));
+  return inCheonggye(x,y)&&(onAccess.some(contains=>contains(x,y))||onLower.some(contains=>contains(x,y))||
+    !atWaterfallOpening(x,y)&&(onUpper.some(contains=>contains(x,y))||onRoad.some(contains=>contains(x,y))));
 }
 export const cheonggyeRailOpening=(x,y)=>cheonggyeAccess.some(({outline})=>inside(outline,x,y));
 
@@ -232,6 +237,7 @@ export function cheonggyeLevel({x,y,up}){
   }
   if(!onBanks.some(contains=>contains(x,y))&&onStones.some(contains=>contains(x,y)))return stoneTop;
   if(onLower.some(contains=>contains(x,y)))return -depth;
+  if(atWaterfallOpening(x,y))return null;
   if(onUpper.some(contains=>contains(x,y)))return .04;
   return onRoad.some(contains=>contains(x,y))?.012:null;
 }
@@ -243,16 +249,18 @@ export function cheonggyeCameraCeiling(x,y,approaching=false){
 }
 // The recess the waterfall drops through, west of the first bank station.
 export const cheonggyeCascade={west:615.36,north:-154.75,south:-144.62};
-// True where there is open air below street level: the channel between its walls, the
-// waterfall's recess, and the cuts where stairs and ramps go down. Elsewhere it is solid ground.
-export function cheonggyeOpenAir(x,y,margin=0){
+function waterOpening(x,y,margin=0){
   if(x>=cheonggyeStations[0]){
     const [centre,north,south]=riverAt(Math.min(x,cheonggyeStations.at(-1)));
-    if(y>centre-north-.3+margin&&y<centre+south+.3-margin)return true;
-  }else{
-    const {west,north,south}=cheonggyeCascade;
-    if(x>west+margin&&y>north+margin&&y<south-margin)return true;
+    return y>centre-north-.3+margin&&y<centre+south+.3-margin;
   }
+  const {west,north,south}=cheonggyeCascade;
+  return x>west+margin&&y>north+margin&&y<south-margin;
+}
+const atWaterfallOpening=(x,y)=>x<walkFrom&&waterOpening(x,y);
+// Open air below street level includes the channel, waterfall recess and access cuts.
+export function cheonggyeOpenAir(x,y,margin=0){
+  if(waterOpening(x,y,margin))return true;
   return margin?[[-1,-1],[1,-1],[-1,1],[1,1]].every(([dx,dy])=>cheonggyeRailOpening(x+dx*margin,y+dy*margin)):
     cheonggyeRailOpening(x,y);
 }

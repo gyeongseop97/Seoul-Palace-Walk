@@ -3,6 +3,8 @@ import {ARCADE_GAMES} from "../public/arcade-layout.js";
 import {interiorAt} from "../public/interior-layout.js";
 import {cleanTargetSnapshot} from "../public/arcade-targets.js";
 import {BASEBALL_CENTER,BASEBALL_PITCH_COUNT,BASEBALL_ZONE} from "../public/arcade-baseball.js";
+import {cleanClassicSnapshot,isClassic} from "../public/arcade-classics.js";
+import {MOLE_HOLES,MOLE_ROUND_BEATS} from "../public/arcade-mole.js";
 
 export const arcadeSnapshotLifetime=5000;
 const lastPrize=CLAW_PRIZES.length-1;
@@ -39,10 +41,12 @@ function cleanBowling({roll}){
   return {kind:"bowling",roll:{at,angle,power,mask,attempt}};
 }
 
-function cleanMole({score,target,height,swingAt,finished,remaining}){
-  if(!integer(score,0,24)||!integer(target,-1,2)||!inRange(height,0,1)||!integer(swingAt,0,9999999999999)||
+function cleanMole({score,target,height,swingAt,swingHole=-1,hit=false,finished,remaining}){
+  const lastHole=MOLE_HOLES.length-1;
+  if(!integer(score,0,MOLE_ROUND_BEATS)||!integer(target,-1,lastHole)||!inRange(height,0,1)||!integer(swingAt,0,9999999999999)||
+    !integer(swingHole,-1,lastHole)||typeof hit!=="boolean"||hit&&(swingHole<0||swingAt===0)||
     typeof finished!=="boolean"||!integer(remaining,0,25))return null;
-  return {kind:"mole",score,target,height:compact(height),swingAt,finished,remaining};
+  return {kind:"mole",score,target,height:compact(height),swingAt,swingHole,hit,finished,remaining};
 }
 
 function cleanBaseball({pitchNo,score,hits,pitch,swingAt,hit,result,finished,hand="right",aim=BASEBALL_CENTER}){
@@ -82,6 +86,7 @@ export function cleanArcadeActivity(avatar){
     avatar.bike&&!avatar.bike.parked)return null;
   const station=ARCADE_GAMES[activity.kind],reach=activity.kind==="pump"?3.6:activity.kind==="mole"?3.05:1.85;
   if(interiorAt(avatar.x,avatar.y)!==station.floor||Math.hypot(station.x-avatar.x,station.y-avatar.y)>reach)return null;
+  if(isClassic(activity.kind))return cleanClassicSnapshot(activity);
   switch(activity.kind){
     case "pump":return cleanPump(activity);
     case "basket":return cleanBasket(activity);

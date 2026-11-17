@@ -39,7 +39,7 @@ export const uijeongbuBusPavement=points([
 // palace apron and the south edge footpath reaches the arcade across Jongno 1-gil.
 export const uijeongbuConnections=[
   points([[29,490],[40,490],[40.6,509],[44,513],[39,519],[33,513],[29,512]]),
-  points([[36.4,505.6],[45.4,509.5],[35.3,556.5],[24.8,554.3]]),
+  points([[36.4,505.6],[45.4,509.5],[34.5,563.4],[23.5,560.3]]),
   points([[38.6,428.8],[49.3,429.8],[48.9,445.6],[40.2,443.7]]),
   points([[124,534],[135.5,536.3],[139.7,552.5],[130,553.9],[121.5,542.5]]),
   points([[120.5,483.9],[154.1,472.2],[157.3,480.2],[125,490.2]]),
@@ -49,7 +49,7 @@ export const uijeongbuConnections=[
     ...points([[182.4,524],[165.6,499],[152.3,479.6],[148.6,467.8]])],
   points([[47,434],[128,440],[135.7,442],[137.5,446.7],[125,446],[47,440]]),
   // The broad pavement under the palace wall, from the woldae to where Bukchon's survey takes over.
-  surveyed([[514.5,-857.5],[530.6,-871],[552.1,-881.8],[557.5,-883.2],[557.5,-901.2],[514.5,-900.2]]),
+  surveyed([[514.5,-857.5],[530.6,-871],[552.1,-881.8],[556,-882.4],[556,-901.2],[514.5,-900.2]]),
   // The west pavement of Jongno 1-gil, from the bus stop to its crossing.
   surveyed([[672.4,-868.6],[678.6,-865.6],[664.6,-840.9],[659.6,-843.5]])
 ];

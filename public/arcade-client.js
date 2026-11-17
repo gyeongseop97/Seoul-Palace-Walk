@@ -3,15 +3,19 @@ import {BASKET_CHARGE_MS,BASKET_REST_POWER,makeArcadeGames} from "./arcade-games
 import {makeArcadeRhythm} from "./arcade-rhythm.js";
 import {drawPumpTrack} from "./arcade-pump-track.js";
 import {BOWLING_SWEET_SPOT,bowlingScore,bowlingTurn} from "./arcade-bowling.js";
-import {makeArcadeMoles} from "./arcade-mole.js";
+import {makeArcadeMoles,MOLE_WHACK_MS} from "./arcade-mole.js";
 import {makeArcadeTargets,TARGET_CHARGE_MS} from "./arcade-targets.js";
 import {BASEBALL_PITCH_COUNT,makeArcadeBaseball} from "./arcade-baseball.js";
+import {isClassic,makeArcadeClassics} from "./arcade-classics.js";
 
-export const arcadeTitles={claw:"인형뽑기",pump:"펌프",basket:"농구 슛",bowling:"볼링",mole:"두더지 잡기",shooting:"사격",archery:"양궁",baseball:"스크린 야구"};
+export const arcadeTitles={claw:"인형뽑기",pump:"펌프",basket:"농구 슛",bowling:"볼링",mole:"두더지 잡기",shooting:"사격",archery:"양궁",baseball:"스크린 야구",
+  pinball:"핀볼",airHockey:"에어하키",brickBreaker:"벽돌 깨기"};
+const classicHint={pinball:"왼쪽·오른쪽 터치 또는 A·D로 플리퍼를 움직여요.",
+  airHockey:"화면을 밀거나 방향키로 밀대를 움직여요.",brickBreaker:"화면을 밀거나 ←·→로 막대를 움직여요."};
 const canCharge=kind=>kind==="basket"||kind==="bowling"||kind==="archery";
 const isTarget=kind=>kind==="shooting"||kind==="archery";
 const baseballText={miss:"헛스윙",foul:"파울",single:"안타",double:"2루타",home:"홈런"};
-const useAvatar=kind=>kind==="pump"||kind==="mole";
+const useAvatar=kind=>kind==="pump";
 const directions={left:[-1,0],up:[0,-1],down:[0,1],right:[1,0]};
 const keyDirection={ArrowLeft:"left",ArrowUp:"up",ArrowDown:"down",ArrowRight:"right",a:"left",w:"up",s:"down",d:"right"};
 const text=(node,value)=>{if(node.textContent!==value)node.textContent=value;};
@@ -22,8 +26,9 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
   const panel=$("arcade-panel"),title=$("arcade-title"),status=$("arcade-status"),track=$("arcade-pump-track"),moves=$("arcade-move"),act=$("arcade-act");
   const trackContext=track.getContext("2d",{alpha:false});
   const games=makeArcadeGames({playBasketImpact}),rhythm=makeArcadeRhythm(playBeat);
-  const moles=makeArcadeMoles(ARCADE_GAMES.mole);
+  const moles=makeArcadeMoles();
   const targets=makeArcadeTargets({shootingClock:getClock}),baseball=makeArcadeBaseball();
+  const classics=makeArcadeClassics(action=>playBeat(action==="launch"?1:2,action==="launch"));
   const chargeGauge=$("arcade-charge");
   const stance=$("baseball-stance"),stanceButtons=[...stance.querySelectorAll("[data-baseball-hand]")];
   const pads=[...moves.querySelectorAll("[data-arcade-move]")];
@@ -42,12 +47,15 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
     else if(next==="bowling")commandBowling({action:"join"});
     else if(isTarget(next))targets.start(next);
     else if(next==="baseball")baseball.prepare();
+    else if(isClassic(next))classics.start(next);
     else games.start(next,now);
     pumpDrawAt=-Infinity;
     panel.hidden=false;root.classList.toggle("arcade-avatar-active",useAvatar(next));
     root.classList.toggle("arcade-machine-active",!useAvatar(next));
     root.classList.toggle("arcade-target-active",isTarget(next));
     root.classList.toggle("arcade-baseball-active",next==="baseball");
+    root.classList.toggle("arcade-classic-active",isClassic(next));
+    root.classList.toggle("arcade-mole-active",next==="mole");
     stance.hidden=next!=="baseball";
     moves.hidden=next!=="claw"&&next!=="bowling";track.hidden=next!=="pump";
     moves.setAttribute("aria-label",next==="bowling"?"투구 위치":"기계 조작");
@@ -56,13 +64,13 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
     act.toggleAttribute("data-native-touch",canCharge(next));
     text(title,arcadeTitles[next]);update(now,0);
   }
-  function clear(){keys.clear();pointers.clear();charge=null;}
+  function clear(){keys.clear();pointers.clear();charge=null;classics.clear();}
   function stop(){
     if(!kind)return;
     if(kind==="bowling"){onBowlMove(0,0);commandBowling({action:"leave"});}
-    kind=null;clear();games.stop();rhythm.stop();targets.stop();panel.hidden=true;
+    kind=null;clear();games.stop();rhythm.stop();targets.stop();classics.stop();panel.hidden=true;
     stance.hidden=true;
-    root.classList.remove("arcade-avatar-active","arcade-machine-active","arcade-target-active","arcade-baseball-active");onStop();
+    root.classList.remove("arcade-avatar-active","arcade-machine-active","arcade-target-active","arcade-baseball-active","arcade-mole-active","arcade-classic-active");onStop();
   }
   for(const mode of Object.keys(arcadeTitles))$("arcade-"+mode).addEventListener("click",()=>start(mode));
   $("arcade-exit").addEventListener("click",stop);
@@ -99,9 +107,13 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
   }
   function press(event){
     const now=performance.now();
+    if(isClassic(kind)){classics.action();return;}
     if(kind==="pump"&&rhythm.state(now)?.finished)rhythm.start(now,getAvatar());
     else if(kind==="claw")games.act(now);
-    else if(kind==="mole")moles.strike(getClock(now),getAvatar());
+    else if(kind==="mole"){
+      const clock=getClock(now);
+      if(moles.state(clock).finished)moles.start(clock);
+    }
     else if(kind==="baseball"){
       const clock=getClock(now);
       const state=baseball.state(clock);
@@ -151,6 +163,7 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
     if(event.key==="Escape"){event.preventDefault();stop();return true;}
     if(kind==="pump")return false;
     if(kind==="mole"){
+      if(keyName(event)){event.preventDefault();return true;}
       if(event.code!=="Space"||event.target.closest("button")&&event.target!==act)return false;
       event.preventDefault();
       if(!event.repeat)press();
@@ -182,9 +195,11 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
       return;
     }
     if(kind==="mole"){
-      const state=moles.state(getClock(now));
-      act.hidden=false;act.disabled=false;text(act,state.finished?"다시 하기":"망치 치기");
-      text(status,state.finished?`${state.score}마리 잡았어요`:`${state.score}마리 · ${state.remaining}초 · 두더지 앞으로 이동`);
+      const clock=getClock(now),state=moles.state(clock);
+      act.hidden=!state.finished;act.disabled=false;text(act,"다시 하기");
+      const feedback=state.swingAt&&clock-state.swingAt<MOLE_WHACK_MS?(state.hit?" · 명중!":" · 빗나감"):"";
+      text(status,state.finished?`${state.score}마리 잡았어요`:
+        `${state.score}마리 · ${state.remaining}초${feedback||" · 두더지를 눌러요"}`);
       return;
     }
     if(kind==="baseball"){
@@ -207,6 +222,18 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
     let x=0,z=0;
     for(const direction of new Set([...keys,...pointers.values()])){
       x+=directions[direction][0];z+=directions[direction][1];
+    }
+    if(isClassic(kind)){
+      classics.move(Math.sign(x),Math.sign(z));
+      classics.update(elapsed);
+      const state=classics.state(),ready=state.phase==="ready",finished=state.phase==="finished";
+      act.hidden=!ready&&!finished;act.disabled=false;
+      text(act,finished?"다시 하기":kind==="airHockey"?"서브":"공 발사");
+      const score=kind==="airHockey"?`나 ${state.score} · 컴퓨터 ${state.other} · 5점 선승`:
+        `${state.score}점 · 공 ${state.lives}개`;
+      const result=kind==="airHockey"?(state.score>state.other?"승리":"경기 종료"):kind==="brickBreaker"&&!state.mask?"모두 깼어요":"게임 종료";
+      text(status,finished?`${result} · ${score}`:`${score} · ${classicHint[kind]}`);
+      return;
     }
     if(isTarget(kind)){
       const shooting=kind==="shooting";
@@ -265,10 +292,16 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
     }
   }
   return {get kind(){return kind;},get frozen(){return Boolean(kind&&!useAvatar(kind));},clear,keyDown:keydown,
+    strikeMole(index){
+      if(kind!=="mole"||index==null)return;
+      const now=performance.now(),hit=moles.strike(getClock(now),index);
+      if(hit!=null){playBeat(index%4,hit);update(now,0);}
+    },
     aimBaseball:point=>kind==="baseball"&&point&&baseball.aim(point.x,point.y),
+    tapClassic:(point,drag=false)=>isClassic(kind)&&classics.tap(point,drag),
     keyUp:event=>{keys.delete(keyName(event));if(event.code==="Space")endCharge("keyboard",true);},
     update,stop,state:now=>kind==="pump"?{kind,pump:rhythm.state(now)}:
-      kind==="mole"?moles.state(getClock(now)):isTarget(kind)?targets.state(now):
+      kind==="mole"?moles.state(getClock(now)):isClassic(kind)?classics.state():isTarget(kind)?targets.state(now):
       kind==="baseball"?baseball.state(getClock(now)):kind==="bowling"?
         {kind,canAim:mayBowl(),aimOffset:ARCADE_GAMES.bowling.y-getAvatar().y}:kind?games.state():null};
 }

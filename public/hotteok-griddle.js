@@ -1,5 +1,4 @@
 import {BUNGEO_BURN_MS, BUNGEO_GOOD_MS, BUNGEO_MOLD_COUNT, bungeoStep} from "./bungeo-data.js";
-import {makeHotteokProps} from "./regional-item-props.js";
 
 const top = 1.023;
 const surface = top + .109;
@@ -10,10 +9,9 @@ const qualityColor = {idle: 0x766e59, cooking: 0xe8a64d, ready: 0x9cce7a, burnt:
 const clamp = value => Math.min(1, Math.max(0, value));
 const ease = value => { const t = clamp(value); return t * t * (3 - 2 * t); };
 
-export function addHotteokGriddle(T, root, kit, {hit, highlight, counterLabel, watchRadius, body}) {
+export function addHotteokGriddle(T, root, kit, {hit, highlight, counterLabel, watchRadius, body, bake}) {
   const {box, cylinder, shape} = kit;
   const cast = 0x303137, steel = 0x777a76, brass = 0x857344, wood = 0xad723e;
-  const bake = makeHotteokProps(T, kit);
   const dynamic = group => group.traverse(mesh => { if (mesh.isMesh) mesh.userData.dynamic = true; });
   const centers = Array.from({length: BUNGEO_MOLD_COUNT}, (_, index) => (index - (BUNGEO_MOLD_COUNT - 1) / 2) * .463);
   const plate = new T.LatheGeometry([[0, .020], [.682, .020], [.726, .035], [.744, .071], [.747, .102],
@@ -81,7 +79,7 @@ export function addHotteokGriddle(T, root, kit, {hit, highlight, counterLabel, w
   hit(press, {tool: "press"}, 0, .059, 0, .23, .13, .23);
   const spatula = new T.Group();
   spatula.name = "호떡 뒤집개";
-  spatula.position.set(1.01, top + .029, .12);
+  spatula.position.set(1.20, top + .029, -.079);
   spatula.rotation.y = -.39;
   root.add(spatula);
   box(steel, 0, 0, -.102, .105, .009, .14, spatula);

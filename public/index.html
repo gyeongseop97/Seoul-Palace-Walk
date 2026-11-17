@@ -110,20 +110,6 @@
             <p id="loading-game">산책길을 열고 있어요.</p>
             <div class="game-info">
               <div class="game-place"><span id="game-season">정동의 가을</span><strong id="game-place">매표소 앞</strong><small class="desktop-controls-hint">WASD · 방향키로 이동</small><small id="travel-status" hidden></small><small id="dining-status" role="status" hidden></small><small id="bungeo-order-status" role="status" hidden></small><small id="bungeo-status" role="status" hidden></small></div>
-              <div id="bungeo-tools" class="bungeo-tools" role="group" aria-label="굽기 재료와 도구" hidden>
-                <button type="button" class="quiet" data-bungeo-tool="batter" aria-pressed="false">반죽통</button>
-                <button type="button" class="quiet" data-bungeo-tool="redBean" aria-pressed="false">팥</button>
-                <button type="button" class="quiet" data-bungeo-tool="custard" aria-pressed="false">슈크림</button>
-                <button type="button" class="quiet" data-bungeo-tool="sugar" aria-pressed="false" hidden>설탕소</button>
-                <button type="button" class="quiet" data-bungeo-tool="press" aria-pressed="false" hidden>누르개</button>
-                <button id="bungeo-close" type="button" class="quiet">굽기 끝내기</button>
-              </div>
-              <div class="bungeo-molds" id="bungeo-molds" role="group" aria-label="붕어빵 틀 3칸" hidden>
-                <small id="bungeo-stock" role="status" hidden></small>
-                <div class="bungeo-cavity"><strong id="bungeo-number-1">1번 틀</strong><small id="bungeo-phase-1"></small><button type="button" class="quiet" id="bungeo-mold-1" aria-labelledby="bungeo-number-1 bungeo-mold-1" aria-describedby="bungeo-phase-1">반죽 붓기</button><button type="button" class="quiet" id="bungeo-hand-1" aria-labelledby="bungeo-number-1 bungeo-hand-1" hidden>손에 들기</button></div>
-                <div class="bungeo-cavity"><strong id="bungeo-number-2">2번 틀</strong><small id="bungeo-phase-2"></small><button type="button" class="quiet" id="bungeo-mold-2" aria-labelledby="bungeo-number-2 bungeo-mold-2" aria-describedby="bungeo-phase-2">반죽 붓기</button><button type="button" class="quiet" id="bungeo-hand-2" aria-labelledby="bungeo-number-2 bungeo-hand-2" hidden>손에 들기</button></div>
-                <div class="bungeo-cavity"><strong id="bungeo-number-3">3번 틀</strong><small id="bungeo-phase-3"></small><button type="button" class="quiet" id="bungeo-mold-3" aria-labelledby="bungeo-number-3 bungeo-mold-3" aria-describedby="bungeo-phase-3">반죽 붓기</button><button type="button" class="quiet" id="bungeo-hand-3" aria-labelledby="bungeo-number-3 bungeo-hand-3" hidden>손에 들기</button></div>
-              </div>
               <div class="look-actions">
                 <span id="look-hint" hidden>내 위치를 지도에 5초 동안 표시해요.</span>
                 <button id="look" class="primary" type="button" aria-describedby="look-hint" disabled><span aria-hidden="true">✦</span> 여기 봐</button>
@@ -137,6 +123,10 @@
                   <div id="bus-status-departure"><dt>정차 버스 출발</dt><dd></dd></div>
                 </dl>
               </section>
+            </div>
+            <div id="bungeo-hint" class="cooking-hint" hidden>
+              <span id="bungeo-instruction" role="status"></span>
+              <small id="bungeo-keyboard"></small>
             </div>
             <button id="game-presence" class="game-presence" type="button" aria-label="접속자 목록 열기" aria-haspopup="dialog" aria-controls="roster-dialog">접속자</button>
             <div id="cat-run-tip" class="cat-run-tip" aria-label="고양이 안내" hidden>
@@ -207,6 +197,9 @@
                   <button id="arcade-shooting" type="button" class="quiet activity-button" hidden>사격</button>
                   <button id="arcade-archery" type="button" class="quiet activity-button" hidden>양궁</button>
                   <button id="arcade-baseball" type="button" class="quiet activity-button" hidden>스크린 야구</button>
+                  <button id="arcade-pinball" type="button" class="quiet activity-button" hidden>핀볼</button>
+                  <button id="arcade-airHockey" type="button" class="quiet activity-button" hidden>에어하키</button>
+                  <button id="arcade-brickBreaker" type="button" class="quiet activity-button" hidden>벽돌 깨기</button>
                   <button id="arcade-stairs" type="button" class="quiet activity-button" hidden>2층 올라가기</button>
                   <button id="fountain-show" type="button" class="quiet activity-button" hidden>분수쇼 시작</button>
                   <button id="picnic" type="button" class="quiet activity-button" aria-haspopup="dialog" hidden>돗자리 펴기</button>

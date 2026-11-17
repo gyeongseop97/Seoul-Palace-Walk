@@ -25,6 +25,7 @@ const schema=[
     spawned INTEGER NOT NULL, accepted INTEGER, completed INTEGER,
     stock INTEGER NOT NULL DEFAULT 0, sold INTEGER NOT NULL DEFAULT 0
   )`,
+  "CREATE TABLE IF NOT EXISTS bungeo_trays (room TEXT PRIMARY KEY, stock INTEGER NOT NULL)",
   "CREATE INDEX IF NOT EXISTS bungeo_requests_recent ON bungeo_requests(at)"
 ];
 const readyDatabases=new WeakMap();
@@ -72,6 +73,8 @@ export function validBungeo(command,player){
     case "flip":return token(command.batch);
     case "take":return token(command.batch)&&validItemSlot(command.slot);
     case "gift":return token(command.to)&&command.to!==player&&validItemSlot(command.slot);
+    case "putTray":
+    case "takeTray":return stall.kind==="hotteok"&&validItemSlot(command.slot);
     case "acceptOrder":
     case "serveOrder":return stall.customer&&token(command.order);
     case "plate":return stall.customer&&token(command.batch)&&(command.order===undefined||token(command.order));
@@ -187,6 +190,35 @@ function take(db,context){
   return [grant,remember,clearedMold(db,context)];
 }
 
+function putHotteokOnTray(db,context){
+  const {now,bungeo,stall}=context,path=itemPath(bungeo.slot),cookingRoom=stateRoom(context);
+  const hold=`${nearCook(stall)} AND ${itemKind("w",path)}='${HOTTEOK_ITEMS.good}'
+    AND ${itemRemaining("w",path)}=${ITEMS.hotteok.uses} AND ${availableAt("w",path)}<=?`;
+  const add=db.prepare(`
+    INSERT INTO bungeo_trays (room,stock)
+    SELECT ?,1 FROM walkers w WHERE ${hold} AND ${unseen}
+    ON CONFLICT(room) DO UPDATE SET stock=stock+1 WHERE stock<${BUNGEO_STOCK_CAPACITY}
+  `).bind(cookingRoom,...readyArgs(context),now,...actionArgs(context));
+  const release=db.prepare(`
+    UPDATE walkers AS w SET avatar=json_set(json_remove(w.avatar,'${path}'),'$.bungeoClaim',?)
+    WHERE changes()=1 AND ${hold}
+  `).bind(bungeo.id,...readyArgs(context),now);
+  return [add,release,receipt(db,context,{slot:bungeo.slot})];
+}
+
+function takeHotteokFromTray(db,context){
+  const {now,bungeo,stall}=context,path=itemPath(bungeo.slot),cookingRoom=stateRoom(context);
+  const pickup=db.prepare(`
+    UPDATE walkers AS w SET avatar=json_set(w.avatar,'${path}',json_object(
+      'kind','${HOTTEOK_ITEMS.good}','remaining',${ITEMS.hotteok.uses},'started',0),'$.bungeoClaim',?)
+    WHERE ${nearCook(stall)} AND ${freeSlot("w",path)} AND ${noMeal("w")} AND ${unseen}
+      AND EXISTS (SELECT 1 FROM bungeo_trays WHERE room=? AND stock>0)
+  `).bind(bungeo.id,...readyArgs(context),now,...actionArgs(context),cookingRoom);
+  const remove=db.prepare("UPDATE bungeo_trays SET stock=stock-1 WHERE room=? AND stock>0 AND changes()=1")
+    .bind(cookingRoom);
+  return [pickup,remove,receipt(db,context,{quality:"good",slot:bungeo.slot})];
+}
+
 function gift(db,context){
   const {room,id,now,online,bungeo,stall}=context,path=itemPath(bungeo.slot);
   const transfer=db.prepare(`
@@ -252,6 +284,8 @@ export function bungeoStatements(db,context){
     case "fill":return fill(db,context);
     case "flip":return flip(db,context);
     case "take":return take(db,context);
+    case "putTray":return putHotteokOnTray(db,context);
+    case "takeTray":return takeHotteokFromTray(db,context);
     case "gift":return gift(db,context);
     case "acceptOrder":return acceptOrder(db,context);
     case "plate":return plate(db,context);
@@ -274,8 +308,11 @@ export function selectBungeo(db,context){
         'expiresAt',COALESCE(o.accepted,o.spawned)+${BUNGEO_CUSTOMER_PATIENCE_MS},'totalSold',o.sold)
       FROM bungeo_orders o JOIN walkers w ON w.room=o.room AND w.id=? AND w.player_key=? AND w.updated>=?
       WHERE o.room=? AND ${reach("w",stall,stall.watchRadius)}) AS customerOrder,
+      (SELECT t.stock FROM bungeo_trays t JOIN walkers w ON w.room=? AND w.id=? AND w.player_key=? AND w.updated>=?
+      WHERE t.room=? AND ${reach("w",stall,stall.watchRadius)}) AS trayStock,
       (SELECT json_object('quality',quality,'slot',slot) FROM bungeo_requests WHERE room=? AND player=? AND request=?) AS receipt
-  `).bind(room,id,key,online,cookingRoom,now-BUNGEO_EXPIRE_MS,id,key,online,cookingRoom,room,id,bungeo?.id??null);
+  `).bind(room,id,key,online,cookingRoom,now-BUNGEO_EXPIRE_MS,id,key,online,cookingRoom,
+    room,id,key,online,cookingRoom,room,id,bungeo?.id??null);
 }
 
 function activeOrder(order,now){
@@ -313,7 +350,8 @@ export function bungeoPayload(row,{bungeo,now,stall}){
   }
   const order=JSON.parse(row?.customerOrder??"null");
   const bungeoOrder=activeOrder(order,now);
-  const state={bungeoStall:stall.id,bungeo:bungeoMolds[0]?.stage==="filling"?null:bungeoMolds[0],bungeoMolds,bungeoOrder,bungeoStock:order?.stock??0};
+  const state={bungeoStall:stall.id,bungeo:bungeoMolds[0]?.stage==="filling"?null:bungeoMolds[0],bungeoMolds,bungeoOrder,
+    bungeoStock:stall.kind==="hotteok"?row?.trayStock??0:order?.stock??0};
   if(!bungeo)return state;
   const result=row?.receipt?JSON.parse(row.receipt):null;
   return {...state,bungeoResult:{id:bungeo.id,accepted:Boolean(result),

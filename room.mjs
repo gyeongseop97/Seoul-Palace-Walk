@@ -3,6 +3,7 @@ import {FEED_MS, ITEMS} from "./public/activities.js";
 import {validItemSlot} from "./public/held-items.js";
 import {BIKE_FALL_DURATION_MS,GESTURE_DURATIONS,MAX_ALCOHOL_DRINKS,MAX_ALCOHOL_LEVEL} from "./public/avatar-gestures.js";
 import {interiorAt} from "./public/interior-layout.js";
+import {arcadeFloorAt} from "./public/arcade-layout.js";
 import {BUS_COUNT,BUS_SEATS,BUS_BOARD_REACH,busAt,busStopById,busSeatPose} from "./public/sejong-bus.js";
 import {bikeDockReach,bikeDocks,bikeMountReach,bikeParkDuration,bikePassengerPose} from "./public/sejong-bike.js";
 import {acceptBikeRide,bikePassenger,closeBikeOffer,dismountBikePassenger,dropBikePassengers,ensureBikeOffers,
@@ -716,7 +717,7 @@ export async function api(request,env){
     if(avatar.catFriends&&(row===ownRow||receiverIndoors||
       Math.hypot(avatar.x-receiver.avatar.x,avatar.y-receiver.avatar.y)>62))delete avatar.catFriends;
     if(avatar.arcade!==undefined){
-      const activity=(receiverInterior==="arcade"||receiverInterior==="arcade-upper")&&
+      const activity=arcadeFloorAt(receiver.avatar.x,receiver.avatar.y)&&
         interiorAt(avatar.x,avatar.y)===receiverInterior&&row.player_key&&row.updated>=now-arcadeSnapshotLifetime&&cleanArcadeActivity(avatar);
       if(activity)avatar.arcade=activity;
       else delete avatar.arcade;

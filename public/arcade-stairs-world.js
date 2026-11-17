@@ -21,6 +21,6 @@ export function addArcadeStairwell(T,parent,{box},stairs){
     block(0x162a32,0,.021,.03,1.47,.035,.96);
     for(let index=0;index<4;index++)block(0xa78b65,0,.042,index*.16-.28,1.39,.015,.022);
   }
-  standSign(T,group,stairs.up?"2층 ↑":"1층 ↓",stairs.up?"사격 · 양궁 · 스크린 야구":"볼링 · 농구 · 출구",
+  standSign(T,group,stairs.badge,stairs.activities,
     2.04,0,2.94,-.17,"#234750","#ffe6ae",.43);
 }

@@ -116,6 +116,7 @@ export const plazaEastSidewalks=[[0,430.9],[439.8,sajikRoad.south]].map(([first,
   const sections=avenueSections(first,last);
   return [...avenueEdge(sections,eastRoadWidth),...sections.slice().reverse().map(n=>plazaAt(Math.max(48,eastCurb(n)+eastRoadWidth+8),n))];
 });
+export const plazaUijeongbuApproach=polygon([[41,494],[66,494],[66,sajikRoad.south],[41,sajikRoad.south]]);
 
 const bed=(id,kind,points)=>({id,kind,outline:polygon(points)});
 export const yukjoLawn=bed("yukjo-lawn","lawn",
@@ -182,7 +183,7 @@ export function isPlazaWalkable(x,y){
   }
   const sajik=sajikRoad;
   if(north>=522&&north<=sajik.north+1&&Math.abs(east-sajik.crossX)<sajik.crossWidth/2)return true;
-  if(north>494&&north<529&&east>=41&&east<=66)return true;
+  if(insidePlazaPolygon(x,y,plazaUijeongbuApproach))return true;
   if(plazaSideForecourts.some(outline=>insidePlazaPolygon(x,y,outline)))return true;
   if(insidePlazaPolygon(x,y,sejongParkOutline)){
     const fountain=sejongParkFountain;

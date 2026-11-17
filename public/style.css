@@ -332,18 +332,11 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 #travel-status{color:var(--gold-2);margin-top:4px}
 :is(#dining-status,#bungeo-status,#bungeo-order-status){color:var(--gold-2);margin-top:4px;max-width:24ch;white-space:normal}
 #bungeo-order-status{font-weight:700}
-.bungeo-molds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;width:min(100%,309px);padding:5px;
-  border:1px solid #dddbb754;border-radius:10px;background:#15221aeb;color:var(--ivory-1)}
-.bungeo-cavity{display:grid;grid-template-rows:auto auto 1fr;align-content:start;gap:3px;min-width:0}
-.bungeo-cavity strong,.bungeo-cavity small{padding-inline:3px;text-align:center;font-size:11px;line-height:1.2}
-.bungeo-cavity small{color:var(--gold-2);min-height:13px}
-.bungeo-cavity button{min-height:44px;padding:3px 5px;line-height:1.15;font-size:12px;white-space:normal;pointer-events:auto}
-.bungeo-cavity[data-ready="true"] button:first-of-type{background:var(--gold-3);color:var(--gold-9);border-color:var(--gold-2)}
-#bungeo-stock{grid-column:1/-1;padding:1px 4px 2px;color:var(--gold-2);font-size:11px;line-height:1.15;text-align:right}
-.bungeo-tools{display:flex;flex-wrap:wrap;gap:4px;max-width:100%}
-.bungeo-tools button{min-height:40px;padding:4px 8px;font-size:12px;pointer-events:auto}
-.bungeo-tools button[aria-pressed="true"]{background:var(--gold-3);color:var(--gold-9)}
-.bungeo-active :is(.joystick,.peer-hud,.movement-actions,.social-actions,.held-actions,.look-actions){visibility:hidden}
+.cooking-hint{position:absolute;z-index:3;inset:auto 10px 9px;margin-inline:auto;width:max-content;max-width:calc(100% - 20px);
+  padding:6px 10px;border-radius:8px;background:#14201bdf;color:var(--ivory-1);text-align:center;font-size:12px;line-height:1.35;pointer-events:none}
+.cooking-hint small{display:block;margin-top:2px;color:var(--gold-2);font-size:10px}
+@media (max-width:810px),(pointer:coarse){.cooking-hint small{display:none}}
+.bungeo-active :is(.game-info,#game-presence,#map-toggle,.joystick,.peer-hud,.game-hud){visibility:hidden}
 .bungeo-active #game{cursor:crosshair}
 .arcade-panel{position:absolute;z-index:6;right:10px;bottom:10px;width:min(248px,calc(100% - 25px));padding:9px;
   display:grid;gap:6px;background:#132a30ea;color:#fff1dc;border:1px solid #87cbc4;border-radius:12px}
@@ -359,6 +352,10 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 .baseball-stance button{min-height:44px}
 .baseball-stance button[aria-pressed="true"]{background:#a1dbca;color:#152c2c;border-color:#bce7da}
 .arcade-baseball-active #game{cursor:crosshair}
+.arcade-classic-active #game{cursor:crosshair}
+.arcade-classic-active .arcade-panel{width:min(285px,calc(100% - 28px))}
+.arcade-mole-active #game{cursor:crosshair}
+.arcade-mole-active .arcade-panel{width:min(215px,calc(100% - 25px))}
 .arcade-machine-active :is(.joystick,.game-hud,.peer-hud),.arcade-avatar-active :is(.game-hud,.peer-hud){visibility:hidden}
 .arcade-avatar-active .arcade-panel{width:min(213px,calc(100% - 128px))}
 .arcade-target-active::after{content:"";position:absolute;inset:50% auto auto 50%;width:15px;height:15px;

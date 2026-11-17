@@ -4,7 +4,7 @@ import {BASKET_BACKBOARD,BASKET_BACKING,BASKET_RAMP} from "./arcade-basket-physi
 import {standSign} from "./regional-stands.js";
 import {drawPumpTrack} from "./arcade-pump-track.js";
 import {addBowlingLane} from "./arcade-bowling-world.js";
-import {MOLE_OFFSETS} from "./arcade-mole.js";
+import {MOLE_BOARD,MOLE_HOLES,MOLE_HOLE_RADIUS,MOLE_WHACK_MS} from "./arcade-mole.js";
 import {addArcadeStairwell} from "./arcade-stairs-world.js";
 
 const ink=0x202c33,cream=0xf2d5ab,teal=0x458f84,orange=0xd5835e;
@@ -100,7 +100,7 @@ export function* buildArcadeInterior(T,parent,kit){
     block(cream,side*.2,1.25,.155,.065,.32,.073,entry);
   }
   panel(entry,"출구","",.83,0,3.09,.06,"#245849",.32);
-  addArcadeStairwell(T,arcade,kit,ARCADE_STAIRS[ARCADE_SITE.id]);
+  for(const stairs of ARCADE_STAIRS[ARCADE_SITE.id])addArcadeStairwell(T,arcade,kit,stairs);
   for(const [center,color] of [[ARCADE_CLAW.localX,0x9cdcca],[ARCADE_PUMP.localX,0xe3b586],[ARCADE_BASKET.localX,0xffb49a],[ARCADE_MOLE.localX,0xe6be83]]){
     glow(center,3.89,-.72,2.08,.033,.14,color);
     block(0x283c44,center,.051,-.15,2.62,.022,3.91,arcade);
@@ -334,27 +334,51 @@ export function* buildArcadeInterior(T,parent,kit){
   const bowling=addBowlingLane(T,arcade,kit);
   const mole=group(ARCADE_MOLE.localX,.025,ARCADE_MOLE.localZ);
   mole.name="두더지 잡기";
-  block(0x39384e,0,.35,0,3.21,.65,1.26,mole);
-  block(0x6a5b77,0,.73,0,3.36,.16,1.36,mole);
-  block(0x31534e,0,.808,-.03,3.25,.018,1.26,mole);
-  glow(0,.56,.645,3.18,.042,.035,0xa2dec5,mole);
-  block(0x564560,0,1.37,-.57,3.27,1.24,.17,mole);
-  panel(mole,"두더지 잡기","튀어나온 두더지를 망치로!",2.47,0,1.86,-.47,"#4d3d5b",.38);
-  const moleMeter=screen(mole,.77,.39,0,1.36,-.455,"잡은 두더지");
-  const heads=MOLE_OFFSETS.map(x=>{
-    cylinder(0x241f2c,x,.827,.11,.262,.019,22,mole);
-    const well=shape(torus(.25,.025).rotateX(-Math.PI/2),0xe4b387,x,.824,.11,mole);
-    well.scale.set(1,1,1.03);
-    const head=group(x,.85,.11,mole);head.visible=false;
-    oval(0x816053,0,.07,0,.161,.158,.157,head);
-    oval(0xb78e72,0,.119,.12,.101,.074,.039,head);
+  const tableTop=MOLE_BOARD.top-mole.position.y;
+  block(0x39384e,0,.35,0,2.01,.65,1.24,mole);
+  block(0x6a5b77,0,.697,0,MOLE_BOARD.width,.087,MOLE_BOARD.depth,mole);
+  for(const x of [-1.015,1.015])block(0x5f516c,x,.786,0,.10,.09,MOLE_BOARD.depth,mole);
+  block(0x5f516c,0,.786,.61,2.02,.09,.06,mole);
+  const tableShape=new T.Shape(),halfWidth=MOLE_BOARD.width/2,halfDepth=MOLE_BOARD.depth/2;
+  for(const [index,[x,z]] of [[-halfWidth,-halfDepth],[halfWidth,-halfDepth],[halfWidth,halfDepth],[-halfWidth,halfDepth]].entries()){
+    if(index===0)tableShape.moveTo(x,-z);else tableShape.lineTo(x,-z);
+  }
+  tableShape.closePath();
+  for(const {x,z} of MOLE_HOLES){
+    const hole=new T.Path();hole.absarc(x,-z,MOLE_HOLE_RADIUS,0,Math.PI*2,true);tableShape.holes.push(hole);
+  }
+  shape(new T.ShapeGeometry(tableShape,16).rotateX(-Math.PI/2),0x31534e,0,tableTop,0,mole);
+  glow(0,.56,.632,1.97,.040,.027,0xa2dec5,mole);
+  block(0x564560,0,1.37,-.57,2.10,1.24,.17,mole);
+  panel(mole,"두더지 잡기","튀어나온 두더지를 눌러요",1.84,0,1.86,-.47,"#4d3d5b",.34);
+  const moleMeter=screen(mole,.70,.36,0,1.34,-.455,"잡은 두더지");
+  const wells=MOLE_HOLES.map(({x,z})=>{
+    cylinder(0x241f2c,x,tableTop-.055,z,MOLE_HOLE_RADIUS+.012,.020,18,mole);
+    const ring=shape(torus(MOLE_HOLE_RADIUS+.004,.015).rotateX(-Math.PI/2),0xe4b387,x,tableTop+.005,z,mole);
+    const defaultMaterial=ring.material,litMaterial=meshMaterial(0xf5c762,{emissive:0x8c602c}),
+      hitMaterial=meshMaterial(0x86e0ae,{emissive:0x367e55});
+    const head=group(x,tableTop,z,mole);head.visible=false;
+    oval(0x916850,0,.060,0,.088,.104,.092,head);
+    oval(0xcda384,0,.079,.070,.062,.052,.034,head);
     for(const side of [-1,1]){
-      oval(0x553e39,side*.092,.207,-.021,.042,.06,.035,head);
-      oval(0x261f2b,side*.048,.150,.135,.011,.014,.010,head);
+      oval(0x5b3e36,side*.060,.132,-.013,.025,.035,.025,head);
+      oval(0x261f2b,side*.034,.095,.081,.010,.014,.008,head);
     }
-    oval(0xd19087,0,.105,.155,.029,.021,.016,head);
-    dynamic(head);return head;
+    oval(0xd19087,0,.068,.104,.023,.017,.012,head);
+    dynamic(head);dynamic(ring);
+    return {head,ring,defaultMaterial,litMaterial,hitMaterial};
   });
+  const molePlane=new T.Plane(new T.Vector3(0,1,0),-MOLE_BOARD.top);
+  const moleTap=new T.Vector3();
+  function pickMole(ray){
+    mole.updateWorldMatrix(true,true);
+    const active=wells.findIndex(({head})=>head.visible);
+    if(active>=0&&ray.intersectObject(wells[active].head,true).length)return active;
+    if(!ray.ray.intersectPlane(molePlane,moleTap))return null;
+    mole.worldToLocal(moleTap);
+    const hole=MOLE_HOLES.findIndex(({x,z})=>Math.hypot(moleTap.x-x,moleTap.z-z)<.137);
+    return hole<0?null:hole;
+  }
   let showPreview=true,previousAim=null;
   function update(local,clock,peers=[],serverClock=0,view,bowlingMatch){
     const spectators=new Map();
@@ -413,13 +437,16 @@ export function* buildArcadeInterior(T,parent,kit){
     bowling.update(bowlingMatch?bowlingMatch.roll:game("bowling")?.bowling?.roll??null,
       serverClock,local?.kind==="bowling"&&local.canAim?view?.pan:undefined,bowlingMatch,local?.aimOffset);
     const moleGame=game("mole");
-    heads.forEach((head,index)=>{
+    wells.forEach(({head,ring,defaultMaterial,litMaterial,hitMaterial},index)=>{
       const rise=index===moleGame?.target?moleGame.height:0;
       head.visible=rise>.015;
-      if(head.visible)head.position.y=.827-.28*(1-rise);
+      if(head.visible)head.position.y=tableTop-.167*(1-rise);
+      const age=serverClock-(moleGame?.swingAt??0);
+      ring.material=moleGame?.hit&&index===moleGame.swingHole&&age>=0&&age<MOLE_WHACK_MS?hitMaterial:
+        head.visible?litMaterial:defaultMaterial;
     });
     moleMeter(String(moleGame?.score??0),moleGame?(moleGame.finished?"끝":moleGame.remaining+"초"):"망치 준비");
   }
   update(null,0);
-  return {updateArcade:update};
+  return {updateArcade:update,pickMole};
 }

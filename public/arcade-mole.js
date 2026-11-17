@@ -1,30 +1,58 @@
-export const MOLE_OFFSETS=[-.98,0,.98];
-const pattern=[1,0,1,2,1,2,0,1,0,2,1,0,1,2,0,2,1,0,2,1,2,0,1,2];
-const beatMs=1040,whackMs=300,hitReach=.70;
+export const MOLE_COLUMNS=5,MOLE_ROWS=3,MOLE_ROUND_BEATS=24;
+export const MOLE_BOARD={width:2.13,depth:1.28,top:.852};
+export const MOLE_HOLES=Array.from({length:MOLE_COLUMNS*MOLE_ROWS},(_,index)=>({
+  x:(index%MOLE_COLUMNS-2)*.365,z:(Math.floor(index/MOLE_COLUMNS)-1)*.34+.05
+}));
+export const MOLE_HOLE_RADIUS=.112;
+export const MOLE_WHACK_MS=330;
+const beatMs=1040;
 
-export function makeArcadeMoles(station){
-  let startAt=0,score=0,hitBeat=-1,swingAt=0;
+export function moleView(aspect){
+  const fov=aspect<.80?78:54;
+  const distance=Math.max(1.54,.94/(Math.tan(fov*Math.PI/360)*Math.max(.34,aspect))+.34);
+  return {distance,fov,eye:1.62};
+}
+
+export function moleSwing(clock,swingAt){
+  const t=(clock-swingAt)/MOLE_WHACK_MS;
+  if(!swingAt||t<0||t>=1)return 0;
+  if(t<.22)return -.26*Math.sin(t/.22*Math.PI);
+  const strike=(t-.22)/.78;
+  return Math.sin(Math.PI*strike**.54);
+}
+
+export function makeArcadeMoles(random=Math.random){
+  let startAt=0,score=0,hitBeat=-1,hitAt=0,swingAt=0,swingHole=-1,hit=false,pattern=[];
   function start(now){
-    startAt=now+850;score=0;hitBeat=-1;swingAt=0;
+    startAt=now+850;score=0;hitBeat=-1;hitAt=0;swingAt=0;swingHole=-1;hit=false;pattern=[];
+    while(pattern.length<MOLE_ROUND_BEATS){
+      const holes=MOLE_HOLES.map((_,index)=>index);
+      for(let i=holes.length-1;i>0;i--){
+        const j=Math.floor(random()*(i+1));
+        [holes[i],holes[j]]=[holes[j],holes[i]];
+      }
+      if(holes[0]===pattern.at(-1))holes.push(holes.shift());
+      pattern.push(...holes.slice(0,MOLE_ROUND_BEATS-pattern.length));
+    }
   }
   function state(now){
     const elapsed=now-startAt,beat=Math.floor(elapsed/beatMs),progress=elapsed/beatMs-beat;
     const finished=beat>=pattern.length;
     const target=beat<0||finished?-1:pattern[beat];
-    const height=target<0||beat===hitBeat?0:Math.max(0,Math.min(1,progress*6,(.85-progress)*7));
-    return {kind:"mole",score,target,height,swingAt,finished,
+    const drop=beat===hitBeat?Math.min(1,Math.max(0,(now-hitAt-107)/74)):0;
+    const height=target<0?0:Math.max(0,Math.min(1,progress*6,(.88-progress)*7))*(1-drop);
+    return {kind:"mole",score,target,height,swingAt,swingHole,hit,finished,
       remaining:Math.max(0,Math.ceil((pattern.length*beatMs-Math.max(0,elapsed))/1000))};
   }
-  function strike(now,avatar){
-    if(now-swingAt<whackMs)return false;
+  function strike(now,index){
+    if(!Number.isInteger(index)||!MOLE_HOLES[index]||now-swingAt<MOLE_WHACK_MS*.72)return null;
     const active=state(now);
-    if(active.finished){start(now);return false;}
-    swingAt=now;
-    if(active.target<0||active.height<.53)return false;
-    const x=station.x,y=station.y-MOLE_OFFSETS[active.target];
-    if(Math.hypot(avatar.x-x,avatar.y-y)>hitReach)return false;
-    hitBeat=Math.floor((now-startAt)/beatMs);score++;
-    return true;
+    if(active.finished)return null;
+    swingAt=Math.round(now);swingHole=index;
+    const beat=Math.floor((now-startAt)/beatMs);
+    hit=active.target===index&&active.height>=.28&&hitBeat!==beat;
+    if(hit){hitBeat=beat;hitAt=now;score++;}
+    return hit;
   }
   return {start,state,strike};
 }

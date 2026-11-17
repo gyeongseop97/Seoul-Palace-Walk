@@ -21,7 +21,8 @@ export const subwayAccessPaths=[
     [178,-905],[150,-909],[125,-915],[112,-920],[110,-933],[84,-941],[63,-931]]),
   walk("경복궁역 자하문로 보도",7.4,[[149,-908],[145,-891],[148,-872],[139,-866],[102,-869],[70,-879],[64,-881]]),
   walk("경복궁역 서측 횡단보도",5.5,[[65,-930],[67,-907],[66,-883]]),
-  walk("경복궁역 북서쪽 보도",6.4,[[64,-932],[72,-947],[77,-956],[80,-961]])
+  walk("경복궁역 북서쪽 보도",6.4,[[64,-932],[72,-947],[77,-956],[80,-961]]),
+  walk("시청역 1번 출구 앞",6.1,[[461.2,351.65],[461.2,359.45],[464.6,362.4]])
 ];
 
 const cities={
@@ -63,9 +64,14 @@ function band({width,points}){
 const pavement=subwayAccessPaths.map(band);
 const crossingIndexes=[2,7];
 const inside=(x,y,polygon)=>insideCorridorPolygon(x,y,polygon);
+const accessBounds=pavement.map(outline=>{
+  const xs=outline.map(p=>p.x),ys=outline.map(p=>p.y);
+  return {outline,minX:Math.min(...xs),maxX:Math.max(...xs),minY:Math.min(...ys),maxY:Math.max(...ys)};
+});
 addZone({name:"지하철 출입구 보행로",
-  contains:(x,y)=>x>=55&&x<550&&(y>280||y< -380),
-  walkable:(x,y)=>!inside(x,y,plazaAvenueOutline)&&pavement.some(polygon=>inside(x,y,polygon))
+  contains:(x,y)=>accessBounds.some(({outline,minX,maxX,minY,maxY})=>
+    x>=minX&&x<=maxX&&y>=minY&&y<=maxY&&inside(x,y,outline))&&!inside(x,y,plazaAvenueOutline),
+  walkable:()=>true
 });
 addLandmarks(expandedSubwayStops.map(stop=>({...stop.arrive,name:stop.name})));
 

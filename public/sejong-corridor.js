@@ -28,9 +28,6 @@ export function buildSejongCorridor(T,scene,kit){
     mesh.userData.followTerrain=true;mesh.userData.sharedTerrainGeometry=true;
     return mesh;
   }
-  const rectangle=(x,y,w,d)=>[
-    {x:x-w/2,y:y-d/2},{x:x+w/2,y:y-d/2},{x:x+w/2,y:y+d/2},{x:x-w/2,y:y+d/2}
-  ];
   function surface(outline,material,height,tile=2.6,pieces=[outline]){
     if(!pieces.length)return;
     const paths=pieces.map(piece=>new T.Shape(piece.map(p=>new T.Vector2(wx(p.x),-wz(p.y)))));
@@ -54,8 +51,8 @@ export function buildSejongCorridor(T,scene,kit){
     map.magFilter=T.LinearFilter;map.minFilter=T.LinearMipmapLinearFilter;map.generateMipmaps=true;map.needsUpdate=true;
     return new T.MeshStandardMaterial({map,roughness:.95});
   }
-  const paved=granite(),asphalt=matte(0x45494c),darker=matte(0x474a47),cycle=matte(0x816762);
-  const stone=0xb7b7ad,curb=0xb1b0a6,white=0xe4e1d7;
+  const paved=granite(),asphalt=matte(0x45494c),cycle=matte(0x816762);
+  const curb=0xb1b0a6,white=0xe4e1d7;
 
   // Leave the east opening clear below the road surface for the stream and ramps.
   const entranceCuts=cheonggyeAccess.map(({outline})=>outline);
@@ -235,11 +232,11 @@ export function buildSejongCorridor(T,scene,kit){
     obstacle(x,y,.20,.20,3);
   }
 
-  buildCorridorFacades({T,group,wx,wz,box,matte,block,obstacle,label,surface,rectangle,paved,darker,stone});
+  buildCorridorFacades({T,group,wx,wz,box,matte,block,obstacle,label});
   return group;
 }
 
-function buildCorridorFacades({T,group,wx,wz,box,matte,block:buildBlock,obstacle,label:buildLabel,surface,rectangle,paved,darker,stone}){
+function buildCorridorFacades({T,group,wx,wz,box,matte,block:buildBlock,obstacle,label:buildLabel}){
   const granite=0xb4ad9b,ivory=0xd0c7b4,glass=0x486871,deep=0x384b50;
   let terrainAnchor;
   const at=(x,y)=>{terrainAnchor={x,y};};
@@ -272,7 +269,6 @@ function buildCorridorFacades({T,group,wx,wz,box,matte,block:buildBlock,obstacle
 
   // Seoul Hall of Urbanism and Architecture: broad shallow Seoul Maru roof above the glazed hall.
   at(458.9,100.2);
-  surface(rectangle(459,100,27,51),paved,.046);
   mass(0xb7b9ad,458.9,100.2,21.9,43.3,2.85,.045,0,true);
   block(0xcecabf,458.7,100.2,22.55,44.2,.43,2.89);
   block(0x636f70,470.02,100.0,.12,36.8,2.32,.33);
@@ -393,7 +389,6 @@ function buildCorridorFacades({T,group,wx,wz,box,matte,block:buildBlock,obstacle
   block(0x444e4d,435.60,-195.5,.31,48.5,4.3,.45);
   for(let y=-219;y<=-172;y+=3.0)block(0x8a928b,435.8,y,.15,.15,4.37,.39);
   block(0xbdb7aa,437.2,-196.3,4.3,42.5,.46,5.1);
-  surface(rectangle(442.4,-197,14.4,62),paved,.049);
   label("동화면세점",436.2,-197,7.4,18.4,Math.PI/2,"#5b6158");
   label("광화문빌딩",427.9,-196,82.1,23.8,Math.PI/2,"#848880");
 
@@ -433,6 +428,4 @@ function buildCorridorFacades({T,group,wx,wz,box,matte,block:buildBlock,obstacle
     block(0xacac9e,x,y,w+.35,d+.35,.61,h-.61);
     if(name)label(name,x+side*(w/2+.13),y,Math.min(7,h*.72),Math.min(16,d*.64),side*Math.PI/2,"#555e55");
   }
-  // Keep the paved rear frontage clear where the palace walkway reaches Sejong-daero.
-  surface(rectangle(426.9,118.5,35,12),darker,.048);
 }

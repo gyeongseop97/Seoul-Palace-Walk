@@ -18,6 +18,7 @@ export const ticket={...p("덕수궁 매표소",gate.lat+10.3/northMetres,gate.l
 export const ticketApproach=p("매표소 앞",ticket.lat,ticket.lng+4.3/eastMetres);
 export const ticketGuide={x:ticket.x+2.5,y:ticket.y-5,approach:{x:ticket.x+3.9,y:ticket.y-5}};
 export const spawn=p("대한문 앞 매표 광장",37.56515,126.97679);
+export const ticketForecourt={x:spawn.x-1,y:spawn.y+4,width:39,depth:39};
 export const bridge=p("금천교",37.56503,126.97641);
 export const middle=p("중화문",37.56523,126.97467);
 export const hall=p("중화전",37.56581,126.97482);
@@ -426,7 +427,8 @@ export function walkable(x,y,feet=0){
   }
   if(open)return true;
   if(!inDeoksugung)return false;
-  return inEstate(x,y)||distance(spawn,x,y)<23||distance(fountain,x,y)<15||inVerge(x,y)||distance(garden,x,y)<9||
+  const onForecourt=Math.abs(x-ticketForecourt.x)<ticketForecourt.width/2&&Math.abs(y-ticketForecourt.y)<ticketForecourt.depth/2;
+  return inEstate(x,y)||distance(spawn,x,y)<23||onForecourt||distance(fountain,x,y)<15||inVerge(x,y)||distance(garden,x,y)<9||
     onEntrance(x,y)||onStationWalk(x,y)||onStonewall(x,y)||onPalace(x,y);
 }
 export function clearSegment(from,to,step=.36,feet=0){

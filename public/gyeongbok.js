@@ -1,6 +1,6 @@
 import {
   gwanghwamun,gbSites,gbSite,gbCourts,gbLake,gbPond,gbPaths,gbLawns,gbStation,subwayStops,
-  gbWoldae,gbHaetae,gbPhotoZone,gbRoyalPavilion,gyeongbokWater,at
+  gbFrontApron,gbWoldae,gbHaetae,gbPhotoZone,gbRoyalPavilion,gyeongbokWater,at
 } from "./gyeongbok-layout.js";
 import {solidAt} from "./layout.js";
 import {plazaAt} from "./plaza-layout.js";
@@ -133,8 +133,7 @@ export function* buildGyeongbok(T,scene,kit,tools){
   box(0x677253,centre.x,-8.36,centre.z,900,.65,1280).userData.flatBackground=true;
   plot(rect(-326,-177,2,880),materials.garden.grove,-.12);
   plot(gbWallOutline,materials.earth,.008);
-  // Overlap the north curb of Sajik-ro and keep the gate apron visible above the road.
-  plot(rect(-92,48,-54,1),materials.paving,.028);
+  plot(gbFrontApron,materials.paving,.028).name="광화문 앞 보도";
   // Hyoja-ro shares the palace's grade. Give the narrow path a continuous shoulder next to the wall.
   for(const {points,width} of gbWestPaths)ribbon(points,-width/2-5,width/2+5,materials.earth,-.04);
   for(const {kind,west,east,south,north} of gbLawns){
@@ -850,14 +849,26 @@ export function* buildGyeongbok(T,scene,kit,tools){
       for(let i=0;i<uv.count;i++)uv.setXY(i,position.getX(i)/2.16,-position.getY(i)/2.40);
       return surface;
     };
-    pavement(uijeongbuBusPavement,.025).name="경복궁 정류장 보도";
     plot(uijeongbuOutline,materials.garden.lawn,.02).name="의정부지 역사유적광장 잔디";
-    for(const [index,{points,width}] of uijeongbuWalks.entries()){
-      ribbon(points,-width/2,width/2,index<2?materials.paving:materials.gravel,.037+index*.012);
+    const streetCoverage=[sajikEastRoad,uijeongbuSideRoad,gbFrontApron];
+    function fillPavement(outline,height,name,texturedStreet=false){
+      const available=makeStreetSurfaceCut(T,streetCoverage);
+      for(const part of available(outline)){
+        const tile=texturedStreet?pavement(part,height):plot(part,materials.paving,height);
+        tile.name=name;
+      }
+      streetCoverage.push(outline);
     }
+    fillPavement(uijeongbuBusPavement,.025,"경복궁 정류장 보도",true);
     for(const index of uijeongbuPavedConnections){
-      if(streetPaved.includes(index))pavement(uijeongbuConnections[index],.032+index*.006);
-      else plot(uijeongbuConnections[index],materials.paving,.032+index*.006);
+      fillPavement(uijeongbuConnections[index],.032+index*.006,"의정부지 연결 보도",streetPaved.includes(index));
+    }
+    for(const {name,outline} of uijeongbuCrossings){
+      fillPavement(outline,.037,`${name} 진입 보도`);
+    }
+    const walkCoverage=streetCoverage.map(outline=>outline.map(({x,y})=>({x:wx(x),y:wz(y)})));
+    for(const [index,{points,width}] of uijeongbuWalks.entries()){
+      ribbon(points,-width/2,width/2,index<2?materials.paving:materials.gravel,.037+index*.012,walkCoverage);
     }
     function paint(color,e,n,w,d,turn,height){
       const c=Math.cos(turn),s=Math.sin(turn);
@@ -866,12 +877,13 @@ export function* buildGyeongbok(T,scene,kit,tools){
     }
     for(const {name,left,right,road} of uijeongbuCrossings){
       const keepRoad=makeStreetSurfaceCut(T,[road],{keepInside:true});
+      const paintHeight=road===sajikEastRoad?-.008:-.011;
       const positions=[];
       for(const band of crosswalkPaintBands(left,right))for(const [a,...rest] of keepRoad(band)){
         for(let i=1;i<rest.length;i++){
           const b=rest[i-1],c=rest[i],turn=(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
           if(Math.abs(turn)<1e-6)continue;
-          for(const {x,y} of turn<0?[a,b,c]:[a,c,b])positions.push(wx(x),.010,wz(y));
+          for(const {x,y} of turn<0?[a,b,c]:[a,c,b])positions.push(wx(x),paintHeight,wz(y));
         }
       }
       const geometry=new T.BufferGeometry();

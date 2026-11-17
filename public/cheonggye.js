@@ -228,7 +228,8 @@ export function* buildCheonggye(T,root,kit,terrain){
   const rectangle=(west,east,north,south)=>[{x:west,y:north},{x:east,y:north},{x:east,y:south},{x:west,y:south}];
   const channel=streamBand([[-1,.3],[1,.3]]);
   const cascadePit=rectangle(cascadeWest,head,cascadeNorth,cascadeSouth);
-  const groundCut=makeStreetSurfaceCut(T,[...descentCuts,channel,cascadePit]);
+  const streetOpenings=[...descentCuts,channel,cascadePit];
+  const groundCut=makeStreetSurfaceCut(T,streetOpenings);
   const groundMaterial=new T.MeshStandardMaterial({color:0x8b9087,roughness:1,side:T.DoubleSide});
   const {minX,maxX,minY,maxY}=cheonggyeBounds;
   const cityGround=[
@@ -238,10 +239,10 @@ export function* buildCheonggye(T,root,kit,terrain){
   for(const outline of cityGround){
     surface(outline,groundMaterial,-.083,groundCut(outline)).name="Cheonggyecheon street-level ground";
   }
-  const pavedOutlines=descentCuts.slice(),roadOutlines=descentCuts.slice();
+  const pavedOutlines=streetOpenings.slice(),roadOutlines=streetOpenings.slice();
   const streetRoads=streetLayers.filter(({kind})=>kind==="road").map(({outline})=>outline);
   const bridgeRoads=streetLayers.filter(({kind})=>kind==="bridge").map(({outline})=>outline);
-  const cutDescents=makeStreetSurfaceCut(T,descentCuts);
+  const cutDescents=makeStreetSurfaceCut(T,streetOpenings);
   const crossingPaint=makeCrosswalkMarkings(T,streetRoads);
   const clearDeck=makeStreetSurfaceCut(T,bridgeRoads),keepDeck=makeStreetSurfaceCut(T,bridgeRoads,{keepInside:true});
   const crosswalkWhite=matte(0xdbd9cf);
@@ -267,20 +268,25 @@ export function* buildCheonggye(T,root,kit,terrain){
     }
   }
   yield;
+  const cascadeTreads=Array.from({length:6},(_,i)=>({
+    from:cascadeWest+i*1.27,to:cascadeWest+(i+1)*1.27,top:.102-i*.23
+  }));
   // Walls close the head of the channel under the waterfall and the sides of its recess.
   {
     const wall=new T.MeshStandardMaterial({color:0x767a71,roughness:1,side:T.DoubleSide});
     const face=(a,b,top)=>grid([a,b].map(p=>[{...p,level:waterLevel-.55},{...p,level:top}]),wall);
-    const north=bankAt(head,-1,.3).y,south=bankAt(head,1,.3).y,lip=-.96,cascade=cheonggyeCascade;
+    const north=bankAt(head,-1,.3).y,south=bankAt(head,1,.3).y,lip=cascadeTreads.at(-1).top-.32,cascade=cheonggyeCascade;
     face({x:head,y:north},{x:head,y:cascade.north},.03);
     face({x:head,y:cascade.north},{x:head,y:cascade.south},lip);
     face({x:head,y:cascade.south},{x:head,y:south},.03);
     for(const y of [cascade.north,cascade.south])face({x:cascade.west,y},{x:head+.02,y},.03);
     face({x:cascade.west,y:cascade.north},{x:cascade.west,y:cascade.south},-.1);
   }
-  for(let i=0;i<6;i++){
-    const x=616+i*1.27,y=-149.7+i*.21;
-    block(i%2?cap:granite,x,y,1.28,10.1,.27,at(x,y)-i*.23-.08);
+  for(const [i,{from,to,top}] of cascadeTreads.entries()){
+    const material=new T.MeshStandardMaterial({color:i%2?cap:granite,roughness:.83,side:T.DoubleSide});
+    const border=rectangle(from,to,cascadeNorth+.075,cascadeSouth-.075);
+    surface(border,material,top);
+    grid([...border,border[0]].map(p=>[{...p,level:top},{...p,level:top-.245}]),material);
   }
   // True where a point lies in the bank behind the wall face, so a cut there needs retaining walls.
   function inBank({x,y}){
@@ -559,19 +565,19 @@ export function* buildCheonggye(T,root,kit,terrain){
   }
   // The runnel crosses the plaza to the head of the stream, spills down the granite steps
   // and drops over the last of them into the channel.
-  const runnel=[{x:606,y:-154.4,flow:[606,-1]},{x:616.2,y:-153.6,flow:[616.2,-1]}],reach=4.3;
-  sheet(runnel.map(({x,y,flow})=>[{x,y,level:.133,flow},{x,y:y+reach,level:.133,flow:[flow[0],1]}]),water);
+  const runnelStart=606,runnelEnd=cascadeTreads[0].from,startWater=cascadeTreads[0].top+.031;
+  const runnel=[{x:runnelStart,y:-154.4,flow:[runnelStart,-1]},{x:runnelEnd,y:-153.6,flow:[runnelEnd,-1]}],reach=4.3;
+  sheet(runnel.map(({x,y,flow})=>[{x,y,level:startWater,flow},{x,y:y+reach,level:startWater,flow:[flow[0],1]}]),water);
   {
-    const {west,north,south}=cheonggyeCascade,rows=[],across=[north+.12,(north+south)/2,south-.12];
+    const {north,south}=cheonggyeCascade,rows=[],across=[north+.12,(north+south)/2,south-.12];
     let run=0,last=null;
     const row=(x,level)=>{
       if(last)run+=Math.hypot(x-last[0],level-last[1]);
       last=[x,level];
       rows.push(across.map(y=>({x,y,level,flow:[run,y]})));
     };
-    for(let i=0;i<6;i++){
-      const film=.19-i*.23+.035;
-      row(west+i*1.27+.02,film);row(west+i*1.27+1.31,film);
+    for(const {from,to,top} of cascadeTreads){
+      row(from,top+.031);row(to,top+.031);
     }
     // Over the lip, thrown clear of the wall, and down to the stream.
     const lip=last[0],from=last[1];

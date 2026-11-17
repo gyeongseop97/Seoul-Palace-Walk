@@ -38,6 +38,12 @@ export const corridorEastLanding=[...corridorEastLandingKerb,
   plazaAt(48,7.2),plazaAt(48,0),point(533.7,-296.0),point(537.2,-293.0),point(538.8,-291.8)];
 export const seoulPlazaCrossingLanding=outline([[518.8,280.8],[525.8,280.8],[525.8,294.6],
   [519.3,294.6],[517.5,290],[517.5,284.2]]);
+const corridorForecourts=[
+  outline([[445.5,74.5],[472.5,74.5],[472.5,125.5],[445.5,125.5]]),
+  outline([[435.2,-228],[452.7,-228],[452.7,-166],[435.2,-166]]),
+  // The rear passage runs around the south side of the exhibition hall.
+  outline([[409.4,112.5],[438.9,112.5],[448.5,121.9],[448.5,125.5],[409.4,125.5]])
+];
 export const corridorSidewalks=[
   profileBand(1,2),profileBand(3,4),
   // The north landing flares west into the plaza while the avenue continues on its east side.
@@ -46,7 +52,8 @@ export const corridorSidewalks=[
   // The lower Seoul Plaza frontage and the east approach to Cheonggye Plaza.
   outline([[518,174],[532,170],[553,188],[600,199],[610,244],[569,272],[548,297],[519,299]]),
   seoulPlazaCrossingLanding,
-  outline([[516,-174],[523,-174],[526,-167],[525,-150],[519,-132]])
+  outline([[516,-174],[523,-174],[526,-167],[525,-150],[519,-132]]),
+  ...corridorForecourts
 ];
 export const corridorMainRoad=profileBand(2,3);
 

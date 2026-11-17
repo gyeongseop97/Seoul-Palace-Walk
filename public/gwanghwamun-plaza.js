@@ -5,9 +5,10 @@ import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
 import {basinWater,tickWater} from "./water-shader.js";
 import {assemblePlazaCity,registerPlazaCity} from "./plaza-city.js";
 import {addPlazaMonuments,plazaMonumentFootprints} from "./plaza-monuments.js";
-import {sajikEastRoad,uijeongbuOutline} from "./uijeongbu-layout.js";
+import {sajikEastRoad,uijeongbuConnections,uijeongbuOutline,uijeongbuSideRoad} from "./uijeongbu-layout.js";
 import {plazaAt,plazaOutline,plazaBeds,plazaSites,plazaTransitStops,insidePlazaPolygon,
-  plazaRoadProfile,plazaAvenueOutline,plazaEastSidewalks,plazaCrossings,plazaCrossingApronHalf,plazaCrossingLandings,plazaSideForecourts,eastCurb,eastRoadWidth,sajikRoad,haechiBasin,
+  plazaRoadProfile,plazaAvenueOutline,plazaEastSidewalks,plazaCrossings,plazaCrossingApronHalf,plazaCrossingLandings,plazaSideForecourts,
+  plazaUijeongbuApproach,eastCurb,eastRoadWidth,sajikRoad,haechiBasin,
   sejongParkOutline,sejongParkCourt,sejongParkStage,sejongParkFountain,sejongParkMonoliths,sejongParkBenches} from "./plaza-layout.js";
 import {PLAZA_SHOW_VIEW_METRES,plazaShowFrame,plazaShowJet} from "./plaza-show.js";
 
@@ -180,13 +181,17 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
   const westSajik=rect(-310,20,sajikRoad.south,sajikRoad.north);
   surface(westSajik,road,-.012);
   const roadProfile=[...plazaRoadProfile.filter(([n])=>n<sajikRoad.south),[sajikRoad.south,eastCurb(sajikRoad.south)]];
-  surface(plazaAvenueOutline,road,-.012);
+  const avenueOutsideSajik=makeStreetSurfaceCut(T,[westSajik,sajikEastRoad]);
+  surface(plazaAvenueOutline,road,-.012,[],avenueOutsideSajik(plazaAvenueOutline));
   const parkBoundary=makeStreetSurfaceCut(T,[uijeongbuOutline,sajikEastRoad]);
   for(const sidewalk of plazaEastSidewalks){
     surface(sidewalk,stone,.016,[],parkBoundary(sidewalk));
   }
-  surface([plazaAt(eastCurb(430.9)+eastRoadWidth,430.9),plazaAt(35,430.9),
-    plazaAt(35,439.8),plazaAt(eastCurb(439.8)+eastRoadWidth,439.8)],road,-.012);
+  const openApproach=makeStreetSurfaceCut(T,[...plazaEastSidewalks,uijeongbuOutline,sajikEastRoad,...uijeongbuConnections]);
+  surface(plazaUijeongbuApproach,stone,.016,[],openApproach(plazaUijeongbuApproach)).name="의정부지 광장 연결 보도";
+  const sideJunction=[plazaAt(eastCurb(430.9)+eastRoadWidth,430.9),plazaAt(35,430.9),
+    plazaAt(35,439.8),plazaAt(eastCurb(439.8)+eastRoadWidth,439.8)];
+  surface(sideJunction,road,-.012,[],makeStreetSurfaceCut(T,[uijeongbuSideRoad])(sideJunction));
   for(const offset of [0,eastRoadWidth]){
     const openings=plazaCrossings.map(n=>[n-plazaCrossingApronHalf,n+plazaCrossingApronHalf]);
     if(offset)openings.push([430.9,439.8]);

@@ -57,12 +57,15 @@ import {bindPhotoAlbum,downloadPhoto,importPhotos,listPhotos,makePhotoCard} from
 import {bindTutorial} from "./tutorial.js";
 import {makePicnic} from "./picnic-client.js";
 import {isPicnicItem} from "./picnic-data.js";
-import {BUNGEO_BURN_MS,BUNGEO_CUSTARD_ITEM,BUNGEO_GIFT_REACH,BUNGEO_ITEMS,BUNGEO_MOLD_COUNT,BUNGEO_STOCK_CAPACITY,
-  COOKING_STALLS,HOTTEOK_ITEMS,bungeoStep,nearbyCookingStall} from "./bungeo-data.js";
-import {ARCADE_BOWLING,ARCADE_GAMES,ARCADE_MOLE,ARCADE_PUMP,ARCADE_SITE,ARCADE_STAIRS,ARCADE_UPPER_SITE,arcadeFloorAt} from "./arcade-layout.js";
+import {BUNGEO_CUSTARD_ITEM,BUNGEO_GIFT_REACH,BUNGEO_ITEMS,BUNGEO_MOLD_COUNT,BUNGEO_STOCK_CAPACITY,
+  COOKING_STALLS,HOTTEOK_ITEMS,bungeoStep,cookingStallById,nearbyCookingStall} from "./bungeo-data.js";
+import {ARCADE_BOWLING,ARCADE_GAMES,ARCADE_MOLE,ARCADE_PUMP,ARCADE_SITE,ARCADE_STAIRS,ARCADE_THIRD_SITE,ARCADE_UPPER_SITE,
+  arcadeFloorAt,arcadeStairToward} from "./arcade-layout.js";
 import {BOWLING_OFFSET_LIMIT} from "./arcade-bowling.js";
+import {moleView} from "./arcade-mole.js";
 import {BASEBALL_BATTER_OFFSET,baseballBatterSide} from "./arcade-baseball.js";
 import {arcadeTitles,bindArcade} from "./arcade-client.js";
+import {isClassic} from "./arcade-classics.js";
 import {arcadeSnapshot,visibleArcade} from "./arcade-presence.js";
 import {ITEM_SLOTS,handLabel,itemAnimating,freeItemSlot,handsFree} from "./held-items.js";
 import {BIKE_FALL_DURATION_MS,GESTURE_DURATIONS,SICK_DURATION_MS,bikeFallChance,finishAlcoholSip} from "./avatar-gestures.js";
@@ -139,7 +142,8 @@ profileChoices.find(option=>option.value===me.character).checked=true;
 const photoAlbum=bindPhotoAlbum($("photo-album")),tutorial=bindTutorial($("tutorial-card"));
 const diningById=Object.fromEntries(diningVenues.map(venue=>[venue.id,venue]));
 const diningRegion={jeongdong:"덕수궁",gwanghwamun:"광화문광장",bukchon:"북촌"};
-const venueById={ [mmcaVenue.id]:mmcaVenue,[ARCADE_SITE.id]:ARCADE_SITE,[ARCADE_UPPER_SITE.id]:ARCADE_UPPER_SITE,...diningById };
+const venueById={ [mmcaVenue.id]:mmcaVenue,[ARCADE_SITE.id]:ARCADE_SITE,[ARCADE_UPPER_SITE.id]:ARCADE_UPPER_SITE,
+  [ARCADE_THIRD_SITE.id]:ARCADE_THIRD_SITE,...diningById };
 const guestbook=bindGuestbook({getSession:()=>session,onClose:focusGame,request});
 const diningMenu=bindDiningMenu({onSelectDish:takeMeal});
 const galleryLogKey="seoul-palace-walk:mmca-exhibits";
@@ -464,7 +468,10 @@ const arcade=bindArcade({root:sceneWrap,getAvatar:()=>me,getAim:()=>ownView,getC
       resetInput();stand();
       ownView={...ownView,pan:270,tilt:9};lastBowlingPlace=null;
       Object.assign(me,{vx:0,vy:0,blocked:false,running:false});dirty=true;
-    }else movePlayerTo({...point,heading:270,tilt:kind==="pump"?26:kind==="mole"?16:0},venueById[point.floor].name);
+    }else if(kind==="mole"){
+      const game=$("game"),{distance}=moleView(game.clientWidth/Math.max(1,game.clientHeight));
+      movePlayerTo({...point,x:point.machine.x+distance,heading:270,tilt:20},venueById[point.floor].name);
+    }else movePlayerTo({...point,heading:270,tilt:kind==="pump"?26:0},venueById[point.floor].name);
     arcadeReturnView=view;closeActionMenus();sound.wake();focusGame();return true;
   },
   onStop(){
@@ -802,6 +809,8 @@ function guideLocation(point,inside){
     const area=outdoorMap(point);
     return {point,prefix:!inside&&area!==outdoorMap(me)?area:""};
   }
+  const stairs=arcadeStairToward(inside,otherInside);
+  if(stairs)return {point:stairs,prefix:"계단까지"};
   const venue=venueAt(inside??otherInside);
   return inside?{point:venue?.insideDoor,prefix:"출구까지"}:
     {point:venue?.outsideDoor,prefix:(venue?.name??"전시관")+" 입구까지"};
@@ -1191,7 +1200,7 @@ function returnToLobby(message=""){
   arcade.stop();
   bowlingQueue.length=0;bowlingMatch=lastBowlingPlace=null;
   bungeoQueue.length=0;clearBungeoState();
-  $("bungeo-status").hidden=$("bungeo-order-status").hidden=$("bungeo-molds").hidden=true;
+  $("bungeo-status").hidden=$("bungeo-order-status").hidden=$("bungeo-hint").hidden=true;
   guestbook.close();diningMenu.close();galleryLight=0;
   queuedDining=diningService=null;$("dining-status").hidden=true;
   minigameKiteCuts=[];
@@ -1634,7 +1643,7 @@ window.addEventListener("keydown",event=>{
   }
   if(!session||riding||nearbyControls.ownsFocus()||peerControls.ownsFocus()||event.target.closest("input,select,#mobile-settings"))return;
   if(bungeoMode){
-    if(!event.repeat&&/^[1-3]$/.test(event.key)){event.preventDefault();useBungeoMold(Number(event.key)-1,false);}
+    if(!event.repeat&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&useCookingShortcut(event.code))event.preventDefault();
     return;
   }
   if(event.code==="Space"&&!photoMode.camera&&!event.target.closest("button,a")&&!event.ctrlKey&&!event.metaKey&&!event.altKey){
@@ -1674,22 +1683,23 @@ const clearSceneTouch=bindSceneTouch($("game"),gameShell,{
   canTap:started=>Boolean(session&&!photoMode.camera&&thumbId===undefined&&!keys.size&&started>manualInputAt),
   onBegin:()=>{setEmotes(false);focusGame();},
   onTap:(x,y)=>{
+    if(arcade.kind==="mole"){arcade.strikeMole(world?.pickMole(x,y));return;}
     if(bungeoMode){
-      const target=world?.pickBungeo(x,y,bungeoMode.stall);
-      if(target?.tool)chooseBungeoTool(target.tool);
-      else if(target?.cavity!==undefined)useBungeoMold(target.cavity,false,target.surface);
+      useCookingTarget(world?.pickBungeo(x,y,bungeoMode.stall));
       return;
     }
     if(arcade.kind==="baseball"){arcade.aimBaseball(world?.pickBaseballAim(x,y));return;}
+    if(isClassic(arcade.kind)){arcade.tapClassic(world?.pickClassicTap(x,y,arcade.kind));return;}
     if(arcade.frozen)return;
     const target=world?.pick(x,y);
     if(target?.guide&&nearVisitorGuide())openVisitorGuide();
     else walkTo(target);
   },
   onDrag:(dx,dy,x,y)=>{
-    if(bungeoMode||arcade.kind==="pump")return;
+    if(bungeoMode||arcade.kind==="pump"||arcade.kind==="mole")return;
     if(photoMode.camera){photoMode.drag(dx,dy);return;}
     if(arcade.kind==="baseball"){arcade.aimBaseball(world?.pickBaseballAim(x,y));return;}
+    if(isClassic(arcade.kind)){arcade.tapClassic(world?.pickClassicTap(x,y,arcade.kind),true);return;}
     if(arcade.frozen){adjustArcadeAim(dx*.34,dy*.26);return;}
     ownView={...ownView,pan:normalize(ownView.pan+dx*.34),
       tilt:Math.max(-87,Math.min(firstPerson?65:48,ownView.tilt+dy*.26))};
@@ -2273,8 +2283,8 @@ function movePlayerTo(destination,place){
 }
 const venueDoorButton=$("museum-door");
 function nearbyArcadeStairs(){
-  const stairs=ARCADE_STAIRS[arcadeFloorAt(me.x,me.y)];
-  return stairs&&!arcade.kind&&atIndoorStation(stairs,2.0)?stairs:null;
+  if(arcade.kind)return null;
+  return ARCADE_STAIRS[arcadeFloorAt(me.x,me.y)]?.find(stairs=>atIndoorStation(stairs,2.0))??null;
 }
 $("arcade-stairs").addEventListener("click",()=>{
   const stairs=session&&nearbyArcadeStairs();
@@ -2408,12 +2418,8 @@ function canStartArcade(point){
     !riding&&!myLink()?.active&&!feedingLocked(gameTime())&&!sickLocked(gameTime())&&near(point,me.x,me.y)<=point.reach&&
     clearSegment(me,point));
 }
-const bungeoLabels={pour:"반죽 붓기",fill:"앙금 넣기",flip:"뒤집기",take:"꺼내기",plate:"판매대에 올리기",
-  sugar:"설탕소 넣기",seal:"반죽 오므리기",place:"철판에 올리기",press:"납작하게 누르기"};
 const hotteokWorktop=new Set(["pour","sugar","seal"]);
 const hotteokTools={pour:"batter",sugar:"sugar",press:"press"};
-const hotteokToolChoices=new Set(Object.values(hotteokTools));
-const hotteokStageLabels={sugar:"펼친 반죽",seal:"설탕소를 넣었어요",place:"오므렸어요",press:"철판에 올렸어요"};
 const hotteokInstructions={
   pour:"반죽을 집고 번호가 적힌 작업판을 누르세요.",
   sugar:"설탕소 그릇을 집고 반죽을 누르세요.",
@@ -2423,12 +2429,16 @@ const hotteokInstructions={
   flip:"아랫면이 노릇해지면 철판의 호떡을 눌러 뒤집으세요.",
   take:"뒷면도 노릇해지면 호떡을 눌러 꺼내세요."
 };
+const bungeoInstructions={
+  pour:"반죽통을 집고 빈 틀을 누르세요.",
+  fill:"팥이나 슈크림 그릇을 집고 반죽을 부은 틀을 누르세요.",
+  flip:"아랫면이 노릇해지면 틀을 눌러 뒤집으세요.",
+  take:"뒷면도 노릇해지면 틀을 눌러 꺼내세요.",
+  plate:"판매대를 선택했어요. 노릇한 붕어빵 틀을 누르세요."
+};
 const bungeoKinds=new Set([...Object.values(BUNGEO_ITEMS),BUNGEO_CUSTARD_ITEM,...Object.values(HOTTEOK_ITEMS)]);
-const bungeoTools=[...document.querySelectorAll("[data-bungeo-tool]")];
-const bungeoControls=Array.from({length:BUNGEO_MOLD_COUNT},(_,i)=>({button:$("bungeo-mold-"+(i+1)),
-  hand:$("bungeo-hand-"+(i+1)),status:$("bungeo-phase-"+(i+1)),number:$("bungeo-number-"+(i+1))}));
 function bungeoInventoryPending(){
-  return bungeoQueue.some(command=>command.action==="take"||command.action==="gift");
+  return bungeoQueue.some(command=>["take","gift","putTray","takeTray"].includes(command.action));
 }
 function clearBungeoState(){
   bungeoWatchedStall=null;bungeoMolds=undefined;bungeoOrder=null;bungeoStock=0;
@@ -2440,17 +2450,19 @@ function bungeoActions(time){
   const loaded=bungeoWatchedStall===stall.id&&Array.isArray(bungeoMolds);
   const busy=Boolean(picnicInventoryBusy()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||time-me.jump<jumpDuration(me));
   const slot=freeItemSlot(me,time),inventoryPending=bungeoInventoryPending();
+  const traySlot=stall.kind==="hotteok"?ITEM_SLOTS.find(hand=>me[hand]?.kind===HOTTEOK_ITEMS.good&&
+    me[hand].remaining===ITEMS.hotteok.uses&&!itemAnimating(me[hand],time)):null;
   const order=stall.customer&&loaded?bungeoOrder:null,accepted=order?.phase==="accepted",outstanding=accepted?order.quantity-order.served:0;
   const acceptOrder=order?.phase==="waiting",serveOrder=accepted&&outstanding>0&&bungeoStock>=outstanding;
   const queuedPlates=bungeoQueue.filter(command=>command.action==="plate").length;
-  const canPlate=stall.customer&&bungeoStock+queuedPlates<BUNGEO_STOCK_CAPACITY;
-  const molds=bungeoControls.map((_,cavity)=>{
+  const canPlate=stall.customer&&bungeoMode?.tool==="tray"&&bungeoStock+queuedPlates<BUNGEO_STOCK_CAPACITY;
+  const molds=Array.from({length:BUNGEO_MOLD_COUNT},(_,cavity)=>{
     const mold=loaded?bungeoMolds[cavity]:null,step=bungeoStep(mold,time);
     const pending=bungeoQueue.some(command=>command.cavity===cavity);
     const action=canPlate&&step.action==="take"&&step.quality==="good"?"plate":step.action;
     const available=loaded&&!busy&&!pending&&step.ready;
     const ready=available&&(action==="plate"||Boolean(slot))&&(action!=="take"||!inventoryPending);
-    return {mold,step,action,pending,ready,handReady:available&&Boolean(slot)&&!inventoryPending};
+    return {mold,step,action,pending,ready};
   });
   const giftSlot=ITEM_SLOTS.find(hand=>bungeoKinds.has(me[hand]?.kind)&&me[hand].remaining>0&&!itemAnimating(me[hand],time));
   let target=null,closest=BUNGEO_GIFT_REACH;
@@ -2461,7 +2473,7 @@ function bungeoActions(time){
     const distance=near(position,me.x,me.y);
     if(distance<=closest){closest=distance;target=person;}
   }
-  return {stall,loaded,busy:busy||bungeoQueue.length>0,molds,slot,giftSlot,target,order,accepted,acceptOrder,serveOrder};
+  return {stall,loaded,busy:busy||bungeoQueue.length>0,molds,slot,traySlot,giftSlot,target,order,accepted,acceptOrder,serveOrder};
 }
 function receiveBungeo(data,confirmed,command,watching){
   const current=nearbyCookingStall(me)?.id;
@@ -2480,11 +2492,21 @@ function receiveBungeo(data,confirmed,command,watching){
   if(!command||bungeoQueue[0]!==command)return;
   bungeoQueue.shift();
   if(result?.id!==command.id||!result.accepted){
-    toast(command.action==="plate"?"붕어빵이 노릇한지, 판매대에 자리가 있는지 확인해 주세요.":
-      command.order?"주문과 판매대 상태를 확인해 주세요.":"굽는 상태와 빈손을 확인한 뒤 다시 해 주세요.");return;
+    const message=command.action==="plate"?"붕어빵이 노릇한지, 판매대에 자리가 있는지 확인해 주세요.":
+      command.action.endsWith("Tray")?"매대에 자리나 호떡이 있는지 확인해 주세요.":
+      command.order?"주문과 판매대 상태를 확인해 주세요.":"굽는 상태와 빈손을 확인한 뒤 다시 해 주세요.";
+    if(bungeoMode)feedbackCooking(message);
+    else toast(message);
+    return;
   }
-  const item=ITEMS[confirmed?.[command.slot]?.kind];
-  if(command.action==="take"&&item)toast(item.name+"을 손에 들었어요.");
+  const kind=confirmed?.[command.slot]?.kind,item=ITEMS[kind];
+  if((command.action==="take"||command.action==="takeTray")&&item){
+    const message=command.action==="take"&&kind===HOTTEOK_ITEMS.good?
+      "호떡을 꺼냈어요. 오른쪽 매대를 눌러 올려둘 수 있어요.":item.name+"을 손에 들었어요.";
+    if(bungeoMode)feedbackCooking(message);
+    else toast(message);
+  }
+  if(command.action==="putTray"&&bungeoMode)feedbackCooking("호떡을 매대에 올렸어요.");
   if(command.action==="gift")toast("친구에게 간식을 건넸어요.");
 }
 function bungeoOrderMessage(order){
@@ -2496,16 +2518,17 @@ function bungeoOrderMessage(order){
     default:return "";
   }
 }
-function moldMessage({mold,step,pending},time,hotteok,loaded){
-  if(!loaded)return "확인 중";
-  if(pending)return "처리 중";
-  if(step.action==="pour")return hotteok?"빈 자리":"빈 틀";
-  if(step.action==="fill")return "앙금 넣을 차례";
-  if(hotteok&&Object.hasOwn(hotteokStageLabels,step.action))return hotteokStageLabels[step.action];
-  if(step.quality==="burnt")return "탔어요";
-  if(step.waitMs>0)return `굽는 중 · ${Math.ceil(step.waitMs/1000)}초`;
-  if(step.quality==="torn")return "속이 터졌어요";
-  return time-(mold.flippedAt??mold.pouredAt)>BUNGEO_BURN_MS-5000?"곧 타요":"노릇해요";
+function cookingPrompt(actions,hotteok){
+  if(!actions?.loaded)return "작업대 상태를 불러오는 중이에요.";
+  if(bungeoMode.feedbackUntil>performance.now())return bungeoMode.feedback;
+  if(actions.traySlot)return "꺼낸 호떡은 오른쪽 매대를 눌러 올려둘 수 있어요.";
+  const cell=actions.molds[bungeoMode.cavity]??actions.molds.find(mold=>mold.action!=="pour")??actions.molds[0];
+  if(cell.pending)return "굽기 상태를 확인하고 있어요.";
+  if(!actions.slot&&cell.action!=="plate")return "손에 들려면 한 손을 비워 주세요.";
+  if(cell.step.quality==="burnt")return "탔어요. 구운 자리를 눌러 꺼내세요.";
+  if(cell.step.waitMs>0)return `굽는 중 · ${Math.ceil(cell.step.waitMs/1000)}초`;
+  if(bungeoMode.tool==="tray"&&cell.action==="pour")return bungeoInstructions.plate;
+  return (hotteok?hotteokInstructions:bungeoInstructions)[cell.action]??"작업대의 도구나 자리를 누르세요.";
 }
 function updateBungeoControls(time){
   const actions=bungeoActions(time),status=$("bungeo-status"),gift=$("bungeo-gift");
@@ -2513,28 +2536,12 @@ function updateBungeoControls(time){
   const giftName=ITEMS[me[actions?.giftSlot]?.kind]?.name??"간식";
   const orderStatus=$("bungeo-order-status"),orderMessage=bungeoOrderMessage(actions?.order);
   orderStatus.hidden=!orderMessage;setText(orderStatus,orderMessage);
-  $("bungeo-molds").hidden=!actions||!bungeoMode;
-  const stock=$("bungeo-stock");stock.hidden=!customer;
-  const stockLabel=`판매대 ${bungeoStock}/${BUNGEO_STOCK_CAPACITY}개`;
-  if(customer)setText(stock,stockLabel);
-  const messages={batter:"반죽통을 들었어요. 빈 틀을 눌러 부으세요.",
-    redBean:"팥을 골랐어요. 반죽을 부은 틀을 누르세요.",custard:"슈크림을 골랐어요. 반죽을 부은 틀을 누르세요."};
-  const nextHotteok=hotteok&&(actions.molds.find(cell=>cell.action!=="pour"&&!cell.pending)?.action??"pour");
-  const prompt=!actions?"":!actions.slot?"굽거나 손에 들려면 한 손을 비워 주세요.":bungeoMode?
-    hotteok?hotteokInstructions[nextHotteok]:messages[bungeoMode.tool]??"반죽통이나 앙금 그릇을 집고 틀을 누르세요.":
-    customer?stockLabel:"";
+  const stockLabel=`${customer?"판매대":"매대"} ${bungeoStock}/${BUNGEO_STOCK_CAPACITY}개`;
+  const prompt=!actions?"":!actions.slot?"굽거나 손에 들려면 한 손을 비워 주세요.":customer||hotteok&&bungeoStock?stockLabel:"";
   status.hidden=!prompt;setText(status,prompt);
-  if(actions){
-    attr($("bungeo-molds"),"aria-label",hotteok?"호떡 작업판과 철판 3자리":"붕어빵 틀 3칸");
-    bungeoControls.forEach(({button,hand,status,number},cavity)=>{
-      const cell=actions.molds[cavity];
-      setText(number,`${cavity+1}번 ${hotteok?"자리":"틀"}`);
-      setText(status,moldMessage(cell,time,hotteok,actions.loaded));
-      setText(button,hotteok&&cell.action==="pour"?"반죽 펴기":bungeoLabels[cell.action]);
-      button.disabled=!cell.ready;
-      button.parentElement.dataset.ready=String(cell.ready&&cell.step.waitMs===0);
-      hand.hidden=cell.action!=="plate";hand.disabled=!cell.handReady;
-    });
+  if(bungeoMode){
+    const step=cookingPrompt(actions,hotteok);
+    setText($("bungeo-instruction"),customer||hotteok&&bungeoStock?`${step} · ${stockLabel}`:step);
   }
   setActivity("bungeo-accept",actions?.acceptOrder?"주문 받기":null,Boolean(actions?.busy));
   setActivity("bungeo-open",actions&&!bungeoMode?food+" 굽기":null,Boolean(actions?.busy||!actions?.loaded));
@@ -2545,50 +2552,85 @@ function updateBungeoControls(time){
 function chooseBungeoTool(tool){
   if(!bungeoMode)return;
   bungeoMode.tool=bungeoMode.tool===tool?null:tool;
-  for(const button of bungeoTools)attr(button,"aria-pressed",String(button.dataset.bungeoTool===bungeoMode.tool));
+  bungeoMode.feedbackUntil=0;
+}
+function feedbackCooking(message){
+  if(!bungeoMode)return;
+  bungeoMode.feedback=message;bungeoMode.feedbackUntil=performance.now()+2200;
 }
 function setBungeoCooking(active){
   const actions=active?bungeoActions(gameTime()):null;
   if(active&&(!actions?.loaded||actions.busy))return;
-  bungeoMode=active?{tool:null,stall:actions.stall.id}:null;
+  bungeoMode=active?{tool:null,stall:actions.stall.id,feedbackUntil:0}:null;
   resetInput();closeActionMenus();
   if(active){Object.assign(me,{vx:0,vy:0,running:false,blocked:false});dirty=true;wakeSync();}
   const hotteok=actions?.stall.kind==="hotteok";
-  for(const button of bungeoTools){
-    attr(button,"aria-pressed","false");
-    const tool=button.dataset.bungeoTool;
-    button.hidden=tool!=="batter"&&(hotteok?!hotteokToolChoices.has(tool):hotteokToolChoices.has(tool));
-    if(tool==="batter")setText(button,hotteok?"반죽":"반죽통");
-  }
   sceneWrap.classList.toggle("bungeo-active",active);
-  $("bungeo-tools").hidden=!active;
+  $("bungeo-hint").hidden=!active;
+  if(active){
+    setText($("bungeo-keyboard"),hotteok?"Q 반죽 · W 설탕소 · E 누르개 · 1–3 자리 · R 매대 · Esc 끝내기":
+      `Q 반죽통 · W 팥 · E 슈크림 · 1–3 틀${actions.stall.customer?" · R 판매대":""} · Esc 끝내기`);
+    attr($("game"),"aria-describedby","bungeo-instruction bungeo-keyboard");
+    updateBungeoControls(gameTime());
+  }else $("game").removeAttribute("aria-describedby");
   labelPerspective();focusGame();
 }
 $("bungeo-open").addEventListener("click",()=>setBungeoCooking(true));
-$("bungeo-close").addEventListener("click",()=>setBungeoCooking(false));
-for(const button of bungeoTools)button.addEventListener("click",()=>chooseBungeoTool(button.dataset.bungeoTool));
 function queueBungeo(stall,command){
   bungeoQueue.push({id:token(),stall:stall.id,...command});wakeSync();focusGame();
 }
-function useBungeoMold(cavity,takeInHand,surface){
+function useBungeoMold(cavity,surface){
   if(!bungeoMode)return;
+  bungeoMode.cavity=cavity;
+  bungeoMode.feedbackUntil=0;
   const actions=bungeoActions(gameTime()),cell=actions?.molds[cavity];
-  if(!cell||(takeInHand?cell.action!=="plate"||!cell.handReady:!cell.ready))return;
-  const action=takeInHand?"take":cell.action;
+  if(!cell?.ready)return;
+  const {action}=cell;
   const tool=bungeoMode.tool;
   if(actions.stall.kind==="hotteok"){
     const onWorktop=hotteokWorktop.has(action);
-    if(surface&&surface!==(onWorktop?"prep":"griddle")){toast(hotteokInstructions[action]);return;}
-    if(hotteokTools[action]&&tool!==hotteokTools[action]){toast(hotteokInstructions[action]);return;}
-  }else if(action==="pour"&&tool!=="batter"){toast("반죽통을 먼저 집어 주세요.");return;}
-  if(action==="fill"&&tool!=="redBean"&&tool!=="custard"){toast("팥이나 슈크림 그릇을 먼저 눌러 주세요.");return;}
+    if((surface&&surface!==(onWorktop?"prep":"griddle"))||(hotteokTools[action]&&tool!==hotteokTools[action])){
+      feedbackCooking(hotteokInstructions[action]);return;
+    }
+  }else if((action==="pour"&&tool!=="batter")||(action==="fill"&&tool!=="redBean"&&tool!=="custard")){
+    feedbackCooking(bungeoInstructions[action]);return;
+  }
   queueBungeo(actions.stall,{action,cavity,...(action==="pour"?{prepare:actions.stall.kind==="bungeo"}:{batch:cell.mold.id}),
     ...(action==="fill"?{filling:tool}:null),...(action==="take"?{slot:actions.slot}:null)});
 }
-bungeoControls.forEach(({button,hand},cavity)=>{
-  button.addEventListener("click",()=>useBungeoMold(cavity,false));
-  hand.addEventListener("click",()=>useBungeoMold(cavity,true));
-});
+function useCookingTray(){
+  const actions=bungeoActions(gameTime());
+  if(!actions?.loaded||!bungeoMode)return;
+  if(actions.stall.customer){
+    if(bungeoStock>=BUNGEO_STOCK_CAPACITY){feedbackCooking("판매대가 가득 찼어요.");return;}
+    chooseBungeoTool("tray");
+    feedbackCooking(bungeoMode.tool==="tray"?bungeoInstructions.plate:"노릇한 틀을 누르면 붕어빵을 손에 들어요.");
+    return;
+  }
+  if(actions.stall.kind!=="hotteok"||actions.busy)return;
+  if(actions.traySlot){
+    if(bungeoStock>=BUNGEO_STOCK_CAPACITY){feedbackCooking("매대가 가득 찼어요.");return;}
+    queueBungeo(actions.stall,{action:"putTray",slot:actions.traySlot});
+  }else if(bungeoStock>0){
+    if(!actions.slot){feedbackCooking("호떡을 들려면 한 손을 비워 주세요.");return;}
+    queueBungeo(actions.stall,{action:"takeTray",slot:actions.slot});
+  }else feedbackCooking("노릇하게 구운 호떡을 꺼낸 뒤 매대를 누르세요.");
+}
+function useCookingTarget(target){
+  if(target?.tool)chooseBungeoTool(target.tool);
+  else if(target?.tray)useCookingTray();
+  else if(target?.cavity!==undefined)useBungeoMold(target.cavity,target.surface);
+}
+function useCookingShortcut(code){
+  if(/^(Digit|Numpad)[1-3]$/.test(code)){
+    useBungeoMold(Number(code.at(-1))-1);return true;
+  }
+  const stall=cookingStallById(bungeoMode.stall);
+  if(code==="KeyR"&&(stall?.kind==="hotteok"||stall?.customer)){useCookingTray();return true;}
+  const tools=stall?.kind==="hotteok"?{KeyQ:"batter",KeyW:"sugar",KeyE:"press"}:{KeyQ:"batter",KeyW:"redBean",KeyE:"custard"};
+  if(!Object.hasOwn(tools,code))return false;
+  chooseBungeoTool(tools[code]);return true;
+}
 $("bungeo-gift").addEventListener("click",()=>{
   const actions=bungeoActions(gameTime());
   if(!actions?.target||actions.busy)return;
@@ -3028,7 +3070,8 @@ function frame(now){
     leaveWater();
     updateLocationGuides(time);updateMaps(self,others);
   }
-  lastScene={me:self,peers:[...others.values()],parkedBikes,view:ownView,firstPerson:Boolean(bungeoMode||firstPerson&&!arcade.kind)&&!photoMode.camera,
+  lastScene={me:self,peers:[...others.values()],parkedBikes,view:ownView,
+    firstPerson:Boolean(bungeoMode||arcade.kind==="mole"||firstPerson&&!arcade.kind)&&!photoMode.camera,
     photoCamera:photoMode.camera,environment,guideNearby,destination:course.at(-1),clock:time,fountainShow,galleryLight,
     diningService:diningService?.venue===currentDining()?.id?diningService?.tickets??[]:[],
     minigames:minigames.states(),minigameAction:minigames.localAction(),picnics:picnic.states(),bungeoMolds,bungeoOrder,bungeoStock,bungeoMode,
@@ -3096,8 +3139,8 @@ function drawIndoorMap(base,venue,galleries,mini){
   if(venue.guestbookPoint)points.push([venue.guestbookPoint,"방명록"]);
   if(venue.menuPoint)points.push(venue.service==="robot"?[venue.kioskPoint,"키오스크"]:[venue.menuPoint,"카운터"]);
   if(ARCADE_STAIRS[venue.id]){
-    const stairs=ARCADE_STAIRS[venue.id];points.push([stairs,stairs.name]);
-    for(const [kind,point] of Object.entries(ARCADE_GAMES))if(point.floor===venue.id)points.push([point,arcadeLabels[kind]]);
+    for(const stairs of ARCADE_STAIRS[venue.id])points.push([stairs,stairs.name]);
+    for(const [kind,point] of Object.entries(ARCADE_GAMES))if(point.floor===venue.id)points.push([point,arcadeLabels[kind]??point.name]);
   }
   for(const [point,name] of points)if(point)drawMapPoint(layer,{...point,name},"activity",mini,true);
 }
@@ -3182,6 +3225,7 @@ function drawMap(base,mini=false){
   drawIndoorMap(base,mmcaVenue,mmcaGalleryRooms,mini);
   drawIndoorMap(base,ARCADE_SITE,[],mini);
   drawIndoorMap(base,ARCADE_UPPER_SITE,[],mini);
+  drawIndoorMap(base,ARCADE_THIRD_SITE,[],mini);
   for(const venue of diningVenues)drawIndoorMap(base,venue,[],mini);
   if(!mini)svg(base,"text",{x:548,y:94,class:"map-faint","text-anchor":"middle"},"↑ N");
   drawMapPoints(mini?base:$("map-points"),mini);
@@ -3422,10 +3466,12 @@ function refreshMapRoute(fit=false){
   const guide=mapRoute;
   guide.inside=interiorAt(me.x,me.y);
   guide.indoors=Boolean(guide.inside);
-  guide.leaving=guide.indoors&&interiorAt(guide.site.x,guide.site.y)!==guide.inside;
+  const targetInterior=interiorAt(guide.site.x,guide.site.y);
+  guide.leaving=guide.indoors&&targetInterior!==guide.inside;
+  guide.stairs=guide.leaving?arcadeStairToward(guide.inside,targetInterior):null;
   guide.start={x:me.x,y:me.y};
   guide.loading=!world&&!worldFailed;
-  guide.destination=guide.leaving?venueAt(guide.inside)?.insideDoor:guide.loading?guide.site:mapRouteDestination(guide.site);
+  guide.destination=guide.leaving?guide.stairs??venueAt(guide.inside)?.insideDoor:guide.loading?guide.site:mapRouteDestination(guide.site);
   guide.walking=false;
   guide.steps=guide.destination&&!guide.loading?walkingSteps(guide.destination):[];
   const end=guide.steps.at(-1);
@@ -3459,9 +3505,9 @@ function drawMapRoute(){
   let length=0;
   for(let i=1;i<points.length;i++)length+=near(points[i-1],points[i].x,points[i].y);
   const distance=length>=1000?(length/1000).toFixed(1)+"km":Math.ceil(length)+"m";
-  let text=(guide.leaving?"출구까지 ":"도보 약 ")+distance;
+  let text=(guide.stairs?"계단까지 ":guide.leaving?"출구까지 ":"도보 약 ")+distance;
   if(loading)text="도보 경로 찾는 중…";
-  else if(length<.25&&near(destination??guide.site,me.x,me.y)<1.2)text=guide.leaving?"출구":"도착";
+  else if(length<.25&&near(destination??guide.site,me.x,me.y)<1.2)text=guide.stairs?.name??(guide.leaving?"출구":"도착");
   else if(!steps.length)text="이 위치에서 걸어가는 길을 찾지 못했어요";
   setText($("map-route-distance"),text);
   mapRouteWalk.disabled=!steps.length||length<.25||isCycling(me)||!canWalkTo();
