@@ -44,9 +44,10 @@ export const uijeongbuConnections=[
   points([[124,534],[135.5,536.3],[139.7,552.5],[130,553.9],[121.5,542.5]]),
   points([[120.5,483.9],[154.1,472.2],[157.3,480.2],[125,490.2]]),
   // The east pavement of Jongno 1-gil, bending round the widened mouth to the junction corner.
-  [...points([[137.5,443.6],[144.4,442.1],[160.5,477],[173.9,495.9],[190.6,521]]),
-    ...surveyed([[681,-830],[692.5,-838.8],[706.3,-849],[700.5,-851.5],[686.5,-843.2],[674,-833.6]]),
-    ...points([[174,519],[157.3,495.2],[146.5,478],[137.5,453.5],[134.2,440.6]])],
+  [...points([[137.5,443.6],[148,442.1],[162,451],[163,464],[174,467],[174,486],[182,490],
+    [183,504],[195,509],[197,523]]),
+    ...surveyed([[681,-830],[692.5,-838.8],[706.3,-849],[700.8,-851.3],[686,-843.6]]),
+    ...points([[190.1,538.3],[174,519],[157.3,495.2],[146.5,478],[137.5,453.5],[134.2,440.6]])],
   points([[47,434],[128,440],[135.7,442],[137.5,446.7],[125,446],[47,440]]),
   // The broad pavement under the palace wall, from the woldae to where Bukchon's survey takes over.
   surveyed([[514.5,-857.5],[530.6,-871],[552.1,-881.8],[556,-882.4],[556,-901.2],[514.5,-900.2]]),
@@ -69,8 +70,12 @@ export const uijeongbuCrossings=[
 ];
 export const uijeongbuPavedConnections=[0,3,5,6,7,8];
 
-export const arcadeForecourt=points([[146.5-9*10.2/24.5,467.8],[170.5,467.8],[170.5,470],[159.5,470],
-  [159.5,486],[170.5,486],[170.5,488.2],[146.5+10.8*10.2/17.2,488.2],[146.5,478]]);
+const gardenKerb=points([[34,439],[107.2,443.1],[122.3,444.8],[126,449.1],[129.8,459],[139,483.7],
+  [149.1,499.9],[166.2,523.7],[183.4,543.7],[196.2,565.1]]);
+const gardenWalk=gardenKerb.map(({east,north},index)=>plazaAt(east-(index>2?3.4:0),north+(index<5?3.4:1.4)));
+export const gardenSidewalk=[...gardenKerb,...gardenWalk.slice().reverse()];
+export const gardenVerge=[...gardenWalk.slice(2),...uijeongbuOutline.slice(1,8).reverse()];
+export const nearMarketStreet=(x,y)=>x>=origin.x+116&&x<=origin.x+210&&y<=origin.y-436&&y>=origin.y-550;
 
 export const uijeongbuWalks=[
   {width:4.2,points:points([[40,450],[38,477],[38.5,494],[44.7,508.6],[45.1,512.7],[53.2,515.9],
@@ -90,6 +95,7 @@ export const uijeongbuRemains=[
   {name:"석획당 터",east:71.5,north:465.4,width:20.4,length:9.2,columns:6,rows:3}
 ];
 
+const walkableOutlines=[uijeongbuOutline,uijeongbuBusPavement,gardenSidewalk,gardenVerge,crossingStrip,...uijeongbuConnections];
 export function isUijeongbuWalkable(x,y){
-  return [uijeongbuOutline,uijeongbuBusPavement,arcadeForecourt,crossingStrip,...uijeongbuConnections].some(outline=>insidePlazaPolygon(x,y,outline));
+  return walkableOutlines.some(outline=>insidePlazaPolygon(x,y,outline));
 }

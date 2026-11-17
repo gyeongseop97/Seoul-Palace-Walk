@@ -6,7 +6,7 @@ import {solidAt} from "./layout.js";
 import {plazaAt} from "./plaza-layout.js";
 import {bukchonPavers,coverTriangles,crosswalkPaintBands,exposedSurface} from "./bukchon-surfaces.js";
 import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
-import {arcadeForecourt,sajikEastRoad,uijeongbuBusPavement,uijeongbuConnections,uijeongbuCrossings,uijeongbuOutline,uijeongbuPavedConnections,uijeongbuRemains,
+import {gardenSidewalk,gardenVerge,sajikEastRoad,uijeongbuBusPavement,uijeongbuConnections,uijeongbuCrossings,uijeongbuOutline,uijeongbuPavedConnections,uijeongbuRemains,
   uijeongbuSideRoad,uijeongbuWalks} from "./uijeongbu-layout.js";
 import {gbEastOpenings,gbEastWall,gbMuseumWestGate,gbOuterWallRuns,gbWallOutline,gbWestPaths,insideGbWall,clipGbGround} from "./gyeongbok-perimeter.js";
 import {buildGyeongbokCompounds,inGyeongbokCompound} from "./gyeongbok-compounds.js";
@@ -866,7 +866,9 @@ export function* buildGyeongbok(T,scene,kit,tools){
     for(const {name,outline} of uijeongbuCrossings){
       fillPavement(outline,.037,`${name} 진입 보도`);
     }
-    fillPavement(arcadeForecourt,.062,"광화문 오락실 앞 보도",true);
+    fillPavement(gardenSidewalk,.038,"종로1길 유적광장 쪽 보도",true);
+    const vergePieces=makeStreetSurfaceCut(T,[...streetCoverage,uijeongbuOutline])(gardenVerge);
+    for(const piece of vergePieces)plot(piece,materials.garden.lawn,.02).name="종로1길 잔디";
     const walkCoverage=streetCoverage.map(outline=>outline.map(({x,y})=>({x:wx(x),y:wz(y)})));
     for(const [index,{points,width}] of uijeongbuWalks.entries()){
       ribbon(points,-width/2,width/2,index<2?materials.paving:materials.gravel,.037+index*.012,walkCoverage);

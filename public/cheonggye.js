@@ -511,8 +511,6 @@ export function* buildCheonggye(T,root,kit,terrain){
       block(0xa39e91,slot.x,slot.y-side*.168,1.13,.20,.095,top-.189);
     }
   }
-  // Spring, by Claes Oldenburg and Coosje van Bruggen (2006): a tall spiral shell, blue outside
-  // and red within, standing over a round basin. Two ribbons run down inside it to the water.
   const springWater=basinWater(T,{bed:[0x4a504d,0x6d746f],tile:1.6,tint:0x2e8fa6,depth:.14});
   {
     const spring={x:553.8,y:-157.2},base=at(spring.x,spring.y),cx=wx(spring.x),cz=wz(spring.y);
@@ -525,46 +523,58 @@ export function* buildCheonggye(T,root,kit,terrain){
     part(new T.CylinderGeometry(3.42,3.42,.06,56),new T.MeshStandardMaterial({color:0x3b403d,roughness:1}),.33);
     const pool=part(new T.CircleGeometry(3.42,56),springWater,.372);
     pool.rotation.x=-Math.PI/2;pool.castShadow=false;
-    // Each turn of the shell is a skirt: tucked under the turn above, flaring to a lip below.
-    const foot=.74,height=20-foot,whorls=9.5,turns=whorls*Math.PI*2,around=Math.round(whorls*64);
-    const radiusAt=s=>2.75*Math.pow(1-s,.92),riseAt=s=>foot+height*(1-Math.pow(1-s,1.35));
-    const profile=[[0,0,0x901932],[.18,.06,0xc62740],[.29,.23,0xe44048],[.31,.25,0x233e91],
-      [.59,.57,0x174ba8],[.83,.94,0x2463ba],[.91,1,0x315eb3],[.93,1,0xc32942],[1,.92,0xb01d38]];
-    const across=profile.length-1;
-    const positions=[],colors=[],indices=[],tone=new T.Color();
-    for(let i=0;i<=around;i++){
-      const s=i/around,angle=s*turns,above=Math.min(1,s+1/whorls),drop=riseAt(above)-riseAt(s);
-      for(let j=0;j<=across;j++){
-        const [u,flare,color]=profile[j],tuck=radiusAt(above)*.92,radius=tuck+(radiusAt(s)-tuck)*flare;
-        positions.push(Math.cos(angle)*radius,riseAt(above)-drop*u,Math.sin(angle)*radius);
-        tone.setHex(color);
+    const sweeps=22,revolution=Math.PI*2,steps=704,sides=32;
+    const taper=t=>(Math.exp(-4*t)-Math.exp(-4))/(1-Math.exp(-4));
+    function spine(t){
+      const angle=-Math.PI/2-t*sweeps*revolution,coil=1.65*taper(t);
+      const rise=(1-taper(t))*(1-.62*Math.exp(-t*130));
+      return new T.Vector3(coil*Math.cos(angle),2.02+17.98*rise,coil*Math.sin(angle));
+    }
+    const positions=[],normals=[],colors=[],indices=[];
+    const up=new T.Vector3(0,1,0),direction=new T.Vector3(),vertex=new T.Vector3(),tone=new T.Color();
+    function ring(step,inward){
+      const t=step/steps,center=spine(t);
+      const tangent=spine(Math.min(1,t+.0002)).sub(spine(Math.max(0,t-.0002))).normalize();
+      const radial=tangent.clone().cross(up).normalize(),vertical=radial.clone().cross(tangent);
+      const radius=1.59*taper(t)*(inward ? .94 : 1);
+      const first=positions.length/3;
+      for(let side=0;side<sides;side++){
+        const angle=side/sides*revolution;
+        direction.copy(radial).multiplyScalar(Math.cos(angle)).addScaledVector(vertical,Math.sin(angle));
+        vertex.copy(center).addScaledVector(direction,radius);
+        positions.push(vertex.x,vertex.y,vertex.z);
+        if(inward)direction.negate();
+        normals.push(direction.x,direction.y,direction.z);
+        if(inward)tone.setHex(0xe2aa40).multiplyScalar(.10+.85*Math.exp(-t*128));
+        else if(step===0)tone.setHex(0xdcb256);
+        else tone.setHex(side<2||side>=25&&side<=29?0xc32340:0x174d9d);
         colors.push(tone.r,tone.g,tone.b);
       }
+      return first;
     }
-    // Wound so the outside of the shell is its front face.
-    for(let i=0;i<around;i++)for(let j=0;j<across;j++){
-      const a=i*(across+1)+j,b=a+across+1;
-      indices.push(a,a+1,b,b,a+1,b+1);
+    function join(first,next,reverse){
+      for(let side=0;side<sides;side++){
+        const other=(side+1)%sides,a=first+side,b=next+side,c=next+other,d=first+other;
+        if(reverse)indices.push(a,c,b,a,d,c);
+        else indices.push(a,b,c,a,c,d);
+      }
+    }
+    let outside=ring(0,false),inside=ring(0,true);
+    join(inside,outside,false);
+    for(let step=1;step<=steps;step++){
+      const next=ring(step,false);
+      join(outside,next,false);outside=next;
+      if(step<=Math.ceil(steps/sweeps)){
+        const innerNext=ring(step,true);
+        join(inside,innerNext,true);inside=innerNext;
+      }
     }
     const shell=new T.BufferGeometry();
     shell.setAttribute("position",new T.Float32BufferAttribute(positions,3));
+    shell.setAttribute("normal",new T.Float32BufferAttribute(normals,3));
     shell.setAttribute("color",new T.Float32BufferAttribute(colors,3));
-    shell.setIndex(indices);shell.computeVertexNormals();
-    const probe=(Math.floor(around/2)*(across+1)+3)*3,normals=shell.attributes.normal.array;
-    if(normals[probe]*positions[probe]+normals[probe+2]*positions[probe+2]<0){
-      shell.setIndex(indices.reverse());shell.computeVertexNormals();
-    }
-    part(shell,new T.MeshStandardMaterial({vertexColors:true,roughness:.32,metalness:.24}),0).name="스프링";
-    part(shell,new T.MeshStandardMaterial({color:0xc7322d,roughness:.5,side:T.BackSide}),0).castShadow=false;
-    for(const [turn,color] of [[0,0x2f62d4],[Math.PI,0xd93a30]]){
-      const points=[];
-      for(let i=0;i<=96;i++){
-        const t=i/96,spill=Math.max(0,(t-.80)/.20),radius=.14+.72*t+spill*spill*1.7,angle=turn+t*31;
-        points.push(new T.Vector3(Math.cos(angle)*radius,.40+height*.84*Math.pow(1-t,1.3),Math.sin(angle)*radius));
-      }
-      part(new T.TubeGeometry(new T.CatmullRomCurve3(points),150,.085,6,false),
-        new T.MeshStandardMaterial({color,roughness:.42,metalness:.1}),0);
-    }
+    shell.setIndex(indices);
+    part(shell,new T.MeshStandardMaterial({vertexColors:true,roughness:.39,metalness:.16}),0).name="스프링";
   }
   // The runnel crosses the plaza to the head of the stream, spills down the granite steps
   // and drops over the last of them into the channel.

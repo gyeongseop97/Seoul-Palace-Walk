@@ -39,6 +39,7 @@ import { plazaShowSpot } from "./plaza-show.js";
 import { gbSurveyModels, gbNightGlow } from "./gyeongbok.js";
 import { gbSite, gwanghwamun, gbBounds, inGyeongbok, gbLightSpots, gbPhotoZone,wishPond } from "./gyeongbok-layout.js";
 import { gbEastOpenings } from "./gyeongbok-perimeter.js";
+import { nearMarketStreet } from "./uijeongbu-layout.js";
 import { outsideGroundOffset,palaceGroundOffset,sampleMeshHeight,southWorldSurfaceHeight } from "./gyeongbok-terrain.js";
 import { gradeAvenueMeshes } from "./avenue-terrain.js";
 import { gradeJeongdongMeshes } from "./jeongdong-terrain-render.js";
@@ -586,7 +587,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       requireDistrict(cheonggye);requireDistrict(corridor);
     }
     if(!indoors&&area===songhyeon&&x<810)requireDistrict(bukchon);
-    if(!indoors&&Math.hypot(x-ARCADE_SITE.x,y-ARCADE_SITE.y)<32){
+    if(!indoors&&nearMarketStreet(x,y)){
       requireDistrict(palace);requireDistrict(plaza);
     }
     // At the Sajik-ro crossing and the east gates, both sides belong in the

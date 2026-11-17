@@ -65,9 +65,26 @@ export const plazaPaths=[
   {width:5.2,surface:"stone",points:polygon([[-118,387],[-93,387],[-70,391],[-53,389]])},
   {width:5,surface:"stone",points:polygon([[-55,287],[-72,292],[-96,292],[-117,289]])}
 ];
+export const plazaShopPlots=[
+  ["churu","광화문 편의점",-58.6,23],
+  ["coffee","세종로 로스터리",-58.6,115,11.2],
+  ["wine","와인 서가",-58.6,269],
+  ["cake","오후 케이크",52.1,100.5,11.2],
+  ["highball","광장 하이볼",52.1,133,11.2],
+  ["coffee","광장 앞 커피",52.1,232,11.2],
+  ["churu","세종로 편의점",51.2,340],
+  ["coffee","의정부지 앞 카페",155,458,10.2],
+  ["bingsu","육조길 빙수",175,497,11.2],
+  ["wine","육조길 와인",187,516,11.2]
+];
+const shopCourts=plazaShopPlots.filter(([, ,east])=>east<100).map(([kind,,east,north,width])=>{
+  const inner=east<0?-55:48,outer=east+Math.sign(east)*6;
+  const half=(width??(kind==="churu"?7.8:15.94))/2+1.8;
+  return polygon([[inner,north-half],[outer,north-half],[outer,north+half],[inner,north+half]]);
+});
 export const plazaSideForecourts=[
   polygon([[-55,329.3],[-67,329.3],[-77,331.8],[-82,331.8],[-82,338.2],[-76,338.2],[-67,335.9],[-55,335.9]]),
-  polygon([[48,460.2],[48.8,460.2],[48.8,476.2],[48,476.2]])
+  polygon([[48,460.2],[48.8,460.2],[48.8,476.2],[48,476.2]]),...shopCourts
 ];
 // The relocated lanes stay east of the plaza. The roadway and pedestrian tests share this profile.
 export const plazaRoadProfile=[[0,11],[242,11],[344,8],[442,5],[504,2],[528,8],[548,23]];
