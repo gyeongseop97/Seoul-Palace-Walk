@@ -63,6 +63,12 @@ export function southWorldTerrainHeight({x,y}){
     weightedHeight+=base*weight;
   }
   level=weightedHeight/totalWeight;
+  // The pond and palace garden sit above the street behind the eastern wall.
+  // Keep their raised ground inside the wall so the public sidewalk and bus bay
+  // retain the avenue grade along their full width.
+  const wallFront=clamp((y-137)/36)*clamp((296-y)/19);
+  const sidewalk=clamp((x-460)/8)*wallFront;
+  level+=(street-level)*sidewalk;
   // Keep the plaza road and palace entrance at the same height.
   const gateBlend=clamp((y-gate.y)/55);
   return level*gateBlend;

@@ -1,7 +1,11 @@
 import {makeTreeBuilder} from "./lowpoly-trees.js";
-import {bankAt,cheonggyeAccess,cheonggyeAccessDrop,cheonggyeBedLevel,cheonggyeBounds,cheonggyeBridges,cheonggyeCascade,cheonggyeLevel,
-  cheonggyeOpenAir,cheonggyeRailOpening,cheonggyeRoadLeads,cheonggyeStations,cheonggyeSurfaces,cheonggyeTrees,cheonggyeWalkFrom,riverAt,stepStoneXs} from "./cheonggye-layout.js";
+import {bankAt,cheonggyeAccess,cheonggyeAccessDrop,cheonggyeBedLevel,cheonggyeBounds,cheonggyeBridges,cheonggyeCascade,
+  cheonggyeRailOpening,cheonggyeRoadLeads,cheonggyeStations,cheonggyeSurfaces,cheonggyeTrees,cheonggyeWalkFrom,
+  riverAt,stepStoneXs,streamBand} from "./cheonggye-layout.js";
 import {CHEONGGYE_WATER_LEVEL,cheonggyeSeats} from "./cheonggye-seats.js";
+import {gradePalaceMeshes} from "./gyeongbok-terrain.js";
+import {insideCorridorPolygon} from "./sejong-corridor-layout.js";
+import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
 import {basinWater,tickWater,waterCells,waterNoise} from "./water-shader.js";
 
 export function* buildCheonggye(T,root,kit,terrain){
@@ -12,6 +16,7 @@ export function* buildCheonggye(T,root,kit,terrain){
   const concrete=0x8b8f84,granite=0xa6a99b,cap=0xbcc0b3,rail=0x424b48;
   const stone=[0xa6a596,0x9a9d91,0x929489,0xa1a092,0xaaa89d,0x8d9086];
   const waterLevel=CHEONGGYE_WATER_LEVEL;
+  const terrainSurfaces=[];
   function block(color,x,y,width,length,height,level,angle=0){
     const mesh=box(color,wx(x),level+height/2,wz(y),width,height,length,root);
     mesh.rotation.y=angle;
@@ -21,7 +26,7 @@ export function* buildCheonggye(T,root,kit,terrain){
     const x=(a.x+b.x)/2,y=(a.y+b.y)/2,dy=b.y-a.y,dx=b.x-a.x;
     return block(color,x,y,Math.hypot(dx,dy)+.01,width,height,at(x,y)+level,-Math.atan2(dy,dx));
   }
-  function mesh(vertices,indices,material){
+  function mesh(vertices,indices,material,drape=true){
     const geometry=new T.BufferGeometry();
     geometry.setAttribute("position",new T.Float32BufferAttribute(vertices,3));geometry.setIndex(indices);
     if(material.map){
@@ -32,21 +37,31 @@ export function* buildCheonggye(T,root,kit,terrain){
     geometry.computeVertexNormals();
     const model=new T.Mesh(geometry,material);
     model.userData.terrainSurface=true;model.receiveShadow=true;root.add(model);
+    if(drape){
+      model.userData.followTerrain=true;
+      terrainSurfaces.push(model);
+    }
     return model;
   }
-  function surface(outline,material,offset){
-    const contour=outline.map(({x,y})=>new T.Vector2(wx(x),-wz(y)));
-    const pos=outline.flatMap(({x,y})=>[wx(x),at(x,y)+offset,wz(y)]);
-    return mesh(pos,T.ShapeUtils.triangulateShape(contour,[]).flat(),material);
+  function surface(outline,material,offset,pieces=[outline]){
+    if(!pieces.length)return;
+    const vertices=[],indices=[];
+    for(const piece of pieces){
+      const base=vertices.length/3;
+      const contour=piece.map(({x,y})=>new T.Vector2(wx(x),-wz(y)));
+      vertices.push(...piece.flatMap(({x,y})=>[wx(x),offset,wz(y)]));
+      for(const face of T.ShapeUtils.triangulateShape(contour,[]))indices.push(...face.map(i=>base+i));
+    }
+    return mesh(vertices,indices,material);
   }
-  function grid(rows,material){
-    const vertices=rows.flatMap(row=>row.flatMap(({x,y,level})=>[wx(x),at(x,y)+level,wz(y)])),indices=[];
+  function grid(rows,material,drape=true){
+    const vertices=rows.flatMap(row=>row.flatMap(({x,y,level})=>[wx(x),(drape?0:at(x,y))+level,wz(y)])),indices=[];
     const sides=rows[0].length;
     for(let i=1;i<rows.length;i++)for(let j=1;j<sides;j++){
       const a=(i-1)*sides+j-1,b=a+sides;
       indices.push(a,a+1,b,b,a+1,b+1);
     }
-    return mesh(vertices,indices,material);
+    return mesh(vertices,indices,material,drape);
   }
   function stoneTiles(w,h,tones,stagger){
     const size=128,pixels=new Uint8Array(size*size*4);
@@ -178,7 +193,7 @@ export function* buildCheonggye(T,root,kit,terrain){
   });
   // A sheet of water laid over rows of points; each point carries its place in the flow.
   function sheet(rows,material){
-    const model=grid(rows,material);
+    const model=grid(rows,material,false);
     model.geometry.setAttribute("stream",new T.Float32BufferAttribute(rows.flatMap(row=>row.flatMap(({flow})=>flow)),2));
     model.receiveShadow=false;
     return model;
@@ -205,56 +220,52 @@ export function* buildCheonggye(T,root,kit,terrain){
     grid(xs.map(x=>[bankAt(x,-1,.3),bankAt(x,1,.3)].map(p=>({...p,level:waterLevel-.44}))),
       new T.MeshStandardMaterial({color:0x3f4338,roughness:1,side:T.DoubleSide}));
   }
-  for(const {kind,outline,points,width} of [...cheonggyeRoadLeads.map(lead=>({...lead,kind:"road"})),...cheonggyeSurfaces]){
-    if(kind==="plaza")surface(outline,paving,.028);
-    if(kind==="paving")surface(outline,paving,.039);
-    if(kind==="road")surface(outline,asphalt,.01);
+  const streetLayers=[...cheonggyeRoadLeads.map(lead=>({...lead,kind:"road"})),...cheonggyeSurfaces];
+  const descentCuts=cheonggyeAccess.map(({outline})=>outline);
+  const {west:cascadeWest,north:cascadeNorth,south:cascadeSouth}=cheonggyeCascade;
+  const head=cheonggyeStations[0];
+  const rectangle=(west,east,north,south)=>[{x:west,y:north},{x:east,y:north},{x:east,y:south},{x:west,y:south}];
+  const channel=streamBand([[-1,.3],[1,.3]]);
+  const cascadePit=rectangle(cascadeWest,head,cascadeNorth,cascadeSouth);
+  const groundCut=makeStreetSurfaceCut(T,[...descentCuts,channel,cascadePit]);
+  const groundMaterial=new T.MeshStandardMaterial({color:0x8b9087,roughness:1,side:T.DoubleSide});
+  const {minX,maxX,minY,maxY}=cheonggyeBounds;
+  const cityGround=[
+    rectangle(minX,668,minY,maxY),
+    rectangle(668,maxX+12,-250,-33)
+  ];
+  for(const outline of cityGround){
+    surface(outline,groundMaterial,-.083,groundCut(outline)).name="Cheonggyecheon street-level ground";
+  }
+  const pavedOutlines=descentCuts.slice(),roadOutlines=descentCuts.slice();
+  const nonCrossing=streetLayers.filter(({kind})=>kind==="road"||kind==="bridge").map(({outline})=>outline);
+  for(const {kind,outline,points,width} of streetLayers){
+    if(kind==="plaza"||kind==="paving"){
+      surface(outline,paving,.039,makeStreetSurfaceCut(T,pavedOutlines)(outline));
+      pavedOutlines.push(outline);
+    }
+    if(kind==="road"){
+      surface(outline,asphalt,.012,makeStreetSurfaceCut(T,roadOutlines)(outline));
+      roadOutlines.push(outline);
+    }
     if(kind==="lower")surface(outline,lower,cheonggyeBedLevel);
     if(kind==="crossing"){
-      const [a,,b]=points,dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
+      const covered=[...pavedOutlines,...nonCrossing];
+      surface(outline,paving,.039,makeStreetSurfaceCut(T,covered)(outline));
+      pavedOutlines.push(outline);
+      const [a,b]=[points[0],points.at(-1)],dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
       for(let i=2;i<length-1;i+=1.1){
         const x=a.x+dx*i/length,y=a.y+dy*i/length;
-        block(0xc5c3b5,x,y,width-.36,.49,.022,at(x,y)+.028,-Math.atan2(-dx,dy));
+        if(!cheonggyeRailOpening(x,y))block(0xc5c3b5,x,y,width-.36,.49,.018,at(x,y)+.046,-Math.atan2(-dx,dy));
       }
     }
-  }
-  yield;
-  const head=cheonggyeStations[0],cascadePit=cheonggyeCascade;
-  // Solid ground at street level under all the paving, so no gap between two pavements
-  // shows the land far below. It stays open over the channel, the cascade, and the cuts
-  // where stairs and ramps go down.
-  {
-    // A cut is open a little inside its edge, so the ground laps over the retaining wall.
-    const open=(x,y)=>cheonggyeOpenAir(x,y)&&(!cheonggyeRailOpening(x,y)||
-      cheonggyeOpenAir(x,y,.15)&&cheonggyeLevel({x,y})<-.06);
-    const {minX,maxX,minY,maxY}=cheonggyeBounds,coarse=2,fine=.25,vertices=[],indices=[];
-    const quad=(x,y,size)=>{
-      const first=vertices.length/3;
-      for(const [dx,dy] of [[0,0],[size,0],[0,size],[size,size]])vertices.push(wx(x+dx),at(x+dx,y+dy)-.03,wz(y+dy));
-      indices.push(first,first+2,first+1,first+1,first+2,first+3);
-    };
-    for(let x=minX;x<maxX;x+=coarse){
-      for(let y=minY;y<maxY;y+=coarse){
-        let gaps=0;
-        for(let i=0;i<=4;i++)for(let j=0;j<=4;j++)if(open(x+i*coarse/4,y+j*coarse/4))gaps++;
-        if(!gaps)quad(x,y,coarse);
-        else if(gaps<25){
-          for(let fx=x;fx<x+coarse-1e-6;fx+=fine)for(let fy=y;fy<y+coarse-1e-6;fy+=fine){
-            if(!open(fx+fine/2,fy+fine/2))quad(fx,fy,fine);
-          }
-        }
-      }
-      if(x%60<coarse)yield;
-    }
-    const ground=mesh(vertices,indices,new T.MeshStandardMaterial({color:0x8b9087,roughness:1,side:T.DoubleSide}));
-    ground.name="Cheonggyecheon street-level ground";
   }
   yield;
   // Walls close the head of the channel under the waterfall and the sides of its recess.
   {
     const wall=new T.MeshStandardMaterial({color:0x767a71,roughness:1,side:T.DoubleSide});
     const face=(a,b,top)=>grid([a,b].map(p=>[{...p,level:waterLevel-.55},{...p,level:top}]),wall);
-    const north=bankAt(head,-1,.3).y,south=bankAt(head,1,.3).y,lip=-.96,cascade=cascadePit;
+    const north=bankAt(head,-1,.3).y,south=bankAt(head,1,.3).y,lip=-.96,cascade=cheonggyeCascade;
     face({x:head,y:north},{x:head,y:cascade.north},.03);
     face({x:head,y:cascade.north},{x:head,y:cascade.south},lip);
     face({x:head,y:cascade.south},{x:head,y:south},.03);
@@ -272,25 +283,39 @@ export function* buildCheonggye(T,root,kit,terrain){
     return y<centre?centre-north-y>.3:y-centre-south>.3;
   }
   for(const route of cheonggyeAccess){
-    const {points,width,kind,landing}=route;
+    const {points,outline,kind,landing}=route;
     const length=points.slice(1).map((b,i)=>Math.hypot(b.x-points[i].x,b.y-points[i].y));
     const total=length.reduce((sum,value)=>sum+value,0);
     const risers=kind==="steps"?23:Math.ceil(total/2),stations=landing?[0,landing]:[0];
     for(let i=1;i<=risers;i++)stations.push(landing+(1-landing)*i/risers);
+    let passed=0;
+    const corners=length.slice(0,-1).map(distance=>(passed+=distance)/total);
+    const sections=[...stations,...corners.filter(t=>!stations.some(station=>Math.abs(t-station)<1e-7))].sort((a,b)=>a-b);
+    const shoulders=points.map(({x,y},i)=>{
+      const a=outline[i],b=outline[outline.length-1-i],dx=x-(a.x+b.x)/2,dy=y-(a.y+b.y)/2;
+      return [a,b].map(p=>({x:p.x+dx,y:p.y+dy}));
+    });
     function cross(t,level){
       let d=t*total,i=0;
       while(i<length.length-1&&d>length[i])d-=length[i++];
-      const a=points[i],b=points[i+1],dx=b.x-a.x,dy=b.y-a.y;
-      const x=a.x+d*dx/length[i],y=a.y+d*dy/length[i],s=width/(2*length[i]);
-      return [{x:x-dy*s,y:y+dx*s,level},{x:x+dy*s,y:y-dx*s,level}];
+      const u=d/length[i];
+      return shoulders[i].map((a,side)=>{
+        const b=shoulders[i+1][side];
+        return {x:a.x+(b.x-a.x)*u,y:a.y+(b.y-a.y)*u,level};
+      });
     }
-    const level=t=>.041+cheonggyeAccessDrop(route,Math.max(0,t))*cheonggyeBedLevel;
-    const rows=[cross(0,level(0))];
-    for(let i=1;i<stations.length;i++){
-      const end=stations[i];
-      if(kind==="steps")rows.push(cross(end,level(stations[i-1])));
-      rows.push(cross(end,level(end)));
+    const depthLevel=drop=>.041+drop*cheonggyeBedLevel;
+    const level=t=>depthLevel(cheonggyeAccessDrop(route,t));
+    const cap=(index,height)=>[outline[index],outline[outline.length-1-index]].map(p=>({...p,level:height}));
+    const rows=[cap(0,level(0)),cross(0,level(0))];
+    for(const end of sections.slice(1)){
+      if(kind==="steps"){
+        const drop=cheonggyeAccessDrop(route,end)*risers,step=Math.floor(drop+1e-7);
+        if(step>0&&Math.abs(drop-step)<1e-7)rows.push(cross(end,depthLevel((step-1)/risers)));
+        rows.push(cross(end,depthLevel(step/risers)));
+      }else rows.push(cross(end,level(end)));
     }
+    rows.push(cap(points.length-1,level(1)));
     grid(rows,darkPaving);
     // Wall in the cut on either side: below the paving everywhere, and up to the street
     // where the route passes through the bank.
@@ -299,7 +324,7 @@ export function* buildCheonggye(T,root,kit,terrain){
       return [{...lip,level:inBank(lip)?.041:lip.level},lip,{...lip,level:waterLevel-.35}];
     }),darkPaving);
     // Handrails follow the slope below the landing; a guard rail edges the stairwell above.
-    const sloped=stations.filter(t=>t>=landing);
+    const sloped=sections.filter(t=>t>=landing);
     for(let i=0;i<sloped.length;i+=Math.max(1,Math.floor(sloped.length/8))){
       for(const p of cross(sloped[i],level(sloped[i])))cylinder(rail,wx(p.x),at(p.x,p.y)+p.level+.36,wz(p.y),.032,.77,7,root);
     }
@@ -346,8 +371,9 @@ export function* buildCheonggye(T,root,kit,terrain){
     }
     return stops;
   };
+  const cutStreetLip=makeStreetSurfaceCut(T,pavedOutlines);
   for(const side of [-1,1]){
-    const faceAt=x=>bankAt(x,side,.3),lipAt=x=>bankAt(x,side,3.53);
+    const faceAt=x=>bankAt(x,side,.3),lipAt=x=>bankAt(x,side,side<0?3.5:4);
     const open=(x,inset)=>{const p=bankAt(x,side,inset);return cheonggyeRailOpening(p.x,p.y);};
     const backing=new T.MeshStandardMaterial({color:0x656961,roughness:1,side:T.DoubleSide});
     let count=0;
@@ -363,7 +389,7 @@ export function* buildCheonggye(T,root,kit,terrain){
           strip(stone[(row*3+count*7)%stone.length],faceAt(Math.min(to,a+shift)),faceAt(Math.min(to,b+shift-.025)),.34,.51,level);
         }
         count++;
-        if(open(x,1.9))continue;
+        if(open(x,1.9)||cheonggyeBridges.some(({style,footprint})=>style!=="wood"&&insideCorridorPolygon(x,p.y,footprint)))continue;
         const upperA=faceAt(a),upperB=faceAt(b);
         strip(cap,upperA,upperB,.42,.17,.026);
         bar(rail,{...upperA,level:.91},{...upperB,level:.91},.037);
@@ -378,7 +404,8 @@ export function* buildCheonggye(T,root,kit,terrain){
       const stations=pieces(from,to);
       for(let i=1;i<stations.length;i++){
         const a=stations[i-1],b=stations[i];
-        surface([faceAt(a),faceAt(b),lipAt(b),lipAt(a)],paving,.038);
+        const stripOutline=[faceAt(a),faceAt(b),lipAt(b),lipAt(a)];
+        surface(stripOutline,paving,.039,cutStreetLip(stripOutline));
       }
     }
     yield;
@@ -390,10 +417,12 @@ export function* buildCheonggye(T,root,kit,terrain){
     if(style==="wood"){
       const rows=[],posts=[];
       for(let i=0;i<=18;i++){
-        const t=i/18,p=along(t),level=cheonggyeBedLevel+.25+Math.sin(t*Math.PI)*.71;
-        rows.push([{x:p.x-width/2,y:p.y,level},{x:p.x+width/2,y:p.y,level}]);
+        const t=i/18,level=cheonggyeBedLevel+.25+Math.sin(t*Math.PI)*.71;
+        const row=[[footprint[0],footprint[1]],[footprint[3],footprint[2]]].map(([a,b])=>
+          ({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,level}));
+        rows.push(row);
         if(i%3===0)posts.push(rows.at(-1));
-        const seam=block(0x735c40,p.x,p.y,width,.028,.025,at(p.x,p.y)+level+.009);
+        const seam=strip(0x735c40,row[0],row[1],.028,.015,level-.006);
         seam.userData.streamDetail=true;
       }
       grid(rows,new T.MeshStandardMaterial({color:0xa2835d,side:T.DoubleSide}));
@@ -411,12 +440,22 @@ export function* buildCheonggye(T,root,kit,terrain){
       const edge=t=>{const p=along(t);return {...p,x:p.x+side*width/2};};
       const a=edge(0),b=edge(1);
       strip(style==="stone"?0x8e8e82:concrete,a,b,.55,.52,-.45);
-      strip(cap,a,b,.36,style==="stone"?.26:.16,.12);
-      bar(rail,{...a,level:.98},{...b,level:.98},.041);
+      function bankEnd(side){
+        let low=0,high=1;
+        for(let i=0;i<14;i++){
+          const mid=(low+high)/2,p=edge(mid);
+          if(p.y<bankAt(p.x,side,.5).y)low=mid;
+          else high=mid;
+        }
+        return (low+high)/2;
+      }
+      const first=bankEnd(-1),last=bankEnd(1),ra=edge(first),rb=edge(last);
+      strip(cap,ra,rb,.36,style==="stone"?.26:.16,.12);
+      bar(rail,{...ra,level:.98},{...rb,level:.98},.041);
       for(let i=0;i<15;i++){
-        const p=edge(i/14);
+        const p=edge(first+(last-first)*i/14);
         if(style==="stone"){
-          block(stone[i%stone.length],p.x,p.y,.43,.24,.85,at(p.x,p.y)+.16);
+          block(stone[i%stone.length],p.x,p.y,.43,.24,.85,at(p.x,p.y)+.12);
           if(i%3===0)block(cap,p.x,p.y,.54,.34,.15,at(p.x,p.y)+.94);
         }else cylinder(rail,wx(p.x),at(p.x,p.y)+.54,wz(p.y),.039,.84,6,root);
       }
@@ -431,11 +470,16 @@ export function* buildCheonggye(T,root,kit,terrain){
     const underside=new T.MeshStandardMaterial({color:0x716f65,side:T.DoubleSide});
     surface(footprint,underside,-.59);
     for(const side of [-1,1]){
-      const p=bankAt(x,side,-3.55);
-      block(style==="stone"?0x9d9a89:0x828881,p.x,p.y,width-1,1.32,2.83,at(p.x,p.y)+waterLevel);
+      const middle=x+skew*.5,a=middle-width/2+1.08,b=middle+width/2-1.08;
+      const stations=[a,...cheonggyeStations.filter(x=>x>a&&x<b),b];
+      const edges=[-4.98,-4.04].map(inset=>stations.map(x=>bankAt(x,side,inset)));
+      const material=new T.MeshStandardMaterial({color:style==="stone"?0x9d9a89:0x828881,side:T.DoubleSide});
+      const pier=[...edges[0],...edges[1].slice().reverse()];
+      surface(pier,material,-.54);
+      grid([...pier,pier[0]].map(p=>[{...p,level:-.54},{...p,level:waterLevel-.48}]),material);
       if(style==="stone")for(let i=0;i<9;i++){
-        const sx=x-width*.425+i*width*.107;
-        block(stone[i%stone.length],sx,p.y+side*.68,1.05,.17,.34,at(sx,p.y)-2.47);
+        const sx=a+.51+(b-a-1.02)*i/8,p=bankAt(sx,side,-4.016);
+        block(stone[i%stone.length],sx,p.y,1.05,.17,.34,at(sx,p.y)-2.47);
       }
     }
     yield;
@@ -599,6 +643,7 @@ export function* buildCheonggye(T,root,kit,terrain){
     }
     yield;
   }
+  yield* gradePalaceMeshes(T,terrainSurfaces,terrain);
   return (seconds,night,haze)=>{
     water.uniforms.clock.value=seconds;
     water.uniforms.night.value=night;

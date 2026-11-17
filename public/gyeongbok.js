@@ -4,7 +4,7 @@ import {
 } from "./gyeongbok-layout.js";
 import {solidAt} from "./layout.js";
 import {plazaAt} from "./plaza-layout.js";
-import {bukchonPavers} from "./bukchon-surfaces.js";
+import {bukchonPavers,coverTriangles,exposedSurface} from "./bukchon-surfaces.js";
 import {jongnoCrossing,sajikEastRoad,uijeongbuBusPavement,uijeongbuConnections,uijeongbuOutline,uijeongbuPavedConnections,uijeongbuRemains,
   uijeongbuSideRoad,uijeongbuWalks} from "./uijeongbu-layout.js";
 import {gbEastOpenings,gbEastWall,gbMuseumWestGate,gbOuterWallRuns,gbWallOutline,gbWestPaths,insideGbWall,clipGbGround} from "./gyeongbok-perimeter.js";
@@ -144,9 +144,33 @@ export function* buildGyeongbok(T,scene,kit,tools){
   for(const court of [gbCourts.heungnye,gbCourts.geunjeong]){
     plot(rect(court.west+1,court.east-1,court.south+1,court.north-1),materials.court,.022);
   }
-  for(const [i,{points,width,surface}] of gbPaths.entries()){
-    const stone=surface==="stone";
-    ribbon(points,-width/2,width/2,stone?materials.paving:materials.gravel,(stone?.054:.030)+i*.0004);
+  // Keep the surface of the higher path at a junction, and trim the lower ribbon.
+  // Two almost coplanar ribbons exchange places in the depth buffer at distance.
+  const groundPaths=gbPaths.map((path,i)=>({...path,level:(path.surface==="stone"?.054:.030)+i*.0004}));
+  const covered=[];
+  for(const {name,points,width,surface,level} of groundPaths.sort((a,b)=>b.level-a.level)){
+    const footpath=ribbon(points,-width/2,width/2,surface==="stone"?materials.paving:materials.gravel,level);
+    footpath.name=name;
+    const old=footpath.geometry,{index,attributes:{position,uv}}=old;
+    const vertices=Array.from({length:position.count},(_,i)=>({x:position.getX(i),y:position.getZ(i),u:uv.getX(i),v:uv.getY(i)}));
+    const triangles=Array.from({length:index.count/3},(_,i)=>[0,1,2].map(j=>vertices[index.getX(i*3+j)]));
+    const positions=[],texels=[];
+    for(const piece of coverTriangles(triangles)){
+      const [a,b,c]=piece.points,ux=b.x-a.x,uy=b.y-a.y,vx=c.x-a.x,vy=c.y-a.y,area=ux*vy-uy*vx;
+      for(const [first,...rest] of exposedSurface(piece.points,covered))for(let i=1;i<rest.length;i++){
+        const triangle=[first,rest[i-1],rest[i]],turn=piece.sign;
+        for(const {x,y} of turn<0?triangle:[triangle[0],triangle[2],triangle[1]]){
+          const u=((x-a.x)*vy-(y-a.y)*vx)/area,v=(ux*(y-a.y)-uy*(x-a.x))/area;
+          positions.push(x,level,y);
+          texels.push(a.u+u*(b.u-a.u)+v*(c.u-a.u),a.v+u*(b.v-a.v)+v*(c.v-a.v));
+        }
+      }
+      covered.push(piece);
+    }
+    const geometry=new T.BufferGeometry();
+    geometry.setAttribute("position",new T.Float32BufferAttribute(positions,3));
+    geometry.setAttribute("uv",new T.Float32BufferAttribute(texels,2));geometry.computeVertexNormals();
+    footpath.geometry=geometry;old.dispose();
   }
   yield;
 
@@ -798,7 +822,6 @@ export function* buildGyeongbok(T,scene,kit,tools){
 
   function* buildUijeongbu(){
     const stone=0xb1aca0,curb=0xc5c1b6;
-    const pr=(e,n,w,d)=>[plazaAt(e-w/2,n-d/2),plazaAt(e+w/2,n-d/2),plazaAt(e+w/2,n+d/2),plazaAt(e-w/2,n+d/2)];
     const xyz=(e,n)=>{const p=plazaAt(e,n);return {x:wx(p.x),z:wz(p.y)};};
     const piece=(color,e,n,w,d,h,base=0,turn=0)=>{
       const p=xyz(e,n),mesh=box(color,p.x,base+h/2,p.z,w,h,d);
@@ -835,7 +858,12 @@ export function* buildGyeongbok(T,scene,kit,tools){
       if(streetPaved.includes(index))pavement(uijeongbuConnections[index],.032+index*.006);
       else plot(uijeongbuConnections[index],materials.paving,.032+index*.006);
     }
-    const stripe=(e,n,w,d,turn)=>piece(0xe7e3d6,e,n,w,d,.012,.007,turn).name="의정부지 주변 횡단보도";
+    function paint(color,e,n,w,d,turn,height){
+      const c=Math.cos(turn),s=Math.sin(turn);
+      return plot([[-w/2,-d/2],[w/2,-d/2],[w/2,d/2],[-w/2,d/2]].map(([x,y])=>
+        plazaAt(e+x*c-y*s,n+x*s+y*c)),matte(color),height);
+    }
+    const stripe=(e,n,w,d,turn)=>paint(0xe7e3d6,e,n,w,d,turn,.010).name="의정부지 주변 횡단보도";
     for(let i=0;i<22;i++)stripe(39.4-i*.23,530+i*1.09,8.1,.48,-.22);
     for(let i=0;i<7;i++)stripe(44.6,433.4+i*.91,8.1,.44,.07);
     for(let i=0;i<12;i++)stripe(135.1+i*1.14,485.5-i*.42,.49,5.9,-.34);
@@ -851,7 +879,7 @@ export function* buildGyeongbok(T,scene,kit,tools){
     // The centre line follows the middle of the widened carriageway.
     for(let e=47;e<=170;e+=9){
       const n=e<78?546+(e-47)*.667:566.7+(e-78)*.132;
-      piece(0xc3bba4,e,n,4.3,.11,.014,.003,Math.atan(e<78?.667:.132));
+      paint(0xc3bba4,e,n,4.3,.11,Math.atan(e<78?.667:.132),.007);
     }
     yield;
 

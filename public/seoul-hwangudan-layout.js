@@ -9,8 +9,9 @@ const path=(name,width,coordinates,kind="walk")=>({name,width,kind,points:outlin
 const place=(name,x,y,heading,tilt,description)=>({...point(x,y),name,heading,tilt,description});
 const building=(id,name,height,levels,coordinates)=>({id,name,height,levels,outline:outline(coordinates)});
 
-export const hwangudanBounds={minX:522,minY:181,maxX:892,maxY:438};
+export const hwangudanBounds={minX:519,minY:175,maxX:892,maxY:438};
 export const hwangudanGate={x:658.3,y:297,angle:1.17};
+export const hwangudanGateApron={halfWidth:6.7,rampEnd:5.25,end:7.65};
 export const hwangunggu={x:721.1,y:309.35,radius:8.48};
 export const hwangudanStoneGate={x:714.6,y:343.1,angle:.414,width:11.65};
 export const hwangudanHotelPorch={x:714.9,y:368,angle:.08};
@@ -40,8 +41,18 @@ export const hwangudanBuildings=[
   building("lotte-office","",75,20,[[732.7,220.1],[789.9,219.9],[789.8,268.9],[764.5,268.8],[764.6,280.3],[732.9,280.3]])
 ];
 
-const seoulEastPavement=[[547,190],[571,192],[589,198],[607,216],[615,231],[623,255],[619,272],
-  [607,296],[594,307],[575,312],[552,306],[541,290],[530,266],[523,238],[524,208]];
+// The 2025 redesign retained a roughly 4,580 m² oval lawn within the granite plaza.
+// The western frontage joins Sejong-daero's pavement and the east follows Eulji-ro.
+// https://plaza.seoul.go.kr/archives/247
+const seoulPlazaPerimeter=[[520.5,183],[547,179],[574,180],[595,186],[606,202],[616,218],
+  [620,233],[621,245],[617,259],[614,276],[606,296],[596,309],[580,319],[550,322],
+  [534,313],[525,297],[520,279],[519.5,241],[519.7,211]];
+export const seoulPlazaOutline=outline(seoulPlazaPerimeter);
+export const seoulPlazaLawn=Array.from({length:64},(_,index)=>{
+  const angle=index*Math.PI/32,c=Math.cos(.13),s=Math.sin(.13);
+  const x=Math.cos(angle)*34.4,y=Math.sin(angle)*42.4;
+  return point(568.6+x*c-y*s,239+x*s+y*c);
+});
 const eastPavement=[[649,286],[655,270],[653,263],[666,238],[671,224],[678,216],[690,212],[717,209],
   [718,217.5],[704,219],[692,222],[681,231],[674,245],[663,265],[655,286],[650,307],[644,310],[641,306]];
 const gardenFootprint=[[652,284],[660.5,288],[682.6,298],[692.2,287],[705.3,276],[718.5,270.8],
@@ -49,7 +60,7 @@ const gardenFootprint=[[652,284],[660.5,288],[682.6,298],[692.2,287],[705.3,276]
   [784,323],[757,334],[723,348],[708,351],[700,349.2],[666.3,340.6],[673.4,318],[643.7,306.4]];
 
 export const hwangudanGround=[
-  ground("서울광장 동쪽 보도","paving",seoulEastPavement),
+  {name:"서울광장",kind:"paving",outline:seoulPlazaOutline},
   ground("을지로 남쪽 보도","paving",eastPavement),
   ground("환구단 열린 정원","garden",gardenFootprint),
   ground("환구단 정문 앞마당","paving",[[645,288],[653,280.7],[660.5,285],[661,290],[669,293.5],[666,301],[659,308],[643.7,306.4]]),
@@ -104,6 +115,13 @@ export function hwangudanAt(origin,lateral,depth){
   const c=Math.cos(origin.angle),s=Math.sin(origin.angle);
   return point(origin.x+lateral*c+depth*s,origin.y-lateral*s+depth*c);
 }
+export function hwangudanGateApronHeight(along,depth){
+  const {rampEnd,end}=hwangudanGateApron;
+  const ground=southWorldSurfaceHeight(hwangudanAt(hwangudanGate,along,depth));
+  const gate=southWorldSurfaceHeight(hwangudanGate);
+  const progress=Math.max(0,Math.min(1,(Math.abs(depth)-rampEnd)/(end-rampEnd)));
+  return .05+(ground+.064-gate-.05)*progress;
+}
 export function hwangudanFloorHeight(position){
   const {x,y}=position;
   if(!inHwangudan(x,y))return undefined;
@@ -118,6 +136,9 @@ export function hwangudanFloorHeight(position){
     }
     // The gate and treads are one rigid model placed at the grade beneath its centre.
     return surface+southWorldSurfaceHeight(hwangudanGate)-southWorldSurfaceHeight(position);
+  }
+  if(Math.abs(along)<hwangudanGateApron.halfWidth&&Math.abs(depth)<hwangudanGateApron.end){
+    return hwangudanGateApronHeight(along,depth)+southWorldSurfaceHeight(hwangudanGate)-southWorldSurfaceHeight(position);
   }
   const stoneX=x-hwangudanStoneGate.x,stoneY=y-hwangudanStoneGate.y;
   const stoneC=Math.cos(hwangudanStoneGate.angle),stoneS=Math.sin(hwangudanStoneGate.angle);

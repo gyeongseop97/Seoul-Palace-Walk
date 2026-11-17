@@ -14,6 +14,7 @@ import {buildGyeongbok,buildSubwayExit} from "./gyeongbok.js";
 import {cityHallStation,cityHallExit3} from "./gyeongbok-layout.js";
 import {gyeongbokObstacles,gyeongbokBenches} from "./gyeongbok-obstacles.js";
 import {furnishHall} from "./palace-interiors.js";
+import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
 // Rooms people can walk into, for the lighting: centre (map), size, turn and floor height.
 export const hallRooms=[];
 
@@ -135,6 +136,9 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
   const earthMaterial=new T.MeshStandardMaterial({map:groundMap,roughness:1});
   gardenMaterials.lawn.userData.seasonFoliage="ground";
   const brickMaterial=new T.MeshStandardMaterial({map:brickMap,bumpMap:brickMap,bumpScale:1.2,roughness:.89});
+  const wallWalkMap=grain(["#817a70","#9e8271","#9a887d","#a08c80","#a48b77","#a09285"],
+    {stones:true,red:true,random:groundNoise});
+  const wallWalkMaterial=new T.MeshStandardMaterial({map:wallWalkMap,bumpMap:wallWalkMap,bumpScale:.46,roughness:.94});
   function uvScale(mesh,u,v){
     const uv=mesh.geometry.attributes.uv;
     for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*u,uv.getY(i)*v);
@@ -150,16 +154,17 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
   const floor=box(0x677253,0,-.36,0,1320,.65,1140);
   floor.userData.flatBackground=true;
   floor.receiveShadow=true;
-  function plot(points,material,height){
-    const footprint=new T.Shape(points.map(point=>new T.Vector2(wx(point.x),-wz(point.y))));
-    const geometry=new T.ShapeGeometry(footprint);
+  function plots(pieces,material,height){
+    const footprints=pieces.map(points=>new T.Shape(points.map(point=>new T.Vector2(point.x,-point.y))));
+    const geometry=new T.ShapeGeometry(footprints);
     uvScale({geometry},.19,.19);
     const surface=flat(geometry,material,0,height,0);
     surface.rotation.x=-Math.PI/2;
     surface.userData.followTerrain=true;
     return surface;
   }
-  function ribbon(points,min,max,material,height){
+  const plot=(points,material,height)=>plots([points.map(point=>({x:wx(point.x),y:wz(point.y)}))],material,height);
+  function ribbon(points,min,max,material,height,higherRibbons){
     const coords=[],uv=[],indices=[];
     let metres=0;
     const last=points.length-1,closed=points[0]===points[last];
@@ -173,6 +178,19 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
       }
       if(i){const j=i*2;indices.push(j-2,j,j-1,j-1,j,j+1);}
     }
+    if(higherRibbons){
+      const outline=[];
+      for(let i=0;i<coords.length;i+=3)outline.push({x:coords[i],y:coords[i+2]});
+      const cut=makeStreetSurfaceCut(T,higherRibbons);
+      const pieces=[];
+      for(let i=2;i<outline.length;i+=2){
+        const segment=[outline[i-2],outline[i],outline[i+1],outline[i-1]];
+        pieces.push(...cut(segment));
+        higherRibbons.push(segment);
+      }
+      if(pieces.length)return plots(pieces,material,height);
+      return;
+    }
     const geo=new T.BufferGeometry();
     geo.setAttribute("position",new T.Float32BufferAttribute(coords,3));
     geo.setAttribute("uv",new T.Float32BufferAttribute(uv,2));geo.setIndex(indices);geo.computeVertexNormals();
@@ -181,12 +199,12 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
     surface.userData.followTerrain=true;
     return surface;
   }
-  const curb=matte(0xc5bcaa), gold=matte(0xc5a35a);
+  const curb=matte(0xc5bcaa),stonewallCurb=matte(0x696a63),gold=matte(0xc5a35a);
   ribbon(route,-2.85,2.85,roadMaterial,.012);
-  ribbon(route,-5.30,-2.85,pavingMaterial,.044);
-  ribbon(route,2.85,5.36,pavingMaterial,.045);
-  ribbon(route,-2.95,-2.78,curb,.060);
-  ribbon(route,2.78,2.95,curb,.060);
+  ribbon(route,-5.30,-2.85,wallWalkMaterial,.044);
+  ribbon(route,2.85,5.36,wallWalkMaterial,.045);
+  ribbon(route,-2.95,-2.78,stonewallCurb,.060);
+  ribbon(route,2.78,2.95,stonewallCurb,.060);
   ribbon(route,-2.65,-2.57,gold,.020);
   ribbon(route,2.57,2.65,gold,.020);
   // Keep the entrance paving above the adjoining avenue pavement where their footprints meet.
@@ -196,9 +214,11 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
   for(const {outline,kind} of palaceGardens)plot(outline,gardenMaterials[kind],.017);
   for(const {name,outline,kind} of palaceCourts)plot(outline,name==="중화전 마당"?courtStoneMaterial:
     kind==="stone"?pavingMaterial:gravelMaterial,.022);
-  for(const [i,{points,width,surface,edge}] of palacePaths.entries()){
-    const half=width/2,height=.028+i*.0003;
-    ribbon(points,-half,half,surface==="stone"?pavingMaterial:gravelMaterial,height);
+  // Keep the existing path priority at forks while giving each point only one path surface.
+  const palacePathCoverage=[];
+  for(const {points,width,surface,edge} of palacePaths.slice().reverse()){
+    const half=width/2,height=.039;
+    ribbon(points,-half,half,surface==="stone"?pavingMaterial:gravelMaterial,height,palacePathCoverage);
     if(edge){
       ribbon(points,-half-.12,-half+.02,curb,height+.022);
       ribbon(points,half-.02,half+.12,curb,height+.022);
@@ -206,8 +226,6 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
   }
   const s=placed(spawn);
   paved(s.x-1,s.z+4,39,39,.025);
-  const plaza=placed(city[0]);
-  paved(plaza.x,plaza.z,city[0].w,city[0].d,.032);
 
   function line(a,b){
     const dx=b.x-a.x,dz=b.y-a.y,len=Math.hypot(dx,dz),angle=-Math.atan2(dz,dx);

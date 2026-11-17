@@ -86,7 +86,7 @@ export const plazaEastWalkSpine=[
   ...[7.2,80,246,344,349].map(north=>plazaEastPavement(north)),
   plazaEastPavement(353,1.7),plazaEastPavement(363,1.7),
   ...[369,418,442,504,514].map(north=>plazaEastPavement(north)),
-  plazaAt(38.2,527),plazaAt(38.2,552)
+  plazaAt(41,516),plazaAt(37.2,527.8),plazaAt(31.6,551),plazaAt(30.2,552.2)
 ];
 export const sajikRoad={south:529,north:551,crossX:-13,crossWidth:10.5};
 export const haechiBasin={west:-29,east:-14,south:97,north:138,rampEnd:120,depth:2.05};

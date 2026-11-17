@@ -83,7 +83,12 @@ const mainRows=[...new Set([...mainAxis.map(([y])=>y),-1030,-1145,-1280,-1400,-1
 const section=(rows,offset=0)=>rows.map(y=>[atY(y,mainAxis)+offset,y,samcheongLevel(y)+(offset?.14:0)]);
 const avenue=section(mainRows);
 const eastPavement=section(mainRows,10);
-const oldWallSamples=gbEastWall.map(({y})=>y).filter(y=>y< -949&&y> -1595);
+// The wall doubles back along a few short wings. Sample both sides of the turn so
+// the sidewalk reaches the corner before narrowing to the outer face of the wall.
+const oldWallSamples=gbEastWall.flatMap(({y},index)=>{
+  const previous=gbEastWall[index-1];
+  return previous&&y>=previous.y?[previous.y-.025,previous.y+.025,y-.025,y,y+.025]:[y];
+}).filter(y=>y< -949&&y> -1595);
 // South of this line the pavements belong to the Dongsipjagak junction.
 const junctionNorth=-968;
 const wallWalkRows=[...new Set([junctionNorth,...oldWallSamples,...mainRows.filter(y=>y> -1467),

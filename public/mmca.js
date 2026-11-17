@@ -1,6 +1,7 @@
 import {mmcaAt,mmcaFrame,mmcaCourtyards,mmcaLawns,mmcaBuildings,mmcaTrees,mmcaPlanters,mmcaLamps,mmcaBenches,
   mmcaSign,mmcaGround,mmcaEducationCore,mmcaEducationColumns} from "./mmca-layout.js";
 import {addObstacle} from "./layout.js";
+import {coverTriangles,exposedSurface} from "./bukchon-surfaces.js";
 
 export function* buildMmca(T,root,kit,tiledRoof,naturalGround){
   const {wx,wz,box,cylinder,matte}=kit;
@@ -87,10 +88,29 @@ export function* buildMmca(T,root,kit,tiledRoof,naturalGround){
     const surface=mesh(geometry,plinth,campus,false);
     surface.name="미술관 기초 벽";
   }
-  for(const [i,{name,vertices}] of mmcaCourtyards.entries()){
-    const outline=name==="교육동 아래 통로"?[[-1.9,-25.2],[25.87,-25.2],[25.87,-9.439],[24,-10],[-1.9,-10]]:vertices;
-    polygon(outline,paving,(x,z)=>ground(x,z)+i*.003);
+  const paved=[],pavedPositions=[],pavedUV=[];
+  const courtyardLift=.012;
+  for(const {vertices} of mmcaCourtyards){
+    const outline=vertices.map(([x,z])=>new T.Vector2(x,z));
+    const pieces=coverTriangles(T.ShapeUtils.triangulateShape(outline,[]).map(face=>face.map(index=>outline[index])));
+    for(const {points} of pieces)for(const [a,...rest] of exposedSurface(points,paved)){
+      for(let i=1;i<rest.length;i++){
+        const b=rest[i-1],c=rest[i],turn=(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+        if(Math.abs(turn)<1e-6)continue;
+        for(const {x,y:z} of turn<0?[a,b,c]:[a,c,b]){
+          pavedPositions.push(x,ground(x,z)+courtyardLift,z);
+          pavedUV.push(x*.8,z*.43);
+        }
+      }
+    }
+    paved.push(...pieces);
+    foundation(vertices,courtyardLift-.002);
   }
+  const pavementGeometry=new T.BufferGeometry();
+  pavementGeometry.setAttribute("position",new T.Float32BufferAttribute(pavedPositions,3));
+  pavementGeometry.setAttribute("uv",new T.Float32BufferAttribute(pavedUV,2));
+  pavementGeometry.computeVertexNormals();
+  mesh(pavementGeometry,paving,campus,false).name="미술관 마당 보도";
   for(const {vertices} of mmcaLawns)polygon(vertices,grass,(x,z)=>ground(x,z)+.017);
   function facade([ax,az],[bx,bz],low,high,material,uScale,vScale){
     const run=Math.hypot(ax-bx,az-bz),a=ground(ax,az),b=ground(bx,bz);

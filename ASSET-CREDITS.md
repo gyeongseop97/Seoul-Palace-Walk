@@ -53,6 +53,8 @@
 
 덕수궁에서 북촌까지의 주요 경사는 공개 NASA SRTM 30m 표고 자료에서 도로와 지형의 큰 높이 차를 뽑아 평활화했습니다. 건물 기단과 연못, 보도 접속부는 게임에 맞게 보정했습니다. [NASA SRTM](https://www.earthdata.nasa.gov/data/instruments/srtm) · [Mapzen Terrain Tiles 및 제공처](https://registry.opendata.aws/terrain-tiles/) · [자료별 출처](https://github.com/tilezen/joerd/blob/master/docs/attribution.md)
 
+서울광장 잔디와 둘레 보도, 광화문광장 석재 포장, 건춘문 앞 담장과 보행로는 항공 화면과 거리뷰를 대조해 게임용으로 직접 만들었습니다. [서울시 S-Map](https://smap.seoul.go.kr/) · [서울시 서울광장 안내](https://plaza.seoul.go.kr/archives/247) · [광화문광장 네이버 거리뷰](https://map.naver.com/p?searchType=place&c=15.63,0,0,0,adh&isMini=true&p=Svj9PJ8SN08g-rqlkhonjw,-110,10,80,Float)
+
 ## 전시품과 렌더링
 
 `public/art/`의 이미지와 확대 재현한 유물의 원본 URL 및 이용 조건은 [기본 전시 목록](public/museum-catalog.js), [삼국·고려 추가 목록](public/museum-more-early.js), [조선·근대 추가 목록](public/museum-more-late.js)에 있습니다. 이미지들은 게임에서 빠르게 열리도록 크기를 줄여 WebP로 변환했습니다.

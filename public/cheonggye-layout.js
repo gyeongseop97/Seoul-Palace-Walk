@@ -139,7 +139,8 @@ const deckLanes=decks.flatMap(({lanes})=>lanes);
 const crossings=deckLanes.flatMap(({centre:[a,b],width})=>[-1,1].map(side=>{
   const p=side<0?a:b;
   const inside=bankAt(p.x,side,4.8),outside=bankAt(p.x,side,15.6);
-  return access("청계천로 횡단 연결",[[inside.x,inside.y],[p.x,p.y],[outside.x,outside.y]],Math.max(3.55,Math.min(6.1,width)),"crossing");
+  const edge=side*Math.max(side*outside.y,side*p.y+1.1);
+  return access("청계천로 횡단 연결",[[inside.x,inside.y],[p.x,edge]],Math.max(3.55,Math.min(6.1,width)),"crossing");
 }));
 export const stepStoneXs=[654,657.1,660.2,663.3,666.4,669.5];
 const stepping=stepStoneXs.map(x=>{
@@ -177,8 +178,6 @@ const onLower=lowerWalks.map(polygonTest),onUpper=upperWalks.map(polygonTest),on
 const underDeck=decks.map(({footprint})=>polygonTest(footprint));
 const nearDeck=decks.map(({x,north,south,width,skew})=>
   polygonTest(ribbon([point(x,north-1.8),point(x+skew,south+1.8)],width+5.1)));
-const overAccess=[...surfaceKinds(["road","plaza","paving"]),...cheonggyeRoadLeads.map(({outline})=>outline)]
-  .map(polygonTest);
 export function inCheonggye(x,y){
   const {minX,maxX,minY,maxY}=cheonggyeBounds;
   return x>=minX&&x<=maxX&&y>=minY&&y<=maxY;
@@ -222,9 +221,7 @@ export function cheonggyeLevel({x,y,up}){
 export function cheonggyeCameraCeiling(x,y,approaching=false){
   if(!inCheonggye(x,y))return null;
   if((approaching?nearDeck:underDeck).some(contains=>contains(x,y)))return -.59;
-  if(!overAccess.some(contains=>contains(x,y)))return null;
-  const level=cheonggyeLevel({x,y});
-  return level!=null&&level<-.34?.035:null;
+  return null;
 }
 // The recess the waterfall drops through, west of the first bank station.
 export const cheonggyeCascade={west:615.36,north:-154.75,south:-144.62};
@@ -282,7 +279,7 @@ export const cheonggyeLandmarks=[
 ];
 export const cheonggyeTrees=[
   [538,-167.4,6.4],[552,-166.5,6.8],[584,-161.7,6.3],[603,-156.6,6.9],[549,-146.3,6.5],
-  [564,-143,5.8],[612,-144.4,5.6],[653,-164.2,6.3],[711,-160.0,5.7],[785,-152.5,5.5],
+  [564,-143,5.8],[612,-137.0,5.6],[653,-164.2,6.3],[711,-161.3,5.7],[785,-151.2,5.5],
   [817,-148.2,6.2],[881,-143.6,6.8],[929,-138.9,6.4],[947,-134.2,5.1],[1042,-124,5.9]
 ];
 export const cheonggyeAnimalTrails=[

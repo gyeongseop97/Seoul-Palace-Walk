@@ -1,7 +1,10 @@
 import {addObstacle} from "./layout.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {plazaAt,eastCurb,eastRoadWidth} from "./plaza-layout.js";
-import {corridorProfile,corridorProfileAt,corridorSidewalks,corridorEastLanding,corridorEastLandingKerb,seoulPlazaCrossingLanding,corridorMainRoad,corridorBranches,corridorCrossings,
+import {cheonggyeAccess,cheonggyeSurfaces} from "./cheonggye-layout.js";
+import {seoulPlazaOutline} from "./seoul-hwangudan-layout.js";
+import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
+import {corridorProfile,corridorProfileAt,corridorSidewalks,corridorEastLandingKerb,seoulPlazaCrossingLanding,corridorMainRoad,corridorBranches,corridorCrossings,
   insideCorridorPolygon} from "./sejong-corridor-layout.js";
 
 export function buildSejongCorridor(T,scene,kit){
@@ -27,9 +30,10 @@ export function buildSejongCorridor(T,scene,kit){
   const rectangle=(x,y,w,d)=>[
     {x:x-w/2,y:y-d/2},{x:x+w/2,y:y-d/2},{x:x+w/2,y:y+d/2},{x:x-w/2,y:y+d/2}
   ];
-  function surface(outline,material,height,tile=2.6){
-    const path=new T.Shape(outline.map(p=>new T.Vector2(wx(p.x),-wz(p.y))));
-    const geometry=new T.ShapeGeometry(path),uv=geometry.attributes.uv,p=geometry.attributes.position;
+  function surface(outline,material,height,tile=2.6,pieces=[outline]){
+    if(!pieces.length)return;
+    const paths=pieces.map(piece=>new T.Shape(piece.map(p=>new T.Vector2(wx(p.x),-wz(p.y)))));
+    const geometry=new T.ShapeGeometry(paths),uv=geometry.attributes.uv,p=geometry.attributes.position;
     for(let i=0;i<uv.count;i++)uv.setXY(i,p.getX(i)/tile,p.getY(i)/tile);
     geometry.rotateX(-Math.PI/2);
     const mesh=new T.Mesh(geometry,material);mesh.position.y=height;mesh.receiveShadow=true;
@@ -53,11 +57,17 @@ export function buildSejongCorridor(T,scene,kit){
   const stone=0xb7b7ad,curb=0xb1b0a6,white=0xe4e1d7;
 
   // Leave the east opening clear below the road surface for the stream and ramps.
-  surface([[344,-299],[670,-299],[670,-168],[628,-172.7],[607,-166.8],[571,-164.3],
-    [570,-143.7],[670,-130.3],[670,311],[344,311]].map(([x,y])=>({x,y})),matte(0x71766b),-.071);
+  const entranceCuts=cheonggyeAccess.map(({outline})=>outline);
+  const cutEntrances=makeStreetSurfaceCut(T,entranceCuts);
+  const base=[[344,-299],[670,-299],[670,-168],[628,-172.7],[607,-166.8],[571,-164.3],
+    [570,-143.7],[670,-130.3],[670,311],[344,311]].map(([x,y])=>({x,y}));
+  surface(base,matte(0x71766b),-.071,2.6,cutEntrances(base));
+  const pavedOutlines=[seoulPlazaOutline,...entranceCuts,
+    ...cheonggyeSurfaces.filter(({kind})=>kind==="plaza"||kind==="paving").map(({outline})=>outline)];
   for(const walk of corridorSidewalks){
-    const landing=walk===corridorEastLanding||walk===seoulPlazaCrossingLanding;
-    surface(walk,paved,landing?.033:.039);
+    const cut=makeStreetSurfaceCut(T,pavedOutlines);
+    surface(walk,paved,.039,2.6,cut(walk));
+    pavedOutlines.push(walk);
   }
   surface(corridorMainRoad,asphalt,.021);
   const [,southWest,southEast]=corridorProfileAt(-292),northWest=eastCurb(0);
@@ -194,7 +204,8 @@ export function buildSejongCorridor(T,scene,kit){
   const plantingRows=[-239,-225,-208,-191,-171,-156,-118,-104,-54,-40,-24,-8,14,34,53,91,117,149,164,256,273,301];
   for(const [i,y] of plantingRows.entries()){
     const [westFront,westKerb,eastKerb,eastFront]=corridorProfileAt(y);
-    for(const [side,x] of [[1,westKerb-3.55],[-1,eastKerb+4.8]]){
+    const eastClearance=y===117||y===-239?9.4:4.8;
+    for(const [side,x] of [[1,westKerb-3.55],[-1,eastKerb+eastClearance]]){
       if(side===-1&&y>137&&y<170)continue;
       if(x<westFront+2||x>eastFront-2||crossingAt(x,y)||branchAt(x,y))continue;
       const w=side===1?2.34:2.72,d=i%3===0?6.3:4.72;

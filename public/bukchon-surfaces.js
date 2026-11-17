@@ -22,12 +22,18 @@ function clip(points,a,b,sign){
   return output;
 }
 
-export function coverRibbon(path){
-  return path.left.slice(1).flatMap((left,i)=>{
-    const a=path.left[i],b=path.right[i],c=path.right[i+1];
-    return [[a,b,c],[a,c,left]].filter(points=>Math.abs(area(points))>1e-5)
-      .map(points=>({points,box:bounds(points),sign:Math.sign(area(points))}));
+export function coverTriangles(triangles){
+  return triangles.flatMap(points=>{
+    const twiceArea=area(points);
+    return Math.abs(twiceArea)>1e-5?[{points,box:bounds(points),sign:Math.sign(twiceArea)}]:[];
   });
+}
+
+export function coverRibbon(path){
+  return coverTriangles(path.left.slice(1).flatMap((left,i)=>{
+    const a=path.left[i],b=path.right[i],c=path.right[i+1];
+    return [[a,b,c],[a,c,left]];
+  }));
 }
 
 export function exposedSurface(points,covered){

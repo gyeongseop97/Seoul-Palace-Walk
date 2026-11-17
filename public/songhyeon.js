@@ -1,4 +1,6 @@
 import {coverRibbon,exposedSurface} from "./bukchon-surfaces.js";
+import {bukchonSurfaceGrade} from "./bukchon-layout.js";
+import {sampleMeshHeight} from "./gyeongbok-terrain.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {standSign} from "./regional-stands.js";
 import {inSonghyeon,songhyeonBeds,songhyeonBenches,songhyeonGrade,songhyeonLawns,
@@ -70,9 +72,33 @@ export function* buildSonghyeon(T,parent,{wx,wz,box,matte}){
     const verts=outline.map(({x,y})=>new T.Vector2(x,y));
     mesh(T.ShapeUtils.triangulateShape(verts,[]).map(face=>face.map(index=>outline[index])),material,lift,name,uvSize);
   }
+  function joinGround(edges,lift,color,name){
+    const positions=[];
+    const ground=(x,y)=>sampleMeshHeight(bukchonSurfaceGrade,{x,y})-.65;
+    for(const [a,b] of edges){
+      const sections=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)/3.2));
+      const aHeight=songhyeonGrade(a.x,a.y)+lift,bHeight=songhyeonGrade(b.x,b.y)+lift;
+      function edgePoint(t){
+        const x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t,high=aHeight+(bHeight-aHeight)*t;
+        return {top:[wx(x),high,wz(y)],bottom:[wx(x),Math.min(high-.10,ground(x,y)),wz(y)]};
+      }
+      let previous=edgePoint(0);
+      for(let section=1;section<=sections;section++){
+        const next=edgePoint(section/sections);
+        positions.push(...previous.top,...previous.bottom,...next.bottom,...previous.top,...next.bottom,...next.top);
+        previous=next;
+      }
+    }
+    const geometry=new T.BufferGeometry();
+    geometry.setAttribute("position",new T.Float32BufferAttribute(positions,3));
+    geometry.computeVertexNormals();
+    const material=matte(color).clone();material.side=T.DoubleSide;
+    const seam=new T.Mesh(geometry,material);seam.name=name;seam.receiveShadow=true;root.add(seam);
+  }
   ground(songhyeonOutline,matte(land),.006,"송현녹지");
   for(const {outline,name} of songhyeonLawns)ground(outline,grass,.019,name,5.2);
   for(const {outline,name} of songhyeonBeds)ground(outline,matte(earth),.024,name);
+  joinGround(songhyeonOutline.map((a,i)=>[a,songhyeonOutline[(i+1)%songhyeonOutline.length]]),.004,0x706c55,"송현녹지 경계 지반");
   yield;
 
   const drawn=[];
@@ -84,6 +110,8 @@ export function* buildSonghyeon(T,parent,{wx,wz,box,matte}){
     mesh(triangles,pathSurface,.046,path.name,3.7);
     drawn.push(...pieces);
   }
+  const links=songhyeonPaths.filter(path=>path.kind==="link").flatMap(({left,right})=>[left,right]);
+  joinGround(links.flatMap(edge=>edge.slice(1).map((point,i)=>[edge[i],point])),.043,0x8c887b,"송현 진입로 기초");
   yield;
 
   const blockMatrix=new T.Object3D(),tint=new T.Color();

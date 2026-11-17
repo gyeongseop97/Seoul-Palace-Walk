@@ -1,8 +1,10 @@
 import {makeTreeBuilder,treePalettes} from "./lowpoly-trees.js";
+import {extensionRibbon} from "./jeongdong-extension-layout.js";
+import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
 import {
   hwangudanBuildings,hwangudanBounds,hwangudanGround,hwangudanPaths,hwangudanPlantingBeds,hwangudanGate,
   hwangunggu,hwangudanStoneGate,hwangudanHotelPorch,hwangudanDrums,hwangudanRelics,hwangudanPlantings,hwangudanRails,
-  registerHwangudanNavigation
+  registerHwangudanNavigation,seoulPlazaOutline,seoulPlazaLawn,hwangudanGateApron,hwangudanGateApronHeight
 } from "./seoul-hwangudan-layout.js";
 
 const hotelColors={
@@ -77,8 +79,9 @@ export function* assembleHwangudan(T,root,kit){
   }
   const triangle=(vertices,a,b,c)=>vertices.push(...a,...b,...c);
   function quad(vertices,a,b,c,d){triangle(vertices,a,b,c);triangle(vertices,a,c,d);}
-  function plane(parent,points,material,level=0,uvTile=2.6){
-    const geometry=new T.ShapeGeometry(new T.Shape(points.map(([x,z])=>new T.Vector2(x,-z))));
+  const plan=points=>new T.Shape(points.map(([x,z])=>new T.Vector2(x,-z)));
+  function planes(parent,footprints,material,level,uvTile=2.6){
+    const geometry=new T.ShapeGeometry(footprints);
     const p=geometry.attributes.position,uv=geometry.attributes.uv;
     for(let i=0;i<uv.count;i++)uv.setXY(i,p.getX(i)/uvTile,p.getY(i)/uvTile);
     geometry.rotateX(-Math.PI/2);
@@ -87,6 +90,7 @@ export function* assembleHwangudan(T,root,kit){
     parent.add(object);
     return object;
   }
+  const plane=(parent,points,material,level)=>planes(parent,[plan(points)],material,level);
   const localPoints=points=>points.map(p=>[wx(p.x),wz(p.y)]);
   function prism(parent,points,base,height,sideMaterial,topMaterial=sideMaterial){
     const area=points.reduce((sum,[x,y],i)=>{const [nx,ny]=points[(i+1)%points.length];return sum+x*ny-y*nx;},0);
@@ -100,28 +104,44 @@ export function* assembleHwangudan(T,root,kit){
     side.userData.followTerrain=true;
     plane(parent,ring,topMaterial,base+height);
   }
-  function granite(){
-    const size=96,pixels=new Uint8Array(size*size*4);
+  function groundTexture(size,pixel){
+    const pixels=new Uint8Array(size*size*4);
     for(let z=0;z<size;z++)for(let x=0;x<size;x++){
-      const row=Math.floor(z/24),column=Math.floor((x+(row%2)*16)/32);
-      const mortar=z%24===0||(x+(row%2)*16)%32===0;
-      const tone=(mortar?130:170+(row*13+column*7)%16)+Math.floor(random()*11);
-      pixels.set([tone+4,tone+2,tone-2,255],(z*size+x)*4);
+      pixels.set(pixel(x,z),(z*size+x)*4);
     }
     const map=new T.DataTexture(pixels,size,size);
     map.colorSpace=T.SRGBColorSpace;map.wrapS=map.wrapT=T.RepeatWrapping;
     map.magFilter=T.LinearFilter;map.minFilter=T.LinearMipmapLinearFilter;map.generateMipmaps=true;map.needsUpdate=true;
-    return new T.MeshStandardMaterial({map,roughness:.98});
+    return map;
   }
-  const paving=granite(),grass=matte(0x85945e),asphalt=matte(0x474b4c);
+  const granite=groundTexture(96,(x,z)=>{
+    const row=Math.floor(z/24),column=Math.floor((x+(row%2)*16)/32);
+    const mortar=z%24===0||(x+(row%2)*16)%32===0;
+    const tone=(mortar?130:170+(row*13+column*7)%16)+Math.floor(random()*11);
+    return [tone+4,tone+2,tone-2,255];
+  });
+  const turf=groundTexture(128,(x,z)=>{
+    const tuft=(Math.imul(x+813,46439)^Math.imul(z+139,642517))&31;
+    const variation=Math.sin((x+z)*Math.PI/32)*Math.cos(z*Math.PI/64)*7;
+    const tone=215+tuft+variation;
+    return [tone,tone,tone,255];
+  });
+  const paving=new T.MeshStandardMaterial({map:granite,roughness:.98}),grass=matte(0x85945e),asphalt=matte(0x474b4c);
+  const plazaGrass=new T.MeshStandardMaterial({map:turf,color:0x748b4c,roughness:1});
+  plazaGrass.userData.seasonFoliage="ground";
+  const plaza=plan(localPoints(seoulPlazaOutline)),lawn=plan(localPoints(seoulPlazaLawn));
+  plaza.holes.push(lawn);
+  planes(group,[plaza],paving,.051);
+  planes(group,[lawn],plazaGrass,.051,3.55);
   const {minX,maxX,minY,maxY}=hwangudanBounds;
   plane(group,localPoints([{x:612,y:minY},{x:maxX,y:minY},{x:maxX,y:maxY},{x:572,y:maxY},{x:532,y:335},{x:minX+20,y:313},{x:592,y:277}]),matte(0x777d6d),-.083);
   for(const {kind,outline} of hwangudanGround){
-    if(kind==="crossing")continue;
+    if(kind==="crossing"||outline===seoulPlazaOutline)continue;
     const material=kind==="road"?asphalt:kind==="garden"?grass:paving;
     const height=kind==="road"?.025:kind==="garden"?.059:.046;
     plane(group,localPoints(outline),material,height);
   }
+  const walkFootprints=[],coveredWalks=[];
   for(const {name,width,points,kind} of hwangudanPaths){
     if(name.startsWith("서울광장 동쪽"))continue;
     const p=localPoints(points);
@@ -134,13 +154,12 @@ export function* assembleHwangudan(T,root,kit){
       }
       continue;
     }
-    if(name==="환구단 정문")continue;
-    for(let i=1;i<p.length;i++){
-      const a=p[i-1],b=p[i],length=Math.hypot(b[0]-a[0],b[1]-a[1]);
-      const rx=(b[1]-a[1])*width/(2*length),rz=(a[0]-b[0])*width/(2*length);
-      plane(group,[[a[0]+rx,a[1]+rz],[b[0]+rx,b[1]+rz],[b[0]-rx,b[1]-rz],[a[0]-rx,a[1]-rz]],paving,.064);
-    }
+    const outline=extensionRibbon(points,width/2);
+    const cut=makeStreetSurfaceCut(T,coveredWalks);
+    walkFootprints.push(...cut(outline).map(piece=>plan(localPoints(piece))));
+    coveredWalks.push(outline);
   }
+  planes(group,walkFootprints,paving,.064);
   for(const {outline} of hwangudanPlantingBeds){
     prism(group,localPoints(outline),.043,.28,matte(palette.stoneDark),matte(0x77844d));
   }
@@ -264,11 +283,22 @@ export function* assembleHwangudan(T,root,kit){
   ];
   function woodenGate(){
     const node=localGroup(hwangudanGate,"환구단 정문");
-    const rampWidth=13.4,levels=[[5.25,.05],[2.5,.38],[-2.5,.38],[-5.25,.05]];
+    const {halfWidth,rampEnd,end:apronEnd}=hwangudanGateApron;
+    const levels=[[rampEnd,.05],[2.5,.38],[-2.5,.38],[-rampEnd,.05]];
     const vertices=[];
     for(let i=1;i<levels.length;i++){
       const [az,ah]=levels[i-1],[bz,bh]=levels[i];
-      quad(vertices,[-rampWidth/2,ah,az],[rampWidth/2,ah,az],[rampWidth/2,bh,bz],[-rampWidth/2,bh,bz]);
+      quad(vertices,[-halfWidth,ah,az],[halfWidth,ah,az],[halfWidth,bh,bz],[-halfWidth,bh,bz]);
+    }
+    for(const [start,end] of [[apronEnd,rampEnd],[-rampEnd,-apronEnd]]){
+      const sample=(x,z)=>[x,hwangudanGateApronHeight(x,z),z];
+      for(let i=0;i<4;i++){
+        const a=start+(end-start)*i/4,b=start+(end-start)*(i+1)/4;
+        for(let j=0;j<8;j++){
+          const left=halfWidth*(j/4-1),right=halfWidth*((j+1)/4-1);
+          quad(vertices,sample(left,a),sample(right,a),sample(right,b),sample(left,b));
+        }
+      }
     }
     faces(node,vertices,matte(palette.stone));
     for(const side of [-1,1]){
@@ -276,7 +306,6 @@ export function* assembleHwangudan(T,root,kit){
         const z=side*(4.79-i*.82);
         block(node,palette.step,-1.15,z,10.76,.77,.107*(i+1),.055);
       }
-      block(node,palette.ochre,.02,side*5.53,10.2,.24,.015,.052);
     }
     // The outer bays have wooden side rails while the middle stays open.
     for(const x of [-5.72,5.72]){

@@ -36,7 +36,7 @@ import { plazaShowSpot } from "./plaza-show.js";
 import { gbSurveyModels, gbNightGlow } from "./gyeongbok.js";
 import { gbSite, gwanghwamun, gbBounds, inGyeongbok, gbLightSpots, gbPhotoZone,wishPond } from "./gyeongbok-layout.js";
 import { gbEastOpenings } from "./gyeongbok-perimeter.js";
-import { outsideGroundOffset,palaceGroundOffset,sampleMeshHeight,southWorldSurfaceHeight,southWorldTerrainHeight } from "./gyeongbok-terrain.js";
+import { outsideGroundOffset,palaceGroundOffset,sampleMeshHeight,southWorldSurfaceHeight } from "./gyeongbok-terrain.js";
 import { gradeAvenueMeshes } from "./avenue-terrain.js";
 import { gradeJeongdongMeshes } from "./jeongdong-terrain-render.js";
 import { prepareSurveyTerrain,surveyGroundField } from "./survey-terrain.js";
@@ -190,7 +190,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   const kit=makeKit(outdoors),deoksRoot=new T.Group(),corridorRoot=new T.Group(),transportRoot=new T.Group();
   const diningById=Object.fromEntries(diningVenues.map(venue=>[venue.id,venue]));
   function* addDiningFronts(root,area){
-    for(const venue of diningVenues)if(venue.area===area)yield* buildDiningFacade(T,root,makeKit(root),venue,southWorldTerrainHeight);
+    for(const venue of diningVenues)if(venue.area===area)yield* buildDiningFacade(T,root,makeKit(root),venue,southWorldSurfaceHeight);
   }
   const {benches,trees,catWalls,fountains,lampMaterial,classical,middleModel,hallModel,drawPond,pavilionModels,buildGyeongbokDistrict}=
     buildJeongdong(T,deoksRoot,makeKit(deoksRoot),{deferGyeongbok:true});
@@ -204,8 +204,8 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   const deoksExtras=new T.Group();
   registerBikeDocks();
   const addDocks=(root,where,height)=>buildBikeDocks(T,root,makeKit(root),{docks:bikeDocks.filter(where),register:false,height});
-  addDocks(deoksExtras,dock=>dock.y>=28,southWorldTerrainHeight);
-  addDocks(corridorRoot,dock=>dock.y<28&&dock.y>-280&&dock.area!=="cheonggye",southWorldTerrainHeight);
+  addDocks(deoksExtras,dock=>dock.y>=28,southWorldSurfaceHeight);
+  addDocks(corridorRoot,dock=>dock.y<28&&dock.y>-280&&dock.area!=="cheonggye",southWorldSurfaceHeight);
   const createItemProp=makeItemProps(T,kit);
   const walkerModels=makeWalkerModels(T,scene,kit,createItemProp);
   const outdoorWalkers={...walkerModels,create(...args){
@@ -215,11 +215,11 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   }};
   const bungeoCustomer=makeBungeoCustomer(outdoorWalkers,{floorHeight,labelSprite,chatTexture});
   const busInBukchon=point=>point.x>=680&&point.y< -890;
-  const busGround=point=>busInBukchon(point)?sampleMeshHeight(bukchonSurfaceGrade,point):southWorldTerrainHeight(point);
+  const busGround=point=>busInBukchon(point)?sampleMeshHeight(bukchonSurfaceGrade,point):southWorldSurfaceHeight(point);
   const buses=buildSejongBusModels(T,transportRoot,kit,walkerModels,busGround,
     point=>busInBukchon(point)?bukchonGroundHeight(point)??busGround(point):busGround(point));
   registerPlazaNavigation(benches);
-  const drawWater=addWater(T,deoksExtras,fountains,{...makeKit(deoksExtras),terrain:southWorldTerrainHeight});
+  const drawWater=addWater(T,deoksExtras,fountains,{...makeKit(deoksExtras),terrain:southWorldSurfaceHeight});
   registerRegionalStands();
   registerBungeoStall();
   registerArcade();
@@ -473,7 +473,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     const birdPerches=[];
     let monuments;
     updatePlaza=yield* assembleGwanghwamunPlaza(T,plazaRoot,makeKit(plazaRoot),{
-      birdPerches,terrainHeight:southWorldTerrainHeight,onMonuments:built=>{monuments=built;}
+      birdPerches,terrainHeight:southWorldSurfaceHeight,onMonuments:built=>{monuments=built;}
     });
     addRegionalStands(T,plazaRoot,makeKit(plazaRoot),"gwanghwamun");
     addDocks(plazaRoot,dock=>dock.y<=-280&&dock.y>-790);

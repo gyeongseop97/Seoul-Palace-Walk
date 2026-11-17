@@ -22,7 +22,8 @@ import {transitRoutes,transitStops} from "./transit-routes.js";
 import {subwayAccessPaths} from "./subway-expansion.js";
 import {jeongdongExtensionLandmarks,jeongdongExtensionPaths} from "./jeongdong-extension-layout.js";
 import {bukchonAlleyShortcut,bukchonBounds,bukchonPaths,bukchonLandmarks,bukchonWalkable,bukchonLawns} from "./bukchon-layout.js";
-import {hwangudanBounds,hwangudanGround,hwangudanPaths,hwangudanLandmarks,hwangudanBuildings,hwangudanWalkable} from "./seoul-hwangudan-layout.js";
+import {hwangudanBounds,hwangudanGround,hwangudanPaths,hwangudanLandmarks,hwangudanBuildings,hwangudanWalkable,
+  seoulPlazaOutline,seoulPlazaLawn} from "./seoul-hwangudan-layout.js";
 import {cheonggyeBounds,cheonggyeDeckExits,cheonggyeDeckStep,cheonggyeLandmarks,cheonggyeLevel,cheonggyeRoadLeads,cheonggyeStations,cheonggyeSurfaces,cheonggyeWalkable,inCheonggye,riverAt} from "./cheonggye-layout.js";
 import {FOOT_BATH_PERIOD,footKickAge} from "./walker-model.js";
 import {inSonghyeon,songhyeonBounds,songhyeonOutline,songhyeonPaths,songhyeonLawns,songhyeonLandmarks} from "./songhyeon-layout.js";
@@ -3117,9 +3118,9 @@ function drawMap(base,mini=false){
   for(const {a,b,kind} of palaceWalls){
     svg(base,"line",{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:kind==="outer"?"#929283":"#a07d62","stroke-width":kind==="outer"?1.35:1.12});
   }
-  for(const building of [...city,...pavilions,{...gate,w:14.2,d:8.1,angle:Math.PI/2},{...middle,w:10.9,d:6.9,angle:-.19},
+  for(const building of [...city.filter(site=>site.h>0),...pavilions,{...gate,w:14.2,d:8.1,angle:Math.PI/2},{...middle,w:10.9,d:6.9,angle:-.19},
       {...hall,w:24,d:23,angle:-.19},{...stoneHall,w:54.2,d:31}]){
-    const style={fill:building===city[0]?"#556b4c":building.brick?"#82594c":"#827659",stroke:"#aa9774","stroke-width":.65};
+    const style={fill:building.brick?"#82594c":"#827659",stroke:"#aa9774","stroke-width":.65};
     if(building.outline){
       svg(base,"polygon",{points:outline(building.outline),...style});
       continue;
@@ -3135,8 +3136,10 @@ function drawMap(base,mini=false){
   drawExtensionPaths(base,jeongdongExtensionPaths);
   drawExtensionPaths(base,subwayAccessPaths);
   for(const {outline:points,kind} of hwangudanGround){
-    svg(base,"polygon",{points:outline(points),fill:kind==="garden"?"#56734f":kind==="road"?"#4e5351":"#8c8067"});
+    svg(base,"polygon",{points:outline(points),fill:points===seoulPlazaOutline?"#b0ad9d":
+      kind==="garden"?"#56734f":kind==="road"?"#4e5351":"#8c8067"});
   }
+  svg(base,"polygon",{points:outline(seoulPlazaLawn),fill:"#556b4c",stroke:"#c7c0a7","stroke-width":1});
   for(const building of hwangudanBuildings){
     svg(base,"polygon",{points:outline(building.outline),fill:"#716b5d",stroke:"#ac9c78","stroke-width":.9});
   }

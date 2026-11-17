@@ -116,6 +116,8 @@ export function buildJeongdongExtension(T,root,{wx,wz,box,cylinder,matte}){
   const fieldstone=tileMaterial(T,"fieldstone");
   function masonry(frame,length,depth,height,{brick=false}={}){
     const footing=Math.min(.36,height*.28);
+    // Carry the wall below the exposed verge while keeping its upper courses unchanged.
+    box(0x8e8b80,0,-.145,0,length+.15,.33,depth+.022,frame);
     box(granite,0,footing*.27,0,length+.15,footing*.51,depth+.035,frame);
     box(0xa5a295,0,footing*.73,0,length+.15,footing*.43,depth+.016,frame);
     if(brick){
@@ -166,7 +168,7 @@ export function buildJeongdongExtension(T,root,{wx,wz,box,cylinder,matte}){
     box(0x71543b,0,.49,0,length+.04,.083,.09,frame);
     for(let i=0;i<=count;i++){
       const x=length*(i/count-.5);
-      box(0x73543b,x,height*.48,0,.15,height*.96,.15,frame);
+      box(0x73543b,x,(height*.96-.27)/2,0,.15,height*.96+.27,.15,frame);
       box(0x9a7854,x,height-.017,0,.19,.065,.19,frame);
     }
   }

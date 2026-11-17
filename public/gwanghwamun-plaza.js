@@ -1,8 +1,10 @@
 import {addObstacle} from "./layout.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
+import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
 import {basinWater,tickWater} from "./water-shader.js";
 import {assemblePlazaCity,registerPlazaCity} from "./plaza-city.js";
 import {addPlazaMonuments,plazaMonumentFootprints} from "./plaza-monuments.js";
+import {sajikEastRoad,uijeongbuOutline} from "./uijeongbu-layout.js";
 import {plazaAt,plazaOutline,plazaBeds,plazaSites,plazaTransitStops,insidePlazaPolygon,
   plazaRoadProfile,plazaCrossings,plazaCrossingApronHalf,plazaSideForecourts,eastCurb,eastRoadWidth,sajikRoad,haechiBasin,
   sejongParkOutline,sejongParkCourt,sejongParkStage,sejongParkFountain,sejongParkMonoliths,sejongParkBenches} from "./plaza-layout.js";
@@ -127,6 +129,11 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
     mesh.userData.followTerrain=true;mesh.userData.sharedTerrainGeometry=true;
     return mesh;
   }
+  function marking(color,e,n,w,d,h,base){
+    const mesh=block(color,e,n,w,d,h,base);
+    mesh.userData.followTerrain=true;mesh.userData.sharedTerrainGeometry=true;
+    return mesh;
+  }
 
   function stoneTexture(){
     const size=128,pixels=new Uint8Array(size*size*4),shades=[155,162,149,169,157,154,166,160];
@@ -145,10 +152,11 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
   }
   const stone=stoneTexture(),road=matte(0x42464b),soil=matte(0x59554a);
   const outlinePath=(outline,Path)=>new Path(outline.map(p=>new T.Vector2(wx(p.x),-wz(p.y))));
-  function surface(outline,material,height=0,holes=[]){
-    const path=outlinePath(outline,T.Shape);
-    path.holes=holes.map(hole=>outlinePath(hole,T.Path));
-    const geometry=new T.ShapeGeometry(path),uv=geometry.attributes.uv,positions=geometry.attributes.position;
+  function surface(outline,material,height=0,holes=[],pieces=[outline]){
+    if(!pieces.length)return;
+    const paths=pieces.map(piece=>outlinePath(piece,T.Shape));
+    if(holes.length)paths[0].holes=holes.map(hole=>outlinePath(hole,T.Path));
+    const geometry=new T.ShapeGeometry(paths),uv=geometry.attributes.uv,positions=geometry.attributes.position;
     for(let i=0;i<uv.count;i++)uv.setXY(i,positions.getX(i)/3.6,positions.getY(i)/3.6);
     geometry.rotateX(-Math.PI/2);
     const mesh=new T.Mesh(geometry,material);mesh.position.y=height;mesh.receiveShadow=true;
@@ -173,29 +181,40 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
   const roadside=roadProfile.map(([north,east])=>plazaAt(east,north));
   const farCurb=roadProfile.map(([north,east])=>plazaAt(east+eastRoadWidth,north));
   surface([...roadside,...farCurb.slice().reverse()],road,-.012);
+  const parkBoundary=makeStreetSurfaceCut(T,[uijeongbuOutline,sajikEastRoad]);
   for(const [start,end] of [[0,430.9],[439.8,sajikRoad.south]]){
     const sections=[[start,eastCurb(start)],...roadProfile.filter(([n])=>n>start&&n<end),[end,eastCurb(end)]];
     const along=sections.map(([n,e])=>plazaAt(e+eastRoadWidth,n));
     const outside=sections.slice().reverse().map(([n,e])=>plazaAt(Math.max(48,e+eastRoadWidth+8),n));
-    surface([...along,...outside],stone,.016);
+    const sidewalk=[...along,...outside];
+    surface(sidewalk,stone,.016,[],parkBoundary(sidewalk));
   }
-  surface(rect(eastCurb(435)+eastRoadWidth,34.03,430.94,439.04),road,-.012);
-  segments(roadside,(a,b)=>line(0xb2b2a8,a,b,.19,.12,-.03));
-  segments(farCurb,(a,b)=>line(0xb2b2a8,a,b,.19,.12,-.03));
-  for(let n=1;n<524;n+=7.4){
-    for(const lane of [3.6,7.2,10.8,17.4,21,24.6]){
-      if(plazaCrossings.some(cross=>Math.abs(cross-n)<6))continue;
-      block(0xc9c9bb,eastCurb(n)+lane,n,.09,3.5,.012,0);
+  surface([plazaAt(eastCurb(430.9)+eastRoadWidth,430.9),plazaAt(35,430.9),
+    plazaAt(35,439.8),plazaAt(eastCurb(439.8)+eastRoadWidth,439.8)],road,-.012);
+  for(const offset of [0,eastRoadWidth]){
+    const openings=plazaCrossings.map(n=>[n-plazaCrossingApronHalf,n+plazaCrossingApronHalf]);
+    if(offset)openings.push([430.9,439.8]);
+    const slots=[...new Set([0,sajikRoad.south,...roadProfile.map(([n])=>n),...openings.flat()])].sort((a,b)=>a-b);
+    for(let i=1;i<slots.length;i++){
+      const a=slots[i-1],b=slots[i],mid=(a+b)/2;
+      if(openings.some(([start,end])=>mid>start&&mid<end))continue;
+      line(0xb2b2a8,plazaAt(eastCurb(a)+offset,a),plazaAt(eastCurb(b)+offset,b),.19,.12,-.03);
     }
-    for(const side of [-.17,.17])block(0xd3a944,eastCurb(n)+14+side,n,.09,7.48,.012,0);
+  }
+  for(let n=1;n<524;n+=7.4){
+    if(plazaCrossings.some(cross=>Math.abs(cross-n)<7.3))continue;
+    for(const lane of [3.6,7.2,10.8,17.4,21,24.6]){
+      marking(0xc9c9bb,eastCurb(n)+lane,n,.09,3.5,.012,0);
+    }
+    for(const side of [-.17,.17])marking(0xd3a944,eastCurb(n)+14+side,n,.09,7.35,.012,0);
   }
   for(const n of plazaCrossings){
     const curb=eastCurb(n);
-    for(let i=.65;i<eastRoadWidth;i+=1.08)block(0xd7d7cf,curb+i,n,.56,6.75,.014,0);
-    for(const side of [-.52,eastRoadWidth+.58])block(0xa8a99f,curb+side,n,1.93,plazaCrossingApronHalf*2,.027,.011);
-    for(const side of [-.8,eastRoadWidth+.8])block(0xd1a84a,curb+side,n,.38,6.9,.021,.028);
+    for(let i=.65;i<eastRoadWidth;i+=1.08)marking(0xd7d7cf,curb+i,n,.56,6.75,.014,0);
+    for(const side of [-.52,eastRoadWidth+.58])marking(0xa8a99f,curb+side,n,1.93,plazaCrossingApronHalf*2,.027,.011);
+    for(const side of [-.8,eastRoadWidth+.8])marking(0xd1a84a,curb+side,n,.38,6.9,.021,.028);
   }
-  for(let n=530;n<551;n+=1.04)block(0xdeddd1,sajikRoad.crossX,n,sajikRoad.crossWidth-.45,.52,.018,0);
+  for(let n=530;n<551;n+=1.04)marking(0xdeddd1,sajikRoad.crossX,n,sajikRoad.crossWidth-.45,.52,.018,0);
   for(let e=-116;e<20;e+=7.5){
     if(Math.abs(e-sajikRoad.crossX)<10)continue;
     block(0xc9c5b5,e,539.5,3.6,.11,.012,.003);
