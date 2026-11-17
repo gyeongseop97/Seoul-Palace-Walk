@@ -1,5 +1,5 @@
-import {at as palaceAt} from "./gyeongbok-layout.js";
 import {eastCurb, eastRoadWidth, plazaAt} from "./plaza-layout.js";
+import {uijeongbuBusBerth} from "./uijeongbu-layout.js";
 
 export const BUS_COUNT=10;
 export const BUS_SEATS=8;
@@ -16,7 +16,7 @@ const plazaEast=(north,margin=3.45)=>plazaAt(eastCurb(north)+eastRoadWidth-margi
 const plazaWest=(north,margin=3.45)=>plazaAt(eastCurb(north)+margin,north);
 const midpoint=358;
 const north=plazaEast(midpoint,1.78),south=plazaWest(midpoint,1.78);
-const eastIsland=palaceAt(175,-76.1);
+const eastIsland=uijeongbuBusBerth;
 const bukchonStop={x:762.7,y:-1429};
 
 // Shelter and passenger positions are on the pavement, offset from the front right door.
@@ -54,10 +54,10 @@ const itineraries=[
     point(513.3,135),point(512.5,-70),point(512.2,-240),point(513.6,-292),point(515.3,-301),plazaEast(16),plazaEast(131),
     plazaEast(239),plazaEast(290),plazaEast(335),point(north.x,north.y+10),plazaNorth.berth]},
   {travelMs:39_000,points:[plazaNorth.berth,point(north.x,north.y-11),plazaEast(386),plazaEast(440),plazaEast(476,5.8),
-    plazaEast(505,7.0),plazaEast(518,5.1),plazaEast(532),point(524,-832.3),point(536,-834.4),point(592,-834.4),
-    point(625,-834),point(634,-829.2),point(639,eastIsland.y),gyeongbokgung.berth]},
-  {travelMs:88_000,points:[gyeongbokgung.berth,point(666,eastIsland.y),point(684,-828.1),point(699,-834),point(707,-844),
-    point(712,-860),point(713.5,-883),point(714.5,-904),point(716.2,-925),point(713,-950),point(710.1,-990),
+    plazaEast(505,7.0),plazaEast(518,5.1),plazaAt(33.3,529.8),plazaAt(53,544),plazaAt(74,554),
+    plazaAt(103,561),plazaAt(138,566.6),gyeongbokgung.berth]},
+  {travelMs:88_000,points:[gyeongbokgung.berth,plazaAt(184,573),plazaAt(208,578.2),plazaAt(220,581.4),
+    point(709.5,-890),point(714.5,-904),point(716.2,-925),point(713,-950),point(710.1,-990),
     point(710.1,-1075),point(710.8,-1149),point(713.4,-1203),point(716,-1242),point(718.9,-1270),
     point(729,-1306),point(741.1,-1350),point(749.5,-1382),bukchon.berth]},
   {travelMs:58_000,points:[bukchon.berth,point(772.4,-1452.5),point(778,-1464.8),point(814.5,-1489.6),
@@ -69,9 +69,9 @@ const itineraries=[
     point(887.9,-1590.63),point(868.1,-1554),point(836.9,-1511),point(805.5,-1490.5),point(769,-1468),
     point(765.1,-1453),point(743,-1382),point(734.8,-1350),point(722.8,-1306),point(712.7,-1270),
     point(709.8,-1242),point(707.4,-1203),point(704.8,-1149),point(703.7,-1075),point(703.5,-995),
-    point(705.5,-955),point(709.2,-929),point(710.1,-912),point(706,-898),point(699.8,-886),point(693,-874),
-    point(685,-861),point(674,-851),point(661,-846.4),point(650,-844.7),point(583,-844.7),point(528,-844.7),
-    point(511,-844.5),point(499.2,-842.9),point(495,-836.5),point(494.7,-827.4),
+    point(705.5,-955),point(709.2,-929),point(710.1,-912),point(706,-898),point(699.8,-886),
+    plazaAt(201,585),plazaAt(171,581),plazaAt(109,574),plazaAt(77,565.8),plazaAt(44,551.1),plazaAt(23,542),
+    plazaAt(13,534),plazaAt(12,526),
     plazaWest(513),plazaWest(481),plazaWest(441),plazaWest(397),point(south.x,south.y-11),plazaSouth.berth]},
   {travelMs:77_000,points:[plazaSouth.berth,point(south.x,south.y+11),plazaWest(329),plazaWest(285),plazaWest(238),
     plazaWest(125),plazaWest(22),point(493.2,-286),point(486.9,-247),point(484.1,-176),point(484.4,-110),

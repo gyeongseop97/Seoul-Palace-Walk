@@ -232,10 +232,17 @@ export const city = [
 export const landmarks=[spawn,ticket,gate,bridge,middle,court,hall,stoneHall,stoneFountain,palacePond,...palace,...route,...pavilions];
 export function addLandmarks(points){landmarks.push(...points);}
 // Neighbouring zones share the same coordinate system and may overlap at their edges.
-const zones=[],waterZones=[];
+const zones=[],waterZones=[],layeredZones=[];
 export function addZone(zone){
   zones.push(zone);
   if(zone.water)waterZones.push(zone);
+  if(zone.connects)layeredZones.push(zone);
+}
+function layerConnects(ax,ay,bx,by){
+  for(const zone of layeredZones){
+    if(zone.contains(ax,ay)&&zone.contains(bx,by)&&!zone.connects({x:ax,y:ay},{x:bx,y:by}))return false;
+  }
+  return true;
 }
 export function zoneAt(x,y){
   for(const zone of zones)if(zone.contains(x,y))return zone;
@@ -423,8 +430,11 @@ export function wadeable(x,y,feet=0){
 export function wadeSegment(from,to,step=.36,feet=0){
   const dx=to.x-from.x,dy=to.y-from.y;
   const count=Math.ceil(Math.hypot(dx,dy)/step);
+  let ax=from.x,ay=from.y;
   for(let i=1;i<=count;i++){
-    if(!wadeable(from.x+dx*i/count,from.y+dy*i/count,feet))return false;
+    const x=from.x+dx*i/count,y=from.y+dy*i/count;
+    if(!wadeable(x,y,feet)||!layerConnects(ax,ay,x,y))return false;
+    ax=x;ay=y;
   }
   return !count||!crossesObstacle(from,to,feetLevel(feet));
 }
@@ -448,8 +458,11 @@ export function walkable(x,y,feet=0){
 export function clearSegment(from,to,step=.36,feet=0){
   const dx=to.x-from.x,dy=to.y-from.y;
   const count=Math.ceil(Math.hypot(dx,dy)/step);
+  let ax=from.x,ay=from.y;
   for(let i=1;i<=count;i++){
-    if(!walkable(from.x+dx*i/count,from.y+dy*i/count,feet))return false;
+    const x=from.x+dx*i/count,y=from.y+dy*i/count;
+    if(!walkable(x,y,feet)||!layerConnects(ax,ay,x,y))return false;
+    ax=x;ay=y;
   }
   return !count||!crossesObstacle(from,to,feetLevel(feet));
 }

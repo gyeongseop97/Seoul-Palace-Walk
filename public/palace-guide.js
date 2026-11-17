@@ -4,6 +4,10 @@ import {isInsideMuseum} from "./visit-layout.js";
 import {gbSite} from "./gyeongbok-layout.js";
 import {bukchonLandmarks} from "./bukchon-layout.js";
 import {hwangudanLandmarks} from "./seoul-hwangudan-layout.js";
+import {cheonggyeLandmarks} from "./cheonggye-layout.js";
+import {songhyeonLandmarks} from "./songhyeon-layout.js";
+import {plazaSites} from "./plaza-layout.js";
+import {uijeongbuEntry,uijeongbuGarden} from "./uijeongbu-layout.js";
 
 const royalTour="https://royal.khs.go.kr/ROYAL/contents/R402000000.do?id=20240313092652267385&schM=view";
 const royalBuildings="https://royal.khs.go.kr/ROYAL/contents/R402000000.do?id=20260331093323561530&schM=view";
@@ -143,6 +147,14 @@ const guides=[
       "https://royal.khs.go.kr/ROYAL/contents/R201000000.do?act=view&ceIdx=202610200316"]
   ].map(([id,description,source])=>guide("gb-"+id,gbSite[id],description,source??gyeongbokTour)),
   ...hwangudanLandmarks.map((site,index)=>guide("hwangudan-"+index,site,site.description,hwangudanRecord,[site])),
+  ...cheonggyeLandmarks.map((site,index)=>guide("cheonggye-"+index,site,site.description,
+    "https://www.sisul.or.kr/open_content/cheonggye/enjoy/infomap.jsp",[site])),
+  guide("songhyeon",songhyeonLandmarks[0],"서울공예박물관 옆 송현동에 열린 잔디광장입니다. 둘레길과 꽃밭 사이 길을 걸을 수 있고, 율곡로와 감고당길 쪽 출입구로 이어집니다.",
+    "https://mediahub.seoul.go.kr/archives/2005988",songhyeonLandmarks),
+  guide("sejongno-park",plazaSites.sejongPark,"세종문화회관과 정부서울청사 사이의 공원입니다. 한글글자마당과 원형무대, 나무 사이 산책로를 둘러보세요.",
+    "https://access.visitkorea.or.kr/ms/detail.do?cotId=b2b3e368-293e-4fc4-a719-90b0f1514385",[plazaSites.sejongPark]),
+  guide("uijeongbu",uijeongbuEntry,"조선 시대에 나라의 주요 정사를 논의하던 의정부가 있던 자리입니다. 정본당·협선당·석획당 터와 후원의 연지와 정자 터를 둘러볼 수 있습니다.",
+    "https://mediahub.seoul.go.kr/archives/2011545",[uijeongbuEntry,uijeongbuGarden]),
   ...[
     [0,"경복궁 동남쪽 모퉁이에 있던 망루입니다. 궁 담장이 물러나면서 지금은 삼청로 교차로 가운데에 남아 있어요."],
     [5,"삼청로와 나란히 뻗은 팔판동 골목이에요. 낮은 한옥과 좁은 길을 따라 북촌 쪽으로 걸을 수 있어요."],

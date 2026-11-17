@@ -71,9 +71,9 @@ export function addBungeoStall(T,parent,kit,groundHeight,stall=BUNGEO_STALL){
     parent.add(proxy);targets.push(proxy);
     return proxy;
   }
-  function counterLabel(text,x,z,color){
+  function counterLabel(text,x,z,color,y=1.025){
     const before=root.children.length;
-    standSign(T,root,text,null,.17,x,1.025,z,color,"#fff3d7",.061);
+    standSign(T,root,text,null,.17,x,y,z,color,"#fff3d7",.061);
     if(root.children.length>before)root.children.at(-1).rotation.x=-Math.PI/2;
   }
   const lightGeometry=new T.TorusGeometry(.131,.009,6,24).rotateX(-Math.PI/2);

@@ -67,7 +67,7 @@ export function* gradeJeongdongMeshes(T,root,terrain,{trees=[],catWalls=[]}={}){
         object.matrix.elements[1]=(end-start)/length;
         object.matrixAutoUpdate=false;
       }else if(flatBackground){
-        object.position.y=-8;
+        object.position.y=-9.5;
       }else{
         groundPiece(T,object);
         ordinary.push(object);

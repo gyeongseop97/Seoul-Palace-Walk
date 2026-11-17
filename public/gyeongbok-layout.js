@@ -1,5 +1,6 @@
 import {addLandmarks,addZone,addLoft,spawn} from "./layout.js";
-import {plazaSites,plazaAt,sajikRoad} from "./plaza-layout.js";
+import {plazaSites,plazaAt} from "./plaza-layout.js";
+import {uijeongbuEntry,uijeongbuGarden,uijeongbuBusBerth,isUijeongbuWalkable} from "./uijeongbu-layout.js";
 import {gbEastOpenings,gbBoundaryGates,gbWestPaths,insideGbWall,onGbWestPath} from "./gyeongbok-perimeter.js";
 
 // Positions are metres east of the palace's central axis and north of Gwanghwamun,
@@ -8,13 +9,11 @@ export const gwanghwamun=plazaSites.gate;
 export const at=(east,north,name="")=>({name,x:gwanghwamun.x+east,y:gwanghwamun.y-north});
 export const gbBounds={minX:gwanghwamun.x-300,maxX:gwanghwamun.x+300,minY:gwanghwamun.y-900,maxY:gwanghwamun.y+170};
 const inGbBounds=(x,y)=>x>=gbBounds.minX&&x<=gbBounds.maxX&&y>=gbBounds.minY&&y<=gbBounds.maxY;
-const palaceFrontY=plazaAt(0,sajikRoad.north).y;
+const onFrontApron=(east,north)=>north>=-52&&north<1.2&&east>-92&&east<48;
 export function inGyeongbok(x,y){
   if(!inGbBounds(x,y))return false;
   const east=x-gwanghwamun.x,north=gwanghwamun.y-y;
-  if(insideGbWall(x,y)||onGbWestPath(x,y))return true;
-  if(y<=palaceFrontY)return north<1.2&&Math.abs(east)<92;
-  return inFrontAnnex(east,north);
+  return insideGbWall(x,y)||onGbWestPath(x,y)||onFrontApron(east,north)||isUijeongbuWalkable(x,y);
 }
 
 const eastGate=gbEastOpenings.find(opening=>opening.id==="geonchunmun");
@@ -118,18 +117,10 @@ export const cityHallBusStop={
   name:"시청앞·덕수궁 정류장",x:476.4,y:205,angle:Math.PI/2,
   door:{x:474.6,y:205},arrive:{x:474.2,y:207.4,heading:180}
 };
-// Across the road from Gwanghwamun: the Uijeongbu site plaza, the pedestrian crossings and
-// the traffic island by Dongsipjagak where the Gyeongbokgung bus stop stands.
-export const gbUijeongbu={west:36,east:156,south:-165,north:-93};
-export const gbBusIsland={west:163,east:187,south:-106,north:-78};
-// Each crossing overlaps the pavements it joins by a step, so routes can be planned across.
-export const gbCrossings=[{west:43,east:53,south:-94.5,north:-51.5},{west:154.5,east:164.5,south:-103,north:-95}];
-const inArea=(east,north,{west,east:right,south,north:top})=>east>west&&east<right&&north>south&&north<top;
-const inFrontAnnex=(east,north)=>inArea(east,north,gbUijeongbu)||inArea(east,north,gbBusIsland)||
-  gbCrossings.some(area=>inArea(east,north,area));
+// Sajik-ro's southeast bus stop serves the historic park and Dongsipjagak.
 export const gbBusStop={
-  name:"경복궁 정류장",...at(175,-80.6,"경복궁 정류장"),angle:Math.PI,
-  door:at(175,-82.5),arrive:{...at(172.5,-86),heading:250}
+  ...uijeongbuBusBerth,name:"경복궁 정류장",angle:Math.PI,
+  door:plazaAt(169.26,565.65),arrive:{...plazaAt(169.85,563.6),heading:250}
 };
 export const subwayStops=[
   {...cityHallStation,id:"city-hall",mode:"subway",to:"gyeongbokgung",destination:"경복궁역",line:"시청역 → 경복궁역"},
@@ -261,7 +252,7 @@ export const gbShortcuts=[
 
 export function gyeongbokWalkable(x,y){
   const east=x-gwanghwamun.x,north=gwanghwamun.y-y;
-  if(north>=-52&&north<1.2&&Math.abs(east)<92||inFrontAnnex(east,north)||onGbWestPath(x,y))return true;
+  if(onFrontApron(east,north)||isUijeongbuWalkable(x,y)||onGbWestPath(x,y))return true;
   if(!insideGbWall(x,y))return false;
   return !inLake(east,north)&&!inPond(east,north);
 }
@@ -304,7 +295,7 @@ addZone({
 });
 addLandmarks([
   ...gbSites,gbStation,cityHallStation,cityHallExit3,cityHallBusStop,gbBusStop,
-  at(0,-28,"광화문 월대"),at(96,-128,"의정부지 역사유적광장"),at(48,-74,"광화문 앞 횡단보도"),at(-50,-36,"광화문 광장"),at(50,-36,"광화문 광장"),at(0,70,"흥례문 앞마당"),at(0,180,"영제교"),at(0,262,"근정전 마당"),
+  at(0,-28,"광화문 월대"),uijeongbuEntry,uijeongbuGarden,plazaAt(34,539,"광화문 동쪽 횡단보도"),at(-50,-36,"광화문 광장"),at(45,-36,"광화문 광장"),at(0,70,"흥례문 앞마당"),at(0,180,"영제교"),at(0,262,"근정전 마당"),
   at(-128,428,"경회루 연못"),at(12,706,"향원정"),at(0,480,"아미산"),
   ...gbPaths.flatMap(path=>path.points.slice(1,-1).map(point=>({...point,name:path.name})))
 ]);

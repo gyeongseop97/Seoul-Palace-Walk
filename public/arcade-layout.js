@@ -3,7 +3,7 @@ import {plazaAt} from "./plaza-layout.js";
 import {arcadeBounds,arcadeUpperBounds,interiorAt} from "./interior-layout.js";
 import {BASKET_BACKING} from "./arcade-basket-physics.js";
 
-const east=54.3,north=468.2;
+const east=165,north=478;
 const insideAngle=Math.PI/2;
 const floorAt=(bounds,x,z)=>({x:(bounds.minX+bounds.maxX)/2+z,y:(bounds.minY+bounds.maxY)/2-x});
 const at=(x,z)=>floorAt(arcadeBounds,x,z),upperAt=(x,z)=>floorAt(arcadeUpperBounds,x,z);

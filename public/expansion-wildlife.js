@@ -2,6 +2,9 @@ import {bukchonBounds,bukchonPaths,bukchonStreetTrees,bukchonTerrain,bukchonWalk
 import {hwangudanBounds,hwangudanPaths,hwangudanWalkable} from "./seoul-hwangudan-layout.js";
 import {jeongdongExtensionBounds,jeongdongExtensionPaths} from "./jeongdong-extension-layout.js";
 import {mmcaLandmarks,mmcaTrees,mmcaAt,mmcaGround} from "./mmca-layout.js";
+import {cheonggyeAnimalTrails,cheonggyeBounds,cheonggyeTrees,cheonggyeWalkable} from "./cheonggye-layout.js";
+import {songhyeonBounds,songhyeonGrade,songhyeonPaths,songhyeonTrees,songhyeonWalkable} from "./songhyeon-layout.js";
+import {southWorldSurfaceHeight} from "./gyeongbok-terrain.js";
 
 const samples=(points,stride=23)=>points.slice(1).flatMap((to,i)=>{
   const from=points[i],length=Math.hypot(to.x-from.x,to.y-from.y),count=Math.max(1,Math.ceil(length/stride));
@@ -24,5 +27,9 @@ export const expansionWildlife=[
   {id:"hwangudan",bounds:hwangudanBounds,land:hwangudanWalkable,trails:trails(hwangudanPaths),catCount:5,birdCount:14,perches:[
     {x:686.3,y:296.2,height:4.8,kind:"tree"},{x:710.8,y:311.6,height:1.35,kind:"wall"},{x:749.9,y:325.3,height:4.5,kind:"tree"}
   ]},
-  {id:"bukchon",bounds:bukchonBounds,land:bukchonWalkable,trails:bukchonTrails,catCount:12,birdCount:33,perches:[...surveyTrees,...museumTrees]}
+  {id:"bukchon",bounds:bukchonBounds,land:bukchonWalkable,trails:bukchonTrails,catCount:12,birdCount:33,perches:[...surveyTrees,...museumTrees]},
+  {id:"songhyeon",bounds:songhyeonBounds,land:songhyeonWalkable,trails:trails(songhyeonPaths),catCount:7,birdCount:22,
+    perches:songhyeonTrees.map(([x,y,height])=>({x,y,height:songhyeonGrade(x,y)+height*.76,kind:"tree"}))},
+  {id:"cheonggye",bounds:cheonggyeBounds,land:cheonggyeWalkable,trails:cheonggyeAnimalTrails.map(path=>samples(path,14)),
+    catCount:5,birdCount:18,perches:cheonggyeTrees.map(([x,y,height])=>({x,y,height:southWorldSurfaceHeight({x,y})+height*.75,kind:"tree"}))}
 ];

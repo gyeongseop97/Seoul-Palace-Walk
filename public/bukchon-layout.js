@@ -2,6 +2,7 @@ import {addLandmarks,addObstacle,addZone,project} from "./layout.js";
 import {gbEastOpenings,gbEastWall,gbEastWallX} from "./gyeongbok-perimeter.js";
 import {gyeongbokTerrainHeight,samcheongLevel,sampleMeshHeight} from "./gyeongbok-terrain.js";
 import {mmcaBlocked,mmcaGroundHeight,mmcaLandmarks,mmcaWalkable} from "./mmca-layout.js";
+import {songhyeonGrade} from "./songhyeon-layout.js";
 
 // Read in the common map projection. The street bends and ridgeline follow the Seoul
 // Hanok Portal walking map and Google Earth. Individual residential lots are interpreted.
@@ -114,12 +115,11 @@ ridgeAlley.outline=[...ridgeAlley.left,...ridgeAlley.right.slice().reverse()];
 const lawnGrade=y=>samcheongLevel(-1735)+.14+(-1735-y)*.026;
 const lawn=(name,vertices,height)=>({name,height,outline:vertices.map(([x,y])=>({x,y,level:height(y)}))});
 export const bukchonLawns=[
-  lawn("율곡로 쉼터",[[876,-948],[887,-944],[906,-944],[909,-938],[902,-930],[881,-931],[875,-938]],()=>.32),
   lawn("삼청로 위쪽 쉼터",[[928,-1726],[938,-1724],[948,-1730],[948,-1742],[939,-1749],[928,-1747]],lawnGrade)
 ];
 // Street trees at the outer edge of public lawns and alley shoulders.
 export const bukchonStreetTrees=[
-  [878,-932,5.2],[903,-931,6.1],[945,-1731,6.5],[943,-1745,5.6],[856,-1400,7.2],[1069,-1741,6.4]
+  [945,-1731,6.5],[943,-1745,5.6],[856,-1400,7.2],[1069,-1741,6.4]
 ];
 
 export const bukchonPaths=[
@@ -129,10 +129,12 @@ export const bukchonPaths=[
   makePath("광화문 동편 인도","pavement",7.4,[
     [555.2,-878,0],[592,-878,0],[624,-880,0],[669,-883,0],[698,-892,0]
   ]),
-  makePath("율곡로 북쪽 인도","pavement",8.1,[
-    [717,-898,.14],[733,-900,.14],[753,-894,.14],[778,-915,.14],[807,-932,.22],[847,-946,.29],
-    [889,-952,.31],[937,-951,.34],[984,-948,.35],[1020,-943,.35],angukJunction,
-    [1095,-929,.35],[1138,-925,.35],[1150,-925,.35]
+  makePath("율곡로 북쪽 인도","pavement",4.8,[
+    [724.4,-924.3,.16],[729.7,-921.8,.16],[739.9,-919.9,.16],[746,-916.6,.15],[789.3,-912.5,.15],
+    ...[[800,-911],[879,-898.1],[884.2,-897.3],[939.5,-881.2],[974.2,-877.3],
+      [990.3,-877.3],[1000.2,-880.2],[1009.1,-888.6],[1015.9,-898.9],[1024,-905.4]]
+      .map(([x,y])=>[x,y,songhyeonGrade(x,y)]),
+    [1036.3,-934.3,.35],angukJunction,[1095,-929,.35],[1138,-925,.35],[1150,-925,.35]
   ]),
   makePath("청와대로","road",12.2,northRoad),
   makePath("청와대로 동편 인도","pavement",4.5,northEastWalk),
@@ -161,8 +163,25 @@ export const bukchonPaths=[
     [785,-1544,samcheongLevel(-1544)+.14],[775,-1530,samcheongLevel(-1530)+.14],[767,-1520,samcheongLevel(-1520)+.14]
   ]),
   makePath("감고당길","lane",6,[
-    angukJunction,[1037,-987,.6],[1016,-1045,1],[996,-1102,1.5],[978,-1160,2.05],[959,-1221,2.55],
-    [946,-1280,2.95],[929,-1340,3.4],gamgodangTop,[902,-1434,4.4],libraryLink
+    angukJunction,[1034.4,-954.3,.43],[1001.8,-942.5,.45],[990.6,-978.5,.41],[978.2,-1023.9,.49],
+    [975,-1050.1,.63],[965.9,-1110.5,.91],[944,-1186.4,1.64],[939.1,-1203.8,1.83],
+    [942.2,-1246.9,2.29],[944.8,-1291.2,3],[929,-1340,3.4],gamgodangTop,[902,-1434,4.4],libraryLink
+  ]),
+  // OSM's Yulgok-ro carriageway and marked crossing east of Dongsipjagak (ways 1209117433/4).
+  makePath("율곡로","road",26.5,[
+    [709,-891.4,.045],[724.5,-894.5,.045],[757.5,-897.4,.045],[803,-895.7,.05],
+    [848,-889.8,.05],[878,-885.3,.05],[900,-880.8,.05],[952,-869.5,.045],[990,-863.9,.045],
+    [1011.2,-863,.065],[1040,-869.3,.12],[1070.2,-879.1,.2],[1110,-890.2,.26]
+  ]),
+  makePath("율곡로 남쪽 인도","pavement",4.4,[
+    [667,-861,.15],[678,-861.6,.14],[691,-863,.13],[702.8,-861.3,.13],
+    [708.8,-857.8,.135],[719.9,-864.6,.136],[734.1,-871.2,.14],
+    [750.5,-874.4,.14],[769.4,-877.3,.15],[790.1,-876.5,.15],[838.8,-871.1,.14],
+    [855,-868.1,.145],[883,-862.9,.15],[919,-854.5,.15],[946,-851,.15]
+  ]),
+  makePath("율곡로 서쪽 횡단보도","crosswalk",5.5,[
+    [719.9,-864.6,.14],[719.9,-876.9,.09],[724.2,-887.3,.045],[724.9,-902.2,.045],
+    [725.6,-911.2,.055],[723.4,-919.9,.105],[724.4,-925.5,.16]
   ])
 ];
 

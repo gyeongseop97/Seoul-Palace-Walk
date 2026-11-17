@@ -3,7 +3,8 @@ import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {assemblePlazaCity,registerPlazaCity} from "./plaza-city.js";
 import {addPlazaMonuments,plazaMonumentFootprints} from "./plaza-monuments.js";
 import {plazaAt,plazaOutline,plazaBeds,plazaSites,plazaTransitStops,insidePlazaPolygon,
-  plazaRoadProfile,plazaCrossings,plazaCrossingApronHalf,plazaSideForecourts,eastCurb,eastRoadWidth,sajikRoad,haechiBasin} from "./plaza-layout.js";
+  plazaRoadProfile,plazaCrossings,plazaCrossingApronHalf,plazaSideForecourts,eastCurb,eastRoadWidth,sajikRoad,haechiBasin,
+  sejongParkOutline,sejongParkCourt,sejongParkStage,sejongParkFountain,sejongParkMonoliths,sejongParkBenches} from "./plaza-layout.js";
 import {PLAZA_SHOW_VIEW_METRES,plazaShowFrame,plazaShowJet} from "./plaza-show.js";
 
 const between=(a,b,t)=>a+(b-a)*t;
@@ -12,8 +13,9 @@ const westLamps=[33,96,137,174,227,309,369,401,444,493];
 const benchSites=[[-24,26,1.57],[-23,43,1.57],[-23,58,1.57],[-44,83,1.57],[-34,93,0],
   [-39,157,1.57],[-32,188,-1.57],[-37,205,1.57],[-37,254,0],[-20,287,1.57],[-43,300,-1.57],
   [-32,340,1.57],[-27,398,1.57],[-29,434,1.57],[-7,466,1.57],[-40,479,-1.57],[-32,514,0],
-  [-79,337.1,0],[60.7,492.7,-Math.PI/2]];
+  [-79,337.1,0],[60.7,492.7,-Math.PI/2],...sejongParkBenches];
 const shadeSites=[[-33,174,4,1.22],[-35,177,4,1.22],[-38,209,4,1.22]];
+const gratitudeColumns=Array.from({length:23},(_,i)=>[-43.2,285.9+i*1.01]);
 const [station]=plazaTransitStops;
 const eastLamps=[],railings=[];
 const byCrossing=n=>plazaCrossings.some(cross=>Math.abs(cross-n)<6);
@@ -80,7 +82,8 @@ export function registerPlazaNavigation(benches){
   obstacle(-34,404,9.2,.48,1.36);
   obstacle(-34,402.5,9.3,2.14,.255);
   for(const [e,n,w,d] of shadeSites)obstacle(e,n,w,d,.83);
-  for(let i=0;i<23;i++)obstacle(-44.8,284+i*2.78,.78,.80,6.274);
+  for(const [e,n] of gratitudeColumns)obstacle(e,n,.78,.53,6.25);
+  for(const [e,n] of sejongParkMonoliths)obstacle(e,n,1.28,1.28,1.13);
   for(const name of ["yi","sejong"]){
     const site=plazaSites[name],size=plazaMonumentFootprints[name];
     obstacle(site.east,site.north,size.width,size.depth);
@@ -161,12 +164,20 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
   surface(basinHole,terrainBase,-2.24);
   surface(plazaOutline,stone,.025,[basinHole]);
   for(const outline of plazaWestPavement())surface(outline,stone,.025);
-  for(const outline of plazaSideForecourts)surface(outline,stone,.025);
-  surface(rect(-310,310,sajikRoad.south,sajikRoad.north),road,-.012);
-  const roadside=plazaRoadProfile.map(([north,east])=>plazaAt(east,north));
-  const farCurb=plazaRoadProfile.map(([north,east])=>plazaAt(east+eastRoadWidth,north));
+  surface(sejongParkOutline,stone,.024);
+  for(const outline of plazaSideForecourts.slice(1))surface(outline,stone,.025);
+  surface(rect(-310,20,sajikRoad.south,sajikRoad.north),road,-.012);
+  const roadProfile=[...plazaRoadProfile.filter(([n])=>n<sajikRoad.south),[sajikRoad.south,eastCurb(sajikRoad.south)]];
+  const roadside=roadProfile.map(([north,east])=>plazaAt(east,north));
+  const farCurb=roadProfile.map(([north,east])=>plazaAt(east+eastRoadWidth,north));
   surface([...roadside,...farCurb.slice().reverse()],road,-.012);
-  surface([...farCurb,...plazaRoadProfile.slice().reverse().map(([n,e])=>plazaAt(Math.max(48,e+eastRoadWidth+8),n))],stone,.016);
+  for(const [start,end] of [[0,430.9],[439.8,sajikRoad.south]]){
+    const sections=[[start,eastCurb(start)],...roadProfile.filter(([n])=>n>start&&n<end),[end,eastCurb(end)]];
+    const along=sections.map(([n,e])=>plazaAt(e+eastRoadWidth,n));
+    const outside=sections.slice().reverse().map(([n,e])=>plazaAt(Math.max(48,e+eastRoadWidth+8),n));
+    surface([...along,...outside],stone,.016);
+  }
+  surface(rect(eastCurb(435)+eastRoadWidth,34.03,430.94,439.04),road,-.012);
   segments(roadside,(a,b)=>line(0xb2b2a8,a,b,.19,.12,-.03));
   segments(farCurb,(a,b)=>line(0xb2b2a8,a,b,.19,.12,-.03));
   for(let n=1;n<524;n+=7.4){
@@ -183,7 +194,7 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
     for(const side of [-.8,eastRoadWidth+.8])block(0xd1a84a,curb+side,n,.38,6.9,.021,.028);
   }
   for(let n=530;n<551;n+=1.04)block(0xdeddd1,sajikRoad.crossX,n,sajikRoad.crossWidth-.45,.52,.018,0);
-  for(let e=-116;e<94;e+=7.5){
+  for(let e=-116;e<20;e+=7.5){
     if(Math.abs(e-sajikRoad.crossX)<10)continue;
     block(0xc9c5b5,e,539.5,3.6,.11,.012,.003);
   }
@@ -259,7 +270,61 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
     for(const side of [-1,1])box(0x8d9390,side*.86,.23,0,.17,.46,.54,seat);
     for(let k=0;k<5;k++)box(k%2===0?0xa17650:0x986f4d,0,.483,(k-2)*.103,2.30,.061,.095,seat);
   }
+  function addSejongnoPark(){
+    const court=sejongParkCourt;
+    const letteringBase=new T.MeshStandardMaterial({color:0x626368,roughness:.93});
+    const lettering=letteringBase.clone();
+    if(typeof document!=="undefined"){
+      const canvas=document.createElement("canvas");
+      canvas.width=512;canvas.height=512;
+      const ink=canvas.getContext("2d");
+      if(ink){
+        const shades=["#7c8282","#878783","#6c7376","#8c8c8c","#777a74"];
+        ink.font='bold 33px "Malgun Gothic", "Apple SD Gothic Neo", sans-serif';
+        ink.textAlign="center";ink.textBaseline="middle";
+        for(let row=0;row<12;row++)for(let col=0;col<12;col++){
+          const x=col*43,y=row*43;
+          ink.fillStyle=shades[(row*13+col*3)%shades.length];ink.fillRect(x,y,43,43);
+          ink.fillStyle="#2b3032";
+          ink.fillText(String.fromCharCode(0xac00+(row*997+col*157)%11172),x+21,y+22);
+        }
+        const texture=new T.CanvasTexture(canvas);
+        texture.colorSpace=T.SRGBColorSpace;
+        lettering.map=texture;lettering.color.setHex(0xffffff);
+      }
+    }
+    surface(rect(court.east-court.width/2,court.east+court.width/2,court.north-court.length/2,court.north+court.length/2),
+      matte(0xb4a48b),.047).name="한글글자마당";
+    for(const [e,n] of sejongParkMonoliths){
+      block(letteringBase,e,n,1.28,1.28,1.03,.047);
+      block(0x484e50,e,n,1.34,1.34,.11,1.077);
+      for(const turn of [0,Math.PI/2,Math.PI,Math.PI*1.5]){
+        block(lettering,e+.649*Math.sin(turn),n-.649*Math.cos(turn),1.24,.014,.98,.067,turn);
+      }
+      // Small bronze letter pads sit flush with the courtyard paving.
+      block(lettering,e+1.72,n-1.21,1.45,1.12,.025,.056);
+    }
+    sign("한글글자마당",-76.5,313.2,.79,Math.PI/2,2.16,.48,{background:"#424c49"});
+
+    const stage=sejongParkStage,{x:sx,z:sz}=world(stage.east,stage.north);
+    cylinder(0x9b9c93,sx,.063,sz,stage.radius,.126,40,group).name="세종로공원 원형무대";
+    cylinder(0xb2ae9e,sx,.137,sz,stage.radius-.78,.080,40,group);
+    cylinder(0xd1c7ae,sx,.183,sz,stage.radius-1.48,.040,40,group);
+    sign("세종로공원",-55.7,330.9,.94,Math.PI/2,2.17,.54,{background:"#43574a",sub:"SEJONGNO PARK"});
+
+    const fountain=sejongParkFountain,{x:fx,z:fz}=world(fountain.east,fountain.north);
+    cylinder(0x8e928c,fx,.195,fz,fountain.radius,.39,40,group).name="세종로공원 분수";
+    cylinder(0xb3b1a3,fx,.405,fz,fountain.radius+.11,.085,40,group);
+    cylinder(0x6cabc2,fx,.452,fz,fountain.radius-.25,.029,40,group).material=water;
+    for(let i=0;i<8;i++){
+      const angle=i*Math.PI/4;
+      cylinder(0x4c5858,fx+Math.sin(angle)*1.77,.49,fz+Math.cos(angle)*1.77,.084,.09,8,group);
+    }
+    cylinder(0x617276,fx,.57,fz,.17,.25,12,group);
+    for(const p of [[-119.4,307],[-117.2,341],[-93,387.4],[-65,384.2]])pole(p[0],p[1],3.2,-1);
+  }
   for(const [e,n,angle] of benchSites)bench(e,n,angle);
+  addSejongnoPark();
   yield;
 
   // The subway exit canopy stands outside the walking lane.
@@ -354,14 +419,15 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
   block(0x414840,stele.east,stele.north,5.42,.22,.22,4.34);
 
   const granite=[0xa3a8a2,0xb6afa0,0x8c9498,0xc3c0b1,0x928984,0xa6a5ae,0x9d9990];
-  for(let i=0;i<23;i++){
-    const n=284+i*2.78,e=-44.8;
-    block(0x747c77,e,n,1.22,1.23,.12,.024);
-    block(granite[i%granite.length],e,n,.78,.80,6.13,.144);
-    const inset=lamp(0xdfcfac,0xe8aa63,.15,1.54);
-    block(inset,e+.39,n,.04,.29,2.28,2.70);
+  for(const [i,[e,n]] of gratitudeColumns.entries()){
+    block(0x747c77,e,n,1.17,.91,.10,.024);
+    block(granite[i%granite.length],e,n,.78,.57,6.13,.124);
+    block(0x555a56,e+.398,n,.033,.37,1.04,.81);
+    block(granite[(i+3)%granite.length],e+.425,n-.04,.04,.29,.81,.95);
+    const inset=lamp(0xd7dde2,0xd0e7ff,.08,1.12);
+    block(inset,e,n,.21,.28,.038,6.255);
   }
-  sign("감사의 정원",-44.8,281.6,.8,0,2.28,.52,{sub:"GARDEN OF GRATITUDE"});
+  sign("감사의 정원",-43.2,283.9,.72,0,2.28,.52,{sub:"GARDEN OF GRATITUDE"});
 
   yield;
   const monuments=addPlazaMonuments(T,group,kit,{yi:plazaSites.yi,sejong:plazaSites.sejong});

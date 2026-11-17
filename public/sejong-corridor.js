@@ -52,7 +52,9 @@ export function buildSejongCorridor(T,scene,kit){
   const paved=granite(),asphalt=matte(0x45494c),darker=matte(0x474a47),cycle=matte(0x816762);
   const stone=0xb7b7ad,curb=0xb1b0a6,white=0xe4e1d7;
 
-  surface(rectangle(507,6,326,610),matte(0x71766b),-.071);
+  // Leave the east opening clear below the road surface for the stream and ramps.
+  surface([[344,-299],[670,-299],[670,-168],[628,-172.7],[607,-166.8],[571,-164.3],
+    [570,-143.7],[670,-130.3],[670,311],[344,311]].map(([x,y])=>({x,y})),matte(0x71766b),-.071);
   for(const walk of corridorSidewalks){
     const landing=walk===corridorEastLanding||walk===seoulPlazaCrossingLanding;
     surface(walk,paved,landing?.033:.039);
@@ -220,17 +222,6 @@ export function buildSejongCorridor(T,scene,kit){
     label(title,x,y+.063,2.58,2.73,0,"#344740");
     obstacle(x,y,.20,.20,3);
   }
-
-  // The east side opens onto the stone steps and start of the Cheonggyecheon channel.
-  surface(rectangle(575,-155,88,23),paved,.061);
-  surface(rectangle(615,-154,119,6.5),matte(0x42666a),.069);
-  for(const side of [-1,1]){
-    strip(0x9b9b8d,{x:554.5,y:-154+side*3.8},{x:673.5,y:-154+side*3.8},.80,.31,.055);
-    strip(0xa6a79b,{x:554.5,y:-154+side*4.9},{x:673.5,y:-154+side*4.9},1.4,.14,.055);
-  }
-  block(0xa9a69a,553,-154,4.6,7.1,.46,.062);
-  block(0x748d8d,553,-154,4.2,6.75,.035,.524);
-  label("청계광장",534,-151,1.25,4.3,-Math.PI/2,"#3f514b");
 
   buildCorridorFacades({T,group,wx,wz,box,matte,block,obstacle,label,surface,rectangle,paved,darker,stone});
   return group;

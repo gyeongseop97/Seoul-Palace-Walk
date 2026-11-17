@@ -36,9 +36,9 @@ const avenueShops=[
   ["highball","광장 하이볼",52.1,133,11.2],
   ["coffee","광장 앞 커피",52.1,232,11.2],
   ["churu","세종로 편의점",51.2,340],
-  ["coffee","의정부지 앞 카페",52.1,433,10.2],
-  ["bingsu","육조길 빙수",52.1,452,11.2],
-  ["wine","육조길 와인",52.1,512,11.2]
+  ["coffee","의정부지 앞 카페",155,458,10.2],
+  ["bingsu","육조길 빙수",175,497,11.2],
+  ["wine","육조길 와인",187,516,11.2]
 ].map(([kind,name,east,north,width])=>({
   ...(kind==="churu"?{w:7.8,d:5.7,h:3.62}:{w:width??15.94,d:7.2,h:8.4,...storefronts[kind]}),
   ...plazaAt(east,north,name),kind,area:"gwanghwamun",angle:east<0?Math.PI/2:-Math.PI/2

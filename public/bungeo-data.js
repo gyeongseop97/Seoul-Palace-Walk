@@ -37,6 +37,13 @@ export const BUNGEO_EXPIRE_MS=80000;
 export const BUNGEO_GIFT_REACH=2.7;
 export const BUNGEO_ITEMS=Object.freeze({good:"bungeoppang",burnt:"bungeoppangBurnt",torn:"bungeoppangTorn"});
 export const HOTTEOK_ITEMS=Object.freeze({good:"hotteok",burnt:"hotteokBurnt",torn:"hotteokTorn"});
+export const HOTTEOK_PREPARATION=Object.freeze({
+  sugar:{from:"dough",to:"sweetened"},
+  seal:{from:"sweetened",to:"sealed"},
+  place:{from:"sealed",to:"placed"},
+  press:{from:"placed",to:"pressed"}
+});
+const hotteokNext=Object.fromEntries(Object.entries(HOTTEOK_PREPARATION).map(([action,{from}])=>[from,action]));
 export const BUNGEO_CUSTARD_ITEM="bungeoppangCustard";
 export const BUNGEO_FILLINGS=Object.freeze(["redBean","custard"]);
 export const BUNGEO_CUSTOMER_WALK_MS=2400;
@@ -44,7 +51,7 @@ export const BUNGEO_CUSTOMER_NEXT_MS=4000;
 export const BUNGEO_CUSTOMER_PATIENCE_MS=180000;
 
 export function bungeoQuality(mold,now){
-  if(mold.stage==="filling")return;
+  if(mold.stage==="filling"||Object.hasOwn(hotteokNext,mold.stage))return;
   const first=(mold.flippedAt??now)-mold.pouredAt;
   const second=mold.flippedAt==null?null:now-mold.flippedAt;
   if(first>BUNGEO_BURN_MS||second>BUNGEO_BURN_MS)return "burnt";
@@ -57,6 +64,7 @@ export function bungeoStep(mold,now){
   const age=now-(mold.flippedAt??mold.pouredAt);
   if(age>=BUNGEO_EXPIRE_MS)return {action:"pour",ready:true,waitMs:0};
   if(mold.stage==="filling")return {action:"fill",ready:true,waitMs:0};
+  if(Object.hasOwn(hotteokNext,mold.stage))return {action:hotteokNext[mold.stage],ready:true,waitMs:0};
   return {action:mold.stage==="second"?"take":"flip",ready:age>=BUNGEO_TOUCH_MS,
     waitMs:Math.max(0,BUNGEO_GOOD_MS-age),quality:bungeoQuality(mold,now)};
 }

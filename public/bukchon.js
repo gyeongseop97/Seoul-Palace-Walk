@@ -4,6 +4,7 @@ import {bikeDocks} from "./sejong-bike.js";
 import {bukchonBusRoads,busStopById} from "./sejong-bus.js";
 import {gradePalaceMeshes,sampleMeshHeight} from "./gyeongbok-terrain.js";
 import {mmcaReserved} from "./mmca-layout.js";
+import {songhyeonReserved} from "./songhyeon-layout.js";
 import {buildMmca} from "./mmca.js";
 import {diningVenues} from "./dining-data.js";
 import {buildDiningFacade} from "./dining-world.js";
@@ -513,18 +514,18 @@ export function* buildBukchon(T,root,kit){
     return false;
   };
   for(const path of bukchonPaths){
-    if(!limits[path.kind]||path.name==="경복궁 동쪽 담장길"||path.name==="광화문 동편 인도")continue;
+    if(!limits[path.kind]||["경복궁 동쪽 담장길","광화문 동편 인도","율곡로 남쪽 인도"].includes(path.name))continue;
     const sides=path.kind==="pavement"?[1]:[-1,1];
     for(const side of sides)for(const {a,b} of path.segments){
       const length=distance(a,b),angle=direction(a,b);
       const lots=Math.max(1,Math.round(length/limits[path.kind]));
       for(let i=0;i<lots;i++){
         const roadPoint=mix(a,b,(i+.52)/lots),urban=path.kind==="pavement";
-        // The curb opposite the palace and the north side of Yulgok-ro have storefronts.
+        // Place Yulgok-ro lots inland, outside the reserved plaza and side paths.
         const offsetSide=path.name==="율곡로 북쪽 인도"?-side:side;
         const w=urban?9+random()*6:4.5+random()*3.7,d=urban?7+random()*4:4.6+random()*2.6;
         const radius=Math.hypot(w/2+.42,d/2+1.10),point=apart(roadPoint,angle,offsetSide*(path.width/2+radius+1.08));
-        if(point.x<735||point.y< -1878||point.x>1155||mmcaReserved(point.x,point.y,radius))continue;
+        if(point.x<735||point.y< -1878||point.x>1155||mmcaReserved(point.x,point.y,radius)||songhyeonReserved(point.x,point.y,radius))continue;
         if(closeToStreet(point,radius)||occupied.some(lot=>distance(point,lot)<(radius+lot.radius)*.81))continue;
         occupied.push({...point,radius});
         point.level=bukchonTerrain(point.x,point.y);
@@ -534,7 +535,7 @@ export function* buildBukchon(T,root,kit){
         if(random()<.18){
           const shrub=apart(point,angle,offsetSide*(d*.54+1.85));
           shrub.level=bukchonTerrain(shrub.x,shrub.y);
-          if(!closeToStreet(shrub,2.4))tree(shrub,3.7+random()*2.4,random()>.36);
+          if(!closeToStreet(shrub,2.4)&&!songhyeonReserved(shrub.x,shrub.y,2.4))tree(shrub,3.7+random()*2.4,random()>.36);
         }
       }
     }
@@ -551,7 +552,7 @@ export function* buildBukchon(T,root,kit){
   for(const [x,y,w,d] of blocks){
     for(let z=-d/2+13;z<d/2;z+=22)for(let offset=-w/2+12;offset<w/2;offset+=22){
       const point={x:x+offset+random()*5,y:y+z+random()*5};
-      if(point.x>1135||mmcaReserved(point.x,point.y,11)||closeToStreet(point,10)||occupied.some(lot=>distance(point,lot)<lot.radius+8))continue;
+      if(point.x>1135||mmcaReserved(point.x,point.y,11)||songhyeonReserved(point.x,point.y,11)||closeToStreet(point,10)||occupied.some(lot=>distance(point,lot)<lot.radius+8))continue;
       if((point.x>863&&point.x<937&&point.y< -1478&&point.y> -1608)||random()<.18)continue;
       const width=8+random()*7,depth=7+random()*7,h=4+random()*7,angle=(random()-.5)*.43;
       occupied.push({...point,radius:Math.hypot(width,depth)/2});
@@ -578,7 +579,7 @@ export function* buildBukchon(T,root,kit){
     [824,-1536,6.3],[876,-1676,7.2],[950,-1738,8.3],[1089,-1748,7.4],[1081,-1822,7.8],
     [747,-1359,6.3],[748,-1411,8.2],[736,-1528,7.1],[754,-1571,8.6],[771,-1633,7.5]]){
     const point={x,y,level:bukchonTerrain(x,y)-.05};
-    if(!mmcaReserved(x,y,h*.45)&&!closeToStreet(point,h*.57)&&!occupied.some(lot=>distance(point,lot)<lot.radius+h*.29))tree(point,h,random()>.26);
+    if(!mmcaReserved(x,y,h*.45)&&!songhyeonReserved(x,y,h*.45)&&!closeToStreet(point,h*.57)&&!occupied.some(lot=>distance(point,lot)<lot.radius+h*.29))tree(point,h,random()>.26);
   }
   const mainWalk=bukchonPaths[2],lights=0x3b4546;
   for(const {a,b} of mainWalk.segments){
