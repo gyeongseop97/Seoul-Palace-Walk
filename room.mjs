@@ -42,11 +42,13 @@ const validLook = (look) => look==null ||
   (look.keepsake===undefined||KEEPSAKES.includes(look.keepsake));
 const validItem=item=>item==null||typeof item.kind==="string"&&Object.hasOwn(ITEMS,item.kind)&&
   Number.isInteger(item.remaining)&&finite(item.remaining,0,ITEMS[item.kind].uses)&&validTime(item.started);
-const lastBenchIndex=127;
+// Benches, dining chairs and the places along the Cheonggyecheon water's edge.
+const lastBenchIndex=1023;
 const validAvatar = (a) => validPoint(a) &&
   (a.character===undefined || a.character==="man" || a.character==="woman") &&
   validLook(a.look) &&
   (a.wave===undefined || finite(a.wave,0,9999999999999)) &&
+  (a.kick===undefined || validTime(a.kick)) &&
   (a.gesture==null || Object.hasOwn(GESTURE_DURATIONS,a.gesture.kind)&&validTime(a.gesture.at)) &&
   (a.jump===undefined || validTime(a.jump)) &&
   (a.vaultBase==null || a.jump>0 && finite(a.vaultBase,0,.65)) &&
