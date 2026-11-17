@@ -1,7 +1,8 @@
 import {addLandmarks,addObstacle} from "./layout.js";
-import {BUNGEO_GOOD_MS,BUNGEO_MOLD_COUNT,BUNGEO_STALL,BUNGEO_STOCK_CAPACITY,bungeoStep} from "./bungeo-data.js";
+import {BUNGEO_GOOD_MS,BUNGEO_MOLD_COUNT,BUNGEO_STALL,BUNGEO_STOCK_CAPACITY,COOKING_STALLS,bungeoStep} from "./bungeo-data.js";
 import {bungeoppangOutline,makeBungeoppangProps} from "./regional-item-props.js";
 import {standSign} from "./regional-stands.js";
+import {addHotteokGriddle} from "./hotteok-griddle.js";
 
 const cartWidth=2.62,cartDepth=1.10;
 const openAngle=1.97;
@@ -10,19 +11,18 @@ const clamp=value=>Math.min(1,Math.max(0,value));
 const ease=value=>{const t=clamp(value);return t*t*(3-2*t);};
 
 export function registerBungeoStall(){
-  const {body,angle}=BUNGEO_STALL;
-  addObstacle(body.x,body.y,cartWidth,cartDepth,angle,2.25);
-  addLandmarks([BUNGEO_STALL]);
+  for(const {body,angle} of COOKING_STALLS)addObstacle(body.x,body.y,cartWidth,cartDepth,angle,2.25);
+  addLandmarks(COOKING_STALLS);
 }
 
-export function addBungeoStall(T,parent,kit,groundHeight){
+export function addBungeoStall(T,parent,kit,groundHeight,stall=BUNGEO_STALL){
   const {wx,wz,box,cylinder,shape}=kit;
-  const {body,angle,watchRadius}=BUNGEO_STALL;
-  const root=new T.Group();root.name=BUNGEO_STALL.name;
+  const {body,angle,watchRadius}=stall,hotteok=stall.kind==="hotteok";
+  const root=new T.Group();root.name=stall.name;
   const foot=.021;
   root.position.set(wx(body.x),groundHeight(body)+foot,wz(body.y));
   root.rotation.y=angle;parent.add(root);
-  const wood=0x845132,rail=0x4d3530,iron=0x363337,shade=0xa64237,ivory=0xf5d69f;
+  const wood=0x845132,rail=0x4d3530,iron=0x363337,shade=hotteok?0x506d55:0xa64237,ivory=0xf5d69f;
   box(wood,0,.540,0,2.47,.76,1.00,root);
   box(rail,0,.179,.008,2.51,.127,1.05,root);
   box(0xc49459,0,.965,.006,cartWidth,.115,cartDepth,root).receiveShadow=true;
@@ -56,8 +56,8 @@ export function addBungeoStall(T,parent,kit,groundHeight){
     box(color,(left+right)/2,2.124,.647,.318,.124,.028,root);
   }
   box(shade,0,1.918,.47,1.58,.39,.081,root);
-  standSign(T,root,"붕어빵","직접 굽기",1.52,0,1.918,.517,"#973c30","#ffe6b7",.365);
-  standSign(T,root,"팥 · 슈크림",null,.75,-.75,.66,.537,"#edcf9b","#6f332a",.168);
+  standSign(T,root,hotteok?"호떡":"붕어빵","직접 굽기",1.52,0,1.918,.517,hotteok?"#3d654f":"#973c30","#ffe6b7",.365);
+  standSign(T,root,hotteok?"철판에 굽기":"팥 · 슈크림",null,.75,-.75,.66,.537,"#edcf9b","#6f332a",.168);
   for(const x of [-.988,.988]){
     box(0x523a31,x,1.96,.396,.21,.051,.21,root);
     cylinder(0xffcc78,x,1.918,.396,.081,.054,10,root);
@@ -81,6 +81,26 @@ export function addBungeoStall(T,parent,kit,groundHeight){
   function highlight(tool,x,z){
     const light=new T.Mesh(lightGeometry,toolLightMaterial);
     light.position.set(x,1.026,z);light.visible=false;root.add(light);toolLights.set(tool,light);
+  }
+  const targetCenter=new T.Vector3();
+  function pick(ray){
+    root.updateWorldMatrix(true,true);
+    let target=null,best=Infinity;
+    // At a shallow angle, use the target nearest the centre of the touch ray.
+    for(const {object} of ray.intersectObjects(targets,false)){
+      const offset=ray.ray.distanceSqToPoint(object.getWorldPosition(targetCenter));
+      if(offset<best){best=offset;target=object.userData.bungeoTarget;}
+    }
+    return target;
+  }
+  if(hotteok){
+    const grill=addHotteokGriddle(T,root,kit,{hit,highlight,counterLabel,watchRadius,body});
+    function update(molds,clock,viewer,_stock,baking){
+      for(const [tool,light] of toolLights)light.visible=baking?.tool===tool;
+      grill.update(molds,clock,viewer,baking);
+    }
+    update(null,0,null);
+    return {update,pick};
   }
   const pitcherX=-1.185,pitcherZ=.291;
   const pitcherProfile=[[0,.025],[.090,.025],[.114,.07],[.117,.182],[.103,.254],
@@ -153,7 +173,8 @@ export function addBungeoStall(T,parent,kit,groundHeight){
   const pastryProps=makeBungeoppangProps(T,kit);
   // One instance batch per pastry part keeps twelve visible pieces inexpensive.
   const stockPrototype=new T.Group(),stockParts=new Map(),stockPose=new T.Object3D(),stockMatrix=new T.Matrix4();
-  pastryProps(stockPrototype,"good");stockPrototype.updateMatrixWorld(true);
+  if(stall.customer)pastryProps(stockPrototype,"good");
+  stockPrototype.updateMatrixWorld(true);
   stockPrototype.traverse(mesh=>{
     if(!mesh.isMesh)return;
     const id=`${mesh.geometry.id}/${mesh.material.id}`;
@@ -296,18 +317,6 @@ export function addBungeoStall(T,parent,kit,groundHeight){
     pitcher.rotation.z=-.18*pitcherLift;pitcherHit.position.y=1.16+.17*pitcherLift;pitcherHit.position.z=pitcher.position.z;
     const nearby=Boolean(viewer&&Math.hypot(viewer.x-body.x,viewer.y-body.y)<=watchRadius);
     cavities.forEach((updateCavity,index)=>updateCavity(molds?.[index]??null,clock,nearby));
-  }
-
-  const targetCenter=new T.Vector3();
-  function pick(ray){
-    root.updateWorldMatrix(true,true);
-    let target=null,best=Infinity;
-    // At a shallow camera angle two hit boxes can overlap while the tools are still visibly separate.
-    for(const {object} of ray.intersectObjects(targets,false)){
-      const offset=ray.ray.distanceSqToPoint(object.getWorldPosition(targetCenter));
-      if(offset<best){best=offset;target=object.userData.bungeoTarget;}
-    }
-    return target;
   }
 
   update(null,0,null);

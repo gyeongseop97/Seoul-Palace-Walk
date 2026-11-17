@@ -1,9 +1,33 @@
 import {plazaAt} from "./plaza-layout.js";
+import {at as palaceAt} from "./gyeongbok-layout.js";
+import {fountain} from "./layout.js";
 
 export const BUNGEO_STALL=Object.freeze({
-  ...plazaAt(-51.8,373,"광화문 붕어빵 좌판"),id:"bungeo-stall",radius:2.4,watchRadius:26,
+  ...plazaAt(-51.8,373,"광화문 붕어빵 좌판"),id:"bungeo-stall",area:"gwanghwamun",kind:"bungeo",customer:true,radius:2.4,watchRadius:26,
   body:plazaAt(-53.75,373),angle:Math.PI/2
 });
+function cookingStall(id,name,area,kind,body,angle){
+  const counterDistance=1.85;
+  return Object.freeze({id,name,area,kind,body,angle,customer:false,radius:2.4,watchRadius:26,
+    x:body.x+Math.sin(angle)*counterDistance,y:body.y+Math.cos(angle)*counterDistance});
+}
+export const COOKING_STALLS=Object.freeze([
+  BUNGEO_STALL,
+  cookingStall("hotteok-deoks","정동 호떡 굽는 곳","jeongdong","hotteok",{x:fountain.x-5.8,y:fountain.y+5},Math.PI/2),
+  cookingStall("bungeo-palace","경회루 붕어빵 굽는 곳","gyeongbokgung","bungeo",palaceAt(-60.8,389),Math.PI/2),
+  cookingStall("hotteok-palace","소주방 앞 호떡 굽는 곳","gyeongbokgung","hotteok",palaceAt(100,354.0),0),
+  cookingStall("bungeo-bukchon","삼청로 붕어빵 굽는 곳","bukchon","bungeo",{x:719.6,y:-1115},-Math.PI/2),
+  cookingStall("hotteok-bukchon","가회동 호떡 굽는 곳","bukchon","hotteok",{x:1075.4,y:-1788},-Math.PI/2),
+]);
+export const cookingStallById=id=>COOKING_STALLS.find(stall=>stall.id===id);
+export function nearbyCookingStall(position,{watch=true}={}){
+  let closest=null, gap=Infinity;
+  for(const stall of COOKING_STALLS){
+    const distance=Math.hypot(position.x-stall.x,position.y-stall.y);
+    if(distance<gap&&distance<=(watch?stall.watchRadius:stall.radius)){closest=stall;gap=distance;}
+  }
+  return closest;
+}
 export const BUNGEO_MOLD_COUNT=3;
 export const BUNGEO_STOCK_CAPACITY=12;
 export const BUNGEO_TOUCH_MS=700;
@@ -12,6 +36,7 @@ export const BUNGEO_BURN_MS=24000;
 export const BUNGEO_EXPIRE_MS=80000;
 export const BUNGEO_GIFT_REACH=2.7;
 export const BUNGEO_ITEMS=Object.freeze({good:"bungeoppang",burnt:"bungeoppangBurnt",torn:"bungeoppangTorn"});
+export const HOTTEOK_ITEMS=Object.freeze({good:"hotteok",burnt:"hotteokBurnt",torn:"hotteokTorn"});
 export const BUNGEO_CUSTARD_ITEM="bungeoppangCustard";
 export const BUNGEO_FILLINGS=Object.freeze(["redBean","custard"]);
 export const BUNGEO_CUSTOMER_WALK_MS=2400;

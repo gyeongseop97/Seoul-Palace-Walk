@@ -22,7 +22,6 @@ const storefronts={
   cake:{subtitle:"CAKE & PATISSERIE",wall:0xd8c2ac,paint:0xaa696e,counter:0xdcaaa0,glass:0xf7d1b4,sign:"#f3d9c9",ink:"#723f4a"},
   wine:{subtitle:"WINE BAR",wall:0x957973,paint:0x543b45,counter:0x80574f,glass:0xe0b490,sign:"#573a48",ink:"#f8dba1"},
   bingsu:{subtitle:"팥빙수",wall:0xc3c4b3,paint:0x537d83,counter:0xa1b6b5,glass:0xe8e3cb,sign:"#335860",ink:"#fff2d5"},
-  bungeoppang:{subtitle:"붕어빵",wall:0xcba283,paint:0x995337,counter:0xc88450,glass:0xf2d3a0,sign:"#733923",ink:"#fff1ca"},
   riceCake:{subtitle:"꿀떡",paint:0x876477,sign:"#75445e",ink:"#fff0d4"},
   fruitWine:{subtitle:"매실주",paint:0x55744b,sign:"#415d3c",ink:"#fff3cc"},
   highball:{subtitle:"HIGHBALL",wall:0xa79786,paint:0x405761,counter:0x9f835f,glass:0xdbd6a9,sign:"#324753",ink:"#fae4af"}
@@ -32,7 +31,6 @@ const avenueShops=[
   ["churu","광화문 편의점",-58.6,23],
   ["coffee","세종로 로스터리",-58.6,115,11.2],
   ["wine","와인 서가",-58.6,269],
-  ["bungeoppang","정류장 붕어빵",-58.6,393],
   // East frontage between the existing city buildings, with space for the through sidewalk.
   ["cake","오후 케이크",52.1,100.5,11.2],
   ["highball","광장 하이볼",52.1,133,11.2],

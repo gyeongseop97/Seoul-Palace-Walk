@@ -2,13 +2,15 @@ export const BOWLING_LANE_X=6.55;
 export const BOWLING_ROLL_MS=4000;
 export const BOWLING_BALL_RADIUS=.156;
 export const BOWLING_START=4.02;
+export const BOWLING_OFFSET_LIMIT=1.05;
+export const BOWLING_FRAME_COUNT=10;
 const allPins=0b1111111111;
 const step=.01,frameSteps=3;
 const maxAim=16*Math.PI/180;
-const pinRadius=.176,pinSpacing=.414;
+const pinRadius=.146,pinSpacing=.49;
 const rack=[];
 for(let row=0;row<4;row++){
-  for(let col=0;col<=row;col++)rack.push({x:(col-row/2)*pinSpacing,z:-3.89-row*.365});
+  for(let col=0;col<=row;col++)rack.push({x:(col-row/2)*pinSpacing,z:-3.829-row*.437});
 }
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const simulateCache=new Map();
@@ -27,7 +29,7 @@ function bodiesHit(one,two){
   const strength=speed*1.53/combined;
   one.vx-=strength*dx*one.inverseMass;one.vz-=strength*dz*one.inverseMass;
   two.vx+=strength*dx*two.inverseMass;two.vz+=strength*dz*two.inverseMass;
-  if(strength>.33){
+  if(strength>.47){
     tipPin(one,-dx,-dz,strength);
     tipPin(two,dx,dz,strength);
   }
@@ -46,9 +48,9 @@ function pinRack(mask){
 }
 
 function simulateRoll(roll){
-  const {angle,power,mask}=roll;
+  const {angle,power,mask,offset}=roll;
   const speed=1.16+power*7.84;
-  const ball={x:0,z:BOWLING_START,vx:Math.sin(angle)*speed,vz:-Math.cos(angle)*speed,
+  const ball={x:offset,z:BOWLING_START,vx:Math.sin(angle)*speed,vz:-Math.cos(angle)*speed,
     radius:BOWLING_BALL_RADIUS,inverseMass:.23,visible:true,spin:0,angle,drop:0,gutter:false};
   const pins=pinRack(mask),active=pins.filter(pin=>pin.visible),contacts=[ball,...active];
   const samples=[];
@@ -94,11 +96,12 @@ function simulateRoll(roll){
 
 export function bowlingFrame(roll,now){
   if(!roll||![roll.at,roll.angle,roll.power,now].every(Number.isFinite)||
-    !Number.isInteger(roll.mask)||roll.mask<1||roll.mask>allPins||![1,2].includes(roll.attempt))return idle;
-  const key=[roll.at,roll.angle,roll.power,roll.mask,roll.attempt].join("/");
+    !Number.isInteger(roll.mask)||roll.mask<1||roll.mask>allPins||![1,2,3].includes(roll.attempt))return idle;
+  const offset=bowlingOffset(roll.offset);
+  const key=[roll.at,roll.angle,roll.power,roll.mask,roll.attempt,offset].join("/");
   if(!simulateCache.has(key)){
     if(simulateCache.size>=10)simulateCache.delete(simulateCache.keys().next().value);
-    simulateCache.set(key,simulateRoll(roll));
+    simulateCache.set(key,simulateRoll({...roll,offset}));
   }
   const samples=simulateCache.get(key),age=Math.max(0,now-roll.at);
   const stepIndex=Math.min(samples.length-1,age/(1000*step*frameSteps));
@@ -115,20 +118,119 @@ export function bowlingFrame(roll,now){
   return {roll,rolling,ball,pins,knocked:first.knocked,result,standing};
 }
 
+export function readyBowlingFrame(mask){
+  return Number.isInteger(mask)&&mask>=0&&mask<allPins?
+    {...idle,pins:pinRack(mask),standing:mask}:idle;
+}
+
 export function bowlingAimAngle(pan){
   const turn=((pan-270+540)%360)-180;
   return clamp(turn*Math.PI/180,-maxAim,maxAim);
 }
 
+export function bowlingOffset(offset){
+  return Number.isFinite(offset)?clamp(offset,-BOWLING_OFFSET_LIMIT,BOWLING_OFFSET_LIMIT):0;
+}
+
+function frameComplete(frame,index){
+  const [first,second]=frame;
+  if(index<BOWLING_FRAME_COUNT-1)return first===10||frame.length>=2;
+  return frame.length===3||frame.length===2&&first!==10&&first+second<10;
+}
+
+function playerFrame(player){
+  const {frames}=player;
+  const last=frames.at(-1);
+  if(last&&!frameComplete(last,frames.length-1))return {index:frames.length-1,throws:last};
+  return {index:frames.length,throws:[]};
+}
+
+function keepsRack(frame,index){
+  const [first,second]=frame;
+  if(frame.length===1)return first<10;
+  return index===BOWLING_FRAME_COUNT-1&&first===10&&second<10;
+}
+
+function countPins(mask){
+  let count=0;
+  for(let pins=mask;pins;pins&=pins-1)count++;
+  return count;
+}
+
+export function makeBowlingMatch(players){
+  const roster=players.map(({id,nickname})=>({id,nickname,frames:[]}));
+  return {players:roster,turn:roster[0]?.id??null,phase:roster.length?"playing":"finished",
+    roll:null,rollPlayer:null,standing:allPins};
+}
+
+export function bowlingTurn(match){
+  if(match?.phase!=="playing")return null;
+  const player=match.players.find(entry=>entry.id===match.turn&&entry.active!==false);
+  if(!player)return null;
+  const {index,throws}=playerFrame(player);
+  if(index>=BOWLING_FRAME_COUNT)return null;
+  return {player,frame:index+1,attempt:throws.length+1,mask:match.standing??allPins};
+}
+
+export function bowlingMatchRoll(match,pan,power,now,offset=0){
+  const turn=bowlingTurn(match);
+  if(!turn||match.roll||![pan,power,now].every(Number.isFinite))return null;
+  return {at:now,angle:bowlingAimAngle(pan),power:clamp(power,0,1),mask:turn.mask,attempt:turn.attempt,offset:bowlingOffset(offset)};
+}
+
+export function advanceBowlingMatch(match,knocked,standingMask){
+  const turn=bowlingTurn(match);
+  if(!turn||!Number.isInteger(knocked)||knocked<0||!Number.isInteger(standingMask)||standingMask<0||
+    (standingMask&turn.mask)!==standingMask||knocked+countPins(standingMask)!==countPins(turn.mask))return match;
+  const index=turn.frame-1,frame=[...(turn.player.frames[index]??[]),knocked];
+  const players=match.players.map(entry=>{
+    if(entry.id!==match.turn)return entry;
+    const frames=entry.frames.slice();
+    frames[index]=frame;
+    return {...entry,frames};
+  });
+  const settled={...match,players,roll:null,rollPlayer:null};
+  if(!frameComplete(frame,index)){
+    return {...settled,standing:keepsRack(frame,index)?standingMask:allPins};
+  }
+  const start=players.findIndex(entry=>entry.id===match.turn);
+  for(let offset=1;offset<=players.length;offset++){
+    const player=players[(start+offset)%players.length];
+    if(player.active!==false&&playerFrame(player).index<BOWLING_FRAME_COUNT){
+      return {...settled,turn:player.id,standing:allPins};
+    }
+  }
+  return {...settled,turn:null,phase:"finished",standing:allPins};
+}
+
+export function bowlingScore(frames){
+  let total=0;
+  const scores=frames.map((frame,index)=>{
+    if(!frameComplete(frame,index))return null;
+    const [first,second]=frame;
+    if(index===BOWLING_FRAME_COUNT-1){
+      total+=frame.reduce((sum,pins)=>sum+pins,0);
+      return total;
+    }
+    const bonus=first===10?2:first+second===10?1:0;
+    const next=bonus?frames.slice(index+1).flat().slice(0,bonus):[];
+    if(next.length<bonus)return null;
+    total+=(first===10?10:first+second)+next.reduce((sum,pins)=>sum+pins,0);
+    return total;
+  });
+  return {total,scores};
+}
+
 export function makeBowling(){
   let roll=null;
   return {
-    throw(pan,power,now){
+    throw(pan,power,now,offset=0){
       if(![pan,power,now].every(Number.isFinite))return null;
       const previous=bowlingFrame(roll,now);
       if(previous.rolling)return null;
       const second=Boolean(roll?.attempt===1&&previous.standing);
-      roll={at:now,angle:bowlingAimAngle(pan),power:clamp(power,0,1),mask:second?previous.standing:allPins,attempt:second?2:1};
+      roll={at:now,angle:bowlingAimAngle(pan),power:clamp(power,0,1),mask:second?previous.standing:allPins,
+        attempt:second?2:1,offset:bowlingOffset(offset)};
       return roll;
     },
     state(now){return bowlingFrame(roll,now);},

@@ -1,4 +1,5 @@
 import {CLAW_PRIZES} from "./arcade-games.js";
+import {TARGET_LANES,readTargetSnapshot,targetSnapshot} from "./arcade-targets.js";
 
 const headFields=["x","y","z","grip","swingX","swingZ","tiltX","tiltZ"];
 const figureFields=["x","y","z","rotX","rotY","rotZ"];
@@ -12,6 +13,8 @@ const blend=(a,b,portion)=>a+(b-a)*portion;
 export function arcadeSnapshot(state){
   if(!state)return null;
   const {kind,phase,score,level,basket,claw,pump,rimX}=state;
+  if(Object.hasOwn(TARGET_LANES,kind))return targetSnapshot(state);
+  if(kind==="baseball")return state;
   if(kind==="basket")return {kind,phase,score,level,ball:sample(ballFields,basket),rimX:round(rimX)};
   if(kind==="bowling")return {kind,roll:state.bowling?.roll??null};
   if(kind==="mole"){
@@ -33,6 +36,8 @@ export function arcadeSnapshot(state){
 }
 
 function decode(packet,at){
+  if(Object.hasOwn(TARGET_LANES,packet.kind))return {...readTargetSnapshot(packet),at};
+  if(packet.kind==="baseball")return {...packet,at};
   if(packet.kind==="bowling")return {kind:packet.kind,at,bowling:{roll:packet.roll}};
   if(packet.kind==="mole")return {...packet,at};
   if(packet.kind==="pump"){
@@ -64,6 +69,7 @@ function interpolate(before,after,keys,portion){
 export function visibleArcade(samples,now){
   if(!samples||now-samples.next.at>5000)return null;
   const {next,prior}=samples;
+  if(Object.hasOwn(TARGET_LANES,next.kind)||next.kind==="baseball")return next;
   if(next.kind==="bowling")return next;
   if(next.kind==="pump"){
     const {pump}=next;
@@ -113,5 +119,17 @@ export function poseArcade(state,model,clock){
       model.group.rotation.y+=Math.atan2(Math.sin(turn),Math.cos(turn))*Math.min(1,swing*2.8);
       model.chest.rotateX(.20*swing);
     }
+  }else if(state?.kind==="baseball"){
+    const elapsed=clock-(state.swingAt??-Infinity);
+    const swing=elapsed>=0&&elapsed<410?Math.sin(Math.PI*elapsed/410):0;
+    model.chest.rotateY(.21-1.12*swing);
+    model.arms[0].upper.rotateX(-.85-.54*swing);
+    model.arms[0].lower.rotateX(-.84+.62*swing);
+    model.arms[1].upper.rotateX(-.90-.56*swing);
+    model.arms[1].lower.rotateX(-.94+.50*swing);
+  }else if(state?.kind&&Object.hasOwn(TARGET_LANES,state.kind)){
+    const recoil=state.phase==="flying"?.30:0;
+    model.arms[0].upper.rotateX(-1.15+recoil);model.arms[0].lower.rotateX(-.71);
+    model.arms[1].upper.rotateX(-1.46+recoil);model.arms[1].lower.rotateX(state.kind==="archery"?-.20:-.63);
   }
 }

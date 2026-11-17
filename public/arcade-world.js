@@ -1,10 +1,11 @@
-import {ARCADE_BASKET,ARCADE_CLAW,ARCADE_MOLE,ARCADE_PADS,ARCADE_PUMP,ARCADE_SITE} from "./arcade-layout.js";
+import {ARCADE_BASKET,ARCADE_CLAW,ARCADE_MOLE,ARCADE_PADS,ARCADE_PUMP,ARCADE_SITE,ARCADE_STAIRS} from "./arcade-layout.js";
 import {BASKET_BALL,BASKET_HOOP,CLAW_CHUTE,CLAW_LIMITS,CLAW_PRIZES,basketTrajectory} from "./arcade-games.js";
 import {BASKET_BACKBOARD,BASKET_BACKING,BASKET_RAMP} from "./arcade-basket-physics.js";
 import {standSign} from "./regional-stands.js";
 import {drawPumpTrack} from "./arcade-pump-track.js";
 import {addBowlingLane} from "./arcade-bowling-world.js";
 import {MOLE_OFFSETS} from "./arcade-mole.js";
+import {addArcadeStairwell} from "./arcade-stairs-world.js";
 
 const ink=0x202c33,cream=0xf2d5ab,teal=0x458f84,orange=0xd5835e;
 const padColors=[0x68c8d8,0xf0bc6e,0xef89a9,0x9ed0a3];
@@ -99,6 +100,7 @@ export function* buildArcadeInterior(T,parent,kit){
     block(cream,side*.2,1.25,.155,.065,.32,.073,entry);
   }
   panel(entry,"출구","",.83,0,3.09,.06,"#245849",.32);
+  addArcadeStairwell(T,arcade,kit,ARCADE_STAIRS[ARCADE_SITE.id]);
   for(const [center,color] of [[ARCADE_CLAW.localX,0x9cdcca],[ARCADE_PUMP.localX,0xe3b586],[ARCADE_BASKET.localX,0xffb49a],[ARCADE_MOLE.localX,0xe6be83]]){
     glow(center,3.89,-.72,2.08,.033,.14,color);
     block(0x283c44,center,.051,-.15,2.62,.022,3.91,arcade);
@@ -354,7 +356,7 @@ export function* buildArcadeInterior(T,parent,kit){
     dynamic(head);return head;
   });
   let showPreview=true,previousAim=null;
-  function update(local,clock,peers=[],serverClock=0,view){
+  function update(local,clock,peers=[],serverClock=0,view,bowlingMatch){
     const spectators=new Map();
     for(const peer of peers){
       const activity=peer.arcade;
@@ -395,7 +397,7 @@ export function* buildArcadeInterior(T,parent,kit){
     }
     const basketballGame=game("basket"),shot=basketballGame?.basket??BASKET_BALL;
     hoop.position.x=basketballGame?.rimX??BASKET_HOOP.x;
-    const aim=local?.kind==="basket"&&local.phase==="aim"?local.basketAim:null;
+    const aim=local?.kind==="basket"&&local.phase==="aim"&&!local.finished?local.basketAim:null;
     if(aim!==previousAim){
       const dots=aim?basketTrajectory(aim):null;
       aimDots.forEach((dot,index)=>{
@@ -408,7 +410,8 @@ export function* buildArcadeInterior(T,parent,kit){
     basketball.position.set(shot.x,shot.y,shot.z);
     basketball.rotation.x=basketballGame&&basketballGame.phase!=="aim"?clock*.016:0;
     basketScreen(String(basketballGame?.score??0),basketballGame?basketballGame.level+"단계":"자유투");
-    bowling.update(game("bowling")?.bowling?.roll??null,serverClock,local?.kind==="bowling"?view?.pan:undefined);
+    bowling.update(bowlingMatch?bowlingMatch.roll:game("bowling")?.bowling?.roll??null,
+      serverClock,local?.kind==="bowling"&&local.canAim?view?.pan:undefined,bowlingMatch,local?.aimOffset);
     const moleGame=game("mole");
     heads.forEach((head,index)=>{
       const rise=index===moleGame?.target?moleGame.height:0;

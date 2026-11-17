@@ -44,8 +44,56 @@ export function makeBungeoppangProps(T,{box,shape}){
   };
 }
 
+export function makeHotteokProps(T,{shape}){
+  const spots=[
+    [.054,.035,.024],[-.046,.035,.019],[.007,-.056,.030],[-.038,-.027,.016],
+    [.041,-.042,.019],[-.006,.018,.025],[-.067,-.009,.017],[.060,-.012,.013]
+  ];
+  const material=new T.MeshStandardMaterial({vertexColors:true,roughness:.76});
+  const syrup=new T.SphereGeometry(1,12,7);
+  const crusts=Object.fromEntries(["good","burnt","torn","raw"].map(quality=>{
+    const torn=quality==="torn",raw=quality==="raw",burnt=quality==="burnt";
+    const profile=[[0,-.014],[.059,-.016],[.085,-.014],[.103,-.007],[.107,.002],
+      [.104,.011],[.095,.019],[.073,.024],[.044,.026],[0,.025]];
+    const geometry=new T.LatheGeometry(profile.map(([r,y])=>new T.Vector2(r,y)),48);
+    const positions=geometry.attributes.position,colors=[];
+    const golden=new T.Color(raw?0xf4d79f:burnt?0x79512d:0xd9913e);
+    const toasted=new T.Color(raw?0xe8be84:burnt?0x352621:0x8f542c);
+    const tornEdge=new T.Color(0xf4c472),color=new T.Color();
+    for(let i=0;i<positions.count;i++){
+      const x=positions.getX(i),y=positions.getY(i),z=positions.getZ(i),theta=Math.atan2(z,x);
+      const tear=torn&&Math.abs(theta)<.66?Math.cos(theta/.66*Math.PI*.5)**1.5:0;
+      const distortion=1+.036*Math.sin(theta*5+.7)+.023*Math.cos(theta*9)-tear*(.43+.045*Math.sin(theta*22));
+      const px=x*distortion,pz=z*distortion;
+      positions.setXYZ(i,px,y+Math.sin(theta*7+.6)*Math.hypot(x,z)*.018,pz);
+      let browning=0;
+      for(const [sx,sz,size] of spots){
+        const dx=px-sx,dz=pz-sz;
+        browning=Math.max(browning,Math.exp(-(dx*dx+dz*dz)/(size*size)));
+      }
+      const crustShade=.10*Math.sin(theta*11+pz*49)+.13;
+      color.copy(golden).lerp(toasted,Math.min(1,crustShade+browning*(raw?.14:burnt?.98:.65)));
+      if(tear>.30&&Math.hypot(x,z)>.083)color.lerp(tornEdge,tear*.84);
+      colors.push(color.r,color.g,color.b);
+    }
+    geometry.setAttribute("color",new T.Float32BufferAttribute(colors,3));
+    geometry.computeVertexNormals();
+    return [quality,geometry];
+  }));
+  return (root,quality="good")=>{
+    const bread=shape(crusts[quality]??crusts.good,0xffffff,0,0,0,root);
+    bread.material=material;
+    if(quality==="torn"){
+      const filling=shape(syrup,0x854019,.061,.002,.005,root);
+      filling.scale.set(.028,.014,.034);
+      shape(syrup,0xb76d2e,.069,.01,.02,root).scale.set(.014,.010,.015);
+    }
+  };
+}
+
 export function makeRegionalItemProps(T,{box,cylinder,shape}){
   const bungeoppang=makeBungeoppangProps(T,{box,shape});
+  const hotteok=makeHotteokProps(T,{shape});
   const berryGeometry=new T.SphereGeometry(1,10,7);
   const sliceFootprint=new T.Shape([[-.100,.074],[.100,.074],[.012,-.111],[-.010,-.111]]
     .map(([x,z])=>new T.Vector2(x,-z)));
@@ -128,6 +176,9 @@ export function makeRegionalItemProps(T,{box,cylinder,shape}){
     bungeoppangCustard:parent=>bungeoppang(parent,"custard"),
     bungeoppangBurnt:parent=>bungeoppang(parent,"burnt"),
     bungeoppangTorn:parent=>bungeoppang(parent,"torn"),
+    hotteok,
+    hotteokBurnt:parent=>hotteok(parent,"burnt"),
+    hotteokTorn:parent=>hotteok(parent,"torn"),
     riceCake(parent){
       cylinder(0xe7d8bf,0,-.044,0,.113,.023,24,parent,.94);
       cylinder(0xbfb492,0,-.029,0,.102,.008,24,parent);

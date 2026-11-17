@@ -356,6 +356,9 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 .arcade-move button{flex:1 1 44px;touch-action:none}
 .arcade-machine-active :is(.joystick,.game-hud,.peer-hud),.arcade-avatar-active :is(.game-hud,.peer-hud){visibility:hidden}
 .arcade-avatar-active .arcade-panel{width:min(213px,calc(100% - 128px))}
+.arcade-target-active::after{content:"";position:absolute;inset:50% auto auto 50%;width:15px;height:15px;
+  transform:translate(-50%,-50%);border:1px solid #fff0c6;border-radius:50%;box-shadow:0 0 3px #111d25;
+  background:radial-gradient(circle,#fff0c6 0 1px,transparent 2px);pointer-events:none}
 .bus-seating{width:min(100%,310px);margin:0 auto;display:grid;gap:7px;text-align:center;color:var(--ivory-3)}
 #bus-seats{display:grid;grid-template-columns:1fr 1fr;column-gap:clamp(18px,10vw,60px);row-gap:7px;padding:12px;border:1px solid var(--pine-9);border-radius:22px;background:var(--pine-2)}
 #bus-seats button{min-height:44px;white-space:nowrap}

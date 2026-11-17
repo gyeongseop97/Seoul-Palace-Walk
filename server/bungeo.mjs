@@ -1,8 +1,8 @@
 import {FEED_MS,ITEMS,JUMP_MS} from "../public/activities.js";
 import {SICK_DURATION_MS} from "../public/avatar-gestures.js";
 import {BUNGEO_BURN_MS,BUNGEO_CUSTARD_ITEM,BUNGEO_CUSTOMER_NEXT_MS,BUNGEO_CUSTOMER_PATIENCE_MS,BUNGEO_CUSTOMER_WALK_MS,
-  BUNGEO_EXPIRE_MS,BUNGEO_FILLINGS,BUNGEO_GIFT_REACH,BUNGEO_GOOD_MS,BUNGEO_ITEMS,BUNGEO_MOLD_COUNT,BUNGEO_STALL,
-  BUNGEO_STOCK_CAPACITY,BUNGEO_TOUCH_MS} from "../public/bungeo-data.js";
+  BUNGEO_EXPIRE_MS,BUNGEO_FILLINGS,BUNGEO_GIFT_REACH,BUNGEO_GOOD_MS,BUNGEO_ITEMS,BUNGEO_MOLD_COUNT,
+  BUNGEO_STOCK_CAPACITY,BUNGEO_TOUCH_MS,HOTTEOK_ITEMS,cookingStallById} from "../public/bungeo-data.js";
 import {validItemSlot} from "../public/held-items.js";
 
 const requestLifetime=4*60*60*1000;
@@ -61,23 +61,24 @@ export function ensureBungeoTables(db){
 const token=value=>typeof value==="string"&&/^[a-f0-9]{32}$/.test(value);
 const validCavity=value=>value===undefined||Number.isInteger(value)&&value>=0&&value<BUNGEO_MOLD_COUNT;
 export function validBungeo(command,player){
-  if(!token(command?.id)||command.stall!==BUNGEO_STALL.id||!validCavity(command.cavity))return false;
+  const stall=cookingStallById(command?.stall);
+  if(!token(command?.id)||!stall||!validCavity(command.cavity))return false;
   switch(command.action){
-    case "pour":return command.prepare===undefined||typeof command.prepare==="boolean";
-    case "fill":return token(command.batch)&&BUNGEO_FILLINGS.includes(command.filling);
+    case "pour":return (command.prepare===undefined||typeof command.prepare==="boolean")&&(stall.kind==="bungeo"||command.prepare!==true);
+    case "fill":return stall.kind==="bungeo"&&token(command.batch)&&BUNGEO_FILLINGS.includes(command.filling);
     case "flip":return token(command.batch);
     case "take":return token(command.batch)&&validItemSlot(command.slot);
     case "gift":return token(command.to)&&command.to!==player&&validItemSlot(command.slot);
     case "acceptOrder":
-    case "serveOrder":return token(command.order);
-    case "plate":return token(command.batch)&&(command.order===undefined||token(command.order));
+    case "serveOrder":return stall.customer&&token(command.order);
+    case "plate":return stall.customer&&token(command.batch)&&(command.order===undefined||token(command.order));
     default:return false;
   }
 }
 
 const position=(alias,axis)=>`json_extract(${alias}.avatar,'$.${axis}')`;
 const squared=(x,y)=>`((${x})*(${x})+(${y})*(${y}))`;
-const reach=(alias,radius)=>`${squared(`${position(alias,"x")}-(${BUNGEO_STALL.x})`,`${position(alias,"y")}-(${BUNGEO_STALL.y})`)}<=${radius**2}`;
+const reach=(alias,stall,radius)=>`${squared(`${position(alias,"x")}-(${stall.x})`,`${position(alias,"y")}-(${stall.y})`)}<=${radius**2}`;
 const playable=alias=>`json_extract(${alias}.avatar,'$.bus') IS NULL AND json_extract(${alias}.avatar,'$.seat') IS NULL
   AND json_extract(${alias}.avatar,'$.bikeRide') IS NULL
   AND (json_extract(${alias}.avatar,'$.bike') IS NULL OR json_type(${alias}.avatar,'$.bike.parked')='object')
@@ -85,13 +86,14 @@ const playable=alias=>`json_extract(${alias}.avatar,'$.bus') IS NULL AND json_ex
     CASE WHEN json_extract(${alias}.avatar,'$.vaultBase') IS NULL THEN ${JUMP_MS} ELSE 1150 END<=?
   AND COALESCE(json_extract(${alias}.avatar,'$.feed.at'),0)<=?
   AND COALESCE(json_extract(${alias}.avatar,'$.sickAt'),0)<=?`;
-const nearCook=`w.room=? AND w.id=? AND w.player_key=? AND w.updated>=? AND ${reach("w",BUNGEO_STALL.radius)} AND ${playable("w")}`;
+const nearCook=stall=>`w.room=? AND w.id=? AND w.player_key=? AND w.updated>=? AND ${reach("w",stall,stall.radius)} AND ${playable("w")}`;
+// Keep the original market's rows usable. Other stalls use a room-and-stall key for their cookware.
+const stateRoom=({room,stall})=>stall.customer?room:`${room}:${stall.id}`;
 const readyArgs=({room,id,key,now,online})=>[room,id,key,online,now,now-FEED_MS,now-SICK_DURATION_MS];
 const unseen="NOT EXISTS (SELECT 1 FROM bungeo_requests WHERE room=? AND player=? AND request=?)";
 const actionArgs=({room,id,bungeo})=>[room,id,bungeo.id];
-const moldArgs=({room,bungeo})=>[room,bungeo.cavity??0,bungeo.batch];
-const itemKinds=Object.entries(BUNGEO_ITEMS);
-const cookedKinds=[...Object.values(BUNGEO_ITEMS),BUNGEO_CUSTARD_ITEM].map(kind=>`'${kind}'`).join(",");
+const moldArgs=context=>[stateRoom(context),context.bungeo.cavity??0,context.bungeo.batch];
+const cookedKinds=[...Object.values(BUNGEO_ITEMS),BUNGEO_CUSTARD_ITEM,...Object.values(HOTTEOK_ITEMS)].map(kind=>`'${kind}'`).join(",");
 const mealKinds=Object.entries(ITEMS).filter(([,item])=>item.meal).map(([kind])=>`'${kind}'`).join(",");
 const durations=Object.entries(ITEMS).map(([kind,item])=>`WHEN '${kind}' THEN ${item.duration}`).join(" ");
 const itemPath=slot=>slot==="secondItem"?"$.secondItem":"$.item";
@@ -110,13 +112,13 @@ function receipt(db,context,{quality=null,slot=null,changed=1}={}){
 }
 
 function pour(db,context){
-  const {room,now,bungeo}=context;
+  const {now,bungeo,stall}=context;
   const write=db.prepare(`
     INSERT INTO bungeo_cavities (room,cavity,batch,poured,flipped,filling)
-    SELECT ?,?,?,?,NULL,? FROM walkers w WHERE ${nearCook} AND ${unseen}
+    SELECT ?,?,?,?,NULL,? FROM walkers w WHERE ${nearCook(stall)} AND ${unseen}
     ON CONFLICT(room,cavity) DO UPDATE SET batch=excluded.batch,poured=excluded.poured,flipped=NULL,filling=excluded.filling
     WHERE COALESCE(bungeo_cavities.flipped,bungeo_cavities.poured)<=?
-  `).bind(room,bungeo.cavity??0,bungeo.id,now,bungeo.prepare?null:"redBean",...readyArgs(context),...actionArgs(context),now-BUNGEO_EXPIRE_MS);
+  `).bind(stateRoom(context),bungeo.cavity??0,bungeo.id,now,bungeo.prepare?null:"redBean",...readyArgs(context),...actionArgs(context),now-BUNGEO_EXPIRE_MS);
   return [write,receipt(db,context)];
 }
 
@@ -125,7 +127,7 @@ function fill(db,context){
   const write=db.prepare(`
     UPDATE bungeo_cavities SET filling=?,poured=? WHERE room=? AND cavity=? AND batch=? AND filling IS NULL
       AND poured>? AND ${unseen}
-      AND EXISTS (SELECT 1 FROM walkers w WHERE ${nearCook})
+    AND EXISTS (SELECT 1 FROM walkers w WHERE ${nearCook(context.stall)})
   `).bind(bungeo.filling,now,...moldArgs(context),now-BUNGEO_EXPIRE_MS,...actionArgs(context),...readyArgs(context));
   return [write,receipt(db,context)];
 }
@@ -135,7 +137,7 @@ function flip(db,context){
   const write=db.prepare(`
     UPDATE bungeo_cavities SET flipped=? WHERE room=? AND cavity=? AND batch=? AND flipped IS NULL AND filling IS NOT NULL
       AND poured<=? AND poured>? AND ${unseen}
-      AND EXISTS (SELECT 1 FROM walkers w WHERE ${nearCook})
+    AND EXISTS (SELECT 1 FROM walkers w WHERE ${nearCook(context.stall)})
   `).bind(now,...moldArgs(context),now-BUNGEO_TOUCH_MS,now-BUNGEO_EXPIRE_MS,...actionArgs(context),...readyArgs(context));
   return [write,receipt(db,context)];
 }
@@ -145,17 +147,19 @@ const bakedQuality=`CASE WHEN flipped-poured>${BUNGEO_BURN_MS} OR ?-flipped>${BU
 const clearedMold=(db,context)=>db.prepare("DELETE FROM bungeo_cavities WHERE room=? AND cavity=? AND batch=? AND changes()=1")
   .bind(...moldArgs(context));
 function take(db,context){
-  const {now,bungeo}=context,path=itemPath(bungeo.slot);
+  const {now,bungeo,stall}=context,path=itemPath(bungeo.slot);
+  const items=stall.kind==="hotteok"?HOTTEOK_ITEMS:BUNGEO_ITEMS;
+  const qualityItem=`CASE quality ${Object.entries(items).map(([quality,kind])=>`WHEN '${quality}' THEN '${kind}'`).join(" ")} END`;
+  const pickup=stall.kind==="bungeo"?`CASE WHEN quality='good' AND filling='custard' THEN '${BUNGEO_CUSTARD_ITEM}' ELSE ${qualityItem} END`:qualityItem;
   const grant=db.prepare(`
     WITH bake AS MATERIALIZED (
       SELECT ${bakedQuality} AS quality,filling FROM bungeo_cavities
       WHERE room=? AND cavity=? AND batch=? AND flipped<=? AND flipped>? AND filling IS NOT NULL
     )
     UPDATE walkers AS w SET avatar=json_set(w.avatar,'${path}',json_object(
-      'kind',(SELECT CASE WHEN quality='good' AND filling='custard' THEN '${BUNGEO_CUSTARD_ITEM}'
-        ELSE CASE quality ${itemKinds.map(([quality,kind])=>`WHEN '${quality}' THEN '${kind}'`).join(" ")} END END FROM bake),
-      'remaining',${ITEMS.bungeoppang.uses},'started',0),'$.bungeoClaim',?)
-    WHERE ${nearCook} AND ${freeSlot("w",path)} AND ${noMeal("w")} AND ${unseen} AND EXISTS (SELECT 1 FROM bake)
+      'kind',(SELECT ${pickup} FROM bake),
+      'remaining',${ITEMS[items.good].uses},'started',0),'$.bungeoClaim',?)
+    WHERE ${nearCook(stall)} AND ${freeSlot("w",path)} AND ${noMeal("w")} AND ${unseen} AND EXISTS (SELECT 1 FROM bake)
   `).bind(now,now,...moldArgs(context),now-BUNGEO_TOUCH_MS,now-BUNGEO_EXPIRE_MS,bungeo.id,...readyArgs(context),now,...actionArgs(context));
   const remember=db.prepare(`
     INSERT INTO bungeo_requests (room,player,request,at,quality,slot)
@@ -166,15 +170,15 @@ function take(db,context){
 }
 
 function gift(db,context){
-  const {room,id,now,online,bungeo}=context,path=itemPath(bungeo.slot);
+  const {room,id,now,online,bungeo,stall}=context,path=itemPath(bungeo.slot);
   const transfer=db.prepare(`
     WITH transfer AS MATERIALIZED (
       SELECT w.id AS sender,r.id AS recipient,json_extract(w.avatar,'${path}') AS held,
         CASE WHEN ${freeSlot("r","$.item")} THEN '$.item' ELSE '$.secondItem' END AS destination
       FROM walkers w JOIN walkers r ON r.room=w.room AND r.id=?
-      WHERE ${nearCook} AND r.id<>w.id AND r.player_key IS NOT NULL AND r.updated>=?
+      WHERE ${nearCook(stall)} AND r.id<>w.id AND r.player_key IS NOT NULL AND r.updated>=?
         AND json_extract(r.avatar,'$.bungeoReady')=1
-        AND ${reach("r",BUNGEO_STALL.radius)} AND ${playable("r")} AND ${noMeal("r")}
+        AND ${reach("r",stall,stall.radius)} AND ${playable("r")} AND ${noMeal("r")}
         AND ${squared(`${position("w","x")}-${position("r","x")}`,`${position("w","y")}-${position("r","y")}`)}<=${BUNGEO_GIFT_REACH**2}
         AND (${freeSlot("r","$.item")} OR ${freeSlot("r","$.secondItem")})
         AND ${itemKind("w",path)} IN (${cookedKinds}) AND ${itemRemaining("w",path)}>0 AND ${availableAt("w",path)}<=?
@@ -193,7 +197,7 @@ function acceptOrder(db,context){
   const accept=db.prepare(`
     UPDATE bungeo_orders SET accepted=? WHERE room=? AND id=? AND accepted IS NULL AND completed IS NULL
       AND spawned<=? AND spawned>? AND ${unseen}
-      AND EXISTS (SELECT 1 FROM walkers w WHERE ${nearCook})
+      AND EXISTS (SELECT 1 FROM walkers w WHERE ${nearCook(context.stall)})
   `).bind(now,room,bungeo.order,now-BUNGEO_CUSTOMER_WALK_MS,now-BUNGEO_CUSTOMER_PATIENCE_MS,
     ...actionArgs(context),...readyArgs(context));
   return [accept,receipt(db,context)];
@@ -205,7 +209,7 @@ function plate(db,context){
   const plateFish=db.prepare(`
     UPDATE bungeo_orders SET stock=stock+1
     WHERE room=? AND stock<${BUNGEO_STOCK_CAPACITY} AND ${unseen}
-      AND EXISTS (SELECT 1 FROM walkers w WHERE ${nearCook})
+      AND EXISTS (SELECT 1 FROM walkers w WHERE ${nearCook(context.stall)})
       AND EXISTS (SELECT 1 FROM bungeo_cavities m WHERE m.room=bungeo_orders.room AND cavity=? AND batch=?
         AND flipped<=? AND flipped>? AND filling IS NOT NULL AND (${bakedQuality})='good')
   `).bind(room,...actionArgs(context),...readyArgs(context),
@@ -218,7 +222,7 @@ function serveOrder(db,context){
   const serve=db.prepare(`
     UPDATE bungeo_orders SET completed=?,sold=sold+quantity,stock=stock-quantity
     WHERE ${acceptedOrder} AND stock>=quantity AND ${unseen}
-      AND EXISTS (SELECT 1 FROM walkers w WHERE ${nearCook})
+      AND EXISTS (SELECT 1 FROM walkers w WHERE ${nearCook(context.stall)})
   `).bind(now,room,bungeo.order,now-BUNGEO_CUSTOMER_PATIENCE_MS,...actionArgs(context),...readyArgs(context));
   return [serve,receipt(db,context)];
 }
@@ -236,21 +240,22 @@ export function bungeoStatements(db,context){
   }
 }
 
-export function selectBungeo(db,{room,id,key,now,online,bungeo}){
+export function selectBungeo(db,context){
+  const {room,id,key,now,online,bungeo,stall}=context,cookingRoom=stateRoom(context);
   return db.prepare(`
     SELECT (SELECT json_group_array(json_object('cavity',m.cavity,'id',m.batch,
       'stage',CASE WHEN m.filling IS NULL THEN 'filling' WHEN m.flipped IS NULL THEN 'first' ELSE 'second' END,
       'pouredAt',m.poured,'flippedAt',m.flipped,'filling',m.filling))
-      FROM bungeo_cavities m JOIN walkers w ON w.room=m.room AND w.id=? AND w.player_key=? AND w.updated>=?
-      WHERE m.room=? AND COALESCE(m.flipped,m.poured)>? AND ${reach("w",BUNGEO_STALL.watchRadius)}) AS molds,
+      FROM bungeo_cavities m JOIN walkers w ON w.room=? AND w.id=? AND w.player_key=? AND w.updated>=?
+      WHERE m.room=? AND COALESCE(m.flipped,m.poured)>? AND ${reach("w",stall,stall.watchRadius)}) AS molds,
       (SELECT json_object('id',o.id,'customer',o.customer,'quantity',o.quantity,'stock',o.stock,
         'spawnedAt',o.spawned,'arrivesAt',o.spawned+${BUNGEO_CUSTOMER_WALK_MS},'acceptedAt',o.accepted,
         'completedAt',o.completed,'nextAt',o.completed+${BUNGEO_CUSTOMER_NEXT_MS},
         'expiresAt',COALESCE(o.accepted,o.spawned)+${BUNGEO_CUSTOMER_PATIENCE_MS},'totalSold',o.sold)
       FROM bungeo_orders o JOIN walkers w ON w.room=o.room AND w.id=? AND w.player_key=? AND w.updated>=?
-      WHERE o.room=? AND ${reach("w",BUNGEO_STALL.watchRadius)}) AS customerOrder,
+      WHERE o.room=? AND ${reach("w",stall,stall.watchRadius)}) AS customerOrder,
       (SELECT json_object('quality',quality,'slot',slot) FROM bungeo_requests WHERE room=? AND player=? AND request=?) AS receipt
-  `).bind(id,key,online,room,now-BUNGEO_EXPIRE_MS,id,key,online,room,room,id,bungeo?.id??null);
+  `).bind(room,id,key,online,cookingRoom,now-BUNGEO_EXPIRE_MS,id,key,online,cookingRoom,room,id,bungeo?.id??null);
 }
 
 function activeOrder(order,now){
@@ -261,17 +266,17 @@ function activeOrder(order,now){
 }
 
 export async function advanceBungeoOrder(db,context,avatar,row){
-  const {now,room}=context;
+  const {now,room,stall}=context;
   // Normal watch requests only read. Generate the next customer when someone's actually at the counter.
-  if(activeOrder(JSON.parse(row?.customerOrder??"null"),now)||
-    Math.hypot(avatar.x-BUNGEO_STALL.x,avatar.y-BUNGEO_STALL.y)>BUNGEO_STALL.radius||
+  if(!stall.customer||activeOrder(JSON.parse(row?.customerOrder??"null"),now)||
+    Math.hypot(avatar.x-stall.x,avatar.y-stall.y)>stall.radius||
     avatar.seat!=null||avatar.bus||avatar.bikeRide||avatar.bike&&!avatar.bike.parked||
     now-(avatar.jump??0)<(avatar.vaultBase==null?JUMP_MS:1150)||
     now-(avatar.feed?.at??0)<FEED_MS||now-(avatar.sickAt??0)<SICK_DURATION_MS)return row;
   const advance=db.prepare(`
     INSERT INTO bungeo_orders (room,id,customer,quantity,spawned)
     SELECT ?,lower(hex(randomblob(16))),abs(random()%6),1+abs(random()%3),?
-    FROM walkers w WHERE ${nearCook}
+    FROM walkers w WHERE ${nearCook(stall)}
     ON CONFLICT(room) DO UPDATE SET id=excluded.id,customer=excluded.customer,quantity=excluded.quantity,
       spawned=excluded.spawned,accepted=NULL,completed=NULL
     WHERE COALESCE(bungeo_orders.completed+${BUNGEO_CUSTOMER_NEXT_MS},
@@ -281,14 +286,14 @@ export async function advanceBungeoOrder(db,context,avatar,row){
   return selection.results[0];
 }
 
-export function bungeoPayload(row,{bungeo,now}){
+export function bungeoPayload(row,{bungeo,now,stall}){
   const bungeoMolds=Array(BUNGEO_MOLD_COUNT).fill(null);
   for(const {cavity,filling,...mold} of JSON.parse(row?.molds??"[]")){
     bungeoMolds[cavity]=filling==="custard"?{...mold,filling}:mold;
   }
   const order=JSON.parse(row?.customerOrder??"null");
   const bungeoOrder=activeOrder(order,now);
-  const state={bungeo:bungeoMolds[0]?.stage==="filling"?null:bungeoMolds[0],bungeoMolds,bungeoOrder,bungeoStock:order?.stock??0};
+  const state={bungeoStall:stall.id,bungeo:bungeoMolds[0]?.stage==="filling"?null:bungeoMolds[0],bungeoMolds,bungeoOrder,bungeoStock:order?.stock??0};
   if(!bungeo)return state;
   const result=row?.receipt?JSON.parse(row.receipt):null;
   return {...state,bungeoResult:{id:bungeo.id,accepted:Boolean(result),

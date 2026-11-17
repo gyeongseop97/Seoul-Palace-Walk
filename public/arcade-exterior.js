@@ -9,7 +9,9 @@ export function addArcadeExterior(T,parent,{wx,wz,box},groundHeight){
   facade.rotation.y=angle;parent.add(facade);
   const block=(color,x,y,z,w,h,d)=>box(color,x,y,z,w,h,d,facade);
   block(0x34464e,0,1.78,0,width,4,depth);
-  block(0x202c33,0,3.80,0,width+.36,.25,depth+.4);
+  block(0x3c4e56,0,5.43,.04,width-.25,3.40,depth-.17);
+  block(0x202c33,0,7.14,0,width+.36,.25,depth+.4);
+  block(0x293d45,0,4.00,z,width+.23,.24,.38);
   block(0x202c33,0,3.36,z,width+.22,.62,.28);
   block(0x458f84,0,3.02,z+.155,width,.05,.08);
   block(0xd5835e,0,3.68,z+.155,width,.05,.08);
@@ -22,6 +24,10 @@ export function addArcadeExterior(T,parent,{wx,wz,box},groundHeight){
       block(0x202c33,side*dx,1.61,z+.04,1.44,1.68,.12);
       block(0x416271,side*dx,1.61,z+.105,1.25,1.48,.028);
       block(0x458f84,side*dx,1.10,z+.125,1.05,.055,.021);
+      block(0x25353c,side*dx,5.62,z-.03,1.50,1.40,.16);
+      block(0x5e8692,side*dx,5.62,z+.063,1.27,1.18,.036);
+      block(0x425a60,side*dx,5.62,z+.09,.035,1.17,.026);
     }
   }
+  standSign(T,facade,"2층","사격 · 양궁 · 스크린 야구",3.54,0,5.69,z+.062,"#294451","#ffe9bd",.46);
 }

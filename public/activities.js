@@ -19,6 +19,7 @@ export function renderedJumpLift(avatar,clock,floor){
 }
 const crepe={name:"크레페",verb:"먹기",uses:3,duration:1300};
 const bungeoppang={name:"붕어빵",verb:"먹기",uses:3,duration:1300,snack:true};
+const hotteok={name:"호떡",verb:"먹기",uses:3,duration:1300,snack:true};
 const meal=(name,utensil="spoon")=>({name,verb:"먹기",uses:3,duration:1800,meal:true,utensil});
 export const ITEMS={
   sparkler:{name:"스파클",verb:"사용하기",uses:1,duration:8000},
@@ -32,6 +33,9 @@ export const ITEMS={
   bungeoppangCustard:{...bungeoppang,name:"슈크림 붕어빵"},
   bungeoppangBurnt:{...bungeoppang,name:"탄 붕어빵"},
   bungeoppangTorn:{...bungeoppang,name:"속이 터진 붕어빵"},
+  hotteok,
+  hotteokBurnt:{...hotteok,name:"탄 호떡"},
+  hotteokTorn:{...hotteok,name:"속이 터진 호떡"},
   riceCake:{name:"꿀떡",verb:"먹기",uses:3,duration:1300},
   bibimbap:meal("나물 비빔밥"),
   mushroomSoup:meal("버섯 국밥"),

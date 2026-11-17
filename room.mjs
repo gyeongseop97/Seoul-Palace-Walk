@@ -14,6 +14,7 @@ import {ensureSocialTables} from "./database/social-schema.mjs";
 import {ensureRoomPhotos,roomPhotoPayload,selectRoomPhoto,validPhoto,writeRoomPhoto} from "./server/room-photo.mjs";
 import {getRoomWeather} from "./server/room-weather.mjs";
 import {arcadeSnapshotLifetime,cleanArcadeActivity} from "./server/room-arcade.mjs";
+import {ensureRoomBowling,pruneRoomBowling,roomBowling,selectRoomBowling,validBowling} from "./server/room-bowling.mjs";
 import {cleanupSocial,clinkStatement,leaveClinks,selectSocial,socialPayload,startFountainShow} from "./server/social.mjs";
 import {ensureMinigameTables} from "./database/minigame-schema.mjs";
 import {cleanupMinigames,leaveMinigames,minigamePayload,minigameStatements,selectMinigames,validMinigame} from "./server/minigames.mjs";
@@ -21,6 +22,7 @@ import {ensureUmbrellaPairs,umbrellaWeather,umbrellaActorsReady,umbrellaPairMark
   visibleUmbrellaPairs,markUmbrellaPair,purgeUmbrellaPairs,clearUmbrellaMarkers} from "./server/umbrella-pairs.mjs";
 import {ensurePicnicTables,validPicnic,picnicStatements,selectPicnics,picnicPayload,cleanupPicnics} from "./server/picnic.mjs";
 import {advanceBungeoOrder,ensureBungeoTables,validBungeo,bungeoStatements,selectBungeo,bungeoPayload,cleanupBungeo} from "./server/bungeo.mjs";
+import {BUNGEO_STALL,cookingStallById} from "./public/bungeo-data.js";
 import {handleGuestbook} from "./server/guestbook.mjs";
 import {diningService,ensureDiningService,isDiningVenue,pruneDiningService,selectDiningService,validDiningCommand} from "./server/dining-service.mjs";
 
@@ -542,7 +544,7 @@ export async function api(request,env){
     return json({error:"잘못된 산책방 정보예요."},400);
   }
   const {room,id,key=null,avatar,view,signal,hand,feed,bus,bike,show,clink,leave,lookPings}=body;
-  const {minigame,picnic,dining,bungeo}=body;
+  const {minigame,picnic,dining,bungeo,bowling}=body;
   const diningVenue=dining?.venue??body.diningVenue;
   if(body.guestbook!==undefined){
     const now=Date.now();
@@ -577,7 +579,8 @@ export async function api(request,env){
   if(photo!=null&&(!key||avatar===undefined||!validPhoto(photo)))return json({error:"단체 사진 요청을 읽을 수 없어요."},400);
   if(minigame!=null&&(!key||avatar===undefined||!validMinigame(minigame)))return json({error:"민속놀이 요청을 읽을 수 없어요."},400);
   if(picnic!=null&&(!key||avatar===undefined||!validPicnic(picnic)))return json({error:"피크닉 요청을 읽을 수 없어요."},400);
-  if(bungeo!=null&&(!key||avatar===undefined||!validBungeo(bungeo,id)))return json({error:"붕어빵 좌판 요청을 읽을 수 없어요."},400);
+  if(bungeo!=null&&(!key||avatar===undefined||!validBungeo(bungeo,id)))return json({error:"조리 좌판 요청을 읽을 수 없어요."},400);
+  if(bowling!=null&&(!key||avatar===undefined||!validBowling(bowling)))return json({error:"볼링 요청을 읽을 수 없어요."},400);
   if(diningVenue!=null&&(!key||!isDiningVenue(diningVenue))||dining!=null&&(!key||avatar===undefined||!validDiningCommand(dining))){
     return json({error:"식당 요청을 읽을 수 없어요."},400);
   }
@@ -590,8 +593,11 @@ export async function api(request,env){
   await ensureMinigameTables(db);
   await ensureUmbrellaPairs(db);
   await ensurePicnicTables(db);
-  const watchBungeo=Boolean(key&&(bungeo||body.bungeoWatch===true));
+  const cookingStall=key&&(cookingStallById(bungeo?.stall??body.bungeoWatch)??(body.bungeoWatch===true?BUNGEO_STALL:null));
+  const watchBungeo=Boolean(cookingStall);
   if(watchBungeo)await ensureBungeoTables(db);
+  const watchBowling=Boolean(key&&(bowling||body.bowlingWatch===true));
+  if(watchBowling)await ensureRoomBowling(db);
   const tandem=Boolean(key&&(body.bikeOffers===true||tandemActions.has(bike?.action)));
   if(tandem)await ensureBikeOffers(db);
   if(diningVenue)await ensureDiningService(db);
@@ -613,6 +619,7 @@ export async function api(request,env){
       operations.push(...cleanupMinigames(db,room,now-600000));
       operations.push(...cleanupPicnics(db,room,now));
       if(watchBungeo)operations.push(...cleanupBungeo(db,now));
+      if(watchBowling)operations.push(pruneRoomBowling(db,now));
       if(diningVenue)operations.push(pruneDiningService(db,now));
       operations.push(db.prepare(`
         DELETE FROM handholds WHERE created < ? AND
@@ -650,9 +657,10 @@ export async function api(request,env){
   const picnicContext={room,id,key,now,online,picnic};
   if(picnic)operations.push(...picnicStatements(db,picnicContext));
   const picnicSelection=operations.push(selectPicnics(db,picnicContext))-1;
-  const bungeoContext={room,id,key,now,online,bungeo};
+  const bungeoContext={room,id,key,now,online,bungeo,stall:cookingStall};
   if(bungeo)operations.push(...bungeoStatements(db,bungeoContext));
   const bungeoSelection=watchBungeo?operations.push(selectBungeo(db,bungeoContext))-1:-1;
+  const bowlingSelection=watchBowling?operations.push(selectRoomBowling(db,room))-1:-1;
   const diningSelection=diningVenue?operations.push(selectDiningService(db,room,diningVenue))-1:-1;
   const socialContext={room,id,key,now,online,show,clink};
   if(show)operations.push(startFountainShow(db,socialContext));
@@ -690,6 +698,8 @@ export async function api(request,env){
   const receiver={id,avatar:avatars.get(id)};
   const bungeoState=watchBungeo?bungeoPayload(await advanceBungeoOrder(db,bungeoContext,receiver.avatar,
     results[bungeoSelection].results[0]),bungeoContext):{};
+  const bowlingState=watchBowling?await roomBowling(db,{room,id,key,now,avatar:receiver.avatar,command:bowling,
+    row:results[bowlingSelection].results[0],rows,avatars}):{};
   const tableService=diningVenue?await diningService(db,{room,id,key,venueId:diningVenue,command:dining,now,active,
     players:new Map(rows.filter(row=>row.updated>=active).map(row=>[row.id,avatars.get(row.id)])),
     state:results[diningSelection].results[0]}):undefined;
@@ -703,7 +713,8 @@ export async function api(request,env){
     if(avatar.catFriends&&(row===ownRow||receiverIndoors||
       Math.hypot(avatar.x-receiver.avatar.x,avatar.y-receiver.avatar.y)>62))delete avatar.catFriends;
     if(avatar.arcade!==undefined){
-      const activity=receiverInterior==="arcade"&&row.player_key&&row.updated>=now-arcadeSnapshotLifetime&&cleanArcadeActivity(avatar);
+      const activity=(receiverInterior==="arcade"||receiverInterior==="arcade-upper")&&
+        interiorAt(avatar.x,avatar.y)===receiverInterior&&row.player_key&&row.updated>=now-arcadeSnapshotLifetime&&cleanArcadeActivity(avatar);
       if(activity)avatar.arcade=activity;
       else delete avatar.arcade;
     }
@@ -728,6 +739,7 @@ export async function api(request,env){
     ...minigamePayload(results[minigameSelection].results[0],minigame),
     ...picnicPayload(results[picnicSelection].results[0],picnic),
     ...bungeoState,
+    ...bowlingState,
     dining:tableService,
     handholds,umbrellas,
     bikeOffer:tandem?bikeOffer:undefined,

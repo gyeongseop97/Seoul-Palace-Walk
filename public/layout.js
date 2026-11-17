@@ -232,14 +232,24 @@ export const city = [
 export const landmarks=[spawn,ticket,gate,bridge,middle,court,hall,stoneHall,stoneFountain,palacePond,...palace,...route,...pavilions];
 export function addLandmarks(points){landmarks.push(...points);}
 // Neighbouring zones share the same coordinate system and may overlap at their edges.
-const zones=[];
-export function addZone(zone){zones.push(zone);}
+const zones=[],waterZones=[];
+export function addZone(zone){
+  zones.push(zone);
+  if(zone.water)waterZones.push(zone);
+}
 export function zoneAt(x,y){
   for(const zone of zones)if(zone.contains(x,y))return zone;
   return null;
 }
 export const distance=(point,x,y)=>Math.hypot(point.x-x,point.y-y);
-export const nearest=(x,y)=>landmarks.reduce((best,point)=>distance(point,x,y)<distance(best,x,y)?point:best);
+export function nearest(x,y){
+  let best=landmarks[0],shortest=(best.x-x)**2+(best.y-y)**2;
+  for(let index=1;index<landmarks.length;index++){
+    const point=landmarks[index],gap=(point.x-x)**2+(point.y-y)**2;
+    if(gap<shortest){best=point;shortest=gap;}
+  }
+  return best;
+}
 
 function inPolygon(x,y,points){
   let inside=false;
@@ -249,15 +259,34 @@ function inPolygon(x,y,points){
   }
   return inside;
 }
-function nearPath(points,x,y,radius){
-  for(let i=1;i<points.length;i++){
-    const a=points[i-1],b=points[i],dx=b.x-a.x,dy=b.y-a.y;
-    const lengthSquared=dx*dx+dy*dy;
-    const t=lengthSquared?Math.max(0,Math.min(1,((x-a.x)*dx+(y-a.y)*dy)/lengthSquared)):0;
-    if(Math.hypot(x-a.x-dx*t,y-a.y-dy*t)<radius)return true;
-  }
-  return false;
+function boundsOf(points,padding=0){
+  const xs=points.map(point=>point.x),ys=points.map(point=>point.y);
+  return {minX:Math.min(...xs)-padding,maxX:Math.max(...xs)+padding,minY:Math.min(...ys)-padding,maxY:Math.max(...ys)+padding};
 }
+const inBounds=(bounds,x,y)=>x>=bounds.minX&&x<=bounds.maxX&&y>=bounds.minY&&y<=bounds.maxY;
+function polygonContains(points){
+  const bounds=boundsOf(points);
+  return (x,y)=>inBounds(bounds,x,y)&&inPolygon(x,y,points);
+}
+function pathContains(points,radius){
+  const radiusSquared=radius*radius;
+  const segments=points.slice(1).map((b,index)=>{
+    const a=points[index],dx=b.x-a.x,dy=b.y-a.y;
+    return {a,dx,dy,lengthSquared:dx*dx+dy*dy,bounds:boundsOf([a,b],radius)};
+  });
+  return (x,y)=>{
+    for(const {a,dx,dy,lengthSquared,bounds} of segments){
+      if(!inBounds(bounds,x,y))continue;
+      const ox=x-a.x,oy=y-a.y;
+      const t=lengthSquared?Math.max(0,Math.min(1,(ox*dx+oy*dy)/lengthSquared)):0;
+      if((ox-dx*t)**2+(oy-dy*t)**2<radiusSquared)return true;
+    }
+    return false;
+  };
+}
+const inEstate=polygonContains(estateOutline),inVerge=polygonContains(stonewallVerge),inPond=polygonContains(palacePond.outline);
+const onEntrance=pathContains(entranceWalk,7.4),onStationWalk=pathContains(stationWalk,3.6);
+const onStonewall=pathContains(route,5.4),onPalace=pathContains(palace,4.1);
 
 const obstacleBuckets = new Map();
 let activeObstacles=obstacleBuckets;
@@ -381,8 +410,8 @@ export function loftStep(from,x,y){
 // Shallow water (a palace pond) can be waded by people. Animals and planned routes keep to
 // dry ground, so the plain checks below never count water as walkable.
 export function waterDepth(x,y){
-  for(const zone of zones){
-    if(!zone.water||!zone.contains(x,y))continue;
+  for(const zone of waterZones){
+    if(!zone.contains(x,y))continue;
     const depth=zone.water(x,y);
     if(depth)return depth;
   }
@@ -404,7 +433,7 @@ export function walkable(x,y,feet=0){
   const interior=interiorAt(x,y);
   if(interior)return !solidAt(x,y,feetLevel(feet));
   const inDeoksugung=x>=45&&x<=560&&y>=deoksugungNorthEdge&&y<=420;
-  if(solidAt(x,y,feetLevel(feet))||(inDeoksugung&&inPolygon(x,y,palacePond.outline)))return false;
+  if(solidAt(x,y,feetLevel(feet))||(inDeoksugung&&inPond(x,y)))return false;
   let open=false;
   for(const zone of zones){
     if(!zone.contains(x,y))continue;
@@ -413,9 +442,8 @@ export function walkable(x,y,feet=0){
   }
   if(open)return true;
   if(!inDeoksugung)return false;
-  return inPolygon(x,y,estateOutline) || distance(spawn,x,y)<23 || distance(fountain,x,y)<15 ||
-    inPolygon(x,y,stonewallVerge) || distance(garden,x,y)<9 || nearPath(entranceWalk,x,y,7.4) || nearPath(stationWalk,x,y,3.6) || nearPath(route,x,y,5.4) ||
-    nearPath(palace,x,y,4.1);
+  return inEstate(x,y)||distance(spawn,x,y)<23||distance(fountain,x,y)<15||inVerge(x,y)||distance(garden,x,y)<9||
+    onEntrance(x,y)||onStationWalk(x,y)||onStonewall(x,y)||onPalace(x,y);
 }
 export function clearSegment(from,to,step=.36,feet=0){
   const dx=to.x-from.x,dy=to.y-from.y;

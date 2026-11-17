@@ -22,6 +22,7 @@ export const CLAW_PRIZES=Object.freeze([
 }));
 export const BASKET_CHARGE_MS=940;
 export const BASKET_REST_POWER=.6;
+export const BASKET_SHOT_LIMIT=10;
 
 const clawClock=Object.freeze({reaching:760,closed:1110,lifted:2060,returned:3130,released:3430,finished:4260});
 const clamp=(value,min=0,max=1)=>Math.min(max,Math.max(min,value));
@@ -164,7 +165,7 @@ export function makeArcadeGames({random=Math.random,playBasketImpact=()=>{}}={})
   }
 
   function act(time,power=basketAim.power){
-    if(phase!=="aim"||!Number.isFinite(time))return false;
+    if(phase!=="aim"||!Number.isFinite(time)||kind==="basket"&&attempts>=BASKET_SHOT_LIMIT)return false;
     attempts++;lastResult=lastPrize=null;
     if(kind==="claw"){
       if(!claw.prizes.some(prize=>prize.available))claw.prizes=resetPrizes();
@@ -240,6 +241,10 @@ export function makeArcadeGames({random=Math.random,playBasketImpact=()=>{}}={})
   const aim=({pan,tilt},power)=>{
     if(kind==="basket"&&(pan!==basketAim.pan||tilt!==basketAim.tilt||power!==basketAim.power))basketAim={pan,tilt,power};
   };
-  const state=()=>({kind,phase,attempts,score,lastResult,lastPrize,claw,basket,rimX,level,basketAim});
+  const state=()=>{
+    const shotsLeft=kind==="basket"?BASKET_SHOT_LIMIT-attempts:null;
+    return {kind,phase,attempts,score,lastResult,lastPrize,claw,basket,rimX,level,basketAim,shotsLeft,
+      finished:shotsLeft===0&&phase==="aim"};
+  };
   return {start,stop,move,act,tick,state,aim};
 }

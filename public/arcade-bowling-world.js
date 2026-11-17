@@ -1,4 +1,5 @@
-import {BOWLING_BALL_RADIUS,BOWLING_LANE_X,BOWLING_ROLL_MS,BOWLING_START,bowlingAimAngle,bowlingFrame} from "./arcade-bowling.js";
+import {BOWLING_BALL_RADIUS,BOWLING_FRAME_COUNT,BOWLING_LANE_X,BOWLING_ROLL_MS,BOWLING_START,
+  bowlingAimAngle,bowlingFrame,bowlingOffset,bowlingScore,bowlingTurn,readyBowlingFrame} from "./arcade-bowling.js";
 
 const wood=0xcfad79,trim=0x45606a,steel=0x2a404a,cream=0xf1d6a6,teal=0x68c4b1,orange=0xe59b62;
 const laneHeight=.136;
@@ -88,60 +89,106 @@ export function addBowlingLane(T,parent,{box,shape}){
   });
   const aim=group("볼링 조준선");
   aim.position.set(0,laneHeight+.013,BOWLING_START);
-  for(const distance of [.67,1.42,2.19,3.0,3.84,4.72]){
-    dynamic(block(0x478577,0,0,-distance,.064,.006,.29,aim));
-  }
+  const aimDashes=[.67,1.42,2.19,3.0,3.84,4.72].map(distance=>
+    [distance,dynamic(block(0x478577,0,0,-distance,.064,.006,.29,aim))]);
 
-  block(0x1a2d35,0,2.82,-5.685,3.49,1.03,.16);
+  block(0x1a2d35,0,2.93,-5.685,3.75,1.53,.16);
   const score=makeDisplay();
   const axis=new T.Vector3();
   const axisAt=angle=>axis.set(-Math.cos(angle),0,-Math.sin(angle));
-  let previousRoll,rolling=false;
-  function update(roll,now,aimPan){
-    aim.visible=Number.isFinite(aimPan)&&(!roll||now-roll.at>=BOWLING_ROLL_MS);
-    if(aim.visible)aim.rotation.y=-bowlingAimAngle(aimPan);
-    if(roll===previousRoll&&!rolling)return;
-    const state=bowlingFrame(roll,now),pose=state.ball;
-    previousRoll=roll;rolling=state.rolling;
-    ball.visible=Boolean(pose?.visible);
-    if(ball.visible){
-      ball.position.set(pose.x,laneHeight+BOWLING_BALL_RADIUS-pose.drop,pose.z);
-      ball.quaternion.setFromAxisAngle(axisAt(pose.angle),pose.spin);
+  let previousRoll,previousMask,state=readyBowlingFrame();
+  function update(roll,now,aimPan,match,aimOffset=0){
+    aim.visible=Number.isFinite(aimPan)&&(match?match.phase==="playing"&&!roll:!roll||now-roll.at>=BOWLING_ROLL_MS);
+    if(aim.visible){
+      const angle=bowlingAimAngle(aimPan),offset=bowlingOffset(aimOffset),lateral=Math.sin(angle);
+      aim.rotation.y=-angle;
+      aim.position.x=offset;
+      for(const [distance,dash] of aimDashes)dash.visible=Math.abs(offset+lateral*distance)<1.48;
     }
-    state.pins.forEach(({x,z,fall,angle,visible},index)=>{
-      const pin=pins[index];pin.visible=visible;
-      if(!visible)return;
-      pin.position.set(x,laneHeight+.108*Math.sin(fall),z);
-      pin.quaternion.setFromAxisAngle(axisAt(angle),fall);
-    });
-    score(state);
+    const mask=match?.standing;
+    if(roll!==previousRoll||mask!==previousMask||state.rolling){
+      state=roll?bowlingFrame(roll,now):readyBowlingFrame(mask);
+      const pose=state.ball;
+      previousRoll=roll;previousMask=mask;
+      ball.visible=Boolean(pose?.visible);
+      if(ball.visible){
+        ball.position.set(pose.x,laneHeight+BOWLING_BALL_RADIUS-pose.drop,pose.z);
+        ball.quaternion.setFromAxisAngle(axisAt(pose.angle),pose.spin);
+      }
+      state.pins.forEach(({x,z,fall,angle,visible},index)=>{
+        const pin=pins[index];pin.visible=visible;
+        if(!visible)return;
+        pin.position.set(x,laneHeight+.108*Math.sin(fall),z);
+        pin.quaternion.setFromAxisAngle(axisAt(angle),fall);
+      });
+    }
+    score(state,match,now);
   }
   update(null,0);
   return {update};
 
   function makeDisplay(){
     if(typeof document==="undefined")return ()=>{};
-    const canvas=document.createElement("canvas");canvas.width=512;canvas.height=154;
+    const canvas=document.createElement("canvas");canvas.width=768;canvas.height=310;
     const ctx=canvas.getContext("2d");if(!ctx)return ()=>{};
     const map=new T.CanvasTexture(canvas);map.colorSpace=T.SRGBColorSpace;
-    const panel=dynamic(new T.Mesh(new T.PlaneGeometry(3.24,.87),new T.MeshBasicMaterial({map,toneMapped:false})));
-    panel.position.set(0,2.82,-5.598);lane.add(panel);
-    let previous="";
-    return ({roll,knocked,result,rolling,standing})=>{
-      const state=roll?(rolling?"굴리는 중":{strike:"스트라이크",spare:"스페어",hit:"넘어진 핀",miss:"다시 조준"}[result]):"볼링";
-      const key=[roll?.at,knocked,state,standing].join("/");
+    const panel=dynamic(new T.Mesh(new T.PlaneGeometry(3.57,1.44),new T.MeshBasicMaterial({map,toneMapped:false})));
+    panel.name="볼링 전광판";
+    panel.position.set(0,2.93,-5.598);lane.add(panel);
+    let previous="",players,scored=[];
+    return ({roll,knocked,result,rolling},match,now)=>{
+      let title="볼링",subtitle="공을 굴려 핀 10개를 쓰러뜨리세요";
+      if(players!==match?.players){
+        players=match?.players;
+        scored=(players??[]).map(({id,nickname,frames})=>{
+          const {total,scores}=bowlingScore(frames);
+          return {id,nickname,total,pending:scores.includes(null)};
+        });
+      }
+      const pageCount=Math.max(1,Math.ceil(scored.length/4)),page=Math.floor(now/5400)%pageCount;
+      const rows=scored.slice(page*4,page*4+4);
+      if(match){
+        const active=players.find(player=>player.id===(roll?match.rollPlayer:match.turn)),turn=bowlingTurn(match);
+        if(roll)title=`${active?.nickname??"플레이어"} 투구 중`;
+        else if(match.phase==="finished")title="경기 종료";
+        else if(active)title=`현재 차례 · ${active.nickname}`;
+        subtitle=roll?`${roll.attempt}구   ·   넘어간 핀 ${knocked}개`:turn?`${turn.frame} / ${BOWLING_FRAME_COUNT} 프레임   ·   ${turn.attempt}구`:"";
+      }else if(roll){
+        title=rolling?"굴리는 중":{strike:"스트라이크",spare:"스페어",hit:"넘어진 핀",miss:"다시 조준"}[result];
+        subtitle=`${roll.attempt}구   ·   ${knocked}개`;
+      }
+      const activeId=roll?match?.rollPlayer:match?.turn;
+      const key=JSON.stringify([title,subtitle,page,pageCount,activeId,rows]);
       if(key===previous)return;
       previous=key;
-      ctx.fillStyle="#162936";ctx.fillRect(0,0,512,154);
-      ctx.strokeStyle="#649a9b";ctx.lineWidth=2;ctx.strokeRect(10,10,492,134);
-      ctx.fillStyle="#fae1b4";ctx.textAlign="center";ctx.textBaseline="middle";
-      ctx.font='700 38px "Malgun Gothic", sans-serif';ctx.fillText(state,256,62);
-      if(roll){
-        ctx.font='600 23px "Malgun Gothic", sans-serif';ctx.fillStyle="#a3dccc";
-        ctx.fillText(`${roll.attempt}구   ·   ${knocked}개`,256,111);
-      }else{
-        ctx.font='600 21px "Malgun Gothic", sans-serif';ctx.fillStyle="#a3dccc";
-        ctx.fillText("공을 굴려 핀 10개를 쓰러뜨리세요",256,111);
+      ctx.fillStyle="#102632";ctx.fillRect(0,0,768,310);
+      ctx.strokeStyle="#507d84";ctx.lineWidth=2;ctx.strokeRect(9,9,750,292);
+      ctx.textBaseline="middle";ctx.fillStyle="#f7dfaf";
+      ctx.textAlign=rows.length?"left":"center";
+      ctx.font=`700 ${rows.length?36:66}px "Malgun Gothic", sans-serif`;
+      ctx.fillText(title,rows.length?29:384,rows.length?42:123,rows.length?688:690);
+      ctx.fillStyle="#a8d7cb";ctx.font='600 24px "Malgun Gothic", sans-serif';
+      ctx.fillText(subtitle,rows.length?30:384,rows.length?77:196,688);
+      if(rows.length){
+        const rowHeight=Math.min(60,188/rows.length);
+        rows.forEach(({id,nickname,total,pending},index)=>{
+          const y=101+index*rowHeight,active=id===activeId;
+          ctx.fillStyle=active?"#20584f":index%2===0?"#203641":"#172e39";
+          ctx.fillRect(25,y,718,rowHeight-3);
+          if(active){ctx.fillStyle="#7ae6be";ctx.fillRect(25,y,5,rowHeight-3);}
+          ctx.fillStyle=active?"#e4fff0":"#f2e2cb";
+          ctx.font='700 32px "Malgun Gothic", sans-serif';ctx.textAlign="left";
+          ctx.fillText(nickname,43,y+rowHeight*.48,pending?398:520);
+          ctx.textAlign="right";ctx.fillText(`${total}점`,724,y+rowHeight*.48,132);
+          if(pending){
+            ctx.fillStyle="#aad5c7";ctx.font='600 20px "Malgun Gothic", sans-serif';
+            ctx.fillText("집계 중",571,y+rowHeight*.48);
+          }
+        });
+        if(pageCount>1){
+          ctx.fillStyle="#a8d7cb";ctx.font='600 17px "Malgun Gothic", sans-serif';
+          ctx.fillText(`${page+1} / ${pageCount}`,723,291);
+        }
       }
       map.needsUpdate=true;
     };
