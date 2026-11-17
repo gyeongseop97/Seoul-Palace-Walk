@@ -483,9 +483,10 @@ function addPlazaFountains({T,group,world,block,water,random,terrainHeight}){
   const falls=[];
   for(let i=0;i<18;i++)falls.push({...jet(-38.1+i*.48,403.68,1.04,0,-.88),fall:true});
   sources.push({centre:plazaSites.cascade,jets:falls});
-  const droplet=new T.SphereGeometry(1,5,4),dropColor=new T.MeshBasicMaterial({color:0xb7e7f0,transparent:true,opacity:.65,depthWrite:false});
+  const droplet=new T.SphereGeometry(1,7,6),dropColor=new T.MeshBasicMaterial({color:0xc4ecf4,transparent:true,opacity:.58,depthWrite:false});
   const transform=new T.Object3D(),nightColor=new T.Color(0x8bc6ff),dayColor=new T.Color(0xc4eaf4),white=new T.Color(0xffffff);
-  const droplets=11;
+  // Enough drops, each drawn out along its flight, that a jet reads as one unbroken stream.
+  const droplets=18,upward=new T.Vector3(0,1,0),flight=new T.Vector3();
   for(const source of sources){
     const mesh=new T.InstancedMesh(droplet,dropColor,source.jets.length*droplets);
     mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);mesh.frustumCulled=false;mesh.visible=false;
@@ -547,9 +548,13 @@ function addPlazaFountains({T,group,world,block,water,random,terrainHeight}){
           const drift=fall?time:time*time;
           const y=fall?between(1.19,.18,time):.08+4*h*pulse*time*(1-time);
           transform.position.set(x+dx*drift,base+y,z-dn*drift);
-          const thickness=.026+time*.025+(performance?.envelope??0)*.019;
-          transform.scale.set(thickness,fall?.098:.045+Math.abs(.5-time)*.13,thickness);
-          transform.rotation.z=fall?0:-dx*(.10+time*.12);
+          // The water thins as it climbs and breaks into heavier drops on the way down.
+          const thickness=(fall?.030:.034-.012*Math.sin(Math.PI*time)+time*.020)+(performance?.envelope??0)*.019;
+          if(fall)flight.set(0,-1.01,-dn);
+          else flight.set(dx*2*time,4*h*pulse*(1-2*time),-dn*2*time);
+          const reach=flight.length();
+          transform.scale.set(thickness,Math.max(.05,reach/droplets*.60),thickness);
+          transform.quaternion.setFromUnitVectors(upward,flight.multiplyScalar(1/(reach||1)));
           transform.updateMatrix();mesh.setMatrixAt(index,transform.matrix);
           if(performance)mesh.setColorAt(index,color);else if(isShow&&showed)mesh.setColorAt(index,white);
           index++;

@@ -294,7 +294,7 @@ let registered=false;
 export function registerCheonggyeNavigation(){
   if(registered)return;
   registered=true;
-  addObstacle(553.8,-157.2,4.5,4.3);
+  addObstacle(553.8,-157.2,7.3,7.3);
   for(const [x,y] of cheonggyeTrees)addObstacle(x,y,.38,.38);
 }
 addZone({name:"청계천",contains:inCheonggye,walkable:cheonggyeWalkable,connects:cheonggyeConnection});

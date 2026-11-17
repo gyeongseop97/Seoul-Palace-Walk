@@ -2,7 +2,7 @@ import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {bankAt,cheonggyeAccess,cheonggyeAccessDrop,cheonggyeBedLevel,cheonggyeBounds,cheonggyeBridges,cheonggyeCascade,cheonggyeLevel,
   cheonggyeOpenAir,cheonggyeRailOpening,cheonggyeRoadLeads,cheonggyeStations,cheonggyeSurfaces,cheonggyeTrees,cheonggyeWalkFrom,riverAt,stepStoneXs} from "./cheonggye-layout.js";
 import {CHEONGGYE_WATER_LEVEL,cheonggyeSeats} from "./cheonggye-seats.js";
-import {waterCells,waterNoise} from "./water-shader.js";
+import {basinWater,tickWater,waterCells,waterNoise} from "./water-shader.js";
 
 export function* buildCheonggye(T,root,kit,terrain){
   const {wx,wz,box,cylinder,matte}=kit;
@@ -456,26 +456,58 @@ export function* buildCheonggye(T,root,kit,terrain){
       block(0xa39e91,x+offset,y-side*.258,1.13,.20,.095,base-.146);
     }
   }
-  // The Spring sculpture, plaza runnel, and the split waterfall at the head.
-  const spring={x:553.8,y:-157.2},base=at(spring.x,spring.y);
-  block(cap,spring.x,spring.y,4.6,4.4,.28,base);
-  const start=new T.Vector3(wx(spring.x),base+.38,wz(spring.y));
-  const points=[];
-  for(let i=0;i<=165;i++){
-    const t=i/165,a=t*Math.PI*16,r=1.72*(1-t)**.75+.035;
-    points.push(new T.Vector3(start.x+Math.cos(a)*r+.56*t,start.y+t*11.5,start.z+Math.sin(a)*r));
+  // Spring, by Claes Oldenburg and Coosje van Bruggen (2006): a tall spiral shell, blue outside
+  // and red within, standing over a round basin. Two ribbons run down inside it to the water.
+  const springWater=basinWater(T,{bed:[0x4a504d,0x6d746f],tile:1.6,tint:0x2e8fa6,depth:.14});
+  {
+    const spring={x:553.8,y:-157.2},base=at(spring.x,spring.y),cx=wx(spring.x),cz=wz(spring.y);
+    const part=(geometry,material,y)=>{
+      const model=new T.Mesh(geometry,material);
+      model.position.set(cx,base+y,cz);model.castShadow=model.receiveShadow=true;root.add(model);
+      return model;
+    };
+    part(new T.CylinderGeometry(3.78,3.9,.34,56),new T.MeshStandardMaterial({color:0x5e625d,roughness:.9}),.17);
+    part(new T.CylinderGeometry(3.42,3.42,.06,56),new T.MeshStandardMaterial({color:0x3b403d,roughness:1}),.33);
+    const pool=part(new T.CircleGeometry(3.42,56),springWater,.372);
+    pool.rotation.x=-Math.PI/2;pool.castShadow=false;
+    // Each turn of the shell is a skirt: tucked under the turn above, flaring to a lip below.
+    const height=18.2,foot=.86,whorls=9.5,turns=whorls*Math.PI*2,around=Math.round(whorls*46),across=6;
+    const radiusAt=s=>2.9*Math.pow(1-s,.86)+.05,riseAt=s=>foot+height*(1-Math.pow(1-s,1.42));
+    const positions=[],colors=[],indices=[],tone=new T.Color();
+    for(let i=0;i<=around;i++){
+      const s=i/around,angle=s*turns,above=Math.min(1,s+1/whorls),drop=riseAt(above)-riseAt(s);
+      for(let j=0;j<=across;j++){
+        const u=j/across,tuck=radiusAt(above)*.80,radius=tuck+(radiusAt(s)*1.07-tuck)*Math.pow(u,.72);
+        positions.push(Math.cos(angle)*radius,riseAt(above)-drop*1.10*u,Math.sin(angle)*radius);
+        tone.setHSL(.628-.022*s,.80,(.235+.085*s)*(.66+.50*u));
+        colors.push(tone.r,tone.g,tone.b);
+      }
+    }
+    // Wound so the outside of the shell is its front face.
+    for(let i=0;i<around;i++)for(let j=0;j<across;j++){
+      const a=i*(across+1)+j,b=a+across+1;
+      indices.push(a,a+1,b,b,a+1,b+1);
+    }
+    const shell=new T.BufferGeometry();
+    shell.setAttribute("position",new T.Float32BufferAttribute(positions,3));
+    shell.setAttribute("color",new T.Float32BufferAttribute(colors,3));
+    shell.setIndex(indices);shell.computeVertexNormals();
+    const probe=(Math.floor(around/2)*(across+1)+3)*3,normals=shell.attributes.normal.array;
+    if(normals[probe]*positions[probe]+normals[probe+2]*positions[probe+2]<0){
+      shell.setIndex(indices.reverse());shell.computeVertexNormals();
+    }
+    part(shell,new T.MeshStandardMaterial({vertexColors:true,roughness:.36,metalness:.18}),0).name="스프링";
+    part(shell,new T.MeshStandardMaterial({color:0xc7322d,roughness:.5,side:T.BackSide}),0).castShadow=false;
+    for(const [turn,color] of [[0,0x2f62d4],[Math.PI,0xd93a30]]){
+      const points=[];
+      for(let i=0;i<=96;i++){
+        const t=i/96,spill=Math.max(0,(t-.80)/.20),radius=.14+.72*t+spill*spill*1.7,angle=turn+t*31;
+        points.push(new T.Vector3(Math.cos(angle)*radius,.40+height*.84*Math.pow(1-t,1.3),Math.sin(angle)*radius));
+      }
+      part(new T.TubeGeometry(new T.CatmullRomCurve3(points),150,.085,6,false),
+        new T.MeshStandardMaterial({color,roughness:.42,metalness:.1}),0);
+    }
   }
-  const spiral=new T.TubeGeometry(new T.CatmullRomCurve3(points),166,.11,7,false);
-  const colors=new Float32Array(spiral.attributes.position.count*3);
-  const tone=new T.Color();
-  for(let i=0;i<spiral.attributes.position.count;i++){
-    const t=Math.min(1,Math.max(0,(spiral.attributes.position.getY(i)-start.y)/11.5));
-    tone.setHSL(.91-.095*Math.cos(Math.PI*1.4*t),.56,.39+.16*Math.sin(Math.PI*t));
-    colors.set([tone.r,tone.g,tone.b],i*3);
-  }
-  spiral.setAttribute("color",new T.BufferAttribute(colors,3));
-  const sculpture=new T.Mesh(spiral,new T.MeshStandardMaterial({vertexColors:true,roughness:.47,metalness:.34}));
-  root.add(sculpture);
   // The runnel crosses the plaza to the head of the stream, spills down the granite steps
   // and drops over the last of them into the channel.
   const runnel=[{x:606,y:-154.4,flow:[606,-1]},{x:616.2,y:-153.6,flow:[616.2,-1]}],reach=4.3;
@@ -571,5 +603,6 @@ export function* buildCheonggye(T,root,kit,terrain){
     water.uniforms.clock.value=seconds;
     water.uniforms.night.value=night;
     water.uniforms.mist.value.copy(haze);
+    tickWater([springWater],seconds,night);
   };
 }

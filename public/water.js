@@ -1,5 +1,5 @@
 import {addObstacle} from "./layout.js";
-import {basinWater} from "./water-shader.js";
+import {basinWater,jetTube,jetWater,tickWater} from "./water-shader.js";
 
 function basinOutline(T,radius){
   const points=Array.from({length:64},(_,i)=>{
@@ -64,22 +64,25 @@ export function addWater(T,scene,sources,{cylinder,rand,terrain=()=>0}) {
     const data=new T.BufferAttribute(positions,3);
     data.setUsage(T.DynamicDrawUsage);geom.setAttribute("position",data);
     for(let i=0;i<count;i++)seeds.push({phase:rand(),angle:rand()*Math.PI*2,amp:.65+rand()*.43,side:i%6!==0});
-    const material=new T.PointsMaterial({color:0xdbf8ff,map:dropTexture,size:.19,transparent:true,opacity:.91,depthWrite:false,alphaTest:.035});
+    const material=new T.PointsMaterial({color:0xdbf8ff,map:dropTexture,size:.14,transparent:true,opacity:.82,depthWrite:false,alphaTest:.035});
     const drops=new T.Points(geom,material);
     drops.position.set(x,0,z);drops.frustumCulled=false;source.add(drops);
-    const jets=9,segments=14,streams=new T.BufferGeometry();
-    const streamData=new T.BufferAttribute(new Float32Array(jets*segments*6),3);
-    streamData.setUsage(T.DynamicDrawUsage);streams.setAttribute("position",streamData);
-    const plume=new T.LineSegments(streams,new T.LineBasicMaterial({
-      color:0xd6f2fc,transparent:true,opacity:.72,depthWrite:false
-    }));
-    plume.position.set(x,0,z);plume.frustumCulled=false;source.add(plume);
-    state.push({pool,data,positions,seeds,r,material,streamData,jets,segments});
+    // Nine jets: every third rises tall near the centre, the others arch out to the rim.
+    const jets=[],stream=jetWater(T);
+    for(let jet=0;jet<9;jet++){
+      const a=jet*Math.PI*2/9,tall=jet%3===0,height=tall?2.42:1.31,reach=r*(tall?.20:.70);
+      const plume=new T.Mesh(jetTube(T,(t,target)=>{
+        const radius=.075+t*reach;
+        return target.set(Math.cos(a)*radius,.56+.44*(1-t)+4*height*t*(1-t),Math.sin(a)*radius);
+      },{from:tall?.034:.026,to:tall?.070:.052,segments:18}),stream);
+      plume.position.set(x,0,z);plume.frustumCulled=false;source.add(plume);
+      jets.push(plume);
+    }
+    state.push({pool,data,positions,seeds,r,material,stream,jets});
   }
   return (seconds,night)=>{
-    for(const {pool,data,positions,seeds,r,material,streamData,jets,segments} of state){
-      pool.material.uniforms.clock.value=seconds;
-      pool.material.uniforms.night.value=night;
+    for(const {pool,data,positions,seeds,r,material,stream,jets} of state){
+      tickWater([pool.material,stream],seconds,night);
       material.color.set(night>.5?0xb0dbfb:0xdbf8ff);
       for(let i=0;i<seeds.length;i++){
         const jet=seeds[i],t=(seconds*(jet.side?.73:.63)+jet.phase)%1;
@@ -90,20 +93,11 @@ export function addWater(T,scene,sources,{cylinder,rand,terrain=()=>0}) {
         positions[i*3+2]=Math.sin(jet.angle)*travel;
       }
       data.needsUpdate=true;
-      let cursor=0;
-      for(let jet=0;jet<jets;jet++){
-        const a=jet*Math.PI*2/jets;
-        const height=(jet%3===0?2.42:1.31)*(1+.062*Math.sin(seconds*3.5+jet));
-        for(let segment=0;segment<segments;segment++){
-          for(let sample=segment;sample<=segment+1;sample++){
-            const t=sample/segments;
-            const radius=.075+t*r*(jet%3===0?.20:.70);
-            const bend=Math.sin(t*15-seconds*11+jet)*t*.038;
-            streamData.setXYZ(cursor++,Math.cos(a+bend)*radius,.56+.44*(1-t)+4*height*t*(1-t),Math.sin(a+bend)*radius);
-          }
-        }
+      // The pressure wavers a little, so each jet breathes up and down from its nozzle.
+      for(const [index,plume] of jets.entries()){
+        const surge=1+.062*Math.sin(seconds*3.5+index);
+        plume.scale.y=surge;plume.position.y=1-surge;
       }
-      streamData.needsUpdate=true;
     }
   };
 }

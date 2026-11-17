@@ -133,6 +133,72 @@ export function basinWater(T,{bed=[0x9da39c,0xc3c6bb],tile=2.2,tint=0x2f8f9a,dep
     }`);
 }
 
+// A jet of water: a clear, bright column with streaks racing along it, breaking up toward its end.
+// The geometry's uv runs around the jet in x and along it, from nozzle to splash, in y.
+export function jetWater(T){
+  return new T.ShaderMaterial({
+    uniforms:{clock:{value:0},night:{value:0}},transparent:true,depthWrite:false,side:T.DoubleSide,
+    vertexShader:`
+      varying vec2 along;
+      varying float rim;
+      void main(){
+        along=uv;
+        vec4 mvPosition=modelViewMatrix*vec4(position,1.);
+        // Bright where the column turns away from the eye, like a glass rod.
+        rim=1.-abs(dot(normalize(normalMatrix*normal),normalize(-mvPosition.xyz)));
+        gl_Position=projectionMatrix*mvPosition;
+      }`,
+    fragmentShader:`
+      uniform float clock,night;
+      varying vec2 along;
+      varying float rim;
+      ${waterNoise}
+      void main(){
+        float run=along.y*7.-clock*5.2;
+        float streak=fbm(vec2(along.x*5.,run))*.6+noise(vec2(along.x*13.,run*2.3))*.4;
+        // Solid at the nozzle, torn into drops as it falls.
+        float broken=smoothstep(.45,1.,along.y);
+        float body=mix(1.,smoothstep(.34,.62,streak),broken);
+        float white=clamp(.35+rim*.55+streak*.35+broken*.25,0.,1.);
+        vec3 color=mix(vec3(.62,.82,.88),vec3(1.),white);
+        color=mix(color,color*vec3(.46,.58,.78),night);
+        gl_FragColor=vec4(color,body*(.52+.40*white)*(1.-smoothstep(.93,1.,along.y)));
+        #include <colorspace_fragment>
+      }`
+  });
+}
+// A round, tapering tube along path(t), t from 0 to 1, with the uv a jet's water needs.
+export function jetTube(T,path,{from=.03,to=.05,segments=16,sides=6}={}){
+  const positions=[],normals=[],uvs=[],indices=[];
+  const point=new T.Vector3(),ahead=new T.Vector3(),tangent=new T.Vector3(),side=new T.Vector3(),up=new T.Vector3(),out=new T.Vector3();
+  for(let i=0;i<=segments;i++){
+    const t=i/segments;
+    path(t,point);path(Math.min(1,t+.02),ahead);
+    if(t>.98){path(t-.02,tangent);tangent.subVectors(point,tangent);}else tangent.subVectors(ahead,point);
+    tangent.normalize();
+    side.set(tangent.z,0,-tangent.x);
+    if(side.lengthSq()<1e-6)side.set(1,0,0);
+    side.normalize();up.crossVectors(side,tangent);
+    const radius=from+(to-from)*t;
+    for(let j=0;j<=sides;j++){
+      const angle=j/sides*Math.PI*2;
+      out.copy(side).multiplyScalar(Math.cos(angle)).addScaledVector(up,Math.sin(angle));
+      positions.push(point.x+out.x*radius,point.y+out.y*radius,point.z+out.z*radius);
+      normals.push(out.x,out.y,out.z);uvs.push(j/sides,t);
+    }
+  }
+  for(let i=0;i<segments;i++)for(let j=0;j<sides;j++){
+    const a=i*(sides+1)+j,b=a+sides+1;
+    indices.push(a,b,a+1,a+1,b,b+1);
+  }
+  const geometry=new T.BufferGeometry();
+  geometry.setAttribute("position",new T.Float32BufferAttribute(positions,3));
+  geometry.setAttribute("normal",new T.Float32BufferAttribute(normals,3));
+  geometry.setAttribute("uv",new T.Float32BufferAttribute(uvs,2));
+  geometry.setIndex(indices);
+  return geometry;
+}
+
 // Keeps a set of water materials in step with the clock and the darkness of the night.
 export function tickWater(materials,seconds,night){
   for(const {uniforms} of materials){uniforms.clock.value=seconds;uniforms.night.value=night;}

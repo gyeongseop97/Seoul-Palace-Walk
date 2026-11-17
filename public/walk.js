@@ -3317,6 +3317,23 @@ function setMapView(view){
   mapLabels.setView(base,mapViewport.view,overviewOpen);
 }
 const clearMapGestures=bindMapGestures(mapSurface,{getView:()=>mapViewport,setView:setMapView,onTap:walkFromMap});
+// On a desktop the big map is always in view. Left alone for a few seconds, it drifts back
+// to keep the walker in the middle, as far as the edges of the district allow.
+const MAP_FOLLOW_AFTER_MS=3000;
+let mapTouched=-Infinity,mapFollowed=0;
+for(const type of ["wheel","pointerdown","pointerup"])mapSurface.addEventListener(type,()=>{mapTouched=performance.now();},{passive:true});
+mapSurface.addEventListener("pointermove",event=>{if(event.buttons)mapTouched=performance.now();},{passive:true});
+function followOnMap(self){
+  const now=performance.now(),elapsed=Math.min(.5,(now-mapFollowed)/1000);
+  mapFollowed=now;
+  if(mobileHeader.matches||!mapViewport||now-mapTouched<MAP_FOLLOW_AFTER_MS)return;
+  const {base,view}=mapViewport;
+  const fit=(low,size,span,at)=>span>=size?low+(size-span)/2:Math.min(low+size-span,Math.max(low,at-span/2));
+  const dx=fit(base.x,base.w,view.w,self.x)-view.x,dy=fit(base.y,base.h,view.h,self.y)-view.y;
+  if(Math.abs(dx)<view.w*.002&&Math.abs(dy)<view.h*.002)return;
+  const ease=1-Math.exp(-elapsed*5);
+  setMapView({...view,x:view.x+dx*ease,y:view.y+dy*ease});
+}
 function fitMapRegion(box){
   const [x,y,w,h]=box.split(" ").map(Number),width=mapSurface.clientWidth,height=mapSurface.clientHeight;
   if(mobileHeader.matches||!width||!height)return {x,y,w,h};
@@ -3489,6 +3506,7 @@ function updateMaps(self,others){
   for(const {id,layer} of indoorMaps)attr(layer,"visibility",id===inside?"visible":"hidden");
   $("mini-world").classList.toggle("museum-map",indoors);
   showMapRegion(mapRegionAt(self,inside,overview));
+  followOnMap(self);
   attr($("mini-world"),"viewBox",indoors?indoorViewBoxes[inside]:[
     (self.x-miniMapWidth/2).toFixed(1),(self.y-miniMapHeight/2).toFixed(1),miniMapWidth,miniMapHeight
   ].join(" "));
