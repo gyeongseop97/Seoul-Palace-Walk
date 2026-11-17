@@ -7,11 +7,14 @@ const podiums={
 };
 const civicPodium=(north,museum)=>[82,north,68,(museum?76:85)+3];
 const frontSteps=[(-52.1-88)/2,204,88-52.1,76];
+const sejongSouthWing=[-96,140,82,31];
+const sejongNorthWing=[-118,254,70,25];
 
 export function registerPlazaCity(){
   // Ground-level shells span the building line, including the few metres of
   // the wide plaza pavement touched by the western and eastern podiums.
-  for(const [east,north,width,length] of [...Object.values(podiums),frontSteps,civicPodium(291,false),civicPodium(385,true),[51,385,8,32]]){
+  for(const [east,north,width,length] of [...Object.values(podiums),frontSteps,sejongSouthWing,sejongNorthWing,
+    civicPodium(291,false),civicPodium(385,true),[51,385,8,32]]){
     const {x,y}=plazaAt(east,north);
     addObstacle(x,y,width,length);
   }
@@ -119,12 +122,24 @@ export function* assemblePlazaCity(T,group,{wx,wz}){
       }
     }
     label("세종문화회관",-59.05,north,22.1,23,true);
-    slab(0xa4a19a,-97,144,82,25,0,13.8);
-    slab(granite,-95,144,85,28,13.8,.7);
-    entrance(-97,144,82,16,true);
-    slab(0x878a86,-118,254,70,25,0,16.3);
-    windows({east:-118,north:254,width:70,length:25,base:1.3,storeys:4,columns:5,pitch:3.65,
+    slab(0x878a86,...sejongNorthWing,0,16.3);
+    const [east,northWing,width,length]=sejongNorthWing;
+    windows({east,north:northWing,width,length,base:1.3,storeys:4,columns:5,pitch:3.65,
       face:"east",tones:[0x516365,0x677879,0x3f5359]});
+  }
+
+  function sejongAnnex(){
+    const [east,north,width,length]=sejongSouthWing,front=east+width/2;
+    slab(0xaaa69b,east,north,width,length,0,13.8);
+    slab(granite,east,north,width+.55,length+.65,13.8,.62);
+    windows({east,north,width,length,base:4.1,storeys:3,columns:7,pitch:3.03,face:"east",
+      tones:[0x485a5e,0x536a70,0x647c80],height:.66,fill:.81});
+    sideWindows(east,north,width,length,4.1,3,14,3.03,0x576969);
+    for(let bay=0;bay<=7;bay++){
+      const n=north-length/2+bay*length/7;
+      box(0xc0baac,front+.12,7.12,n,.31,13.5,.54);
+    }
+    entrance(east,north,width,18,true,0x536567,3.78);
   }
 
   function hyundai(){
@@ -247,7 +262,7 @@ export function* assemblePlazaCity(T,group,{wx,wz}){
   const glazing=new T.MeshStandardMaterial({roughness:.54,metalness:.19});
   const screensMaterial=new T.MeshBasicMaterial({color:0xe0e3e6});
   const backdrop=new T.MeshStandardMaterial({roughness:.92});
-  for(const [east,north,build] of [[-96,204,sejongCenter],[-91,68,hyundai],[-146,470,government],[87,52,kyobo],
+  for(const [east,north,build] of [[-96,204,sejongCenter],[-96,140,sejongAnnex],[-91,68,hyundai],[-146,470,government],[87,52,kyobo],
     [82,184,kt],[82,291,()=>civicEast(291,false)],[82,385,()=>civicEast(385,true)]]){
     at(east,north);build();
     renderBatch(stone,masonry,true);

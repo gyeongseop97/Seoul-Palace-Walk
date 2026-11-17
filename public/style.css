@@ -354,8 +354,8 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 #arcade-pump-track{display:block;width:100%;height:auto;border:1px solid #80bcb580;border-radius:7px;pointer-events:none}
 .arcade-move{display:flex;gap:4px}
 .arcade-move button{flex:1 1 44px;touch-action:none}
-.arcade-machine-active :is(.joystick,.game-hud,.peer-hud),.arcade-pump-active :is(.game-hud,.peer-hud){visibility:hidden}
-.arcade-pump-active .arcade-panel{width:min(213px,calc(100% - 128px))}
+.arcade-machine-active :is(.joystick,.game-hud,.peer-hud),.arcade-avatar-active :is(.game-hud,.peer-hud){visibility:hidden}
+.arcade-avatar-active .arcade-panel{width:min(213px,calc(100% - 128px))}
 .bus-seating{width:min(100%,310px);margin:0 auto;display:grid;gap:7px;text-align:center;color:var(--ivory-3)}
 #bus-seats{display:grid;grid-template-columns:1fr 1fr;column-gap:clamp(18px,10vw,60px);row-gap:7px;padding:12px;border:1px solid var(--pine-9);border-radius:22px;background:var(--pine-2)}
 #bus-seats button{min-height:44px;white-space:nowrap}
@@ -380,6 +380,10 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 .map-marker-hit{fill:transparent;stroke:none}
 .map-marker-dot{fill:var(--marker-color);stroke:#202b25;stroke-width:1.3;vector-effect:non-scaling-stroke}
 .map-marker:is(:hover,:focus-visible) .map-marker-dot{stroke:#fff3d4;stroke-width:2.2}
+.map-marker-label{font-size:var(--map-marker-font);font-weight:650;fill:#fff2da;stroke:#202b25;
+  stroke-width:var(--map-marker-stroke);stroke-linejoin:round;paint-order:stroke;pointer-events:all;cursor:pointer}
+.map-marker-label[hidden]{display:none}
+.map-area-label{font-size:calc(var(--map-marker-font) * 1.182);fill:#f9d998}
 .map-key .stamp-dot.unvisited{background:#ffd07e28;box-shadow:0 0 0 1px #dfc8959c}
 #stamp-pins circle{fill:#ffe1a339;stroke:#ead3a5ad;stroke-width:1.35;vector-effect:non-scaling-stroke;cursor:pointer}
 #stamp-pins circle.collected{fill:var(--marker-color);stroke:#543629}
@@ -403,8 +407,6 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 @media (max-width:810px), (pointer:coarse){
   .map-panel:has(.map-route:not([hidden])) .map-wrap{height:min(40dvh,340px)}
 }
-.overview-map #map-landscape .map-label:not(.overview-label){visibility:hidden}
-.overview-map .overview-label{font-size:76px;stroke-width:13px}
 @media (max-width:810px), (pointer:coarse){
   #run kbd{display:none}
   #run,#sit,.map-links button{min-height:44px}

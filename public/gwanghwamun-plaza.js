@@ -3,7 +3,7 @@ import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {assemblePlazaCity,registerPlazaCity} from "./plaza-city.js";
 import {addPlazaMonuments,plazaMonumentFootprints} from "./plaza-monuments.js";
 import {plazaAt,plazaOutline,plazaBeds,plazaSites,plazaTransitStops,insidePlazaPolygon,
-  plazaRoadProfile,plazaCrossings,plazaCrossingApronHalf,eastCurb,eastRoadWidth,sajikRoad,haechiBasin} from "./plaza-layout.js";
+  plazaRoadProfile,plazaCrossings,plazaCrossingApronHalf,plazaSideForecourts,eastCurb,eastRoadWidth,sajikRoad,haechiBasin} from "./plaza-layout.js";
 import {PLAZA_SHOW_VIEW_METRES,plazaShowFrame,plazaShowJet} from "./plaza-show.js";
 
 const between=(a,b,t)=>a+(b-a)*t;
@@ -11,7 +11,8 @@ const rect=(left,right,bottom,top)=>[[left,bottom],[right,bottom],[right,top],[l
 const westLamps=[33,96,137,174,227,309,369,401,444,493];
 const benchSites=[[-24,26,1.57],[-23,43,1.57],[-23,58,1.57],[-44,83,1.57],[-34,93,0],
   [-39,157,1.57],[-32,188,-1.57],[-37,205,1.57],[-37,254,0],[-20,287,1.57],[-43,300,-1.57],
-  [-32,340,1.57],[-27,398,1.57],[-29,434,1.57],[-7,466,1.57],[-40,479,-1.57],[-32,514,0]];
+  [-32,340,1.57],[-27,398,1.57],[-29,434,1.57],[-7,466,1.57],[-40,479,-1.57],[-32,514,0],
+  [-79,337.1,0],[60.7,492.7,-Math.PI/2]];
 const shadeSites=[[-33,174,4,1.22],[-35,177,4,1.22],[-38,209,4,1.22]];
 const [station]=plazaTransitStops;
 const eastLamps=[],railings=[];
@@ -160,6 +161,7 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
   surface(basinHole,terrainBase,-2.24);
   surface(plazaOutline,stone,.025,[basinHole]);
   for(const outline of plazaWestPavement())surface(outline,stone,.025);
+  for(const outline of plazaSideForecourts)surface(outline,stone,.025);
   surface(rect(-310,310,sajikRoad.south,sajikRoad.north),road,-.012);
   const roadside=plazaRoadProfile.map(([north,east])=>plazaAt(east,north));
   const farCurb=plazaRoadProfile.map(([north,east])=>plazaAt(east+eastRoadWidth,north));

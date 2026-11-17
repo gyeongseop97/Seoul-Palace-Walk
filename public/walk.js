@@ -12,6 +12,7 @@ import {nearbyPalaceGuide} from "./palace-guide.js";
 import {bindSceneTouch} from "./scene-touch.js";
 import {bindNearbyControls} from "./nearby-controls.js";
 import {bindMapGestures} from "./map-gestures.js";
+import {bindMapLabels} from "./map-labels.js";
 import {makeSound} from "./sound.js";
 import {ceremonyAt} from "./palace-people.js";
 import {cityHallStation,gbSites,gbBounds,gbLake,gbPond,gbPaths,gbCourts,gbLawns,gbShortcuts,wishPond,gbPhotoZone,gbUijeongbu,gbCrossings,gbBusIsland,inGyeongbok,gbWoldae,onWoldaeApproach,nearWoldaeRailing,at as palaceAt} from "./gyeongbok-layout.js";
@@ -52,7 +53,7 @@ import {bindTutorial} from "./tutorial.js";
 import {makePicnic} from "./picnic-client.js";
 import {isPicnicItem} from "./picnic-data.js";
 import {BUNGEO_BURN_MS,BUNGEO_CUSTARD_ITEM,BUNGEO_GIFT_REACH,BUNGEO_ITEMS,BUNGEO_MOLD_COUNT,BUNGEO_STALL,BUNGEO_STOCK_CAPACITY,bungeoStep} from "./bungeo-data.js";
-import {ARCADE_GAMES,ARCADE_PUMP,ARCADE_SITE} from "./arcade-layout.js";
+import {ARCADE_GAMES,ARCADE_MOLE,ARCADE_PUMP,ARCADE_SITE} from "./arcade-layout.js";
 import {bindArcade} from "./arcade-client.js";
 import {arcadeSnapshot,visibleArcade} from "./arcade-presence.js";
 import {ITEM_SLOTS,handLabel,itemAnimating,freeItemSlot,handsFree} from "./held-items.js";
@@ -86,7 +87,7 @@ function initialAvatar(){
 const me=initialAvatar(),people=new Map(),markers=new Map(),seenSignals=new Map(),lookPings=new Map(),formations=new Map();
 let ownView=initialView(),trackedPersonId=null,world,worldLoading,worldFailed=false;
 let firstPerson=localStorage.getItem("jeongdong-first-person")==="true";
-let session=null,active=true,joining=false,lastPost=0,lastWishSynced=0,dirty=true;
+let session=null,active=true,joining=false,lastPost=0,lastWishSynced=0,lastArcadePost="",dirty=true;
 let pageVersion=0,walkPositionAt=0,lastWalkPosition=null;
 let syncTimer,syncDue=Infinity,syncInFlight=null,syncStarted=-Infinity,syncFailures=0;
 let links=[],queuedSignal=null,queuedHand=null,queuedFeed=null,queuedChat=null,toastTimer;
@@ -369,17 +370,18 @@ labelPerspective();
 const sound=makeSound();
 let arcadeReturnView=null;
 function adjustArcadeAim(pan,tilt){
-  const claw=arcade.kind==="claw",panLimit=claw?88:24;
+  const claw=arcade.kind==="claw",panLimit=claw?88:arcade.kind==="bowling"?16:24;
   ownView={...ownView,pan:Math.max(270-panLimit,Math.min(270+panLimit,ownView.pan+pan)),
     tilt:Math.max(claw?-26:-22,Math.min(claw?43:28,ownView.tilt+tilt))};
-  dirty=true;
 }
-const arcade=bindArcade({root:sceneWrap,getAvatar:()=>me,getAim:()=>ownView,onAim:adjustArcadeAim,playBeat:(lane,strong)=>sound.arcadeBeat(lane,strong),
+const arcade=bindArcade({root:sceneWrap,getAvatar:()=>me,getAim:()=>ownView,getClock:now=>gameTime(now),
+  onAim:adjustArcadeAim,playBeat:(lane,strong)=>sound.arcadeBeat(lane,strong),
+  playBasketImpact:(kind,strength)=>sound.basketImpact(kind,strength),
   onStart(kind,point){
     if(!canStartArcade(point))return false;
     const view=ownView;
-    movePlayerTo({...point,heading:270,tilt:kind==="pump"?26:0},ARCADE_SITE.name);
-    arcadeReturnView=view;closeActionMenus();sound.wake();return true;
+    movePlayerTo({...point,heading:270,tilt:kind==="pump"?26:kind==="bowling"?9:kind==="mole"?16:0},ARCADE_SITE.name);
+    arcadeReturnView=view;closeActionMenus();sound.wake();focusGame();return true;
   },
   onStop(){
     if(arcadeReturnView)ownView=arcadeReturnView;
@@ -902,12 +904,14 @@ async function sync(){
   const bungeo=bungeoQueue[0],bungeoWatch=Boolean(bungeo||near(BUNGEO_STALL,me.x,me.y)<=BUNGEO_STALL.watchRadius);
   syncStarted=sent;
   const sincePost=Date.now()-lastPost;
+  const arcadePacket=arcade.kind?arcadeSnapshot(arcade.state(sent)):null;
+  const arcadeKey=arcadePacket?JSON.stringify(arcadePacket):"";
   const post=dirty||signal||hand||claim||feed||chat||bus||bike||show||clink||photo||minigame||picnicCommand||dining||bungeo||
-    sincePost>=(arcade.kind?125:3800);
+    sincePost>=3800||sincePost>=125&&arcadeKey!==lastArcadePost;
   const base={room:visit.room,id:visit.id,key:visit.key,lookPings:true,
     bikeOffers:isBikeDriver(me)||Boolean(tandemOffer),diningVenue:serviceVenue,...(bungeoWatch?{bungeoWatch}:null)};
   const avatar=post?{...me,catFriends:passport.friendlyCatIds()}:null;
-  if(avatar&&arcade.kind)avatar.arcade=arcadeSnapshot(arcade.state(sent));
+  if(avatar&&arcadePacket)avatar.arcade=arcadePacket;
   if(avatar&&claim)Object.assign(avatar,{seat:claim.bench,seatSide:claim.side});
   if(avatar){if(chat)avatar.chat=chat;else delete avatar.chat;}
   if(avatar&&(avatar.wish===lastWishSynced||gameTime(sent)-avatar.wish>=WISH_FLIGHT_MS))delete avatar.wishArt;
@@ -922,7 +926,7 @@ async function sync(){
     updateClock(data.serverTime,sent,received);
     if(data.weather)environment.liveWeather=data.weather;
     syncFailures=0;
-    if(post){lastPost=Date.now();lastWishSynced=avatar.wish;}
+    if(post){lastPost=Date.now();lastWishSynced=avatar.wish;lastArcadePost=arcadeKey;}
     if(queuedSignal===signal)queuedSignal=null;
     if(queuedHand===hand)queuedHand=null;
     const confirmed=data.walkers.find(row=>row.id===visit.id)?.avatar;
@@ -1125,7 +1129,7 @@ async function enterRoom(action,code){
     session={room:data.room,code:data.code,mode:data.mode??"private",id,key,...data.profile};
     environment.liveWeather=data.weather??null;passport.setRoom(session.room);
     Object.assign(me,avatar,{nickname:session.nickname,coat:session.coat});
-    ownView=view;dirty=true;lastWishSynced=0;lastPost=Date.now();
+    ownView=view;dirty=true;lastWishSynced=0;lastArcadePost="";lastPost=Date.now();
     lastWalkPosition=null;walkPositionAt=0;
     updateChatSend();
     syncStarted=-Infinity;syncFailures=0;
@@ -2218,7 +2222,7 @@ function setActivity(id,label,disabled=false){
   if(button.disabled!==disabled)button.disabled=disabled;
   if(label&&button.textContent!==label)button.textContent=label;
 }
-const arcadeLabels={claw:"인형뽑기",pump:"펌프 시작",basket:"농구 슛"};
+const arcadeLabels={claw:"인형뽑기",pump:"펌프 시작",basket:"농구 슛",bowling:"볼링",mole:"두더지 잡기"};
 function canStartArcade(point){
   return Boolean(session&&world&&interiorAt(me.x,me.y)===ARCADE_SITE.id&&!arcade.kind&&!photoMode.camera&&!bungeoMode&&!me.bus&&!isCycling(me)&&!queuedBus&&!queuedBike&&
     !riding&&!myLink()?.active&&!feedingLocked(gameTime())&&!sickLocked(gameTime())&&near(point,me.x,me.y)<=point.reach&&
@@ -2756,6 +2760,7 @@ function frame(now){
   smoothPeople(people,elapsed,time,roundTrip);
   const stepping=motion(now,elapsed);
   if(arcade.kind==="pump"&&near(ARCADE_PUMP,me.x,me.y)>3.3)arcade.stop();
+  if(arcade.kind==="mole"&&near(ARCADE_MOLE,me.x,me.y)>2.8)arcade.stop();
   arcade.update(now,elapsed);
   if(now>=walkPositionAt){
     walkPositionAt=now+1000;
@@ -2813,7 +2818,7 @@ function svg(parent,type,attributes,text){
 const outline=points=>points.map(p=>p.x.toFixed(1)+","+p.y.toFixed(1)).join(" ");
 const eastWalkRoute=outline([...corridorEastWalkSpine,...plazaEastWalkSpine.slice(1)]);
 const indoorMaps=[];
-const mapPlaces=[],mapCategory=$("map-category");
+const mapPlaces=[],mapCategory=$("map-category"),mapLabels=bindMapLabels($("world"),$("map-labels"));
 function setMarkerFilter(mark){
   mark.toggleAttribute("hidden",mapCategory.value!=="all"&&mapCategory.value!==mark.dataset.mapCategory);
 }
@@ -2822,8 +2827,9 @@ mapCategory.addEventListener("change",()=>{
   for(const key of $("map-panel").querySelectorAll("[data-map-legend]")){
     key.hidden=mapCategory.value!=="all"&&mapCategory.value!==key.dataset.mapLegend;
   }
+  mapLabels.request();
 });
-function drawMapPoint(layer,point,category,mini=false){
+function drawMapPoint(layer,point,category,mini=false,indoors=false){
   if(!point||!point.name)return;
   const attributes={class:"map-marker","data-map-category":category};
   if(!mini){
@@ -2836,6 +2842,7 @@ function drawMapPoint(layer,point,category,mini=false){
   if(!mini)svg(pin,"title",{},point.name);
   if(!mini)svg(pin,"circle",{cx:point.x,cy:point.y,r:"1.7%",class:"map-marker-hit"});
   svg(pin,"circle",{cx:point.x,cy:point.y,r:mini?1.55:".75%",class:"map-marker-dot"});
+  if(!mini)mapLabels.add(pin,point,category,{indoors});
   setMarkerFilter(pin);
 }
 function drawIndoorMap(base,venue,galleries,mini){
@@ -2860,7 +2867,7 @@ function drawIndoorMap(base,venue,galleries,mini){
   if(venue.id===ARCADE_SITE.id){
     for(const [kind,point] of Object.entries(ARCADE_GAMES))points.push([point,arcadeLabels[kind]]);
   }
-  for(const [point,name] of points)if(point)drawMapPoint(layer,{...point,name},"activity",mini);
+  for(const [point,name] of points)if(point)drawMapPoint(layer,{...point,name},"activity",mini,true);
 }
 let overviewOpen=false,overviewLayer;
 let mapViewport=null;
@@ -2990,11 +2997,11 @@ function drawOverview(base){
     "stroke-linecap":"round","stroke-dasharray":"14 9",opacity:.9});
   svg(layer,"polyline",{points:eastWalkRoute,fill:"none",stroke:"#ded2a9","stroke-width":7,"stroke-linejoin":"round",
     "stroke-linecap":"round","stroke-dasharray":"14 9",opacity:.9,"pointer-events":"none"});
-  for(const [point,name,side] of [[spawn,"덕수궁",-1],[plazaAt(-12,240),"광화문광장",1],[palaceAt(0,245),"경복궁",-1],
-    [hwangudanLandmarks[0],"환구단",1],[bukchonAlleyShortcut,"북촌",-1]]){
+  for(const [point,name] of [[spawn,"덕수궁"],[plazaAt(-12,240),"광화문광장"],[palaceAt(0,245),"경복궁"],
+    [hwangudanLandmarks[0],"환구단"],[bukchonAlleyShortcut,"북촌"]]){
     const destination=svg(layer,"g",{"data-walk-x":point.x,"data-walk-y":point.y});
     svg(destination,"circle",{cx:point.x,cy:point.y,r:16,fill:"#f2d59b",stroke:"#40392c","stroke-width":5});
-    svg(destination,"text",{x:point.x+side*47,y:point.y+20,class:"map-label overview-label","text-anchor":side<0?"end":"start"},name);
+    mapLabels.add(destination,{...point,name},null,{area:true});
   }
   return layer;
 }
@@ -3064,6 +3071,7 @@ function setMapView(view){
   const y=Math.min(base.y+base.h*.96,Math.max(base.y-base.h*.66,view.y));
   mapViewport.view={...view,x,y};
   attr($("world"),"viewBox",[x,y,view.w,view.h].join(" "));
+  mapLabels.setView(base,mapViewport.view,overviewOpen);
 }
 const clearMapGestures=bindMapGestures($("world"),{getView:()=>mapViewport,setView:setMapView,onTap:walkFromMap});
 function showMapRegion(box){
@@ -3262,10 +3270,11 @@ drawMap($("map-landscape"));overviewLayer=drawOverview($("map-landscape"));
 drawMap($("mini-landscape"),true);
 const stampById=new Map(passportStamps.map(stamp=>[stamp.id,stamp]));
 const stampPins=new Map(passportStamps.map(stamp=>{
-  const pin=svg($("stamp-pins"),"circle",{cx:stamp.x,cy:stamp.y,role:"button",tabindex:"0","aria-label":stamp.name,
-    "data-stamp-id":stamp.id,"data-map-category":"stamp"});
+  const mark=svg($("stamp-pins"),"g",{"data-stamp-id":stamp.id,"data-map-category":"stamp"});
+  const pin=svg(mark,"circle",{cx:stamp.x,cy:stamp.y,role:"button",tabindex:"0","aria-label":stamp.name,
+    "data-stamp-id":stamp.id});
   svg(pin,"title",{},stamp.name);
-  setMarkerFilter(pin);
+  mapLabels.add(mark,stamp,"stamp");setMarkerFilter(mark);
   return [stamp.id,pin];
 }));
 const gameMapSites=new Map(traditionalGames.map(game=>[game.id,{...game.point,id:game.id,name:game.name}]));

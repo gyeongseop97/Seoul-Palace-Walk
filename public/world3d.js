@@ -12,7 +12,7 @@ import { BUNGEO_STALL } from "./bungeo-data.js";
 import { addBungeoStall, registerBungeoStall } from "./bungeo-world.js";
 import { makeBungeoCustomer } from "./bungeo-customer.js";
 import { ARCADE_GAMES,ARCADE_SITE,registerArcade } from "./arcade-layout.js";
-import { addArcadeExterior } from "./arcade-world.js";
+import { addArcadeExterior } from "./arcade-exterior.js";
 import { poseArcade } from "./arcade-presence.js";
 import { hanbokRental,registerHanbokRental } from "./passport-data.js";
 import { addHanbokRental } from "./wearables-models.js";
@@ -482,6 +482,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     root.name=venue.name;root.visible=false;scene.add(root);
     return {outsideDoor:venue.outsideDoor,load,*build(){
       const features=yield* this.module[builder](T,root,makeKit(root),venue,walkerModels);
+      if(venue===ARCADE_SITE)yield* consolidate(root,new Set());
       this.view={...features,setVisible(visible){root.visible=visible;features?.setVisible?.(visible);}};
       return [];
     }};
@@ -980,7 +981,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     outdoors.visible=!indoors;
     for(const district of indoorDistricts)district.view?.setVisible(district===interior);
     interior?.view?.update?.(clock,state.galleryLight??0,service,anchor);
-    interior?.view?.updateArcade?.(state.arcade,now,peers);
+    interior?.view?.updateArcade?.(state.arcade,now,peers,clock,view);
     updateServiceTrays(service,clock);
     guideMarker.visible=!indoors&&Math.hypot(anchor.x-ticketGuide.x,anchor.y-ticketGuide.y)<22;
     showMarker.visible=atPlaza&&!indoors&&Math.hypot(anchor.x-plazaShowSpot.x,anchor.y-plazaShowSpot.y)<38;
@@ -1065,7 +1066,18 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       walkerModels.update(model,diningPose(player),{now,clock,delta,seat:tableSeat,floor,jump:renderedJumpLift(player,clock,floor),emojiTexture,chatTexture,
         turnEase:player===me?1-Math.exp(-delta*22):1});
       minigameWorld.pose(player,model,state.photoCapture);
-      if(insideId===ARCADE_SITE.id)poseArcade(player===me?state.arcade:player.arcade,model);
+      if(insideId===ARCADE_SITE.id){
+        const activity=player===me?state.arcade:player.arcade;
+        poseArcade(activity,model,clock);
+        if(activity?.kind==="mole"&&!model.moleHammer){
+          const hand=model.arms[1].end,hammer=model.moleHammer=new T.Group();
+          hammer.name="두더지 게임 망치";hammer.position.set(0,-.04,.04);hand.add(hammer);
+          cylinder(0xd1a26b,0,.088,0,.026,.265,10,hammer);
+          cylinder(0x458384,0,.228,0,.066,.178,12,hammer).rotation.z=Math.PI/2;
+          for(const side of [-1,1])cylinder(0xc28e56,side*.087,.228,0,.068,.025,12,hammer).rotation.z=Math.PI/2;
+        }
+        if(model.moleHammer)model.moleHammer.visible=activity?.kind==="mole";
+      }else if(model.moleHammer)model.moleHammer.visible=false;
       if(model.label)model.label.visible=!state.photoCapture;
     });
     minigameWorld.live(models,indoors||state.photoCapture?null:state.minigameAimPreview);
@@ -1129,6 +1141,14 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       camera.lookAt(wx(body.x),ground+1.05,wz(body.y));
       if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix();}
       cameraDistance=0;
+    }else if(state.arcade?.kind==="bowling"){
+      const machine=ARCADE_GAMES.bowling.machine;
+      const fov=camera.aspect<.8?69:55,pitch=view.tilt*Math.PI/180;
+      camera.position.set(wx(machine.x+6.49),1.87,wz(machine.y)+.62);
+      gaze.set(Math.sin(angle)*Math.cos(pitch),-Math.sin(pitch),-Math.cos(angle)*Math.cos(pitch));
+      camera.lookAt(gaze.add(camera.position));
+      if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix();}
+      cameraDistance=1.55;
     }else if(state.arcade?.kind==="claw"||state.arcade?.kind==="basket"){
       const claw=state.arcade.kind==="claw",machine=ARCADE_GAMES[state.arcade.kind].machine;
       const fov=camera.aspect<.80?(claw?76:71):57;
@@ -1162,6 +1182,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     bungeoCustomer.placeChat(cameraUp);
     const anchorModel=models.get(anchor.id);
     if(anchorModel&&cameraDistance<1.08)anchorModel.group.visible=false;
+    if(insideId===ARCADE_SITE.id&&cameraDistance<3.2&&anchorModel?.label)anchorModel.label.visible=false;
     const umbrella=firstPerson&&anchor.sharedUmbrella&&anchorModel?.umbrella;
     if(umbrella?.visible){
       if(!firstPersonUmbrella){firstPersonUmbrella=umbrella.clone();outdoors.add(firstPersonUmbrella);}

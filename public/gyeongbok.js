@@ -799,6 +799,8 @@ export function* buildGyeongbok(T,scene,kit,tools){
     // a row, the L-shaped inner corridor by the avenue, a round well, and the pond and pavilion
     // sites behind the main hall, with garden paths and benches round them.
     const {west,east,south,north}=gbUijeongbu,stone=0xb3ad9d;
+    // Leave room for the relocated arcade while keeping the three heritage halls aligned.
+    const hallEast=88;
     // Use the same road all the way to the Sajik-ro edge. The old gap left the
     // crossing stripes suspended over the background, like a second footbridge.
     const roadNorth=gwanghwamun.y-plazaAt(0,sajikRoad.south).y;
@@ -810,7 +812,7 @@ export function* buildGyeongbok(T,scene,kit,tools){
     walk(west,east,innerNorth,north);walk(west,east,south,innerSouth);
     walk(west,innerWest,innerSouth,innerNorth);walk(innerEast,east,innerSouth,innerNorth);
     walk(innerWest,innerEast,-131,-127.5);
-    walk(92,95.5,innerSouth,-131);walk(92,95.5,-127.5,innerNorth);
+    walk(hallEast+14.35,104,innerSouth,-131);walk(hallEast+14.35,104,-127.5,innerNorth);
     const island=gbBusIsland;
     plot(rect(island.west,island.east,island.south,island.north),materials.paving,.03).name="경복궁 정류장 보도";
     const [front,side]=gbCrossings;
@@ -843,7 +845,9 @@ export function* buildGyeongbok(T,scene,kit,tools){
       }
       sign(name,e-w/2-2.2,n,Math.PI/2,2.0);
     };
-    site("협선당 터",72,-106,24,9,6,3);site("정본당 터",72,-122.5,28,12.5,7,4);site("석획당 터",72,-139.5,24,9,6,3);
+    site("협선당 터",hallEast,-106,24,9,6,3);
+    site("정본당 터",hallEast,-122.5,28,12.5,7,4);
+    site("석획당 터",hallEast,-139.5,24,9,6,3);
     yield;
     // Let the paved runs of the L-shaped corridor meet at the elbow.
     const bend=-145.2;
@@ -857,9 +861,9 @@ export function* buildGyeongbok(T,scene,kit,tools){
       }
     }
     // Round well at the end of Seokhoekdang.
-    const well=world(72,-149.5);
+    const well=world(hallEast,-149.5);
     cylinder(0xa9a394,well.x,.3,well.z,1.15,.6,18);cylinder(0x2c3436,well.x,.61,well.z,.82,.02,18);
-    solid(72,-149.5,2.2,2.2,.62);
+    solid(hallEast,-149.5,2.2,2.2,.62);
     // Pond and pavilion sites behind the main hall.
     plot(rect(104,128,-131,-113),matte(0x6f7a72),.031);
     for(const edge of [-1,1]){slab(0xa39d8e,116,-122+edge*9,24.6,.5,.26);slab(0xa39d8e,116+edge*12,-122,.5,18.6,.26);}

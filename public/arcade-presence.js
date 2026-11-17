@@ -13,6 +13,11 @@ export function arcadeSnapshot(state){
   if(!state)return null;
   const {kind,phase,score,level,basket,claw,pump,rimX}=state;
   if(kind==="basket")return {kind,phase,score,level,ball:sample(ballFields,basket),rimX:round(rimX)};
+  if(kind==="bowling")return {kind,roll:state.bowling?.roll??null};
+  if(kind==="mole"){
+    const {target,height,swingAt,finished,remaining}=state;
+    return {kind,score,target,height:round(height),swingAt,finished,remaining};
+  }
   if(kind==="claw"){
     const prizes=[];
     for(const [index,prize] of claw.prizes.entries()){
@@ -28,6 +33,8 @@ export function arcadeSnapshot(state){
 }
 
 function decode(packet,at){
+  if(packet.kind==="bowling")return {kind:packet.kind,at,bowling:{roll:packet.roll}};
+  if(packet.kind==="mole")return {...packet,at};
   if(packet.kind==="pump"){
     const {active,score,readyLane,litLane,notes}=packet;
     return {at,kind:packet.kind,pump:{active,finished:!active,score,readyLane,litLane,notes}};
@@ -57,6 +64,7 @@ function interpolate(before,after,keys,portion){
 export function visibleArcade(samples,now){
   if(!samples||now-samples.next.at>5000)return null;
   const {next,prior}=samples;
+  if(next.kind==="bowling")return next;
   if(next.kind==="pump"){
     const {pump}=next;
     const delay=Math.max(0,Math.min(280,now-next.at));
@@ -66,6 +74,7 @@ export function visibleArcade(samples,now){
   if(!prior)return next;
   const portion=clamp((now-155-prior.at)/(next.at-prior.at)),display=portion<.5?prior:next;
   if(portion===1)return next;
+  if(next.kind==="mole")return prior.target===next.target?{...display,height:blend(prior.height,next.height,portion)}:display;
   if(next.kind==="basket")return {...display,rimX:blend(prior.rimX,next.rimX,portion),
     basket:interpolate(prior.basket,next.basket,ballFields,portion)};
   const claw=interpolate(prior.claw,next.claw,headFields,portion),held=display.claw.holding;
@@ -78,7 +87,7 @@ export function visibleArcade(samples,now){
   return {...display,claw};
 }
 
-export function poseArcade(state,model){
+export function poseArcade(state,model,clock){
   if(state?.kind==="claw"){
     const [button,stick]=model.arms;
     stick.upper.rotateX(-.66);stick.lower.rotateX(-.56);
@@ -90,6 +99,19 @@ export function poseArcade(state,model){
     for(const arm of model.arms){
       arm.upper.rotateX(-.72-release*.93);
       arm.lower.rotateX(-.80+release*.63);
+    }
+  }else if(state?.kind==="bowling"||state?.kind==="mole"){
+    const bowl=state.kind==="bowling";
+    const roll=bowl?state.bowling?.roll:null;
+    const age=clock-(bowl?roll?.at:state.swingAt);
+    const swing=age>=0&&age<520?Math.sin(Math.PI*age/520):0;
+    const arm=model.arms[1];
+    arm.upper.rotateX(bowl?-.25-1.55*swing:-.48-.95*swing);
+    arm.lower.rotateX(bowl?-.33+.25*swing:-.62-1.00*swing);
+    if(swing){
+      const turn=-Math.PI/2-(roll?.angle??0)-model.group.rotation.y;
+      model.group.rotation.y+=Math.atan2(Math.sin(turn),Math.cos(turn))*Math.min(1,swing*2.8);
+      model.chest.rotateX(.20*swing);
     }
   }
 }

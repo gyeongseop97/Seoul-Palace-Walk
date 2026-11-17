@@ -20,7 +20,7 @@ export const plazaSites={
   hangeul:plazaAt(-37,75,"한글분수"),haechi:plazaAt(-21,110,"해치마당"),tunnel:plazaAt(-12,114,"터널분수"),
   open:plazaAt(-36,151,"열린마당"),culture:plazaAt(-40,190,"문화쉼터"),play:plazaAt(-19,221,"놀이마당"),
   sejong:plazaAt(-5,269,"세종대왕 동상"),fourSeasons:plazaAt(-34,290,"사계정원"),
-  gratitude:plazaAt(-40,316,"감사의 정원"),ruins:plazaAt(-37,362,"사헌부 문터"),
+  gratitude:plazaAt(-40,316,"감사의 정원"),sejongPark:plazaAt(-68,333,"세종로공원"),ruins:plazaAt(-37,362,"사헌부 문터"),
   time:plazaAt(-38,387,"시간의 정원"),cascade:plazaAt(-34,403,"시간의 벽천"),
   pine:plazaAt(-43,426,"소나무정원"),lawn:plazaAt(-21,473,"육조마당"),
   woldae:plazaAt(-13,576,"광화문 월대"),gate:plazaAt(-13.2,602.7,"광화문")
@@ -44,7 +44,14 @@ export const plazaPaths=[
   {width:8,surface:"stone",points:polygon([[-18,1],[-18,34],[-21,65],[-6,97],[-5,173],[-8,221],[-15,263],
     [-10,306],[-10,364],[-10,414],[-6,457],[-6,514],[-13,541],[-13,586]])},
   {width:5.5,surface:"stone",points:polygon([[-45,4],[-48,53],[-48,91],[-43,125],[-43,190],[-43,221],[-45,252],
-    [-43,292],[-49,330],[-46,370],[-49,420],[-47,457],[-44,505]])}
+    [-43,292],[-49,330],[-46,370],[-49,420],[-47,457],[-44,505]])},
+  {width:5.8,surface:"stone",points:polygon([[-52,332.6],[-68.5,332.6],[-80,335]])},
+  {width:5,surface:"stone",points:polygon([[46,487],[57,487],[58.8,492.3]])}
+];
+export const plazaSideForecourts=[
+  polygon([[-55,329.3],[-67,329.3],[-77,331.8],[-82,331.8],[-82,338.2],[-76,338.2],[-67,335.9],[-55,335.9]]),
+  polygon([[48,483.6],[56.2,483.6],[61.8,486],[61.8,499],[55.9,499],[55.9,490.6],[48,490.6]]),
+  polygon([[48,460.2],[48.8,460.2],[48.8,476.2],[48,476.2]])
 ];
 // The relocated lanes stay east of the plaza. The roadway and pedestrian tests share this profile.
 export const plazaRoadProfile=[[0,11],[242,11],[344,8],[442,5],[504,2],[528,8],[548,23]];
@@ -88,7 +95,11 @@ export const plazaBeds=[
   yukjoLawn,
   bed("north-lawn-edge","mixed",[[-5.7,514],[.7,513],[2.8,516],[4.4,522],[3.3,526],[-1.6,528],[-6.4,525]]),
   bed("woldae-west","lawn",[[-54,565],[-37,562],[-31,570],[-31,595],[-59,596],[-60,578]]),
-  bed("woldae-east","lawn",[[5,567],[22,563],[30,572],[31,594],[6,596]])
+  bed("woldae-east","lawn",[[5,567],[22,563],[30,572],[31,594],[6,596]]),
+  // The park sits behind the plaza-side promenade and opens through a break in the planting.
+  bed("sejongno-park-south","grove",[[-95,281],[-70,279],[-56,282],[-56,328.7],[-67.5,328.7],[-80,331.2],[-95,328]]),
+  bed("sejongno-park-north","grove",[[-95,340],[-82,339],[-76.6,339],[-66.8,336.6],[-56,336.6],[-56,381.5],[-78,385],[-96,376]]),
+  bed("pine-approach","pine",[[-66.2,406],[-61,403],[-56.2,406],[-56.2,421],[-62,424],[-66.2,421]])
 ];
 
 export function insidePlazaPolygon(x,y,points){
@@ -124,6 +135,7 @@ export function isPlazaWalkable(x,y){
   const sajik=sajikRoad;
   if(north>=522&&north<=sajik.north+1&&Math.abs(east-sajik.crossX)<sajik.crossWidth/2)return true;
   if(north>494&&north<529&&east>=41&&east<=66)return true;
+  if(plazaSideForecourts.some(outline=>insidePlazaPolygon(x,y,outline)))return true;
   if(plazaBeds.some(bed=>bed.kind==="lawn"&&insidePlazaPolygon(x,y,bed.outline)))return true;
   if(!insidePlazaPolygon(x,y,plazaOutline))return false;
   return !plazaBeds.some(bed=>bed.kind!=="lawn"&&insidePlazaPolygon(x,y,bed.outline));

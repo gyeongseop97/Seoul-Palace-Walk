@@ -28,6 +28,21 @@ function cleanBasket({phase,score,level,ball,rimX}){
   return {kind:"basket",phase,score,level,ball:ball.map(compact),rimX:compact(rimX)};
 }
 
+function cleanBowling({roll}){
+  if(roll===null)return {kind:"bowling",roll};
+  if(!roll||!integer(roll.at,1,9999999999999)||!inRange(roll.angle,-.34,.34)||
+    !inRange(roll.power,0,1)||!integer(roll.mask,1,1023)||!integer(roll.attempt,1,2)||
+    (roll.attempt===1&&roll.mask!==1023))return null;
+  const {at,angle,power,mask,attempt}=roll;
+  return {kind:"bowling",roll:{at,angle,power,mask,attempt}};
+}
+
+function cleanMole({score,target,height,swingAt,finished,remaining}){
+  if(!integer(score,0,24)||!integer(target,-1,2)||!inRange(height,0,1)||!integer(swingAt,0,9999999999999)||
+    typeof finished!=="boolean"||!integer(remaining,0,25))return null;
+  return {kind:"mole",score,target,height:compact(height),swingAt,finished,remaining};
+}
+
 function cleanClaw({head,holding,prizes}){
   if(!vector(head,headRanges)||!integer(holding,-1,lastPrize)||!Array.isArray(prizes)||prizes.length>CLAW_PRIZES.length)return null;
   const cleaned=[],seen=new Set();
@@ -45,11 +60,13 @@ export function cleanArcadeActivity(avatar){
   const activity=avatar?.arcade;
   if(typeof activity?.kind!=="string"||!Object.hasOwn(ARCADE_GAMES,activity.kind)||avatar.seat!=null||avatar.bus||avatar.bikeRide||
     avatar.bike&&!avatar.bike.parked||interiorAt(avatar.x,avatar.y)!==ARCADE_SITE.id)return null;
-  const station=ARCADE_GAMES[activity.kind],reach=activity.kind==="pump"?3.6:1.85;
+  const station=ARCADE_GAMES[activity.kind],reach=activity.kind==="pump"?3.6:activity.kind==="mole"?3.05:1.85;
   if(Math.hypot(station.x-avatar.x,station.y-avatar.y)>reach)return null;
   switch(activity.kind){
     case "pump":return cleanPump(activity);
     case "basket":return cleanBasket(activity);
     case "claw":return cleanClaw(activity);
+    case "bowling":return cleanBowling(activity);
+    case "mole":return cleanMole(activity);
   }
 }

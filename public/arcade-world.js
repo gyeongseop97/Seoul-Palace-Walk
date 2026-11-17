@@ -1,9 +1,12 @@
-import {ARCADE_BASKET,ARCADE_CLAW,ARCADE_PADS,ARCADE_PUMP,ARCADE_SITE} from "./arcade-layout.js";
+import {ARCADE_BASKET,ARCADE_CLAW,ARCADE_MOLE,ARCADE_PADS,ARCADE_PUMP,ARCADE_SITE} from "./arcade-layout.js";
 import {BASKET_BALL,BASKET_HOOP,CLAW_CHUTE,CLAW_LIMITS,CLAW_PRIZES,basketTrajectory} from "./arcade-games.js";
+import {BASKET_BACKBOARD,BASKET_BACKING,BASKET_RAMP} from "./arcade-basket-physics.js";
 import {standSign} from "./regional-stands.js";
 import {drawPumpTrack} from "./arcade-pump-track.js";
+import {addBowlingLane} from "./arcade-bowling-world.js";
+import {MOLE_OFFSETS} from "./arcade-mole.js";
 
-const wall=0x34464e,ink=0x202c33,cream=0xf2d5ab,teal=0x458f84,orange=0xd5835e;
+const ink=0x202c33,cream=0xf2d5ab,teal=0x458f84,orange=0xd5835e;
 const padColors=[0x68c8d8,0xf0bc6e,0xef89a9,0x9ed0a3];
 const plushColors={
   bear:[0xc49357,0xb47756,0xe3bb7c],rabbit:[0xddafc9,0xb49cd7,0xe9d5ca],cat:[0xa9a7d4,0xd69262,0x8da9bf],
@@ -12,35 +15,11 @@ const plushColors={
 };
 const plushPreview=CLAW_PRIZES.map(prize=>({...prize,available:true}));
 
-export function addArcadeExterior(T,parent,{wx,wz,box},groundHeight){
-  const facade=new T.Group();
-  const {body,angle,width,depth}=ARCADE_SITE,z=depth/2;
-  facade.name=ARCADE_SITE.name;
-  facade.position.set(wx(body.x),groundHeight(body),wz(body.y));
-  facade.rotation.y=angle;parent.add(facade);
-  const block=(color,x,y,z,w,h,d)=>box(color,x,y,z,w,h,d,facade);
-  block(wall,0,1.78,0,width,4,depth);
-  block(ink,0,3.80,0,width+.36,.25,depth+.4);
-  block(ink,0,3.36,z,width+.22,.62,.28);
-  block(teal,0,3.02,z+.155,width,.05,.08);
-  block(orange,0,3.68,z+.155,width,.05,.08);
-  standSign(T,facade,"광화문 오락실","인형뽑기 · 펌프 · 농구",5.4,0,3.34,z+.152,"#263642","#f9dfb1",.49);
-  for(const side of [-1,1]){
-    block(0x182630,side*.64,1.41,z+.02,1.22,2.71,.08);
-    block(0x52747b,side*.63,1.57,z+.07,1.04,1.94,.027);
-    block(cream,side*.22,1.28,z+.105,.06,.35,.08);
-    for(const dx of [2.24,3.88]){
-      block(ink,side*dx,1.61,z+.04,1.44,1.68,.12);
-      block(0x416271,side*dx,1.61,z+.105,1.25,1.48,.028);
-      block(teal,side*dx,1.10,z+.125,1.05,.055,.021);
-    }
-  }
-}
-
-export function* buildArcadeInterior(T,parent,{wx,wz,box,cylinder,shape}){
+export function* buildArcadeInterior(T,parent,kit){
+  const {wx,wz,box,cylinder,shape}=kit;
   const arcade=new T.Group();arcade.name=ARCADE_SITE.name;
   arcade.position.set(wx(ARCADE_SITE.center.x),0,wz(ARCADE_SITE.center.y));
-  arcade.rotation.y=ARCADE_SITE.angle;parent.add(arcade);
+  arcade.rotation.y=ARCADE_SITE.insideAngle;parent.add(arcade);
   const {insideWidth:width,insideDepth:depth}=ARCADE_SITE;
   const sphere=new T.SphereGeometry(1,16,12),thinPipe=new T.CylinderGeometry(1,1,1,8),vertical=new T.Vector3(0,1,0);
   const torus=(r,t)=>new T.TorusGeometry(r,t,6,24);
@@ -104,15 +83,15 @@ export function* buildArcadeInterior(T,parent,{wx,wz,box,cylinder,shape}){
     block(0x415963,side*(width/2-.05),1.98,0,.17,3.99,depth,arcade);
     block(0x32484d,side*(width/2-.17),1.95,depth/2-.10,.32,3.90,.34,arcade);
     glow(side*(width/2-.36),1.87,depth/2-.08,.055,3.47,.052,side>0?orange:teal);
-    for(let i=0;i<11;i++)block(i%2?0x526a6a:0x4f6367,side*(width/2-.19),1.24,-2.45+i*.53,.038,2.22,.49,arcade);
+    for(let i=0;i<24;i++)block(i%2?0x526a6a:0x4f6367,side*(width/2-.19),1.24,-6.62+i*.57,.038,2.22,.52,arcade);
   }
-  for(let i=0;i<14;i++){
-    const x=(i-6.5)*.74;
+  for(let i=0;i<26;i++){
+    const x=(i-12.5)*.77;
     block(i%2?0x384f58:0x3d555d,x,1.87,-depth/2+.11,.70,3.48,.05,arcade);
-    block(i%2?0x62676a:0x536168,x,.052,2.79,.68,.018,.59,arcade);
+    block(i%2?0x62676a:0x536168,x,.016,5.76,.71,.018,.59,arcade);
   }
   block(0x394f56,0,4.07,-.10,width+.36,.22,depth+.37,arcade);
-  const entry=group(0,0,depth/2-.16);entry.rotation.y=Math.PI;
+  const entry=group(-.82,0,depth/2-.16);entry.rotation.y=Math.PI;
   block(ink,0,1.42,0,2.61,2.78,.10,entry);
   for(const side of [-1,1]){
     block(0x435f68,side*.62,1.42,.06,1.13,2.58,.08,entry);
@@ -120,15 +99,14 @@ export function* buildArcadeInterior(T,parent,{wx,wz,box,cylinder,shape}){
     block(cream,side*.2,1.25,.155,.065,.32,.073,entry);
   }
   panel(entry,"출구","",.83,0,3.09,.06,"#245849",.32);
-  for(const [center,caption,color] of [[ARCADE_CLAW.localX,"인형 뽑기",0x9cdcca],[ARCADE_PUMP.localX,"펌프",0xe3b586],[ARCADE_BASKET.localX,"농구",0xffb49a]]){
+  for(const [center,color] of [[ARCADE_CLAW.localX,0x9cdcca],[ARCADE_PUMP.localX,0xe3b586],[ARCADE_BASKET.localX,0xffb49a],[ARCADE_MOLE.localX,0xe6be83]]){
     glow(center,3.89,-.72,2.08,.033,.14,color);
-    panel(arcade,caption,"",1.91,center,2.99,-depth/2+.23,"#24343d",.31);
     block(0x283c44,center,.051,-.15,2.62,.022,3.91,arcade);
   }
-  for(const z of [-1.98,1.45])glow(0,3.93,z,9.61,.032,.045,cream);
-  for(const x of [-3.5,3.5]){
-    const light=new T.PointLight(0xffe6cd,12,10);
-    light.position.set(x,3.52,1.7);arcade.add(light);
+  for(const z of [-4.9,1.45,4.65])glow(0,3.93,z,18.6,.032,.045,cream);
+  for(const x of [-6,0,6]){
+    const light=new T.PointLight(0xffe6cd,13,12);
+    light.position.set(x,3.52,1.6);arcade.add(light);
   }
   yield;
 
@@ -302,11 +280,19 @@ export function* buildArcadeInterior(T,parent,{wx,wz,box,cylinder,shape}){
 
   const basketBase=group(ARCADE_BASKET.localX,.055,ARCADE_BASKET.localZ);basketBase.name="농구 슈팅 기계";
   block(0x714952,0,.17,.13,2.04,.29,1.36,basketBase);
-  const ramp=block(0x866861,0,.34,.39,1.93,.11,1.83,basketBase);ramp.rotation.x=.17;
-  block(0x653d49,0,1.38,-1.185,2.10,2.76,.21,basketBase);
-  block(0x241f2c,0,2.10,-1.064,1.91,.93,.034,basketBase);
-  panel(basketBase,"농구","",1.26,0,2.55,-.812,"#5a3548",.28);
-  const basketScreen=screen(basketBase,.63,.31,0,2.14,-.803,"득점");
+  function basketBox(color,{x,y,z,width,height,depth}){
+    return block(color,x,y,z,width,height,depth,basketBase);
+  }
+  basketBox(0x866861,BASKET_RAMP).rotation.x=BASKET_RAMP.tilt;
+  basketBox(0x653d49,BASKET_BACKING);
+  basketBox(0x241f2c,BASKET_BACKBOARD);
+  const boardFront=BASKET_BACKBOARD.z+BASKET_BACKBOARD.depth/2;
+  panel(basketBase,"농구","",1.26,0,2.55,boardFront+.009,"#5a3548",.28);
+  const basketScreen=screen(basketBase,.60,.26,0,2.34,boardFront+.005,"득점");
+  for(const edge of [-1,1]){
+    block(cream,edge*.285,1.895,boardFront+.002,.024,.37,.003,basketBase);
+    block(cream,0,1.895+edge*.175,boardFront+.002,.57,.021,.003,basketBase);
+  }
   for(const side of [-1,1]){
     const x=side*1.02;
     beam(cream,[x,.34,1.16],[x,1.13,1.09],.035,basketBase);
@@ -317,8 +303,8 @@ export function* buildArcadeInterior(T,parent,{wx,wz,box,cylinder,shape}){
     }
   }
   const hoop=group(BASKET_HOOP.x,BASKET_HOOP.y,BASKET_HOOP.z,basketBase);
-  block(0xb04e35,0,-.035,-.21,.115,.083,.37,hoop);
-  const basketRing=shape(torus(.285,.026).rotateX(-Math.PI/2),0xb84e35,0,0,0,hoop);
+  block(0xb04e35,0,-.035,-.375,.115,.083,.24,hoop);
+  const basketRing=shape(torus(BASKET_HOOP.majorRadius,BASKET_HOOP.tubeRadius).rotateX(-Math.PI/2),0xb84e35,0,0,0,hoop);
   basketRing.material=meshMaterial(0xd66a45,{metalness:.43});
   for(let n=0;n<10;n++){
     const a=n*Math.PI/5,b=a+Math.PI/5;
@@ -326,6 +312,7 @@ export function* buildArcadeInterior(T,parent,{wx,wz,box,cylinder,shape}){
     beam(cream,upper,lower,.010,hoop);
     beam(cream,lower,[Math.cos(a)*.205,-.35,Math.sin(a)*.205],.008,hoop);
   }
+  dynamic(hoop);
   const dotMaterial=new T.MeshBasicMaterial({color:0xffe09b});
   const aimDots=Array.from({length:14},(_,index)=>{
     const radius=.039-index*.0012;
@@ -340,9 +327,34 @@ export function* buildArcadeInterior(T,parent,{wx,wz,box,cylinder,shape}){
   shape(seam,0x744b32,0,0,0,basketball).rotation.y=Math.PI/2;
   shape(seam,0x744b32,0,0,0,basketball).rotation.y=.48;
   dynamic(basketball);
+  yield;
 
+  const bowling=addBowlingLane(T,arcade,kit);
+  const mole=group(ARCADE_MOLE.localX,.025,ARCADE_MOLE.localZ);
+  mole.name="두더지 잡기";
+  block(0x39384e,0,.35,0,3.21,.65,1.26,mole);
+  block(0x6a5b77,0,.73,0,3.36,.16,1.36,mole);
+  block(0x31534e,0,.808,-.03,3.25,.018,1.26,mole);
+  glow(0,.56,.645,3.18,.042,.035,0xa2dec5,mole);
+  block(0x564560,0,1.37,-.57,3.27,1.24,.17,mole);
+  panel(mole,"두더지 잡기","튀어나온 두더지를 망치로!",2.47,0,1.86,-.47,"#4d3d5b",.38);
+  const moleMeter=screen(mole,.77,.39,0,1.36,-.455,"잡은 두더지");
+  const heads=MOLE_OFFSETS.map(x=>{
+    cylinder(0x241f2c,x,.827,.11,.262,.019,22,mole);
+    const well=shape(torus(.25,.025).rotateX(-Math.PI/2),0xe4b387,x,.824,.11,mole);
+    well.scale.set(1,1,1.03);
+    const head=group(x,.85,.11,mole);head.visible=false;
+    oval(0x816053,0,.07,0,.161,.158,.157,head);
+    oval(0xb78e72,0,.119,.12,.101,.074,.039,head);
+    for(const side of [-1,1]){
+      oval(0x553e39,side*.092,.207,-.021,.042,.06,.035,head);
+      oval(0x261f2b,side*.048,.150,.135,.011,.014,.010,head);
+    }
+    oval(0xd19087,0,.105,.155,.029,.021,.016,head);
+    dynamic(head);return head;
+  });
   let showPreview=true,previousAim=null;
-  function update(local,clock,peers=[]){
+  function update(local,clock,peers=[],serverClock=0,view){
     const spectators=new Map();
     for(const peer of peers){
       const activity=peer.arcade;
@@ -396,6 +408,14 @@ export function* buildArcadeInterior(T,parent,{wx,wz,box,cylinder,shape}){
     basketball.position.set(shot.x,shot.y,shot.z);
     basketball.rotation.x=basketballGame&&basketballGame.phase!=="aim"?clock*.016:0;
     basketScreen(String(basketballGame?.score??0),basketballGame?basketballGame.level+"단계":"자유투");
+    bowling.update(game("bowling")?.bowling?.roll??null,serverClock,local?.kind==="bowling"?view?.pan:undefined);
+    const moleGame=game("mole");
+    heads.forEach((head,index)=>{
+      const rise=index===moleGame?.target?moleGame.height:0;
+      head.visible=rise>.015;
+      if(head.visible)head.position.y=.827-.28*(1-rise);
+    });
+    moleMeter(String(moleGame?.score??0),moleGame?(moleGame.finished?"끝":moleGame.remaining+"초"):"망치 준비");
   }
   update(null,0);
   return {updateArcade:update};

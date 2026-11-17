@@ -199,6 +199,20 @@ export function makeSound(){
       tone(pitch,pitch,{gain:.075,attack:.006,decay:.21,type:"triangle"});
       tone(strong?139:95,53,{gain:strong?.16:.085,attack:.003,decay:.20});
     },
+    basketImpact(kind,strength){
+      const gain=fraction(strength);
+      if(kind==="score"){
+        burst({type:"bandpass",frequency:1320,q:.8,gain:.078,decay:.15});
+        tone(523,530,{gain:.035,attack:.008,decay:.16});
+      }else if(kind==="rim"){
+        tone(610,598,{gain:.075*gain,attack:.003,decay:.17,type:"triangle"});
+        tone(967,952,{gain:.020*gain,attack:.002,decay:.10});
+      }else{
+        const board=kind==="backboard";
+        tone(board?196:103,board?129:59,{gain:.17*gain,attack:.003,decay:board?.115:.083});
+        burst({type:"bandpass",frequency:board?710:420,q:.72,gain:.10*gain,decay:.066});
+      }
+    },
     step(surface){
       if(surface==="water")burst({type:"bandpass",frequency:620,q:.7,gain:.2,decay:.24,rate:.6});
       else if(surface==="wood")burst({frequency:380,gain:.17,decay:.07});

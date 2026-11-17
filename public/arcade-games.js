@@ -1,3 +1,6 @@
+import {advanceBasketShot, BASKET_BALL, createBasketShot} from "./arcade-basket-physics.js";
+export {BASKET_BALL, BASKET_HOOP, basketTrajectory} from "./arcade-basket-physics.js";
+
 export const CLAW_LIMITS=Object.freeze({x:.985,z:.695,low:.25,high:1.74});
 export const CLAW_CHUTE=Object.freeze({x:-.874,z:.604,width:.52,depth:.51});
 const prizeTypes=[
@@ -17,33 +20,16 @@ export const CLAW_PRIZES=Object.freeze([
     radius:.122*scale+(type==="star"?.043:.010),rotX:y?.26*Math.sin(index*2):.19*Math.sin(index*5),
     rotY:1.04*Math.sin(index*7),rotZ:y?.49*Math.cos(index*2):.16*Math.cos(index*3)});
 }));
-export const BASKET_HOOP=Object.freeze({x:0,y:1.67,z:-.8});
-export const BASKET_BALL=Object.freeze({x:0,y:1.35,z:1.6,radius:.11});
 export const BASKET_CHARGE_MS=940;
 export const BASKET_REST_POWER=.6;
 
 const clawClock=Object.freeze({reaching:760,closed:1110,lifted:2060,returned:3130,released:3430,finished:4260});
-const gravity=9.8;
 const clamp=(value,min=0,max=1)=>Math.min(max,Math.max(min,value));
 const mix=(a,b,t)=>a+(b-a)*t;
 const fraction=(time,start,end)=>clamp((time-start)/(end-start));
 const ease=t=>t*t*(3-2*t);
 const resetPrizes=()=>CLAW_PRIZES.map(prize=>({...prize,available:true}));
 
-function basketVelocity(view,power){
-  const yaw=(view.pan-270)*Math.PI/180;
-  const elevation=clamp(28-view.tilt,12,59)*Math.PI/180;
-  const speed=4.1+3.45*clamp(power),flat=speed*Math.cos(elevation);
-  return {x:flat*Math.sin(yaw),y:speed*Math.sin(elevation),z:-flat*Math.cos(yaw)};
-}
-function basketPosition(velocity,time){
-  return {x:BASKET_BALL.x+velocity.x*time,y:BASKET_BALL.y+velocity.y*time-.5*gravity*time*time,
-    z:BASKET_BALL.z+velocity.z*time};
-}
-function descendingAt(velocity,height){
-  const square=velocity.y**2+2*gravity*(BASKET_BALL.y-height);
-  return square<0?Infinity:(velocity.y+Math.sqrt(square))/gravity;
-}
 const clawRest={x:CLAW_CHUTE.x,z:CLAW_CHUTE.z,y:CLAW_LIMITS.high,grip:0,
   swingX:0,swingZ:0,tiltX:0,tiltZ:0,holding:null};
 
@@ -143,7 +129,7 @@ function fallingPrizePose(drop,seconds){
     rotZ:pose.rotZ+rotationTime*(.54-vx*1.5)};
 }
 
-export function makeArcadeGames({random=Math.random}={}){
+export function makeArcadeGames({random=Math.random,playBasketImpact=()=>{}}={}){
   let kind=null,phase="idle",attempts=0,score=0,lastResult=null,lastPrize=null,active=null;
   const claw={...clawRest,prizes:resetPrizes(),won:[]};
   const basket={...BASKET_BALL};
@@ -189,11 +175,7 @@ export function makeArcadeGames({random=Math.random}={}){
       if(contact)active.drop=prepareClawDrop(claw.prizes,active);
       phase="descending";
     }else{
-      const velocity=basketVelocity(basketAim,power);
-      const rimTime=descendingAt(velocity,BASKET_HOOP.y);
-      const floorTime=descendingAt(velocity,BASKET_BALL.radius);
-      const backTime=(-1.58-BASKET_BALL.z)/velocity.z;
-      active={at:time,velocity,rimTime,floorTime,backTime,settled:false};phase="shooting";
+      active=createBasketShot(time,basketAim,power);phase="shooting";
     }
     return true;
   }
@@ -225,33 +207,25 @@ export function makeArcadeGames({random=Math.random}={}){
     const elapsed=(time-rimStart)/1000;
     return clamp(lastRimX*Math.exp(-elapsed*4)+Math.sin(elapsed*(1.65+(level-2)*.22))*Math.min(.62,.32+(level-2)*.09),-.63,.63);
   }
-  function ballInFlight(shot,time){
-    const point=basketPosition(shot.velocity,time);
-    if(time>shot.backTime)point.z=-1.58-shot.velocity.z*(time-shot.backTime)*.43;
-    return point;
-  }
   function updateBasket(now){
+    if(active?.endedAt===null){
+      advanceBasketShot(active,now,hoopX,(event,time,strength)=>{
+        if(event==="score"){
+          lastResult="success";
+          if(++score%3===0){lastRimX=hoopX(time);rimStart=time;level++;}
+        }
+        if(now-time<150)playBasketImpact(event,strength);
+      });
+      if(active.endedAt!==null){
+        phase="returning";
+        if(!active.scored)lastResult="miss";
+      }
+    }
     rimX=hoopX(now);
     if(!active)return;
-    const {at,rimTime,floorTime,backTime}=active,time=(now-at)/1000;
-    if(!active.settled&&time>=Math.min(rimTime,backTime,floorTime)){
-      active.settled=true;
-      const crossed=rimTime<=Math.min(backTime,floorTime);
-      const ball=crossed?basketPosition(active.velocity,rimTime):null,hitAt=at+rimTime*1000;
-      const goal=ball&&Math.hypot(ball.x-hoopX(hitAt),ball.z-BASKET_HOOP.z)<=.174;
-      if(goal&&++score%3===0){
-        lastRimX=hoopX(hitAt);rimStart=hitAt;level++;rimX=hoopX(now);
-      }
-      lastResult=goal?"success":"miss";
-    }
-    if(time<floorTime){
-      Object.assign(basket,ballInFlight(active,time));
-      return;
-    }
-    const landing=ballInFlight(active,floorTime),t=fraction(time,floorTime,floorTime+.64);
-    phase="returning";
-    basket.x=mix(landing.x,BASKET_BALL.x,ease(t));basket.z=mix(landing.z,BASKET_BALL.z,ease(t));
-    basket.y=mix(BASKET_BALL.radius,BASKET_BALL.y,ease(t))+Math.sin(t*Math.PI)*.16;
+    const t=active.endedAt===null?0:fraction(now,active.endedAt,active.endedAt+690);
+    basket.x=mix(active.x,BASKET_BALL.x,ease(t));basket.z=mix(active.z,BASKET_BALL.z,ease(t));
+    basket.y=mix(active.y,BASKET_BALL.y,ease(t))+Math.sin(t*Math.PI)*.13;
     if(t===1){phase="aim";active=null;}
   }
 
@@ -268,10 +242,4 @@ export function makeArcadeGames({random=Math.random}={}){
   };
   const state=()=>({kind,phase,attempts,score,lastResult,lastPrize,claw,basket,rimX,level,basketAim});
   return {start,stop,move,act,tick,state,aim};
-}
-
-export function basketTrajectory(view){
-  const velocity=basketVelocity(view,view.power);
-  const end=Math.min(descendingAt(velocity,BASKET_BALL.radius),(-1.40-BASKET_BALL.z)/velocity.z,.77);
-  return Array.from({length:14},(_,index)=>basketPosition(velocity,end*(index+1)/14));
 }
