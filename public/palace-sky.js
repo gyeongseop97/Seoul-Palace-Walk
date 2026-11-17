@@ -87,16 +87,28 @@ function ridgeMesh(T,parent,{bearing,span,radius,heights,day,night}){
   return {material,day:new T.Color(day),night:new T.Color(night)};
 }
 
-function cityBackdrop(T,parent){
+function cityBackdrop(T,parent,sky,{origin,exclusions}={}){
   const buildings=[],roofPieces=[];
+  const city=new T.Group();city.name="World-positioned Seoul skyline";
+  if(origin){
+    city.position.set(origin.x,0,origin.z);
+    // The distant towers meet a low, fogged terrain skirt below the playable
+    // map. It closes the view under their foundations without adding collision.
+    const ground=new T.Mesh(new T.PlaneGeometry(1120,1120),new T.MeshBasicMaterial({color:0x899384}));
+    ground.rotation.x=-Math.PI/2;ground.position.set(centre.x,-9,centre.z);
+    city.add(ground);
+  }
+  parent.add(city);
   let seed=78567;
   function rand(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;}
   function tower(bearing,distance,width,depth,height,color,angle=0){
     const {x,z}=polar(bearing,distance);
     // The low southeast skyline originally filled the blocks now modeled at
     // street level around Seoul Plaza, Hwangudan and the Sogong-dong hotels.
-    const footprint=Math.hypot(width,depth)/2,mapX=x+300,mapY=z+225;
+    const footprint=Math.hypot(width,depth)/2,mapX=x+city.position.x+300,mapY=z+city.position.z+225;
     if(mapX+footprint>621&&mapX-footprint<890&&mapY+footprint>182&&mapY-footprint<439)return;
+    if(exclusions?.some(({minX,maxX,minY,maxY})=>mapX+footprint>minX&&mapX-footprint<maxX&&
+      mapY+footprint>minY&&mapY-footprint<maxY))return;
     buildings.push({x,z,width,depth,height,color,angle});
     if(height>35)roofPieces.push({x,z,y:height+1.2,width:width*.63,depth:depth*.61,height:2.6+rand()*2.1,color,angle});
   }
@@ -125,14 +137,15 @@ function cityBackdrop(T,parent){
   function batch(parts,material,name){
     const mesh=new T.InstancedMesh(unit,material,parts.length);
     parts.forEach(({x,z,y,width,depth,height,color,angle},i)=>{
-      pose.position.set(x,y??height*.5-1,z);pose.scale.set(width,height,depth);pose.rotation.y=angle;
+      const base=origin&&y==null?13:0;
+      pose.position.set(x,y??(height-base)*.5-1,z);pose.scale.set(width,height+base,depth);pose.rotation.y=angle;
       pose.updateMatrix();mesh.setMatrixAt(i,pose.matrix);mesh.setColorAt(i,new T.Color(color));
     });
-    mesh.name=name;mesh.computeBoundingSphere();parent.add(mesh);
+    mesh.name=name;mesh.computeBoundingSphere();city.add(mesh);
   }
   batch(buildings,glass,"Distant Seoul skyline");batch(roofPieces,roofs,"Skyline rooftops");
   const hill=polar(145,506),spire=new T.Group();spire.position.set(hill.x,66,hill.z);
-  spire.name="Namsan tower silhouette";parent.add(spire);
+  spire.name="Namsan tower silhouette";sky.add(spire);
   const towerMat=new T.MeshBasicMaterial({color:0x8c999d,fog:false,toneMapped:false});
   for(const [radius,tip,height,y] of [[2.6,1.3,32,16],[4.7,4.7,4.8,32],[1.16,.81,6.3,36],[.55,.29,10,43]]){
     const part=new T.Mesh(new T.CylinderGeometry(tip,radius,height,9),towerMat);part.position.y=y;spire.add(part);
@@ -140,9 +153,9 @@ function cityBackdrop(T,parent){
   return [glass,roofs,towerMat];
 }
 
-export function addPalaceSky(T,scene,{sunDirection}={}){
+export function addPalaceSky(T,scene,{sunDirection,landscape,cityOrigin,cityExclusions}={}){
   const sky=new T.Group();sky.name="Deoksugung sky and distant Seoul";scene.add(sky);
-  const hills=ridges.map(ridge=>ridgeMesh(T,sky,ridge)),city=cityBackdrop(T,sky);
+  const hills=ridges.map(ridge=>ridgeMesh(T,sky,ridge)),city=cityBackdrop(T,landscape??sky,sky,{origin:cityOrigin,exclusions:cityExclusions});
   const clouds=cloudLayer(T,sky),sun=sunDisk(T,sky,sunDirection);
   const cityDay=[new T.Color(0xffffff),new T.Color(0xd5dde2),new T.Color(0x8c999d)];
   const cityNight=[new T.Color(0x596a7c),new T.Color(0x536479),new T.Color(0x566673)];

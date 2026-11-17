@@ -12,11 +12,14 @@ const local=(x,y)=>{
 };
 const area=(name,vertices)=>({name,vertices,outline:vertices.map(([x,y])=>mmcaAt(x,y))});
 const rect=(west,east,north,south)=>[[west,north],[east,north],[east,south],[west,south]];
+export const mmcaEducationCore={west:-9.75,east:25.80,north:-51.80,south:-25.4,vertices:rect(-9.75,25.80,-51.80,-25.4)};
+export const mmcaEducationColumns=[[-9.6,-49.3],[24.5,-49.3],[-.6,-8.5],[24.5,-8.5]];
 export const mmcaCourtyards=[
   area("열린마당",[[-43,-14],[-18,-17],[-11,-10],[24,-10],[44,-4],[55,4],[58,24],[38,30],[-14,31],[-25,31],[-43,23]]),
   area("미술관마당",[[21,4],[82,4],[85,13],[84,40],[78,47],[47,47],[39,53],[11,51],[10,29]]),
   area("종친부 마당",[[82,4],[119,4],[123,19],[125,57],[116,65],[92,64],[77,50],[78,30]]),
-  area("삼청로 진입마당",[[-37,29],[-12,29],[-10,113],[9,113],[15,126],[0,140],[-33,148],[-34,127],[-30,109],[-32,82],[-38,60]])
+  area("삼청로 진입마당",[[-37,29],[-12,29],[-10,113],[9,113],[15,126],[0,140],[-33,148],[-34,127],[-30,109],[-32,82],[-38,60]]),
+  area("교육동 아래 통로",rect(-1.9,25.87,-25.2,-7))
 ];
 export const mmcaLawns=[
   area("열린마당 잔디",[[-34,12],[-26,10],[-18,12],[-9,16],[-7,23],[-9,27],[-19,29],[-29,26],[-34,21]]),
@@ -73,10 +76,15 @@ export function mmcaReserved(x,y,margin=0){
   const [east,south]=local(x,y);
   return east>=-43-margin&&east<=125+margin&&south>=-57-margin&&south<=148+margin;
 }
+function isGroundBuilding(east,south){
+  return mmcaBuildings.some(building=>nearBuilding(east,south,building.id==="education"?mmcaEducationCore:building,.28))||
+    mmcaEducationColumns.some(([x,z])=>Math.hypot(east-x,south-z)<.58);
+}
+export function mmcaBlocked(x,y){return isGroundBuilding(...local(x,y));}
 export function mmcaWalkable(x,y){
   const [east,south]=local(x,y);
   return onCampus(east,south)&&mmcaCourtyards.some(({vertices})=>contains(east,south,vertices))&&
-    !mmcaBuildings.some(building=>nearBuilding(east,south,building,.28))&&
+    !isGroundBuilding(east,south)&&
     !mmcaTrees.some(([tx,ty])=>Math.hypot(east-tx,south-ty)<.72)&&
     !mmcaLamps.some(([tx,ty])=>Math.hypot(east-tx,south-ty)<.34)&&
     !mmcaBenches.some(([px,py])=>Math.abs(east-px)<1.66&&Math.abs(south-py)<.56)&&

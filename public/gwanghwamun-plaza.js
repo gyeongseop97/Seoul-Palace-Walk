@@ -1,6 +1,6 @@
 import {addObstacle} from "./layout.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
-import {assemblePlazaCity} from "./plaza-city.js";
+import {assemblePlazaCity,registerPlazaCity} from "./plaza-city.js";
 import {addPlazaMonuments,plazaMonumentFootprints} from "./plaza-monuments.js";
 import {plazaAt,plazaOutline,plazaBeds,plazaSites,plazaTransitStops,insidePlazaPolygon,
   plazaRoadProfile,plazaCrossings,plazaCrossingApronHalf,eastCurb,eastRoadWidth,sajikRoad,haechiBasin} from "./plaza-layout.js";
@@ -19,8 +19,41 @@ const byCrossing=n=>plazaCrossings.some(cross=>Math.abs(cross-n)<6);
 for(let n=28;n<518;n+=21.5)if(!byCrossing(n))eastLamps.push(n);
 for(let n=18;n<518;n+=3.15)if(!byCrossing(n)&&Math.abs(358-n)>=8)railings.push(n);
 
+// Clip the outer sidewalk against the west edge of the square. The square and
+// sidewalk use the same paving material, so only one surface should own each tile.
+export function plazaWestPavement(){
+  const west=-55,east=-45,start=0,end=430;
+  const edges=plazaOutline.map((to,index)=>[plazaOutline[(index+plazaOutline.length-1)%plazaOutline.length],to]);
+  const eastAt=(a,b,north)=>between(a.east,b.east,(north-a.north)/(b.north-a.north));
+  const edgeAt=north=>Math.min(...edges.filter(([a,b])=>a.north!==b.north&&
+    north>=Math.min(a.north,b.north)&&north<=Math.max(a.north,b.north)).map(([a,b])=>eastAt(a,b,north)));
+  const knots=new Set([start,end,...plazaOutline.filter(point=>point.north>start&&point.north<end).map(point=>point.north)]);
+  for(const [a,b] of edges)for(const boundary of [west,east]){
+    if(a.east===b.east)continue;
+    const t=(boundary-a.east)/(b.east-a.east),north=between(a.north,b.north,t);
+    if(t>0&&t<1&&north>start&&north<end)knots.add(north);
+  }
+  const samples=[...knots].sort((a,b)=>a-b).map(north=>plazaAt(Math.max(west,Math.min(east,edgeAt(north))),north));
+  const strips=[];
+  let front=[];
+  for(let index=1;index<samples.length;index++){
+    const a=samples[index-1],b=samples[index];
+    if(a.east===west&&b.east===west)continue;
+    if(!front.length)front.push(a);
+    front.push(b);
+    if(b.east===west||index===samples.length-1){
+      const first=front[0],last=front.at(-1);
+      strips.push([...(first.east!==west?[plazaAt(west,first.north)]:[]),...front,
+        ...(last.east!==west?[plazaAt(west,last.north)]:[])]);
+      front=[];
+    }
+  }
+  return strips;
+}
+
 // The pathfinder and seat IDs are available before the plaza's meshes are built.
 export function registerPlazaNavigation(benches){
+  registerPlazaCity();
   function obstacle(e,n,w,d,top=Infinity,angle=0){
     const {x,y}=plazaAt(e,n);addObstacle(x,y,w,d,angle,top);
   }
@@ -118,10 +151,15 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
   }
 
   const basin=haechiBasin,basinHole=rect(basin.west,basin.east,basin.south,basin.north);
-  surface(rect(-137,126,-27,635),matte(0x696e60),-.059,[basinHole]);
-  surface(basinHole,matte(0x696e60),-2.24);
+  const terrainBase=matte(0x696e60);
+  surface(rect(-137,126,-27,635),terrainBase,-.059,[basinHole]);
+  // Flush extensions carry both outer rows of buildings without spilling over
+  // onto the palace side of Sajik-ro.
+  surface(rect(-260,-137,-27,sajikRoad.north),terrainBase,-.059);
+  surface(rect(126,225,-27,sajikRoad.north),terrainBase,-.059);
+  surface(basinHole,terrainBase,-2.24);
   surface(plazaOutline,stone,.025,[basinHole]);
-  surface(rect(-55,-45,0,430),stone,.021);
+  for(const outline of plazaWestPavement())surface(outline,stone,.025);
   surface(rect(-310,310,sajikRoad.south,sajikRoad.north),road,-.012);
   const roadside=plazaRoadProfile.map(([north,east])=>plazaAt(east,north));
   const farCurb=plazaRoadProfile.map(([north,east])=>plazaAt(east+eastRoadWidth,north));

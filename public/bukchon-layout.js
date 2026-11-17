@@ -1,7 +1,7 @@
 import {addLandmarks,addObstacle,addZone,project} from "./layout.js";
 import {gbEastOpenings,gbEastWall,gbEastWallX} from "./gyeongbok-perimeter.js";
 import {gyeongbokTerrainHeight,samcheongLevel,sampleMeshHeight} from "./gyeongbok-terrain.js";
-import {mmcaGroundHeight,mmcaLandmarks,mmcaWalkable} from "./mmca-layout.js";
+import {mmcaBlocked,mmcaGroundHeight,mmcaLandmarks,mmcaWalkable} from "./mmca-layout.js";
 
 // Read in the common map projection. The street bends and ridgeline follow the Seoul
 // Hanok Portal walking map and Google Earth. Individual residential lots are interpreted.
@@ -192,7 +192,7 @@ function lawnAt(x,y){
 // Broad Samcheong-ro is crossed at the marked crossings. Narrower mixed-use lanes are
 // continuous pedestrian space; stairs are a signed public link between the two levels.
 export function bukchonWalkable(x,y){
-  return bukchonPaths.some(path=>path.kind!=="road"&&inPath(x,y,path))||mmcaWalkable(x,y)||Boolean(lawnAt(x,y));
+  return !mmcaBlocked(x,y)&&(bukchonPaths.some(path=>path.kind!=="road"&&inPath(x,y,path))||mmcaWalkable(x,y)||Boolean(lawnAt(x,y)));
 }
 function samplePath(x,y,path){
   let nearest=Infinity,level=0;

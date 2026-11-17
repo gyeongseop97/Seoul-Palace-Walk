@@ -190,6 +190,12 @@ export function addRegionalStands(T,root,kit,area){
     const building=new T.Group();building.name=shop.name;
     building.position.set(wx(shop.x),shop.level??(area==="gyeongbokgung"?.048:0),wz(shop.y));building.rotation.y=shop.angle;
     group.add(building);
+    if(area==="gwanghwamun"){
+      // The shell stays level at the entrance; its basement closes the gap to
+      // the pavement under all four corners on the graded avenue.
+      const width=shop.kind==="churu"?shop.w:15.94;
+      box(0x888278,0,-.34,0,width,.69,shop.d,building);
+    }
     if(area==="gyeongbokgung")booth(shop,building);
     else if(shop.kind==="churu")addConvenienceStore(T,building,kit,{name:shop.name,width:shop.w,depth:shop.d,height:shop.h});
     else if(area==="bukchon")booth(shop,building);

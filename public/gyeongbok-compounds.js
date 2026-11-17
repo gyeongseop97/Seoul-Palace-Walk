@@ -203,7 +203,7 @@ export function* buildGyeongbokCompounds(T,root,{wx,wz,box,cylinder},{wall,block
 
   const oct=gbSite.parujeong,p=world(oct.east,oct.north),octagon=new T.Group();
   octagon.name=oct.name;octagon.position.set(p.x,0,p.z);root.add(octagon);groups.set(oct.id,octagon);
-  cylinder(granite,0,.24,0,3.28,.48,8,octagon);
+  cylinder(granite,0,.11,0,3.28,.74,8,octagon);
   cylinder(0xa1705a,0,1.46,0,2.52,2.40,8,octagon);
   cylinder(0x3f4c4d,0,2.81,0,3.42,.25,8,octagon,.82);
   cylinder(0x684b3b,0,3.93,0,2.45,2.30,8,octagon);
@@ -216,6 +216,8 @@ export function* buildGyeongbokCompounds(T,root,{wx,wz,box,cylinder},{wall,block
     panel.rotation.y=a;
     const paper=box(0xd5c19f,Math.sin(a)*(r+.085),4.02,Math.cos(a)*(r+.085),1.15,.82,.075,octagon);paper.rotation.y=a;
   }
+  block(p.x,p.z,6,2.7,0,.48);
+  block(p.x,p.z,2.7,6,0,.48);
   block(p.x,p.z,5.06,5.06,0,5.45);
   yield;
 

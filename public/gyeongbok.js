@@ -3,6 +3,7 @@ import {
   gbWoldae,gbHaetae,gbPhotoZone,gbRoyalPavilion,gbUijeongbu,gbBusIsland,gbCrossings,gyeongbokWater,at
 } from "./gyeongbok-layout.js";
 import {solidAt} from "./layout.js";
+import {plazaAt,sajikRoad} from "./plaza-layout.js";
 import {gbEastOpenings,gbEastWall,gbMuseumWestGate,gbOuterWallRuns,gbWallOutline,gbWestPaths,insideGbWall,clipGbGround} from "./gyeongbok-perimeter.js";
 import {buildGyeongbokCompounds,inGyeongbokCompound} from "./gyeongbok-compounds.js";
 
@@ -356,6 +357,7 @@ export function* buildGyeongbok(T,scene,kit,tools){
     }else if(spec.kind==="sideGate"){
       const g=built({...spec,raised:.3,rise:2.1,noCollision:true});
       const p=world(spec.east,spec.north);
+      box(0xa9a394,0,-.25,0,spec.w+1.38,.56,spec.d+1.08,g);
       block(p.x,p.z,spec.w+1.6,spec.d+1.4,spec.angle);
       g.position.y=0;
     }else if(spec.kind==="museum"){
@@ -797,16 +799,28 @@ export function* buildGyeongbok(T,scene,kit,tools){
     // a row, the L-shaped inner corridor by the avenue, a round well, and the pond and pavilion
     // sites behind the main hall, with garden paths and benches round them.
     const {west,east,south,north}=gbUijeongbu,stone=0xb3ad9d;
-    plot(rect(18,206,-186,-89),materials.road,.011);
+    // Use the same road all the way to the Sajik-ro edge. The old gap left the
+    // crossing stripes suspended over the background, like a second footbridge.
+    const roadNorth=gwanghwamun.y-plazaAt(0,sajikRoad.south).y;
+    const road=plot(rect(18,206,-186,roadNorth),materials.road,-.012);
+    road.name="의정부지 교차로 아스팔트";
     plot(rect(west,east,south,north),materials.garden.lawn,.02);
     const walk=(w,e,s,n)=>plot(rect(w,e,s,n),materials.paving,.027);
-    walk(west,east,north-4.5,north);walk(west,west+6,south,north);walk(east-4.5,east,south,north);walk(west,east,south,south+4.5);
-    walk(west,east,-131,-127.5);walk(92,95.5,south,north);
+    const innerSouth=south+4.5,innerNorth=north-4.5,innerWest=west+6,innerEast=east-4.5;
+    walk(west,east,innerNorth,north);walk(west,east,south,innerSouth);
+    walk(west,innerWest,innerSouth,innerNorth);walk(innerEast,east,innerSouth,innerNorth);
+    walk(innerWest,innerEast,-131,-127.5);
+    walk(92,95.5,innerSouth,-131);walk(92,95.5,-127.5,innerNorth);
     const island=gbBusIsland;
-    plot(rect(island.west,island.east,island.south,island.north),materials.paving,.03);
+    plot(rect(island.west,island.east,island.south,island.north),materials.paving,.03).name="경복궁 정류장 보도";
     const [front,side]=gbCrossings;
-    for(let n=front.south+.6;n<front.north-2;n+=1.15)slab(0xf1ede2,(front.west+front.east)/2,n,front.east-front.west-1,.55,.012,.04);
-    for(let e=side.west+.5;e<side.east;e+=1.15)slab(0xf1ede2,e,(side.south+side.north)/2,.55,side.north-side.south-1,.012,.04);
+    const paint=matte(0xf1ede2);
+    for(let n=north+.6;n<front.north-2;n+=1.15){
+      plot(rect(front.west+.5,front.east-.5,n-.275,n+.275),paint,.006).name="광화문 동쪽 횡단보도 표시";
+    }
+    for(let e=east+.55;e<island.west-.25;e+=1.15){
+      plot(rect(e-.275,e+.275,side.south+.5,side.north-.5),paint,.006).name="경복궁 정류장 횡단보도 표시";
+    }
     const sign=(text,e,n,turn=0,wide=2.4)=>{
       const p=world(e,n),board=new T.Group();
       board.position.set(p.x,0,p.z);board.rotation.y=turn;scene.add(board);
@@ -831,9 +845,11 @@ export function* buildGyeongbok(T,scene,kit,tools){
     };
     site("협선당 터",72,-106,24,9,6,3);site("정본당 터",72,-122.5,28,12.5,7,4);site("석획당 터",72,-139.5,24,9,6,3);
     yield;
-    // Inner corridor by the avenue, bent like the letter L.
+    // Let the paved runs of the L-shaped corridor meet at the elbow.
+    const bend=-145.2;
+    plot(rect(44.2,46.8,bend,-102),materials.court,.031);
+    plot(rect(44.2,57.8,-147.8,bend),materials.court,.031);
     for(const [e,n,w,d] of [[45.5,-124,2.6,44],[51,-146.5,13.6,2.6]]){
-      plot(rect(e-w/2,e+w/2,n-d/2,n+d/2),materials.court,.031);
       const count=Math.round(Math.max(w,d)/3.6);
       for(let i=0;i<=count;i++){
         const se=w>d?e-w/2+.6+i*(w-1.2)/count:e,sn=w>d?n:n-d/2+.6+i*(d-1.2)/count;

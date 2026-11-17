@@ -1,6 +1,8 @@
-import {mmcaFrame,mmcaCourtyards,mmcaLawns,mmcaBuildings,mmcaTrees,mmcaPlanters,mmcaLamps,mmcaBenches,mmcaSign,mmcaGround} from "./mmca-layout.js";
+import {mmcaAt,mmcaFrame,mmcaCourtyards,mmcaLawns,mmcaBuildings,mmcaTrees,mmcaPlanters,mmcaLamps,mmcaBenches,
+  mmcaSign,mmcaGround,mmcaEducationCore,mmcaEducationColumns} from "./mmca-layout.js";
+import {addObstacle} from "./layout.js";
 
-export function* buildMmca(T,root,kit,tiledRoof){
+export function* buildMmca(T,root,kit,tiledRoof,naturalGround){
   const {wx,wz,box,cylinder,matte}=kit;
   const campus=new T.Group();
   campus.name="국립현대미술관 서울";
@@ -42,6 +44,7 @@ export function* buildMmca(T,root,kit,tiledRoof){
   }
   const tiles=patterned([198,192,178]),brick=patterned([149,92,76],{stagger:true});
   const paving=patterned([170,171,161],{stagger:true}),grass=patterned([119,134,81],{joints:false});
+  const plinth=patterned([137,135,125],{stagger:true});
   grass.userData.seasonFoliage="ground";
   const roofMat=matte(0x7f817c),glass=new T.MeshStandardMaterial({color:0x566b6f,roughness:.33,metalness:.23,
     emissive:0x30332a,emissiveIntensity:.18});
@@ -63,8 +66,30 @@ export function* buildMmca(T,root,kit,tiledRoof){
     const object=mesh(geometry,material,campus,false);
     return object;
   }
-  for(const [i,{vertices}] of mmcaCourtyards.entries()){
-    polygon(vertices,paving,(x,z)=>ground(x,z)+i*.003);
+  const below=(x,z)=>Math.min(ground(x,z)-.20,(naturalGround?.(mmcaAt(x,z))??ground(x,z)-.7)-.14);
+  function foundation(outline,top){
+    const positions=[],uv=[];
+    for(const [index,[a,b]] of outline.entries()){
+      const [c,d]=outline[(index+1)%outline.length],run=Math.hypot(c-a,d-b),parts=Math.max(1,Math.ceil(run/4));
+      const point=t=>[a+(c-a)*t,b+(d-b)*t];
+      for(let j=0;j<parts;j++){
+        const [x,z]=point(j/parts),[nx,nz]=point((j+1)/parts);
+        const one=ground(x,z)+top,two=ground(nx,nz)+top,l=below(x,z),r=below(nx,nz);
+        positions.push(x,l,z,nx,r,nz,nx,two,nz,x,l,z,nx,two,nz,x,one,z);
+        const u=run*j/parts,v=run*(j+1)/parts;
+        uv.push(u,l,v,r,v,two,u,l,v,two,u,one);
+      }
+    }
+    const geometry=new T.BufferGeometry();
+    geometry.setAttribute("position",new T.Float32BufferAttribute(positions,3));
+    geometry.setAttribute("uv",new T.Float32BufferAttribute(uv,2));
+    geometry.computeVertexNormals();
+    const surface=mesh(geometry,plinth,campus,false);
+    surface.name="미술관 기초 벽";
+  }
+  for(const [i,{name,vertices}] of mmcaCourtyards.entries()){
+    const outline=name==="교육동 아래 통로"?[[-1.9,-25.2],[25.87,-25.2],[25.87,-9.439],[24,-10],[-1.9,-10]]:vertices;
+    polygon(outline,paving,(x,z)=>ground(x,z)+i*.003);
   }
   for(const {vertices} of mmcaLawns)polygon(vertices,grass,(x,z)=>ground(x,z)+.017);
   function facade([ax,az],[bx,bz],low,high,material,uScale,vScale){
@@ -113,6 +138,7 @@ export function* buildMmca(T,root,kit,tiledRoof){
   for(const building of mmcaBuildings){
     const {id,west,east,north,south,height,vertices}=building;
     if(id.startsWith("brick")){
+      foundation(vertices,.17);
       shell(building,brick,.17,height,true);
       for(const [i,a] of vertices.entries()){
         const b=vertices[(i+1)%vertices.length],dx=b[0]-a[0],dz=b[1]-a[1],length=Math.hypot(dx,dz);
@@ -150,6 +176,7 @@ export function* buildMmca(T,root,kit,tiledRoof){
     }else if(id==="gyeonggeundang"||id==="okcheopdang"){
       const w=east-west,d=south-north,x=(east+west)/2,z=(south+north)/2,group=new T.Group();
       group.position.set(x,ground(x,z),z);campus.add(group);
+      foundation(vertices,.14);
       block(0x9f9280,0,.29,0,w+.7,.58,d+.65,group);
       block(0xe0c38c,0,1.89,0,w-.8,2.65,d-.8,group);
       // The courtyard faces the long colonnade of each hall.
@@ -181,20 +208,29 @@ export function* buildMmca(T,root,kit,tiledRoof){
       shell(building,tiles,id==="education"?3.9:0,height);
       const y=ground(east,south);
       if(id==="education"){
-        block(0x858783,(west+east)/2,y+3.91,(north+south)/2,east-west,.15,south-north);
-        for(const x of [west+1.4,east-1.5])for(const z of [north+2.7,south-1.5]){
-          cylinderAt(0xa29d8d,x,z,0,.31,3.94,10);
+        const core=mmcaEducationCore,point=mmcaAt((core.west+core.east)/2,(core.north+core.south)/2);
+        const skin=patterned([154,158,153]);
+        for(const [i,a] of core.vertices.entries())facade(a,core.vertices[(i+1)%core.vertices.length],0,3.91,skin,.75,.30);
+        foundation(core.vertices,0);
+        addObstacle(point.x,point.y,core.east-core.west,core.south-core.north,mmcaFrame.angle);
+        polygon(vertices,plinth,(x,z)=>ground(x,z)+3.91);
+        for(const [x,z] of mmcaEducationColumns){
+          const low=below(x,z)-ground(x,z),post=mmcaAt(x,z);
+          cylinderAt(0xa29d8d,x,z,low,.31,3.94-low,10);
+          addObstacle(post.x,post.y,.62,.62,mmcaFrame.angle);
         }
-        windows([west+.6,north+1.0],[east-.4,north+1.0],.13,3.60,{spacing:1.17});
-        windows([east-2,south-1.5],[east-2,north+1.5],.17,3.48,{spacing:1.28});
+        windows([core.west+.18,core.south+.05],[core.east-.18,core.south+.05],.17,3.48,{spacing:1.25});
+        windows([core.east+.05,core.south-.18],[core.east+.05,core.north+.18],.17,3.48,{spacing:1.28});
         windows([east-.24,south+.12],[east-5.6,south+.12],4.24,4.34,{spacing:1.68});
         const canopyZ=south+1.75;
         block(0x8b8a7f,(west+east)/2,y+3.85,canopyZ,east-west,.24,3.55);
         for(const x of [west+4,west+13,west+22,west+31])block(0xe7d7a8,x,y+3.70,canopyZ,.8,.06,.24);
       }else if(id==="glass"){
+        foundation(vertices,0);
         windows([east,south+.08],[west,south+.08],.32,9.9,{spacing:1.16});
         windows([east+.08,north],[east+.08,south],.32,9.9,{spacing:1.16});
       }else{
+        foundation(vertices,0);
         windows([east-.15,south+.10],[west+.15,south+.10],.16,id==="lobby"?3.6:2.55,{spacing:1.28});
         if(id==="lobby")windows([west-.12,north],[west-.12,south],.18,3.6);
         for(const edge of [north+.15,south-.15])block(metal,(west+east)/2,y+height+.13,edge,east-west,.055,.035);

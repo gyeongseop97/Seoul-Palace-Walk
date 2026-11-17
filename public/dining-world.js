@@ -21,8 +21,19 @@ export function* buildDiningFacade(T,root,kit,venue=diningVenue,groundHeight=poi
   const frontFloor=groundHeight(venue.outsideDoor);
   group.position.set(wx(x),frontFloor,wz(y));group.rotation.y=angle;root.add(group);
   const part=(color,x0,h,z0,width,height,depth)=>box(color,x0,h,z0,width,height,depth,group);
+  function foundation(color,widen,lengthen,top){
+    let bottom=-1;
+    if(venue.area==="bukchon"){
+      const sine=Math.sin(angle),cosine=Math.cos(angle);
+      for(const dx of [-w/2,0,w/2])for(const dz of [-d/2,0,d/2]){
+        const height=groundHeight({x:x+dx*cosine+dz*sine,y:y-dx*sine+dz*cosine});
+        bottom=Math.min(bottom,height-frontFloor-.78);
+      }
+    }
+    part(color,0,(top+bottom)/2,0,w+widen,top-bottom,d+lengthen);
+  }
   if(venue.service==="robot"||venue.cuisine==="western"){
-    part(0x777e7c,0,-.45,0,w+.26,1.09,d+.22);
+    foundation(0x777e7c,.26,.22,.095);
     part(style.front,0,1.70,-.10,w,3.36,d-.20);
     part(0x747f7d,0,.075,z+.30,w,.15,.85);
     part(style.trim,0,1.50,z,2.62,3,.14);
@@ -54,7 +65,7 @@ export function* buildDiningFacade(T,root,kit,venue=diningVenue,groundHeight=poi
     yield;
     return;
   }
-  part(0x999183,0,-.45,0,w+.24,1.1,d+.21);
+  foundation(0x999183,.24,.21,.10);
   part(0xaaa18c,0,.023,z+.28,w,.07,.91);
   part(style.front,0,1.68,-.15,w,3.27,d-.30);
   part(heartwood,0,1.71,z,2.14,3.06,.22);

@@ -145,9 +145,13 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   const moonLight=new T.DirectionalLight(0xabc9ff,0);
   moonLight.position.set(-145,94,33);
   scene.add(hemi,sun,sun.target,moonLight);
-  const drawPalaceSky=addPalaceSky(T,heavens,{sunDirection:sunDirection.clone().multiplyScalar(142)});
-  const drawPrecipitation=addSeoulPrecipitation(T,outdoors),foliage=makeSeasonFoliage(T);
   const wx=x=>x-300,wz=y=>y-225;
+  const drawPalaceSky=addPalaceSky(T,heavens,{
+    sunDirection:sunDirection.clone().multiplyScalar(142),landscape:outdoors,
+    cityOrigin:{x:wx(plazaSites.sejong.x)-21,z:wz(plazaSites.sejong.y)+14},
+    cityExclusions:[corridorBounds,plazaBounds,gbBounds,bukchonBounds,hwangudanBounds,{minX:45,maxX:560,minY:30,maxY:420}]
+  });
+  const drawPrecipitation=addSeoulPrecipitation(T,outdoors),foliage=makeSeasonFoliage(T);
   const randomFrom=seed=>()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
   const rand=randomFrom(220621);
   const mat=new Map(),cylinders=new Map(),unit=new T.BoxGeometry(1,1,1);
@@ -921,7 +925,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     hemi.color.copy(ambientDay).lerp(overcastAmbient,cloud*.58).lerp(ambientNight,night);
     hemi.groundColor.copy(season==="winter"?winterGround:ordinaryGround);
     sun.color.copy(sunlightDay).lerp(sunlightWarm,twilight*.84);
-    // Gradually follow the northward route without shifting the skyline at district boundaries.
+    // The sky follows the route; modeled buildings stay fixed in the world.
     const horizonFollow=T.MathUtils.smoothstep(180-anchor.y,0,220);
     heavens.position.set((wx(anchor.x)-21)*horizonFollow,0,(wz(anchor.y)+14)*horizonFollow);
     if(now>=cullAt||Math.hypot(anchor.x-streamX,anchor.y-streamY)>22){

@@ -1,4 +1,21 @@
+import {addObstacle} from "./layout.js";
 import {plazaAt} from "./plaza-layout.js";
+
+const podiums={
+  sejong:[-99,204,93,93],hyundai:[-91,68,77,66],government:[-146,470,156,53],
+  kyobo:[87,52,81,77],kt:[82,184,69,75]
+};
+const civicPodium=(north,museum)=>[82,north,68,(museum?76:85)+3];
+const frontSteps=[(-52.1-88)/2,204,88-52.1,76];
+
+export function registerPlazaCity(){
+  // Ground-level shells span the building line, including the few metres of
+  // the wide plaza pavement touched by the western and eastern podiums.
+  for(const [east,north,width,length] of [...Object.values(podiums),frontSteps,civicPodium(291,false),civicPodium(385,true),[51,385,8,32]]){
+    const {x,y}=plazaAt(east,north);
+    addObstacle(x,y,width,length);
+  }
+}
 
 export function* assemblePlazaCity(T,group,{wx,wz}){
   let stone=[],glass=[],screens=[],distant=[];
@@ -70,7 +87,7 @@ export function* assemblePlazaCity(T,group,{wx,wz}){
   // Broad granite steps, deep colonnade, patterned screens and the tall stage house.
   function sejongCenter(){
     const north=204;
-    slab(0x83817a,-99,north,93,93,0,.35);
+    slab(0x83817a,...podiums.sejong,0,.35);
     for(let step=0;step<12;step++){
       const front=-52.1-step*.58;
       slab(step%2?0xa8a69d:0xb7b4aa,(front-88)/2,north,front+88,76,0,(step+1)*.235);
@@ -112,7 +129,7 @@ export function* assemblePlazaCity(T,group,{wx,wz}){
 
   function hyundai(){
     const east=-91,north=68,width=72,length=54;
-    slab(0x98978c,east,north,77,66,0,9.4);
+    slab(0x98978c,...podiums.hyundai,0,9.4);
     slab(0xb3ac9b,east,north,width,length,9.4,68.4);
     slab(0xa5a296,east,north,73,55,77.8,2.25);
     slab(0xa09d91,east-5,north,44,32,80.05,5.4);
@@ -129,7 +146,7 @@ export function* assemblePlazaCity(T,group,{wx,wz}){
 
   function government(){
     const east=-146,north=470,width=152,length=43;
-    slab(0xaaa89f,east,north,width+4,length+10,0,6.8);
+    slab(0xaaa89f,...podiums.government,0,6.8);
     slab(0xb5b0a2,east,north,width,length,6.8,77.9);
     slab(0xa5a396,east,north,width+1,length+1,84.7,2.1);
     slab(0x9d9a8e,east-3,north,73,30,86.8,4.0);
@@ -144,16 +161,19 @@ export function* assemblePlazaCity(T,group,{wx,wz}){
     windows({east:-101,north:431,width:62,length:24,base:1,storeys:5,columns:6,pitch:3.9,
       face:"east",tones});
     entrance(east,north,156,18,true,0x50616b,4.5);
-    for(let i=0;i<37;i++){
-      box(0x4e5856,-57.7,1.2,419+i*2.8,.11,2.4,.11);
+    // The forecourt boundary belongs behind the pine grove and the arcade.
+    // Sink the posts into the sloping ground rather than exposing their feet.
+    const fence=-66.8,start=421,end=519,posts=36;
+    for(let i=0;i<posts;i++){
+      box(0x4e5856,fence,1.04,start+(end-start)*i/(posts-1),.11,2.72,.11);
     }
-    for(const h of [.38,1.95])box(0x4e5856,-57.7,h,469.4,.11,.14,101);
+    for(const h of [.38,1.95])box(0x4e5856,fence,h,(start+end)/2,.11,.14,end-start);
     label("정부서울청사",-67.9,north,5.65,14,true);
   }
 
   function kyobo(){
     const east=87,north=52,width=77,length=72;
-    slab(0x696a61,east,north,81,77,0,8.4);
+    slab(0x696a61,...podiums.kyobo,0,8.4);
     slab(0x918f82,east,north,width,length,8.4,75.6);
     slab(0x72756e,east,north,79,74,84,2.4);
     slab(0x7b7c74,east+5,north,52,42,86.4,4.3);
@@ -171,7 +191,7 @@ export function* assemblePlazaCity(T,group,{wx,wz}){
 
   function kt(){
     const east=82,north=184,width=67,length=73;
-    slab(0x9e9b90,east,north,69,75,0,6.4);
+    slab(0x9e9b90,...podiums.kt,0,6.4);
     slab(0x35515c,east,north,width,length,6.4,63.9);
     slab(0x526970,east,north,69,75,70.3,1.7);
     slab(0x54666c,east+3,north,39,33,72,5.4);
@@ -197,7 +217,7 @@ export function* assemblePlazaCity(T,group,{wx,wz}){
     const east=82,width=62,length=museum?76:85;
     const facade=museum?0xa5a5a0:0x9a9d94;
     const tones=museum?[0x687a81,0x5d7176,0x58676e,0x657980]:[0x445751,0x4c605a,0x576961];
-    slab(0xa5a59b,east,north,68,length+3,0,1.15);
+    slab(0xa5a59b,...civicPodium(north,museum),0,1.15);
     slab(facade,east,north,width,length,1.15,29.7);
     slab(museum?0xbbb9ae:0x9b9f93,east,north,63,length+.9,30.85,1.15);
     slab(0xa3a398,east+7,north+(museum?-9:1),38,museum?34:48,32,museum?3.7:3.1);
