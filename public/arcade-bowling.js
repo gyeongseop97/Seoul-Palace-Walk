@@ -7,10 +7,11 @@ export const BOWLING_FRAME_COUNT=10;
 const allPins=0b1111111111;
 const step=.01,frameSteps=3;
 const maxAim=16*Math.PI/180;
-const pinRadius=.146,pinSpacing=.49;
+const pinRadius=.146,pinSpacing=.52,rowSpacing=.458;
+const ballPinRestitution=.42,pinPinRestitution=.26,pinDrag=.963,toppleImpulse=.54;
 const rack=[];
 for(let row=0;row<4;row++){
-  for(let col=0;col<=row;col++)rack.push({x:(col-row/2)*pinSpacing,z:-3.829-row*.437});
+  for(let col=0;col<=row;col++)rack.push({x:(col-row/2)*pinSpacing,z:-3.829-row*rowSpacing});
 }
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const simulateCache=new Map();
@@ -26,10 +27,13 @@ function bodiesHit(one,two){
   two.x+=dx*push*two.inverseMass;two.z+=dz*push*two.inverseMass;
   const speed=(one.vx-two.vx)*dx+(one.vz-two.vz)*dz;
   if(speed<=0)return;
-  const strength=speed*1.53/combined;
+  // A fast ball can carry through the rack, but each pin-to-pin impact loses energy.
+  // Light glancing contacts can move a pin without knocking it over.
+  const restitution=one.kind==="pin"?pinPinRestitution:ballPinRestitution;
+  const strength=speed*(1+restitution)/combined;
   one.vx-=strength*dx*one.inverseMass;one.vz-=strength*dz*one.inverseMass;
   two.vx+=strength*dx*two.inverseMass;two.vz+=strength*dz*two.inverseMass;
-  if(strength>.47){
+  if(strength>toppleImpulse){
     tipPin(one,-dx,-dz,strength);
     tipPin(two,dx,dz,strength);
   }
@@ -56,8 +60,7 @@ function simulateRoll(roll){
   const samples=[];
   function snapshot(){
     samples.push({ball:{x:ball.x,z:ball.z,spin:ball.spin,angle:ball.angle,drop:ball.drop,visible:ball.visible},
-      pins:pins.map(pin=>({x:pin.x,z:pin.z,angle:pin.angle,fall:pin.fall,visible:pin.visible})),
-      knocked:active.filter(pin=>pin.fall>0).length});
+      pins:pins.map(pin=>({x:pin.x,z:pin.z,angle:pin.angle,fall:pin.fall,visible:pin.visible}))});
   }
   snapshot();
   for(let tick=1;tick<=Math.ceil(BOWLING_ROLL_MS/1000/step/frameSteps)*frameSteps;tick++){
@@ -78,7 +81,7 @@ function simulateRoll(roll){
       if(ball.z< -5.68||ball.drop>.43)ball.visible=false;
     }
     for(const pin of active){
-      pin.vx*=.972;pin.vz*=.972;
+      pin.vx*=pinDrag;pin.vz*=pinDrag;
       pin.x+=pin.vx*step;pin.z+=pin.vz*step;
       if(pin.fall)pin.fall=Math.min(Math.PI/2,pin.fall+pin.fallRate*step);
       if(Math.abs(pin.x)>1.59){pin.x=Math.sign(pin.x)*1.59;pin.vx*= -.27;}
@@ -110,12 +113,15 @@ export function bowlingFrame(roll,now){
   const rolling=age<BOWLING_ROLL_MS;
   const ball={...first.ball,x:lerp(first.ball.x,next.ball.x),z:lerp(first.ball.z,next.ball.z),
     spin:lerp(first.ball.spin,next.ball.spin),drop:lerp(first.ball.drop,next.ball.drop),visible:first.ball.visible&&rolling};
-  const pins=first.pins.map((pin,index)=>({
-    ...pin,x:lerp(pin.x,next.pins[index].x),z:lerp(pin.z,next.pins[index].z),fall:lerp(pin.fall,next.pins[index].fall)
-  }));
+  const pins=first.pins.map((pin,index)=>{
+    const after=next.pins[index];
+    return {...pin,x:lerp(pin.x,after.x),z:lerp(pin.z,after.z),fall:lerp(pin.fall,after.fall),
+      angle:pin.fall===0&&t>0?after.angle:pin.angle};
+  });
   const standing=pins.reduce((mask,pin,index)=>mask|(pin.visible&&pin.fall===0?1<<index:0),0);
-  const result=rolling?null:standing===0?(roll.attempt===1?"strike":"spare"):first.knocked>0?"hit":"miss";
-  return {roll,rolling,ball,pins,knocked:first.knocked,result,standing};
+  const knocked=countPins(roll.mask)-countPins(standing);
+  const result=rolling?null:standing===0?(roll.attempt===1?"strike":"spare"):knocked>0?"hit":"miss";
+  return {roll,rolling,ball,pins,knocked,result,standing};
 }
 
 export function readyBowlingFrame(mask){

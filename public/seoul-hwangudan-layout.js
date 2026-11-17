@@ -1,5 +1,6 @@
 import {addLandmarks,addObstacle,addZone} from "./layout.js";
 import {insideCorridorPolygon,seoulPlazaApproach} from "./sejong-corridor-layout.js";
+import {southWorldSurfaceHeight} from "./gyeongbok-terrain.js";
 
 const point=(x,y)=>({x,y});
 const outline=coordinates=>coordinates.map(([x,y])=>point(x,y));
@@ -95,7 +96,8 @@ export function inHwangudan(x,y){
 export function hwangudanWalkable(x,y){
   return inHwangudan(x,y)&&(
     promenade.some(({outline})=>insideCorridorPolygon(x,y,outline))||hwangudanPaths.some(path=>nearPath(x,y,path))
-  )&&!hwangudanBuildings.some(({outline})=>insideCorridorPolygon(x,y,outline));
+  )&&!hwangudanBuildings.some(({outline})=>insideCorridorPolygon(x,y,outline))&&
+    !hwangudanPlantingBeds.some(({outline})=>insideCorridorPolygon(x,y,outline));
 }
 
 export function hwangudanAt(origin,lateral,depth){
@@ -108,7 +110,14 @@ export function hwangudanFloorHeight(position){
   const dx=x-hwangudanGate.x,dy=y-hwangudanGate.y,c=Math.cos(hwangudanGate.angle),s=Math.sin(hwangudanGate.angle);
   const along=dx*c-dy*s,depth=dx*s+dy*c;
   if(Math.abs(along)<6.7&&Math.abs(depth)<5.25){
-    return .05+.33*Math.max(0,Math.min(1,(5.25-Math.abs(depth))/2.75));
+    let surface=.05+.33*Math.max(0,Math.min(1,(5.25-Math.abs(depth))/2.75));
+    if(Math.abs(along+1.15)<5.38){
+      for(let step=0;step<3;step++){
+        if(Math.abs(Math.abs(depth)-(4.79-step*.82))<.385)surface=Math.max(surface,.055+.107*(step+1));
+      }
+    }
+    // The gate and treads are one rigid model placed at the grade beneath its centre.
+    return surface+southWorldSurfaceHeight(hwangudanGate)-southWorldSurfaceHeight(position);
   }
   const stoneX=x-hwangudanStoneGate.x,stoneY=y-hwangudanStoneGate.y;
   const stoneC=Math.cos(hwangudanStoneGate.angle),stoneS=Math.sin(hwangudanStoneGate.angle);

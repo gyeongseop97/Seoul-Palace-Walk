@@ -1009,9 +1009,9 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       const lift = (.13+sprint*.12)*Math.sin(Math.PI*swing)*stride;
       const dance=acting?.kind==="dance"&&!walking?acting.weight*(1-seated):0;
       const danceStep=dance?Math.sin(acting.time*TAU*1.36+side*Math.PI*.5):0;
-      const ankleY = SOLE+lift*(1-seated)+seated*.10+airborne*(.17+i*.05)+Math.max(0,danceStep)*dance*.081;
+      const ankleY = SOLE+lift*(1-seated)+seated*(seat?.footBath?-.082:.10)+airborne*(.17+i*.05)+Math.max(0,danceStep)*dance*.081;
       leg.target.set(side*(STANCE+crouch*.033+dance*.044)-pelvis.position.x,ankleY-pelvis.position.y,
-        mix(step+crouch*.09,.42,seated)+airborne*(.10+i*.05)+danceStep*dance*.10);
+        mix(step+crouch*.09,seat?.footBath?.57:.42,seated)+airborne*(.10+i*.05)+danceStep*dance*.10);
       solve(leg,leg.target,forward);
       const roll = (footPhase < stance ? 0 : Math.sin(swing*TAU)*.24*stride) * (1-seated);
       pitch.setFromAxisAngle(xAxis,roll+seated*.06);

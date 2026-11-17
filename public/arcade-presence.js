@@ -1,4 +1,5 @@
 import {CLAW_PRIZES} from "./arcade-games.js";
+import {baseballBatterSide} from "./arcade-baseball.js";
 import {TARGET_LANES,readTargetSnapshot,targetSnapshot} from "./arcade-targets.js";
 
 const headFields=["x","y","z","grip","swingX","swingZ","tiltX","tiltZ"];
@@ -69,6 +70,7 @@ function interpolate(before,after,keys,portion){
 export function visibleArcade(samples,now){
   if(!samples||now-samples.next.at>5000)return null;
   const {next,prior}=samples;
+  if(next.kind==="shooting")return {...next,clock:now};
   if(Object.hasOwn(TARGET_LANES,next.kind)||next.kind==="baseball")return next;
   if(next.kind==="bowling")return next;
   if(next.kind==="pump"){
@@ -119,14 +121,19 @@ export function poseArcade(state,model,clock){
       model.group.rotation.y+=Math.atan2(Math.sin(turn),Math.cos(turn))*Math.min(1,swing*2.8);
       model.chest.rotateX(.20*swing);
     }
-  }else if(state?.kind==="baseball"){
+  }else if(state?.kind==="baseball"&&state.hand){
     const elapsed=clock-(state.swingAt??-Infinity);
     const swing=elapsed>=0&&elapsed<410?Math.sin(Math.PI*elapsed/410):0;
-    model.chest.rotateY(.21-1.12*swing);
-    model.arms[0].upper.rotateX(-.85-.54*swing);
-    model.arms[0].lower.rotateX(-.84+.62*swing);
-    model.arms[1].upper.rotateX(-.90-.56*swing);
-    model.arms[1].lower.rotateX(-.94+.50*swing);
+    const side=baseballBatterSide(state.hand);
+    const [grip,lead]=side<0?[model.arms[1],model.arms[0]]:model.arms;
+    model.chest.rotateY(side*(-.26+1.34*swing));
+    model.chest.rotateX(.08*swing);
+    grip.upper.rotateX(-.92-.54*swing);
+    grip.upper.rotateZ(side*(.22-.37*swing));
+    grip.lower.rotateX(-.94+.53*swing);
+    lead.upper.rotateX(-.83-.56*swing);
+    lead.upper.rotateZ(side*(.26-.44*swing));
+    lead.lower.rotateX(-.84+.62*swing);
   }else if(state?.kind&&Object.hasOwn(TARGET_LANES,state.kind)){
     const recoil=state.phase==="flying"?.30:0;
     model.arms[0].upper.rotateX(-1.15+recoil);model.arms[0].lower.rotateX(-.71);

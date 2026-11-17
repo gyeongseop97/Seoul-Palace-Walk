@@ -2,6 +2,7 @@ import {CLAW_PRIZES} from "../public/arcade-games.js";
 import {ARCADE_GAMES} from "../public/arcade-layout.js";
 import {interiorAt} from "../public/interior-layout.js";
 import {cleanTargetSnapshot} from "../public/arcade-targets.js";
+import {BASEBALL_CENTER,BASEBALL_PITCH_COUNT,BASEBALL_ZONE} from "../public/arcade-baseball.js";
 
 export const arcadeSnapshotLifetime=5000;
 const lastPrize=CLAW_PRIZES.length-1;
@@ -44,16 +45,20 @@ function cleanMole({score,target,height,swingAt,finished,remaining}){
   return {kind:"mole",score,target,height:compact(height),swingAt,finished,remaining};
 }
 
-function cleanBaseball({pitchNo,score,hits,pitch,swingAt,hit,result,finished}){
+function cleanBaseball({pitchNo,score,hits,pitch,swingAt,hit,result,finished,hand="right",aim=BASEBALL_CENTER}){
   const time=value=>integer(value,1,9999999999999);
-  if(!integer(pitchNo,1,6)||!integer(score,0,24)||!integer(hits,0,pitchNo)||
+  if(!integer(pitchNo,0,BASEBALL_PITCH_COUNT)||!integer(score,0,BASEBALL_PITCH_COUNT*4)||!integer(hits,0,pitchNo)||
     ![null,"miss","foul","single","double","home"].includes(result)||typeof finished!=="boolean"||
-    (swingAt!==null&&!time(swingAt)))return null;
-  if(finished?(pitch!==null||hit!==null):(!pitch||!time(pitch.at)||!inRange(pitch.flight,700,1250)||
-    !inRange(pitch.bend,-.45,.45)||!inRange(pitch.height,.85,1.36)))return null;
-  if(hit!==null&&(!hit||!time(hit.at)||!inRange(hit.x,-.55,.55)||!inRange(hit.y,.70,1.54)||
+    ![null,"left","right"].includes(hand)||(pitchNo>0&&!hand)||(swingAt!==null&&!time(swingAt))||
+    !inRange(aim?.x,BASEBALL_ZONE.left,BASEBALL_ZONE.right)||!inRange(aim?.y,BASEBALL_ZONE.bottom,BASEBALL_ZONE.top))return null;
+  if(pitchNo===0?(finished||score||pitch!==null||hit!==null||swingAt!==null||result!==null):
+    finished?(pitch!==null||hit!==null):(!pitch||!time(pitch.at)||!inRange(pitch.flight,700,1250)||
+      !inRange(pitch.bend,-.45,.45)||!inRange(pitch.height,.73,1.58)||
+      (pitch.targetX!==undefined&&!inRange(pitch.targetX,BASEBALL_ZONE.left,BASEBALL_ZONE.right))))return null;
+  if(hit!==null&&(!hit||!time(hit.at)||!inRange(hit.x,-.55,.55)||!inRange(hit.y,.53,1.68)||
     !inRange(hit.z,1.65,4.80)||!inRange(hit.vx,-22,22)||!inRange(hit.vy,-7,8)||!inRange(hit.vz,-25,0)))return null;
-  return {kind:"baseball",pitchNo,score,hits,pitch:pitch&&{at:pitch.at,flight:pitch.flight,bend:pitch.bend,height:pitch.height},
+  return {kind:"baseball",pitchNo,score,hits,hand,aim:{x:compact(aim.x),y:compact(aim.y)},
+    pitch:pitch&&{at:pitch.at,flight:pitch.flight,bend:pitch.bend,height:pitch.height,targetX:pitch.targetX},
     swingAt,hit:hit&&{at:hit.at,x:compact(hit.x),y:compact(hit.y),z:compact(hit.z),vx:compact(hit.vx),vy:compact(hit.vy),vz:compact(hit.vz)},
     result,finished};
 }

@@ -15,6 +15,7 @@ import { ARCADE_GAMES,ARCADE_SITE,ARCADE_STAIRS,ARCADE_UPPER_SITE,registerArcade
 import { addArcadeExterior } from "./arcade-exterior.js";
 import { poseArcade } from "./arcade-presence.js";
 import { TARGET_LANES } from "./arcade-targets.js";
+import { BASEBALL_CENTER,BASEBALL_PLATE_Z,baseballBatterSide } from "./arcade-baseball.js";
 import { hanbokRental,registerHanbokRental } from "./passport-data.js";
 import { addHanbokRental } from "./wearables-models.js";
 import { assembleMuseum, registerMuseumNavigation, isInsideMuseum, museumOutsideDoor, museumInsideDoor, museumInsideSpawn, stairHeight } from "./museum.js";
@@ -57,7 +58,9 @@ import { jeongdongExtensionBounds,registerJeongdongExtension } from "./jeongdong
 import { buildJeongdongExtension } from "./jeongdong-extension.js";
 import { bukchonBounds,bukchonWalkable,bukchonGroundHeight,bukchonSurfaceGrade,registerBukchonTrees } from "./bukchon-layout.js";
 import { hwangudanBounds,hwangudanWalkable,hwangudanFloorHeight,registerHwangudanNavigation } from "./seoul-hwangudan-layout.js";
-import { cheonggyeBounds,cheonggyeWalkable,cheonggyeLevel,registerCheonggyeNavigation } from "./cheonggye-layout.js";
+import { cheonggyeBounds,cheonggyeWalkable,cheonggyeLevel,cheonggyeCameraCeiling,cheonggyeCameraWall,
+  registerCheonggyeNavigation } from "./cheonggye-layout.js";
+import { CHEONGGYE_WATER_LEVEL,cheonggyeSeats } from "./cheonggye-seats.js";
 import { songhyeonBounds,songhyeonWalkable,songhyeonGroundHeight,registerSonghyeonNavigation } from "./songhyeon-layout.js";
 import { decodeWishFace, WISH_WIDTH, WISH_HEIGHT, WISH_COLORS, WISH_FLIGHT_MS } from "./wish-art.js";
 
@@ -202,7 +205,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   registerBikeDocks();
   const addDocks=(root,where,height)=>buildBikeDocks(T,root,makeKit(root),{docks:bikeDocks.filter(where),register:false,height});
   addDocks(deoksExtras,dock=>dock.y>=28,southWorldTerrainHeight);
-  addDocks(corridorRoot,dock=>dock.y<28&&dock.y>-280,southWorldTerrainHeight);
+  addDocks(corridorRoot,dock=>dock.y<28&&dock.y>-280&&dock.area!=="cheonggye",southWorldTerrainHeight);
   const createItemProp=makeItemProps(T,kit);
   const walkerModels=makeWalkerModels(T,scene,kit,createItemProp);
   const outdoorWalkers={...walkerModels,create(...args){
@@ -317,6 +320,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   }
   addObstacle(339,537.5,2.4,1.05,0,1.25);
   registerDiningNavigation(benches);
+  benches.push(...cheonggyeSeats);
   const museum={outsideDoor:museumOutsideDoor,insideDoor:museumInsideDoor,insideSpawn:museumInsideSpawn,
     id:"museum",name:"덕수궁 전시관",outsideName:"석조전 서관",isInside:isInsideMuseum,floorAt:stairHeight,exhibits:[]};
   const amenity=(point,label)=>({...point,kind:"activity",label});
@@ -491,7 +495,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     }
     addHanbokRental(T,palaceRoot,makeKit(palaceRoot));
     addCookingStalls("gyeongbokgung",palaceRoot);
-    addDocks(palaceRoot,dock=>dock.y<=-790&&dock.area!=="bukchon",dock=>palaceGroundOffset(dock.x,dock.y));
+    addDocks(palaceRoot,dock=>dock.y<=-790&&!dock.area,dock=>palaceGroundOffset(dock.x,dock.y));
     addMinigameMarkers(T,palaceRoot,kit,["tuho","jegi"],floorHeight,minigameProps);
     const surveyed=gbSurveyModels.filter(id=>groups.has(id));
     const chunks=yield* consolidate(palaceRoot,new Set(surveyed.map(id=>groups.get(id))),foliage.register);
@@ -541,9 +545,11 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   },()=>import("./seoul-hwangudan.js"));
   const songhyeon=expansionDistrict(songhyeonBounds,songhyeonWalkable,function*(root,localKit,{buildSonghyeon}){
     yield* buildSonghyeon(T,root,localKit);
+    addDocks(root,dock=>dock.area==="songhyeon",dock=>songhyeonGroundHeight(dock.x,dock.y)??0);
   },()=>import("./songhyeon.js"));
   const cheonggye=expansionDistrict(cheonggyeBounds,cheonggyeWalkable,function*(root,localKit,{buildCheonggye}){
     updateCheonggye=yield* buildCheonggye(T,root,localKit,southWorldSurfaceHeight);
+    addDocks(root,dock=>dock.area==="cheonggye",southWorldSurfaceHeight);
   },()=>import("./cheonggye.js"));
   const stationsDistrict=expansionDistrict({minX:55,maxX:1160,minY:-965,maxY:410},()=>false,function*(root,localKit){
     yield* buildSubwayAccess(T,root,localKit,floorHeight,{terrainHeight:outsideGroundOffset});
@@ -823,7 +829,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   const footing=position=>floorHeight(position)-waterDepth(position.x,position.y);
   const rippleGeometry=new T.RingGeometry(.5,.58,30),ripples=new Map();
   rippleGeometry.rotateX(-Math.PI/2);
-  function drawRipples(id,player,now,wet){
+  function drawRipples(id,player,now,wet,surface=null){
     let rings=ripples.get(id);
     if(!wet){
       if(rings)for(const ring of rings)ring.visible=false;
@@ -835,12 +841,13 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       ripples.set(id,rings);
     }
     const busy=Math.hypot(player.vx||0,player.vy||0)>.05;
+    const {x,y}=surface??player,level=surface?.level??groundHeight(player)+.062;
     rings.forEach((ring,i)=>{
       const phase=(now*(busy?.0011:.00055)+i*.5)%1;
       ring.visible=true;
-      ring.position.set(wx(player.x),groundHeight(player)+.062,wz(player.y));
-      ring.scale.setScalar(.75+phase*(busy?1.9:1.2));
-      ring.material.opacity=(1-phase)*(busy?.62:.34);
+      ring.position.set(wx(x),level,wz(y));
+      ring.scale.setScalar(surface ? .37+phase*.60 : .75+phase*(busy ? 1.9 : 1.2));
+      ring.material.opacity=(1-phase)*(surface ? .26 : busy ? .62 : .34);
     });
   }
   function groundHeight(position) {
@@ -1161,9 +1168,11 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
         updateTableTray(player,null,clock);return;}
       if(!model){model=walkerModels.create(player.coat??0xab5947,player.nickname,labelSprite);models.set(player.id,model);}
       else if(!model.group.parent)scene.add(model.group);
-      drawRipples(player.id,player,now,waterDepth(player.x,player.y)>0&&jumpLift(player,clock)<.3);
       const floor=footing(player.bikeDriverPosition??player);
       const tableSeat=seatAt(player,clock);
+      const waterPoint=tableSeat?.waterPoint;
+      drawRipples(player.id,player,now,Boolean(waterPoint)||waterDepth(player.x,player.y)>0&&jumpLift(player,clock)<.3,
+        waterPoint?{...waterPoint,level:outsideGroundOffset(waterPoint)+CHEONGGYE_WATER_LEVEL+.016}:null);
       updateTableTray(player,tableSeat,clock);
       walkerModels.update(model,diningPose(player),{now,clock,delta,seat:tableSeat,floor,jump:renderedJumpLift(player,clock,floor),emojiTexture,chatTexture,
         turnEase:player===me?1-Math.exp(-delta*22):1});
@@ -1184,14 +1193,16 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
         if(model.moleHammer)model.moleHammer.visible=activity?.kind==="mole";
         if(insideId===ARCADE_UPPER_SITE.id){
           let gear=model.arcadeGear;
-          const kind=activity?.kind,using=kind==="baseball"||Object.hasOwn(TARGET_LANES,kind);
-          if(using&&gear?.kind!==kind){
+          const kind=activity?.kind,using=kind==="baseball"&&Boolean(activity.hand)||Object.hasOwn(TARGET_LANES,kind);
+          const handIndex=kind==="baseball"&&activity.hand==="left"?0:1;
+          if(using&&(gear?.kind!==kind||gear.handIndex!==handIndex)){
             gear?.group.removeFromParent();
-            const group=new T.Group(),hand=model.arms[1].end;
+            const group=new T.Group(),hand=model.arms[handIndex].end;
             group.position.set(0,-.045,.058);hand.add(group);
             if(kind==="baseball"){
-              cylinder(0xd4ac78,0,.31,0,.045,.61,12,group,.56).rotation.z=-.28;
-              cylinder(0x43545a,.026,.065,0,.027,.16,10,group).rotation.z=-.28;
+              const lean=.28*baseballBatterSide(activity.hand);
+              cylinder(0xd4ac78,0,.31,0,.045,.61,12,group,.56).rotation.z=lean;
+              cylinder(0x43545a,-lean*.09,.065,0,.027,.16,10,group).rotation.z=lean;
             }else if(kind==="archery"){
               arcadeBowGeometry??=new T.TorusGeometry(.28,.027,7,16,Math.PI*1.14);
               shape(arcadeBowGeometry,0xc38b56,0,.08,.12,group).rotation.z=-Math.PI*.57;
@@ -1200,7 +1211,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
               box(0x305265,0,.035,.13,.12,.074,.35,group);
               box(0xdd945d,0,.040,.335,.076,.061,.081,group);
             }
-            gear=model.arcadeGear={kind,group};
+            gear=model.arcadeGear={kind,group,handIndex};
           }
           if(gear)gear.group.visible=using;
         }
@@ -1222,14 +1233,25 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     if(changed||firstPerson&&(bus||isBikePassenger(anchor)))pivot.copy(anchorPoint);
     else pivot.lerp(anchorPoint,1-Math.exp(-delta*20));
     cameraAnchor=anchorKey;
-    cameraOnBridge=Boolean(anchor.up&&cheonggyeLevel(anchor)===.12);
+    const streamLevel=cheonggyeLevel(anchor);
+    cameraOnBridge=Boolean(anchor.up&&streamLevel===.12);
+    const lowerStream=streamLevel!=null&&streamLevel<-.34&&!cameraOnBridge;
+    const anchorRoof=lowerStream?cheonggyeCameraCeiling(anchor.x,anchor.y):null;
+    const approachRoof=lowerStream?cheonggyeCameraCeiling(anchor.x,anchor.y,true):null;
+    const anchorGrade=lowerStream?outsideGroundOffset(anchor):0;
+    if(anchorRoof!=null&&anchorPoint.y<anchorGrade+anchorRoof-.05){
+      pivot.y=Math.min(pivot.y,anchorGrade+anchorRoof-.20);
+    }
+    const tightStreamView=!firstPerson&&approachRoof!=null&&anchorPoint.y<anchorGrade+approachRoof-.05;
     const zoomFov=baseFov-view.zoom*(firstPerson?6:1.7);
     if(Math.abs(zoomFov-camera.fov)>.01){
       camera.fov+=(zoomFov-camera.fov)*(1-Math.exp(-delta*12));
       camera.updateProjectionMatrix();
     }
-    const pitch=firstPerson?Math.max(-87,Math.min(65,view.tilt)):
+    const viewPitch=firstPerson?Math.max(-87,Math.min(65,view.tilt)):
       Math.max(-83,Math.min(62,(outsideBus?23:14)+(view.tilt<0?view.tilt*1.22:view.tilt)));
+    const bathView=!firstPerson&&seat?.footBath;
+    const pitch=tightStreamView?Math.max(20,Math.min(41,viewPitch)):bathView?Math.max(23,viewPitch):viewPitch;
     const orbitPitch=firstPerson?pitch:Math.max(outsideBus?4:-10,pitch);
     const elevation=orbitPitch*Math.PI/180;
     const horizontal=Math.cos(elevation);
@@ -1241,14 +1263,19 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       cameraDistance=0;
     }else{
       const ceiling=insideId===ARCADE_SITE.id||insideId===ARCADE_UPPER_SITE.id?3.74:diningById[insideId]?4.5:4.97;
-      const distance=Math.min(outsideBus?11.8-view.zoom*1.15:4.55-view.zoom*.42,indoors&&arm.y>0?(ceiling-pivot.y)/arm.y:Infinity);
+      const distance=Math.min(outsideBus?11.8-view.zoom*1.15:4.55-view.zoom*.42,
+        indoors&&arm.y>0?(ceiling-pivot.y)/arm.y:Infinity,tightStreamView?2.36:bathView?3.3:Infinity);
       let available=distance;
       // Shorten the orbit arm at walls and let it ease back out as space opens.
       for(let sample=1,count=Math.ceil(distance/.20);sample<=count;sample++){
         const step=distance*sample/count;
         const point={x:pivot.x+300+arm.x*step,y:pivot.z+225+arm.z*step};
         const terrain=indoors?0:outsideGroundOffset(point);
-        if(solidAt(point.x,point.y,pivot.y+arm.y*step-.17-terrain)){
+        const y=pivot.y+arm.y*step;
+        const roof=lowerStream?cheonggyeCameraCeiling(point.x,point.y):null;
+        const roofCollision=roof!=null&&pivot.y<terrain+roof+.05&&y>terrain+roof-.20;
+        const streamWall=lowerStream&&cheonggyeCameraWall(point.x,point.y,y-terrain-.16);
+        if(roofCollision||streamWall||solidAt(point.x,point.y,y-.17-terrain)){
           available=Math.max(.34,step-.24);break;
         }
       }
@@ -1280,9 +1307,9 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       cameraDistance=0;
     }else if(state.arcade?.kind==="baseball"){
       const machine=ARCADE_GAMES.baseball.machine;
-      const fov=camera.aspect<.8?70:57;
-      camera.position.set(wx(machine.x+5.30),1.66,wz(machine.y)+1.19);
-      camera.lookAt(wx(machine.x+.30),1.29,wz(machine.y)-.12);
+      const portrait=camera.aspect<.8,fov=portrait?76:59;
+      camera.position.set(wx(machine.x+(portrait?6.13:5.87)),1.56,wz(machine.y));
+      camera.lookAt(wx(machine.x+BASEBALL_PLATE_Z),BASEBALL_CENTER.y,wz(machine.y));
       if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix();}
       cameraDistance=2.0;
     }else if(state.arcade?.kind==="bowling"){
@@ -1414,6 +1441,14 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   function pickBungeo(clientX,clientY,stallId=BUNGEO_STALL.id){
     return pointRay(clientX,clientY)?cookingScenes.get(stallId)?.pick(ray)??null:null;
   }
+  function pickBaseballAim(clientX,clientY){
+    if(!pointRay(clientX,clientY)||Math.abs(ray.ray.direction.x)<1e-5)return null;
+    const machine=ARCADE_GAMES.baseball.machine;
+    const distance=(wx(machine.x+BASEBALL_PLATE_Z)-ray.ray.origin.x)/ray.ray.direction.x;
+    if(distance<0)return null;
+    ray.ray.at(distance,sample);
+    return {x:wz(machine.y)-sample.z,y:sample.y};
+  }
   function pick(clientX,clientY){
     if(!pointRay(clientX,clientY))return null;
     if(guideMarker.visible&&ray.intersectObject(guideMarker,false).length)return {...ticketGuide.approach,guide:true};
@@ -1451,7 +1486,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   const renderStats=()=>({...renderer.info.render,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,
     areas:{plaza:Boolean(plaza.chunks),palace:Boolean(palace.chunks),cheonggye:Boolean(cheonggye.chunks),songhyeon:Boolean(songhyeon.chunks),
       ...Object.fromEntries(Object.entries(indoorsById).map(([id,district])=>[id,Boolean(district.chunks)]))}});
-  return {render,pick,pickBungeo,previewWalker,clearChat,floorHeight,groundHeight,renderStats,snapshot,capturePhoto,
+  return {render,pick,pickBungeo,pickBaseballAim,previewWalker,clearChat,floorHeight,groundHeight,renderStats,snapshot,capturePhoto,
     benches,stations,parkLife,birds,palacePeople,museum,underDoldamAwning};
 }
 

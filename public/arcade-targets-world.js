@@ -1,9 +1,9 @@
 import {TARGET_LANES, targetAimPreview} from "./arcade-targets.js";
+import {addShootingRack} from "./arcade-shooting-world.js";
 import {standSign} from "./regional-stands.js";
 
 const ink = 0x26343a, cream = 0xffe0a6, mist = 0xcdccbf;
 const archeryRings = [0xf0d566, 0xf0d566, 0xbd3d32, 0xbd3d32, 0x5d9aae, 0x5d9aae, 0x302d31, 0x302d31, 0xe9debd, 0xe9debd];
-const rifleRings = [0xe6dfb8, 0xd6cda9, 0x303831, 0x3d453c, 0x303831, 0x606558, 0xe4ddc4, 0xd2cbb2, 0xe4ddc4, 0xd2cbb2];
 
 export function addArcadeTargets(T, parent, {box, cylinder, shape}) {
   const bays = Object.fromEntries(Object.entries(TARGET_LANES).map(([kind, lane]) => [kind, buildBay(kind, lane)]));
@@ -44,18 +44,20 @@ export function addArcadeTargets(T, parent, {box, cylinder, shape}) {
     else addAirRifle(bay, front);
 
     const targetZ = lane.targetZ, targetY = lane.targetY;
-    block(metal, 0, 1.88, targetZ - .292, lane.backstopWidth + .38, 3.5, .18);
-    block(ink, 0, targetY, targetZ - .096, lane.backstopWidth + .095, lane.backstopHeight + .095, .15);
-    block(archery ? 0xb99a63 : 0xe5dcb9, 0, targetY, targetZ - .043, lane.backstopWidth, lane.backstopHeight, .061);
-    const rings = archery ? archeryRings : rifleRings;
-    for (const [i, color] of rings.entries()) {
-      const inner = lane.radius * i / 10, outer = lane.radius * (i + 1) / 10;
-      shape(new T.RingGeometry(inner, outer, 52), color, 0, targetY, targetZ, bay);
-      if (i) shape(new T.RingGeometry(inner - .0013, inner + .0013, 52), 0x554a3a, 0, targetY, targetZ + .002, bay);
-    }
-    for (const side of [-1, 1]) {
-      const x = (lane.backstopWidth / 2 + .09) * side;
-      block(cream, x, targetY + .67, targetZ + .011, .052, .48, .02);
+    const updateRack = archery ? null : addShootingRack(T, bay, {box, cylinder, shape});
+    if (archery) {
+      block(metal, 0, 1.88, targetZ - .292, lane.backstopWidth + .38, 3.5, .18);
+      block(ink, 0, targetY, targetZ - .096, lane.backstopWidth + .095, lane.backstopHeight + .095, .15);
+      block(0xb99a63, 0, targetY, targetZ - .043, lane.backstopWidth, lane.backstopHeight, .061);
+      for (const [i, color] of archeryRings.entries()) {
+        const inner = lane.radius * i / 10, outer = lane.radius * (i + 1) / 10;
+        shape(new T.RingGeometry(inner, outer, 52), color, 0, targetY, targetZ, bay);
+        if (i) shape(new T.RingGeometry(inner - .0013, inner + .0013, 52), 0x554a3a, 0, targetY, targetZ + .002, bay);
+      }
+      for (const side of [-1, 1]) {
+        const x = (lane.backstopWidth / 2 + .09) * side;
+        block(cream, x, targetY + .67, targetZ + .011, .052, .48, .02);
+      }
     }
     const updateBoard = makeBoard(bay, title, 0, 2.96, targetZ + .054);
 
@@ -71,11 +73,10 @@ export function addArcadeTargets(T, parent, {box, cylinder, shape}) {
     dynamic(projectile);
     projectile.visible = false;
 
-    const hits = Array.from({length: lane.shots}, () => {
+    const hits = Array.from({length: archery ? lane.shots : 0}, () => {
       const marker = new T.Group();
       bay.add(marker);
-      if (archery) addArrow(marker);
-      else shape(new T.CircleGeometry(.018, 10), ink, 0, 0, .006, marker);
+      addArrow(marker);
       dynamic(marker);
       marker.visible = false;
       return marker;
@@ -90,6 +91,7 @@ export function addArcadeTargets(T, parent, {box, cylinder, shape}) {
     const forward = new T.Vector3(0, 0, -1), direction = new T.Vector3();
     let previousPoint = null, previousAim = null, previousHits = null;
     return state => {
+      updateRack?.(state);
       const ball = state?.projectile;
       projectile.visible = Boolean(ball);
       if (ball) {
@@ -168,7 +170,9 @@ export function addArcadeTargets(T, parent, {box, cylinder, shape}) {
     let previous = "";
     const update = state => {
       const label = state ? `${state.score}점 · ${state.shotsLeft}발` : title;
-      const detail = state?.lastScore != null ? (state.lastScore ? `+${state.lastScore}점` : "빗나감") : "과녁을 조준하세요";
+      const detail = state?.phase === "resetting" ? "표적 다시 세우는 중" :
+        state?.lastScore != null ? (state.lastScore ? `+${state.lastScore}점` : "빗나감") :
+          title === "사격" ? "대 10점 · 중 20점 · 소 30점" : "과녁을 조준하세요";
       const key = label + detail;
       if (key === previous) return;
       previous = key;

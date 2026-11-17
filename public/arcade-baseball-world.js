@@ -1,5 +1,6 @@
-import {BASEBALL_HIT_WINDOW_MS,BASEBALL_LANE_X,BASEBALL_MOUND_Z,BASEBALL_PITCH_COUNT,BASEBALL_PLATE_Z,
-  BASEBALL_SCREEN_Z,BASEBALL_SWING_LEAD_MS,baseballFrame} from "./arcade-baseball.js";
+import {BASEBALL_CENTER,BASEBALL_CONTACT_RADIUS,BASEBALL_HIT_WINDOW_MS,BASEBALL_LANE_X,BASEBALL_MOUND_Z,
+  BASEBALL_PITCH_COUNT,BASEBALL_PLATE_Z,BASEBALL_SCREEN_Z,BASEBALL_SWING_LEAD_MS,BASEBALL_ZONE,
+  baseballBatterSide,baseballFrame,baseballPitchPosition} from "./arcade-baseball.js";
 
 const dark=0x202b37,frame=0x455c6b,accent=0x71bbba,turf=0x3f6155,line=0xe9e4ca;
 const resultText={miss:"헛스윙",foul:"파울",single:"안타",double:"2루타",home:"홈런"};
@@ -61,30 +62,65 @@ export function addBaseballLane(T,parent,{box,cylinder,shape}){
   underside.rotation.x=Math.PI/2;
   ball.visible=false;
 
-  const zone=new T.Group();zone.name="타격선";lane.add(zone);
+  const zone=new T.Group();zone.name="스트라이크 존";lane.add(zone);
   zone.position.z=BASEBALL_PLATE_Z;
   const zoneMaterial=new T.MeshStandardMaterial({color:accent,emissive:0x4c9f97,emissiveIntensity:.32});
-  const corners=[[-.43,.77],[.43,.77],[.43,1.55],[-.43,1.55]];
+  const {left,right,bottom,top}=BASEBALL_ZONE;
+  const corners=[[left,bottom],[right,bottom],[right,top],[left,top]];
   for(let i=0;i<corners.length;i++){
     const [x,y]=corners[i],[nextX,nextY]=corners[(i+1)%4];
     const edge=active(box(accent,(x+nextX)/2,(y+nextY)/2,0,Math.abs(nextX-x)||.018,Math.abs(nextY-y)||.018,.017,zone));
     edge.material=zoneMaterial;
   }
+  const guides=new T.MeshBasicMaterial({color:0xa9e1d7,transparent:true,opacity:.31,depthWrite:false});
+  for(const t of [1/3,2/3]){
+    const x=left+(right-left)*t,y=bottom+(top-bottom)*t;
+    active(box(accent,x,(bottom+top)/2,0,.008,top-bottom,.008,zone)).material=guides;
+    active(box(accent,(left+right)/2,y,0,right-left,.008,.008,zone)).material=guides;
+  }
+  const reticle=new T.Group();reticle.name="배트 조준";zone.add(reticle);
+  const bat=new T.Group();reticle.add(bat);
+  const outline=new T.Shape();
+  outline.moveTo(-.31,-.017);outline.lineTo(-.295,-.017);outline.lineTo(-.295,-.009);
+  outline.quadraticCurveTo(-.18,-.012,-.092,-.030);outline.quadraticCurveTo(.005,-.043,.095,-.043);
+  outline.quadraticCurveTo(.133,-.039,.137,-.004);outline.quadraticCurveTo(.133,.038,.095,.041);
+  outline.quadraticCurveTo(.016,.041,-.092,.029);outline.quadraticCurveTo(-.18,.013,-.295,.010);
+  outline.lineTo(-.295,.018);outline.lineTo(-.31,.018);outline.closePath();
+  const batFill=new T.MeshBasicMaterial({color:0x18272c,transparent:true,opacity:.59,depthWrite:false,side:T.DoubleSide});
+  const silhouette=active(new T.Mesh(new T.ShapeGeometry(outline),batFill));bat.add(silhouette);
+  const batLine=new T.LineLoop(new T.BufferGeometry().setFromPoints(outline.getPoints(12).map(p=>new T.Vector3(p.x,p.y,.001))),
+    new T.LineBasicMaterial({color:0xffe3a5,transparent:true,opacity:.8,depthWrite:false}));
+  bat.add(batLine);
+  const sweetSpot=new T.MeshBasicMaterial({color:0xffe3a5,transparent:true,opacity:.94,depthWrite:false});
+  const ring=active(new T.Mesh(new T.RingGeometry(.039,.048,24),sweetSpot));
+  ring.position.z=.003;reticle.add(ring);
   zone.visible=false;
 
   function update(state,now){
     const {ball:pose}=baseballFrame(state,now);
     ball.visible=Boolean(pose);
     if(pose){
-      ball.position.set(pose.x,pose.y+.085,pose.z);
+      ball.position.set(pose.x,pose.y,pose.z);
       ball.rotation.set(pose.spin,pose.spin*.42,0);
     }
     pitchLight.visible=Boolean(state?.pitch&&now<state.pitch.at);
-    zone.visible=Boolean(state?.pitch&&!state.finished&&!state.result&&now>=state.pitch.at);
+    zone.visible=Boolean(state&&!state.finished);
     if(zone.visible){
-      const swingWindow=Math.abs(now+BASEBALL_SWING_LEAD_MS-(state.pitch.at+state.pitch.flight))<=BASEBALL_HIT_WINDOW_MS;
+      const {x,y}=state.aim??BASEBALL_CENTER,{hand,pitch}=state;
+      reticle.visible=Boolean(hand);
+      reticle.position.set(x,y,.033);
+      const swingAge=now-(state.swingAt??-Infinity);
+      const sweep=swingAge>=0&&swingAge<220?Math.sin(swingAge/220*Math.PI):0;
+      const side=baseballBatterSide(hand);
+      bat.rotation.z=.35+1.55*sweep;
+      bat.scale.x=-side;
+      const contact=now+BASEBALL_SWING_LEAD_MS;
+      const swingWindow=pitch&&!state.result&&Math.abs(contact-(pitch.at+pitch.flight))<=BASEBALL_HIT_WINDOW_MS;
+      const predicted=swingWindow?baseballPitchPosition(pitch,contact):null;
+      const linedUp=predicted&&Math.hypot(x-predicted.x,y-predicted.y)<=BASEBALL_CONTACT_RADIUS;
       zoneMaterial.color.setHex(swingWindow?0xd7f6a1:accent);
       zoneMaterial.emissiveIntensity=swingWindow?.76:.32;
+      sweetSpot.color.setHex(linedUp?0xc8ff90:0xffe3a5);
     }
     status(state,now);
   }
@@ -138,9 +174,10 @@ export function addBaseballLane(T,parent,{box,cylinder,shape}){
     const {ctx,map,screen}=display;active(screen);
     let previous="";
     return (state,now)=>{
-      const title=state?.finished?"게임 종료":state?.result?resultText[state.result]:
+      const title=state?.finished?"게임 종료":state?.result?resultText[state.result]:state?.pitchNo===0?"타석 선택":
         state?.pitch?(now<state.pitch.at?"투구 준비":"타격 타이밍"):"스크린 야구";
-      const info=state?`${state.pitchNo}/${BASEBALL_PITCH_COUNT}구    ·    ${state.score}점    ·    ${state.hits}안타`:"공이 타격선에 오면 배트를 휘두르세요";
+      const info=state?.pitchNo?`${state.pitchNo}/${BASEBALL_PITCH_COUNT}구    ·    ${state.score}점    ·    ${state.hits}안타`:
+        (state?.hand==="left"?"좌타":state?.hand==="right"?"우타":"좌타 · 우타");
       const key=title+"/"+info;if(key===previous)return;
       previous=key;
       ctx.fillStyle="#172b38";ctx.fillRect(0,0,560,104);

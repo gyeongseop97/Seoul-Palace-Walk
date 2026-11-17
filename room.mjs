@@ -42,6 +42,7 @@ const validLook = (look) => look==null ||
   (look.keepsake===undefined||KEEPSAKES.includes(look.keepsake));
 const validItem=item=>item==null||typeof item.kind==="string"&&Object.hasOwn(ITEMS,item.kind)&&
   Number.isInteger(item.remaining)&&finite(item.remaining,0,ITEMS[item.kind].uses)&&validTime(item.started);
+const lastBenchIndex=127;
 const validAvatar = (a) => validPoint(a) &&
   (a.character===undefined || a.character==="man" || a.character==="woman") &&
   validLook(a.look) &&
@@ -54,7 +55,7 @@ const validAvatar = (a) => validPoint(a) &&
   (a.blocked===undefined || typeof a.blocked==="boolean") &&
   (a.up===undefined || typeof a.up==="boolean") &&
   (a.heading===undefined || finite(a.heading,0,360)) &&
-  (a.seat==null || Number.isInteger(a.seat) && finite(a.seat,0,80)) &&
+  (a.seat==null || Number.isInteger(a.seat) && finite(a.seat,0,lastBenchIndex)) &&
   (a.seatSide==null || (a.seatSide===0 || a.seatSide===1) && a.seat!=null) &&
   (a.running===undefined || typeof a.running==="boolean") &&
   (a.umbrella===undefined || typeof a.umbrella==="boolean") &&

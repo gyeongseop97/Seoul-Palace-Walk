@@ -1,3 +1,5 @@
+import {plazaAt} from "./plaza-layout.js";
+
 // The game racks sit on public sidewalks next to the real neighbourhoods they serve.
 export const bikeDocks=[
   {id:"city-hall",name:"시청역 앞 따릉이",x:470.5,y:271,heading:270,access:{x:474,y:271}},
@@ -15,7 +17,11 @@ export const bikeDocks=[
   {id:"bukchon-mmca",name:"국립현대미술관 서울 앞 따릉이",area:"bukchon",x:729.8,y:-1263,heading:270,access:{x:726.8,y:-1263}},
   {id:"bukchon-folk",name:"삼청로 민속박물관 쪽 따릉이",area:"bukchon",x:707.8,y:-1330,heading:90,access:{x:710.8,y:-1330}},
   {id:"bukchon-samcheong",name:"삼청동 위쪽 따릉이",area:"bukchon",x:936,y:-1770,heading:270,access:{x:933,y:-1770}},
-  {id:"bukchon-anguk",name:"안국역 쪽 따릉이",area:"bukchon",x:1100,y:-923.2,heading:180,access:{x:1100,y:-926.2}}
+  {id:"bukchon-anguk",name:"안국역 쪽 따릉이",area:"bukchon",x:1100,y:-923.2,heading:180,access:{x:1100,y:-926.2}},
+  {id:"cheonggye-gwanggyo",name:"광교 동쪽 따릉이",area:"cheonggye",x:1020,y:-90.8,heading:0,access:{x:1020,y:-93.85}},
+  {...plazaAt(-65,329.5),id:"sejongno-park",name:"세종로공원 입구 따릉이",heading:0,access:plazaAt(-65,332.6)},
+  {...plazaAt(55,439.1),id:"uijeongbu",name:"의정부지 남쪽 따릉이",heading:0,access:plazaAt(55,442.2)},
+  {id:"songhyeon",name:"열린송현 율곡로 입구 따릉이",area:"songhyeon",x:838,y:-938,heading:180,access:{x:838,y:-934.95}}
 ];
 
 export const bikeDockReach=3.2;

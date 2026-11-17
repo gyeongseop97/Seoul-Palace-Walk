@@ -46,7 +46,7 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
     part(blue,2.26,2.23,.03,.57,.56,.20);
     const type=placard("버스",.49,.30,{background:"#305ca8",ink:"#fff9e7"});type.position.set(2.26,2.23,.136);shelter.add(type);
     const name=placard(stop.name,4.24,.42,{sub:stop.direction});name.position.set(-.37,2.40,.925);shelter.add(name);
-    const routes=placard("세종대로 순환버스",1.33,.59,{sub:"덕수궁 · 광화문광장 · 경복궁"});
+    const routes=placard("세종대로 순환버스",1.33,.59,{sub:"시청 · 청계광장 · 광화문 · 삼청동"});
     routes.position.set(1.35,1.53,-.45);shelter.add(routes);
     const obstacle=(side,forward,width,depth,height)=>{
       const p=busLocalPose(stop.shelter,side,forward);

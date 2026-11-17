@@ -153,7 +153,7 @@ export function isPlazaWalkable(x,y){
     const crossingHalf=landing?plazaCrossingApronHalf:3.7;
     if(east>=curb-2.2&&east<=sidewalk+.4&&plazaCrossings.some(crossing=>Math.abs(north-crossing)<crossingHalf))return true;
     if(east>=sidewalk&&east<=48)return true;
-    if(north<430&&east>-55&&east< -45&&!insidePlazaPolygon(x,y,plazaOutline))return true;
+    if(north<430&&east>=-55&&east< -45&&!insidePlazaPolygon(x,y,plazaOutline))return true;
   }
   const sajik=sajikRoad;
   if(north>=522&&north<=sajik.north+1&&Math.abs(east-sajik.crossX)<sajik.crossWidth/2)return true;

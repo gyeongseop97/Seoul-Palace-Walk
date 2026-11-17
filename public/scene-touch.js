@@ -7,7 +7,7 @@ const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 
 export function bindSceneTouch(scene,shell,{canTap,onBegin,onTap,onDrag,onPinch}){
   const pointers=new Map(),buttons=new Map(),handledClicks=new WeakMap();
-  let pinch=null;
+  let pinch=null,recentButtonTap=null;
 
   function resetPinch(){
     const pair=[...pointers.values()].filter(pointer=>pointer.touch);
@@ -40,8 +40,8 @@ export function bindSceneTouch(scene,shell,{canTap,onBegin,onTap,onDrag,onPinch}
     if(!pointer.dragged){
       if(Math.hypot(pointer.x-pointer.startX,pointer.y-pointer.startY)<dragSlop)return;
       pointer.dragged=true;
-      onDrag(pointer.x-pointer.startX,pointer.y-pointer.startY);
-    }else onDrag(pointer.x-previousX,pointer.y-previousY);
+      onDrag(pointer.x-pointer.startX,pointer.y-pointer.startY,pointer.x,pointer.y);
+    }else onDrag(pointer.x-previousX,pointer.y-previousY,pointer.x,pointer.y);
   });
 
   function finishScenePointer(event,activate){
@@ -60,6 +60,7 @@ export function bindSceneTouch(scene,shell,{canTap,onBegin,onTap,onDrag,onPinch}
   scene.addEventListener("pointerup",event=>finishScenePointer(event,true));
 
   shell.addEventListener("pointerdown",event=>{
+    if(event.pointerType==="touch")recentButtonTap=null;
     const button=event.target.closest("button:not([data-key])");
     // Native gestures can keep their own capture, including a map close that reveals
     // the minimap at the same position and a minigame charge that lasts until release.
@@ -84,7 +85,10 @@ export function bindSceneTouch(scene,shell,{canTap,onBegin,onTap,onDrag,onPinch}
     handledClicks.set(button,event.timeStamp);
     if(activate&&!press.moved&&!button.disabled&&
       Math.hypot(event.clientX-press.x,event.clientY-press.y)<=buttonSlop&&
-      button.contains(button.ownerDocument.elementFromPoint(event.clientX,event.clientY)))button.click();
+      button.contains(button.ownerDocument.elementFromPoint(event.clientX,event.clientY))){
+      recentButtonTap={x:event.clientX,y:event.clientY,at:event.timeStamp};
+      button.click();
+    }
   }
   shell.addEventListener("pointerup",event=>finishButton(event,true));
   for(const type of ["pointercancel","lostpointercapture"]){
@@ -98,8 +102,12 @@ export function bindSceneTouch(scene,shell,{canTap,onBegin,onTap,onDrag,onPinch}
     if(!event.isTrusted||(!touch&&event.detail===0))return;
     const button=event.target.closest("button");
     const handledAt=button&&handledClicks.get(button);
-    if(handledAt==null||event.timeStamp-handledAt>750)return;
+    // Opening a panel can put a different control under the same physical tap.
+    const retargeted=recentButtonTap&&event.timeStamp-recentButtonTap.at<750&&
+      Math.hypot(event.clientX-recentButtonTap.x,event.clientY-recentButtonTap.y)<=buttonSlop;
+    if(!retargeted&&(handledAt==null||event.timeStamp-handledAt>750))return;
     if(touch||(!event.pointerType&&event.sourceCapabilities?.firesTouchEvents!==false)){
+      recentButtonTap=null;
       event.preventDefault();event.stopImmediatePropagation();
     }
   },true);

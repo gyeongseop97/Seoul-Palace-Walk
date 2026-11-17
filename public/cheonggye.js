@@ -1,6 +1,7 @@
 import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {bankAt,cheonggyeAccess,cheonggyeBedLevel,cheonggyeBridges,cheonggyeRailOpening,cheonggyeRoadLeads,
   cheonggyeStations,cheonggyeSurfaces,cheonggyeTrees,riverAt,stepStoneXs} from "./cheonggye-layout.js";
+import {CHEONGGYE_WATER_LEVEL,cheonggyeSeats} from "./cheonggye-seats.js";
 
 export function* buildCheonggye(T,root,kit,terrain){
   const {wx,wz,box,cylinder,matte}=kit;
@@ -9,7 +10,7 @@ export function* buildCheonggye(T,root,kit,terrain){
   const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
   const concrete=0x8b8f84,granite=0xa6a99b,cap=0xbcc0b3,rail=0x424b48;
   const stone=[0xa6a596,0x9a9d91,0x929489,0xa1a092,0xaaa89d,0x8d9086];
-  const waterLevel=cheonggyeBedLevel-.27;
+  const waterLevel=CHEONGGYE_WATER_LEVEL;
   function block(color,x,y,width,length,height,level,angle=0){
     const mesh=box(color,wx(x),level+height/2,wz(y),width,height,length,root);
     mesh.rotation.y=angle;
@@ -22,6 +23,11 @@ export function* buildCheonggye(T,root,kit,terrain){
   function mesh(vertices,indices,material){
     const geometry=new T.BufferGeometry();
     geometry.setAttribute("position",new T.Float32BufferAttribute(vertices,3));geometry.setIndex(indices);
+    if(material.map){
+      const uv=[];
+      for(let i=0;i<vertices.length;i+=3)uv.push(vertices[i]/3.2,vertices[i+2]/3.2);
+      geometry.setAttribute("uv",new T.Float32BufferAttribute(uv,2));
+    }
     geometry.computeVertexNormals();
     const model=new T.Mesh(geometry,material);
     model.userData.terrainSurface=true;model.receiveShadow=true;root.add(model);
@@ -41,10 +47,26 @@ export function* buildCheonggye(T,root,kit,terrain){
     }
     return mesh(vertices,indices,material);
   }
-  const paving=new T.MeshStandardMaterial({color:0xa6a79b,roughness:.96,side:T.DoubleSide});
-  const darkPaving=new T.MeshStandardMaterial({color:0x9d9f92,roughness:.93,side:T.DoubleSide});
+  function stoneTiles(w,h,tones,stagger){
+    const size=128,pixels=new Uint8Array(size*size*4);
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+      const row=Math.floor(y/h),along=(x+row*stagger)%size,column=Math.floor(along/w);
+      const border=along%w===0||y%h===0,bevel=along%w===1||y%h===1;
+      const block=tones[(row*29+column*17+row*column)%tones.length],grain=(x*19+y*71+(x*y)%11)%9-4;
+      const shade=border?119+grain:bevel?Math.min(244,block+12):block+grain;
+      pixels.set([shade,shade-2,shade-7,255],(y*size+x)*4);
+    }
+    const map=new T.DataTexture(pixels,size,size);
+    map.colorSpace=T.SRGBColorSpace;map.wrapS=map.wrapT=T.RepeatWrapping;
+    map.minFilter=T.LinearMipmapLinearFilter;map.magFilter=T.LinearFilter;map.anisotropy=4;map.generateMipmaps=true;
+    map.needsUpdate=true;return map;
+  }
+  const slabs=stoneTiles(32,16,[184,195,209,201,190,218],16);
+  const cobbles=stoneTiles(16,16,[160,183,177,189,171,194],8);
+  const paving=new T.MeshStandardMaterial({color:0xdfdfd6,map:slabs,roughness:.96,side:T.DoubleSide});
+  const darkPaving=new T.MeshStandardMaterial({color:0xc9cfc5,map:slabs,roughness:.93,side:T.DoubleSide});
   const asphalt=new T.MeshStandardMaterial({color:0x686d66,roughness:1,side:T.DoubleSide});
-  const lower=new T.MeshStandardMaterial({color:0xb7ad99,roughness:.97,side:T.DoubleSide});
+  const lower=new T.MeshStandardMaterial({color:0xd8d0bb,map:cobbles,roughness:.97,side:T.DoubleSide});
   const water=new T.ShaderMaterial({
     uniforms:{clock:{value:0},night:{value:0},mist:{value:new T.Color(0xa4b3b4)}},
     side:T.DoubleSide,
@@ -63,12 +85,22 @@ export function* buildCheonggye(T,root,kit,terrain){
       varying vec3 point;
       varying float viewDepth;
       void main(){
-        float ripple=sin(point.x*6.6+point.z*4.2-clock*2.5)*sin(point.z*7.2-point.x*1.7+clock*.8);
-        float crest=pow(max(0.,ripple),5.);
-        float flow=.5+.5*sin(point.x*.71+point.z*1.9+clock*1.8);
-        vec3 teal=mix(vec3(.055,.211,.207),vec3(.007,.036,.060),night);
-        vec3 shine=mix(vec3(.25,.45,.43),vec3(.053,.142,.204),night);
-        vec3 color=mix(teal,shine,.21*flow+.48*crest);
+        vec2 p=point.xz;
+        float a=dot(p,vec2(4.24,2.64))-clock*2.1;
+        float b=dot(p,vec2(2.1,-5.4))-clock*1.55;
+        float c=dot(p,vec2(10.4,5.6))-clock*3.15;
+        vec2 gradient=vec2(4.24,2.64)*(.054*cos(a))+vec2(2.1,-5.4)*(.031*cos(b))+vec2(10.4,5.6)*(.011*cos(c));
+        vec3 normal=normalize(vec3(-gradient.x,1.,-gradient.y));
+        vec3 eye=normalize(cameraPosition-point);
+        float fresnel=pow(1.-clamp(dot(normal,eye),0.,1.),4.4);
+        float shimmer=pow(max(0.,dot(reflect(-eye,normal),normalize(vec3(-.32,.64,.71)))),25.);
+        float bed=.5+.5*sin(a*.29+sin(b*.45))*sin(b*.53+c*.095);
+        float foam=(1.-smoothstep(1.,10.,abs(point.x-326.5)))*pow(max(0.,.52*sin(a*.89+c*.11)+.48*sin(b+c*.17)),2.4);
+        vec3 deep=mix(vec3(.028,.116,.115),vec3(.010,.032,.050),night);
+        vec3 shallow=mix(vec3(.084,.23,.18),vec3(.022,.055,.072),night);
+        vec3 sky=mix(vec3(.43,.61,.65),vec3(.051,.083,.128),night);
+        vec3 color=mix(mix(deep,shallow,bed*.63),sky,.055+fresnel*.67);
+        color+=mix(vec3(.48,.64,.65),vec3(.11,.16,.22),night)*(shimmer*.43+foam*.60);
         gl_FragColor=vec4(mix(color,mist,smoothstep(100.,480.,viewDepth)*.62),1.);
         #include <colorspace_fragment>
       }`
@@ -88,11 +120,6 @@ export function* buildCheonggye(T,root,kit,terrain){
     }
   }
   yield;
-  const pavementCuts=[530,542,559,578,596];
-  for(const x of pavementCuts){
-    const a={x,y:-167+(x-535)*.07},b={x,y:-150+(x-535)*.055};
-    strip(0x898c80,a,b,.045,.012,.039);
-  }
   for(let i=0;i<6;i++){
     const x=616+i*1.27,y=-149.7+i*.21;
     block(i%2?cap:granite,x,y,1.28,10.1,.27,at(x,y)-i*.23-.08);
@@ -224,6 +251,14 @@ export function* buildCheonggye(T,root,kit,terrain){
   for(const [i,x] of stepStoneXs.entries()){
     const [y,north,south]=riverAt(x);
     block(stone[i%stone.length],x,y+(south-north)*.5,1.39,north+south-5.1,.37,at(x,y)+waterLevel-.10);
+  }
+  for(const {x,y,side} of cheonggyeSeats){
+    const base=at(x,y)+cheonggyeBedLevel;
+    block(0x908d82,x,y-side*.070,2.53,.54,.18,base-.145);
+    for(const offset of [-.61,.61]){
+      block(0xb7b1a2,x+offset,y+side*.075,1.13,.47,.073,base-.03);
+      block(0xa39e91,x+offset,y-side*.258,1.13,.20,.095,base-.146);
+    }
   }
   // The Spring sculpture, plaza runnel, and the split waterfall at the head.
   const spring={x:553.8,y:-157.2},base=at(spring.x,spring.y);

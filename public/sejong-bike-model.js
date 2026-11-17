@@ -12,7 +12,8 @@ const dockSurfaces=new WeakMap();
 const dockPaving={
   "city-hall":.039,"cheonggye":.061,"gwanghwamun":.025,"gyeongbokgung":.020,
   "jeongdong-fountain":.044,"seoul-plaza":.039,"city-council":.039,"culture-shelter":.025,
-  "plaza-east":.016,"palace-museum":.008,"folk-museum":.017
+  "plaza-east":.016,"palace-museum":.008,"folk-museum":.017,
+  "cheonggye-gwanggyo":.039,"uijeongbu":.068
 };
 const dockLevel=dock=>Math.max(dockPaving[dock.id]??.024,platformAt(dock.x,dock.y));
 

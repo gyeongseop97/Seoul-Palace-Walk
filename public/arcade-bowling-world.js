@@ -15,10 +15,10 @@ export function addBowlingLane(T,parent,{box,shape}){
   const boards=[0xd0a977,0xd2ae7c,0xdfbb86,0xcda674,0xe2c393,0xd7b17f,0xc7a173];
 
   block(steel,0,.061,-.77,3.91,.122,9.89);
-  block(wood,0,.115,-.50,3.05,.031,9.03);
+  block(wood,0,.115,-.625,3.05,.031,9.28);
   for(let col=0;col<17;col++){
     const x=(col-8)*.178;
-    block(boards[col%boards.length],x,.132,-.5,.176,.008,9.02);
+    block(boards[col%boards.length],x,.132,-.625,.176,.008,9.27);
     for(let join=0;join<3;join++){
       const z=2.72-join*2.62+(col%4-.5)*.166;
       block(0xa9845d,x,.137,z,.176,.002,.008);
@@ -41,7 +41,7 @@ export function addBowlingLane(T,parent,{box,shape}){
     block(teal,side*1.92,.298,-.775,.071,.021,9.80);
     block(0x314954,side*1.48,.143,-.54,.049,.019,9.11);
   }
-  block(0x1b2a33,0,.185,-5.382,3.50,.236,.53);
+  block(0x1b2a33,0,.185,-5.53,3.50,.236,.37);
   block(0x233841,0,1.06,-5.73,3.86,2.08,.20);
   block(trim,0,1.94,-5.659,3.86,.306,.26);
   block(orange,0,1.968,-5.506,3.67,.039,.033);

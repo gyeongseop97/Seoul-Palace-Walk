@@ -82,6 +82,12 @@ const approachNorth=access("청계광장 북쪽 보도",[[537.4,-170.8],[568,-16
 const approachSouth=access("청계광장 남쪽 보도",[[525.3,-132.9],[538.6,-138.3],[563.4,-138.7],[595,-137.7],[624,-137.6],[638,-137.6]],4.2,"paving");
 const startRamp=access("청계광장 경사로 입구",[[561,-151],[566,-148.1],[570.83,-145.86]],3.65,"paving");
 const sidePlaza=access("청계광장 보도 연결",[[536,-165],[540,-169],[548,-172.05],[559,-171]],3.7,"paving");
+const plazaSouthShoulder=access("청계광장 남측 연결 보도",
+  [[535.8,-142.5],[545,-144.6],[553.2,-146.1],[565,-147.3],[572,-146.9]],3.65,"paving");
+const plazaSouthCrossings=[
+  access("청계광장 남서쪽 횡단보도",[[538.8,-148.6],[539.1,-143.65],[538.8,-137.9]],4.5,"crossing"),
+  access("청계광장 경사로 앞 횡단보도",[[559,-150.8],[559.3,-144.15],[559,-137.3]],4.6,"crossing")
+];
 // Both levels overlap under the street bridges. The low pedestrian arch,
 // with approaches right at the water, belongs to the lower route.
 export const cheonggyeBridges=[
@@ -114,7 +120,7 @@ const stepping=stepStoneXs.map(x=>{
 const steppingWay=ribbon([bankAt(660,-1,-3.6),bankAt(660,1,-3.55)],1.8);
 export const cheonggyeSurfaces=[
   {kind:"road",outline:northRoad},{kind:"road",outline:southRoad},
-  {kind:"plaza",outline:plaza},approachNorth,approachSouth,startRamp,sidePlaza,
+  {kind:"plaza",outline:plaza},approachNorth,approachSouth,startRamp,sidePlaza,plazaSouthShoulder,...plazaSouthCrossings,
   {kind:"paving",outline:northWalk},{kind:"paving",outline:southWalk},
   {kind:"paving",outline:northFrontage},{kind:"paving",outline:southFrontage},...crossings,
   {kind:"lower",outline:walkersNorth},{kind:"lower",outline:walkersSouth},
@@ -135,6 +141,11 @@ const polygonTest=(outline=>{
 });
 const onWalk=walkPolygons.map(polygonTest),onDeck=deckLanes.map(({outline})=>polygonTest(outline));
 const onLower=lowerWalks.map(polygonTest),onUpper=upperWalks.map(polygonTest);
+const underDeck=decks.map(({footprint})=>polygonTest(footprint));
+const nearDeck=decks.map(({x,north,south,width,skew})=>
+  polygonTest(ribbon([point(x,north-1.8),point(x+skew,south+1.8)],width+5.1)));
+const overAccess=[...surfaceKinds(["road","plaza","paving"]),...cheonggyeRoadLeads.map(({outline})=>outline)]
+  .map(polygonTest);
 export function inCheonggye(x,y){
   const {minX,maxX,minY,maxY}=cheonggyeBounds;
   return x>=minX&&x<=maxX&&y>=minY&&y<=maxY;
@@ -169,6 +180,19 @@ export function cheonggyeLevel({x,y,up}){
   }
   if(onLower.some(contains=>contains(x,y)))return -depth;
   return onUpper.some(contains=>contains(x,y))?.04:null;
+}
+// Height relative to street grade, for the camera when a player is on the lower path.
+export function cheonggyeCameraCeiling(x,y,approaching=false){
+  if(!inCheonggye(x,y))return null;
+  if((approaching?nearDeck:underDeck).some(contains=>contains(x,y)))return -.59;
+  if(!overAccess.some(contains=>contains(x,y)))return null;
+  const level=cheonggyeLevel({x,y});
+  return level!=null&&level<-.34?.035:null;
+}
+export function cheonggyeCameraWall(x,y,height){
+  if(x<cheonggyeStations[0]||x>cheonggyeStations.at(-1)||height>.16||height<cheonggyeBedLevel-.9)return false;
+  const north=bankAt(x,-1,.12).y,south=bankAt(x,1,.12).y;
+  return (y<=north||y>=south)&&!cheonggyeRailOpening(x,y);
 }
 export const cheonggyeBedLevel=-depth;
 export function cheonggyeDeckStep(from,x,y){

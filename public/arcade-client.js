@@ -5,7 +5,7 @@ import {drawPumpTrack} from "./arcade-pump-track.js";
 import {bowlingScore,bowlingTurn} from "./arcade-bowling.js";
 import {makeArcadeMoles} from "./arcade-mole.js";
 import {makeArcadeTargets,TARGET_CHARGE_MS} from "./arcade-targets.js";
-import {makeArcadeBaseball} from "./arcade-baseball.js";
+import {BASEBALL_PITCH_COUNT,makeArcadeBaseball} from "./arcade-baseball.js";
 
 export const arcadeTitles={claw:"인형뽑기",pump:"펌프",basket:"농구 슛",bowling:"볼링",mole:"두더지 잡기",shooting:"사격",archery:"양궁",baseball:"스크린 야구"};
 const canCharge=kind=>kind==="basket"||kind==="bowling"||kind==="archery";
@@ -17,14 +17,15 @@ const keyDirection={ArrowLeft:"left",ArrowUp:"up",ArrowDown:"down",ArrowRight:"r
 const text=(node,value)=>{if(node.textContent!==value)node.textContent=value;};
 
 export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerId,bowlingPending,commandBowling,
-  onBowlMove,onAim,onStart,onStop,playBeat,playBasketImpact}){
+  onBowlMove,onBaseballStance,onAim,onStart,onStop,playBeat,playBasketImpact}){
   const $=id=>root.ownerDocument.getElementById(id);
   const panel=$("arcade-panel"),title=$("arcade-title"),status=$("arcade-status"),track=$("arcade-pump-track"),moves=$("arcade-move"),act=$("arcade-act");
   const trackContext=track.getContext("2d",{alpha:false});
   const games=makeArcadeGames({playBasketImpact}),rhythm=makeArcadeRhythm(playBeat);
   const moles=makeArcadeMoles(ARCADE_GAMES.mole);
-  const targets=makeArcadeTargets(),baseball=makeArcadeBaseball();
+  const targets=makeArcadeTargets({shootingClock:getClock}),baseball=makeArcadeBaseball();
   const chargeGauge=$("arcade-charge");
+  const stance=$("baseball-stance"),stanceButtons=[...stance.querySelectorAll("[data-baseball-hand]")];
   const pads=[...moves.querySelectorAll("[data-arcade-move]")];
   const keys=new Set(),pointers=new Map();
   let kind=null,charge=null,pumpDrawAt=-Infinity;
@@ -40,12 +41,14 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
     else if(next==="mole")moles.start(getClock(now));
     else if(next==="bowling")commandBowling({action:"join"});
     else if(isTarget(next))targets.start(next);
-    else if(next==="baseball")baseball.start(getClock(now));
+    else if(next==="baseball")baseball.prepare();
     else games.start(next,now);
     pumpDrawAt=-Infinity;
     panel.hidden=false;root.classList.toggle("arcade-avatar-active",useAvatar(next));
     root.classList.toggle("arcade-machine-active",!useAvatar(next));
     root.classList.toggle("arcade-target-active",isTarget(next));
+    root.classList.toggle("arcade-baseball-active",next==="baseball");
+    stance.hidden=next!=="baseball";
     moves.hidden=next!=="claw"&&next!=="bowling";track.hidden=next!=="pump";
     moves.setAttribute("aria-label",next==="bowling"?"투구 위치":"기계 조작");
     for(const pad of pads)pad.hidden=next==="bowling"&&["up","down"].includes(pad.dataset.arcadeMove);
@@ -58,10 +61,18 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
     if(!kind)return;
     if(kind==="bowling"){onBowlMove(0,0);commandBowling({action:"leave"});}
     kind=null;clear();games.stop();rhythm.stop();targets.stop();panel.hidden=true;
-    root.classList.remove("arcade-avatar-active","arcade-machine-active","arcade-target-active");onStop();
+    stance.hidden=true;
+    root.classList.remove("arcade-avatar-active","arcade-machine-active","arcade-target-active","arcade-baseball-active");onStop();
   }
   for(const mode of Object.keys(arcadeTitles))$("arcade-"+mode).addEventListener("click",()=>start(mode));
   $("arcade-exit").addEventListener("click",stop);
+  for(const button of stanceButtons)button.addEventListener("click",()=>{
+    const hand=button.dataset.baseballHand;
+    if(kind==="baseball"&&baseball.choose(hand)){
+      onBaseballStance(hand);
+      update(performance.now(),0);
+    }
+  });
   function powerAt(time){
     if(!charge)return BASKET_REST_POWER;
     const cycle=Math.max(0,time-charge.at)/(kind==="archery"?TARGET_CHARGE_MS:BASKET_CHARGE_MS)%2;
@@ -93,7 +104,9 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
     else if(kind==="mole")moles.strike(getClock(now),getAvatar());
     else if(kind==="baseball"){
       const clock=getClock(now);
-      if(baseball.state(clock).finished)baseball.start(clock);
+      const state=baseball.state(clock);
+      if(state.finished)baseball.prepare(state.hand);
+      else if(!state.pitchNo)baseball.start(clock);
       else baseball.swing(clock);
     }else if(isTarget(kind)){
       if(targets.state(now)?.phase==="finished")targets.start(kind);
@@ -175,10 +188,20 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
       return;
     }
     if(kind==="baseball"){
-      const state=baseball.state(getClock(now));
-      act.hidden=false;act.disabled=false;text(act,state.finished?"다시 하기":"스윙");
-      text(status,state.finished?`타격 종료 · ${state.hits}안타 · ${state.score}점`:
-        `${state.pitchNo}구 · ${baseballText[state.result]??"공이 홈플레이트에 오면 스윙"} · ${state.score}점`);
+      const clock=getClock(now),state=baseball.state(clock),choosing=state.pitchNo===0;
+      const dx=Number(keys.has("right"))-Number(keys.has("left")),dy=Number(keys.has("up"))-Number(keys.has("down"));
+      if(dx||dy)baseball.aim(state.aim.x+dx*elapsed*.91,state.aim.y+dy*elapsed*.91);
+      stance.hidden=!choosing;
+      if(choosing)for(const button of stanceButtons){
+        const pressed=String(button.dataset.baseballHand===state.hand);
+        if(button.getAttribute("aria-pressed")!==pressed)button.setAttribute("aria-pressed",pressed);
+      }
+      act.hidden=false;
+      act.disabled=choosing?!state.hand:!state.finished&&(clock<state.pitch.at||state.swingAt!==null||Boolean(state.result));
+      text(act,state.finished?"다시 하기":choosing?"타격 시작":"타격");
+      const setup=state.hand?"화면을 누르거나 방향키로 배트를 조준하세요.":"좌타 또는 우타를 고르세요.";
+      text(status,state.finished?`타격 종료 · ${state.hits}안타 · ${state.score}점`:choosing?setup:
+        `${state.pitchNo}/${BASEBALL_PITCH_COUNT}구 · ${baseballText[state.result]??"공이 배트에 올 때 타격"} · ${state.score}점`);
       return;
     }
     let x=0,z=0;
@@ -186,16 +209,18 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
       x+=directions[direction][0];z+=directions[direction][1];
     }
     if(isTarget(kind)){
-      if(x||z)onAim(Math.sign(x)*42*elapsed,Math.sign(z)*36*elapsed);
+      const shooting=kind==="shooting";
+      if(x||z)onAim(Math.sign(x)*(shooting?11:42)*elapsed,Math.sign(z)*(shooting?9:36)*elapsed);
       targets.aim(getAim(),powerAt(now));targets.update(now);
       const state=targets.state(now),finished=state.phase==="finished";
-      act.hidden=false;act.disabled=state.phase==="flying";
+      act.hidden=false;act.disabled=state.phase==="flying"||state.phase==="resetting";
       chargeGauge.hidden=kind!=="archery"||finished;
       act.toggleAttribute("data-native-touch",kind==="archery"&&!finished);
       chargeGauge.value=charge?powerAt(now):0;
       text(act,finished?"다시 하기":kind==="shooting"?"발사":charge?"놓아서 쏘기":"꾹 눌러 활 당기기");
+      const targetsLeft=shooting?state.down.filter(hit=>hit===null).length:0;
       text(status,finished?`라운드 종료 · ${state.score}점`:
-        `${state.score}점 · ${state.shotsLeft}발 남음${state.lastScore==null?"":` · 방금 ${state.lastScore}점`}`);
+        `${state.score}점 · ${state.shotsLeft}발 남음${shooting?` · ${state.phase==="resetting"?"과녁 다시 세우는 중":`과녁 ${targetsLeft}개`}`:""}${state.lastScore==null?"":` · 방금 ${state.lastScore}점`}`);
       return;
     }
     if(kind==="bowling"){
@@ -237,6 +262,7 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
     }
   }
   return {get kind(){return kind;},get frozen(){return Boolean(kind&&!useAvatar(kind));},clear,keyDown:keydown,
+    aimBaseball:point=>kind==="baseball"&&point&&baseball.aim(point.x,point.y),
     keyUp:event=>{keys.delete(keyName(event));if(event.code==="Space")endCharge("keyboard",true);},
     update,stop,state:now=>kind==="pump"?{kind,pump:rhythm.state(now)}:
       kind==="mole"?moles.state(getClock(now)):isTarget(kind)?targets.state(now):
