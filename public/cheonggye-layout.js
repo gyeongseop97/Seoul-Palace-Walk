@@ -107,6 +107,8 @@ export const cheonggyeAccess=[
 // East of the plaza this pavement bends north, clear of the stairs that drop beside it.
 const approachNorth=access("청계광장 북쪽 보도",[[537.4,-170.8],[568,-169.7],[605,-166.5],[612,-167.2],[624,-166.9]],3.25,"paving");
 const approachSouth=access("청계광장 남쪽 보도",[[525.3,-132.9],[538.6,-138.3],[563.4,-138.7],[595,-137.7],[624,-137.6],[638,-137.6]],4.2,"paving");
+// The head of the plaza stairs, paved across from the plaza to the pavement beside it.
+const stairHead=access("청계광장 북쪽 계단 앞",[[602.4,-164.9],[609.3,-164.2]],4.7,"paving");
 const startRamp=access("청계광장 경사로 입구",[[561,-151],[566,-148.1],[570.83,-145.86]],3.65,"paving");
 const sidePlaza=access("청계광장 보도 연결",[[536,-165],[540,-169],[548,-172.05],[559,-171]],3.7,"paving");
 const plazaSouthShoulder=access("청계광장 남측 연결 보도",
@@ -147,7 +149,7 @@ const stepping=stepStoneXs.map(x=>{
 const steppingWay=ribbon([bankAt(660,-1,-3.6),bankAt(660,1,-3.55)],1.8);
 export const cheonggyeSurfaces=[
   {kind:"road",outline:northRoad},{kind:"road",outline:southRoad},
-  {kind:"plaza",outline:plaza},approachNorth,approachSouth,startRamp,sidePlaza,plazaSouthShoulder,...plazaSouthCrossings,
+  {kind:"plaza",outline:plaza},approachNorth,approachSouth,startRamp,stairHead,sidePlaza,plazaSouthShoulder,...plazaSouthCrossings,
   ...[...northWalk,...southWalk].map(outline=>({kind:"paving",outline})),
   {kind:"paving",outline:northFrontage},{kind:"paving",outline:southFrontage},...crossings,
   {kind:"lower",outline:pavedNorth},{kind:"lower",outline:pavedSouth},
