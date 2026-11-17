@@ -1,4 +1,5 @@
-import {bukchonPaths,bukchonGroundHeight,bukchonSurfaceGrade,bukchonTerrain,bukchonShopPlots,bukchonLawns,bukchonStreetTrees,dongsipjagak,folkMuseumEastDoor} from "./bukchon-layout.js";
+import {bukchonPaths,bukchonGroundHeight,bukchonSurfaceGrade,bukchonTerrain,bukchonShopPlots,bukchonLawns,bukchonStreetTrees,dongsipjagak,
+  dongsipjagakIsland,folkMuseumEastDoor} from "./bukchon-layout.js";
 import {gbEastWallX,insideGbWall} from "./gyeongbok-perimeter.js";
 import {bikeDocks} from "./sejong-bike.js";
 import {bukchonBusRoads,busStopById} from "./sejong-bus.js";
@@ -182,7 +183,7 @@ export function* buildBukchon(T,root,kit){
     }
     for(const {a,b} of path.segments){
       const length=distance(a,b),angle=direction(a,b);
-      if(path.kind==="road"){
+      if(path.kind==="road"&&!path.plain){
         const marks=[];
         for(let metre=0;metre<length-2;metre+=7.4){
           const start=mix(a,b,metre/length),end=mix(a,b,Math.min(1,(metre+3.2)/length));
@@ -332,13 +333,16 @@ export function* buildBukchon(T,root,kit){
     }
   }
   function buildDongsipjagak(){
-    const {x,y}=dongsipjagak,level=.025,base=groupAt({x,y,level},-.13);
+    // The junction climbs gently to the north, so the island is set at the road's level under the tower.
+    const {x,y}=dongsipjagak,level=sampleMeshHeight(bukchonSurfaceGrade,{x,y})+.04,base=groupAt({x,y,level},-.13);
     const plot=(color,width,depth,height,top)=>{
       const mesh=cylinder(color,0,top-height/2,0,width/2,height,24,base);
       mesh.scale.z*=depth/width;material(mesh);
     };
     create(asphalt,0,-.22,0,46,.30,50,base);
-    plot(0xb1a899,14.8,12,.25,.13);plot(0x657747,14.3,11.5,.16,.21);
+    // The oval island: a granite kerb round a lawn.
+    const {width,depth}=dongsipjagakIsland;
+    plot(0xb1a899,width,depth,.62,.16);plot(0x657747,width-.6,depth-.6,.5,.24);
     const levels=[[6.15,.21,.27],[5.95,.48,.28],[5.70,.76,3.28],[5.51,4.04,.27],[5.77,4.31,.16]];
     for(const [size,bottom,height] of levels)create(stone,0,bottom+height/2,0,size,height,size,base);
     for(const side of [-1,1])for(let row=0;row<5;row++)for(let col=0;col<7;col++){
@@ -389,6 +393,30 @@ export function* buildBukchon(T,root,kit){
     }
   }
   buildDongsipjagak();
+  // Paint on the junction: stop lines at three approaches and the hatched wedge that keeps
+  // traffic off the tower's west side.
+  {
+    const paint=[],at=(x,y)=>({x,y,level:sampleMeshHeight(bukchonSurfaceGrade,{x,y})});
+    const line=(a,b,width)=>{
+      const length=Math.hypot(b.x-a.x,b.y-a.y),nx=-(b.y-a.y)/length*width/2,ny=(b.x-a.x)/length*width/2;
+      quad(paint,at(a.x-nx,a.y-ny),at(a.x+nx,a.y+ny),at(b.x+nx,b.y+ny),at(b.x-nx,b.y-ny),.03,false);
+    };
+    line(at(678,-865.6),at(678,-881.4),.5);line(at(731.6,-895.2),at(731.6,-907.2),.5);line(at(691.5,-866.9),at(704.4,-869.9),.5);
+    const wedge=[at(664.6,-900.9),at(677.6,-903.2),at(678.2,-918.6)];
+    wedge.forEach((corner,i)=>line(corner,wedge[(i+1)%3],.16));
+    // Diagonal bars, each cut to the part of it that lies inside the wedge.
+    const inside=(p,a,b)=>(b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x);
+    const turn=Math.sign(inside(wedge[2],wedge[0],wedge[1]));
+    for(let offset=-14;offset<22;offset+=2.1){
+      let from=null,to=null;
+      for(let step=0;step<=160;step++){
+        const p=at(660+offset+step*.15,-898-step*.15);
+        if(wedge.every((a,i)=>inside(p,a,wedge[(i+1)%3])*turn>=.12)){from??=p;to=p;}
+      }
+      if(from&&Math.hypot(to.x-from.x,to.y-from.y)>.8)line(from,to,.34);
+    }
+    meshFromTriangles(0xe2ddd1,paint,{follow:false,terrain:false});
+  }
   yield;
   function windows(group,w,h,front,dark=false){
     const bays=Math.max(2,Math.round(w/1.65)),bay=w/bays;
@@ -505,6 +533,7 @@ export function* buildBukchon(T,root,kit){
   ];
   const closeToStreet=(point,radius)=>{
     for(const path of bukchonPaths){
+      if(path.lots===false)continue;
       if(point.x<path.minX-radius||point.x>path.maxX+radius||point.y<path.minY-radius||point.y>path.maxY+radius)continue;
       for(const {a,dx,dy,squared} of path.segments){
         const t=Math.max(0,Math.min(1,((point.x-a.x)*dx+(point.y-a.y)*dy)/squared));
@@ -514,7 +543,7 @@ export function* buildBukchon(T,root,kit){
     return false;
   };
   for(const path of bukchonPaths){
-    if(!limits[path.kind]||["경복궁 동쪽 담장길","광화문 동편 인도","율곡로 남쪽 인도"].includes(path.name))continue;
+    if(!limits[path.kind]||path.lots===false||["경복궁 동쪽 담장길","광화문 동편 인도","율곡로 남쪽 인도"].includes(path.name))continue;
     const sides=path.kind==="pavement"?[1]:[-1,1];
     for(const side of sides)for(const {a,b} of path.segments){
       const length=distance(a,b),angle=direction(a,b);

@@ -4,7 +4,9 @@ import {
 } from "./gyeongbok-layout.js";
 import {solidAt} from "./layout.js";
 import {plazaAt} from "./plaza-layout.js";
-import {sajikEastRoad,uijeongbuBusPavement,uijeongbuConnections,uijeongbuOutline,uijeongbuRemains,uijeongbuSideRoad,uijeongbuWalks} from "./uijeongbu-layout.js";
+import {bukchonPavers} from "./bukchon-surfaces.js";
+import {jongnoCrossing,sajikEastRoad,uijeongbuBusPavement,uijeongbuConnections,uijeongbuOutline,uijeongbuPavedConnections,uijeongbuRemains,
+  uijeongbuSideRoad,uijeongbuWalks} from "./uijeongbu-layout.js";
 import {gbEastOpenings,gbEastWall,gbMuseumWestGate,gbOuterWallRuns,gbWallOutline,gbWestPaths,insideGbWall,clipGbGround} from "./gyeongbok-perimeter.js";
 import {buildGyeongbokCompounds,inGyeongbokCompound} from "./gyeongbok-compounds.js";
 
@@ -812,21 +814,44 @@ export function* buildGyeongbok(T,scene,kit,tools){
       collide(e,n,width,.2,1.2,turn);
     };
 
-    plot(sajikEastRoad,materials.road,-.012).name="사직로 동편";
-    plot(uijeongbuSideRoad,materials.road,-.015).name="사직로8길과 종로1길";
-    plot(uijeongbuBusPavement,materials.paving,.025).name="경복궁 정류장 보도";
+    // The same dark asphalt as the square to the west and the junction to the east.
+    const carriageway=matte(0x49494a);
+    plot(sajikEastRoad,carriageway,-.012).name="사직로 동편";
+    plot(uijeongbuSideRoad,carriageway,-.015).name="사직로8길과 종로1길";
+    // Street pavements here are laid in the same slabs as the junction they run into,
+    // on the same grid, so the pattern carries across from one stretch to the next.
+    const streetPaving=bukchonPavers(T),streetPaved=[5,7,8];
+    const pavement=(points,height)=>{
+      const surface=plot(points,streetPaving,height),{position,uv}=surface.geometry.attributes;
+      for(let i=0;i<uv.count;i++)uv.setXY(i,position.getX(i)/2.16,-position.getY(i)/2.40);
+      return surface;
+    };
+    pavement(uijeongbuBusPavement,.025).name="경복궁 정류장 보도";
     plot(uijeongbuOutline,materials.garden.lawn,.02).name="의정부지 역사유적광장 잔디";
     for(const [index,{points,width}] of uijeongbuWalks.entries()){
       ribbon(points,-width/2,width/2,index<2?materials.paving:materials.gravel,.037+index*.012);
     }
-    for(const index of [0,3,5,6])plot(uijeongbuConnections[index],materials.paving,.032+index*.006);
+    for(const index of uijeongbuPavedConnections){
+      if(streetPaved.includes(index))pavement(uijeongbuConnections[index],.032+index*.006);
+      else plot(uijeongbuConnections[index],materials.paving,.032+index*.006);
+    }
     const stripe=(e,n,w,d,turn)=>piece(0xe7e3d6,e,n,w,d,.012,.007,turn).name="의정부지 주변 횡단보도";
     for(let i=0;i<22;i++)stripe(39.4-i*.23,530+i*1.09,8.1,.48,-.22);
     for(let i=0;i<7;i++)stripe(44.6,433.4+i*.91,8.1,.44,.07);
     for(let i=0;i<12;i++)stripe(135.1+i*1.14,485.5-i*.42,.49,5.9,-.34);
-    for(let e=47;e<=219;e+=9){
-      const n=e<78?546+(e-47)*.57:564.2+(e-78)*.136;
-      piece(0xc3bba4,e,n,4.3,.11,.014,.003,Math.atan(e<78?.57:.136));
+    {
+      // The crossing over Jongno 1-gil, striped from kerb to kerb.
+      const {from,to,width}=jongnoCrossing,a=plazaAt(0,0),length=Math.hypot(to.x-from.x,to.y-from.y);
+      const turn=Math.atan2(from.y-to.y,to.x-from.x);
+      for(let metre=1.2;metre<length-1;metre+=1.09){
+        const t=metre/length;
+        stripe(from.x+(to.x-from.x)*t-a.x,a.y-(from.y+(to.y-from.y)*t),.49,width-.5,turn);
+      }
+    }
+    // The centre line follows the middle of the widened carriageway.
+    for(let e=47;e<=170;e+=9){
+      const n=e<78?546+(e-47)*.667:566.7+(e-78)*.132;
+      piece(0xc3bba4,e,n,4.3,.11,.014,.003,Math.atan(e<78?.667:.132));
     }
     yield;
 

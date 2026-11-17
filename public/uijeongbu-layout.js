@@ -8,16 +8,25 @@ export const uijeongbuOutline=points([
   [125.2,545],[124,552.9],[87.9,547.7],[78.6,543.9],[70.6,538.7],[64.1,532.7],
   [55,523.3],[39.6,507.8],[34.4,492.2],[34.5,449.9]
 ]);
-export const sajikEastRoad=points([
-  [20,529],[35,527],[56,539],[74,548],[96,551],[131,555],[173,560],[199,565],[228,571],
-  [228,596],[199,591],[173,586],[130,580],[96,575],[75,570],[55,561],[35,551],[20,551]
-]);
-export const uijeongbuSideRoad=points([
-  [34,431],[108.5,434.5],[128.5,435],[134.2,440.6],[137.5,453.5],
-  [146.5,478],[157.3,495.2],[174,519],[190.1,538.3],[204.2,560.6],
-  [196.2,565.1],[183.4,543.7],[166.2,523.7],[149.1,499.9],[139,483.7],
-  [129.8,459],[126,449.1],[122.3,444.8],[107.2,443.1],[34,439]
-]);
+// Positions read off the map and aerial survey directly, in the world's own metres.
+const origin=plazaAt(0,0);
+const surveyed=pairs=>pairs.map(([x,y])=>plazaAt(x-origin.x,origin.y-y));
+// Sajik-ro between Gwanghwamun and Dongsipjagak. Its north kerb swings up to the palace wall
+// once it is clear of the woldae, and the carriageway is some 34 m wide from there on.
+export const sajikNorthKerb=surveyed([[512.1,-855.1],[530.6,-870.5],[552.1,-881.3],[576.7,-887.4],
+  [607.5,-890.5],[638.3,-894.5],[655,-899]]);
+export const sajikEastRoad=[
+  ...points([[20,529],[35,527],[56,539],[74,548],[96,551],[131,555],[173,560]]),
+  ...sajikNorthKerb.slice().reverse(),...points([[20,551]])
+];
+export const uijeongbuSideRoad=[
+  ...points([[34,431],[108.5,434.5],[128.5,435],[134.2,440.6],[137.5,453.5],
+    [146.5,478],[157.3,495.2],[174,519],[190.1,538.3]]),
+  // Jongno 1-gil fans out to four lanes where it meets the Dongsipjagak junction.
+  ...surveyed([[686,-843.6],[700.8,-851.3],[704,-862],[706.6,-870.6],[682.5,-868.5]]),
+  ...points([[196.2,565.1],[183.4,543.7],[166.2,523.7],[149.1,499.9],[139,483.7],
+    [129.8,459],[126,449.1],[122.3,444.8],[107.2,443.1],[34,439]])
+];
 export const uijeongbuEntry=plazaAt(42.1,448.4,"의정부지 역사유적광장");
 export const uijeongbuGarden=plazaAt(114.6,528,"의정부지 후원");
 export const uijeongbuBusBerth=plazaAt(166,569.8);
@@ -34,10 +43,23 @@ export const uijeongbuConnections=[
   points([[38.6,428.8],[49.3,429.8],[48.9,445.6],[40.2,443.7]]),
   points([[124,534],[135.5,536.3],[139.7,552.5],[130,553.9],[121.5,542.5]]),
   points([[120.5,483.9],[158.8,472.2],[162.0,480.2],[125,490.2]]),
-  points([[137.5,443.6],[144.4,442.1],[160.5,477],[173.9,495.9],[190.6,521],[199.4,538.4],
-    [190.0,541],[182.4,524],[165.6,499],[152.3,479.6],[148.6,467.8]]),
-  points([[47,434],[128,440],[135.7,442],[137.5,446.7],[125,446],[47,440]])
+  // The east pavement of Jongno 1-gil, bending round the widened mouth to the junction corner.
+  [...points([[137.5,443.6],[144.4,442.1],[160.5,477],[173.9,495.9],[190.6,521]]),
+    ...surveyed([[681,-830],[692.5,-838.8],[706.3,-849],[700.5,-851.5],[686.5,-843.2],[674,-833.6]]),
+    ...points([[182.4,524],[165.6,499],[152.3,479.6],[148.6,467.8]])],
+  points([[47,434],[128,440],[135.7,442],[137.5,446.7],[125,446],[47,440]]),
+  // The broad pavement under the palace wall, from the woldae to where Bukchon's survey takes over.
+  surveyed([[514.5,-857.5],[530.6,-871],[552.1,-881.8],[557.5,-883.2],[557.5,-901.2],[514.5,-900.2]]),
+  // The west pavement of Jongno 1-gil, from the bus stop to its crossing.
+  surveyed([[672.4,-868.6],[678.6,-865.6],[664.6,-840.9],[659.6,-843.5]])
 ];
+// The marked crossing over Jongno 1-gil just south of the junction.
+export const jongnoCrossing={from:{x:663.3,y:-844.6},to:{x:678.9,y:-835.3},width:4.8};
+const crossingStrip=(({from,to,width})=>{
+  const length=Math.hypot(to.x-from.x,to.y-from.y),nx=-(to.y-from.y)/length*width/2,ny=(to.x-from.x)/length*width/2;
+  return surveyed([[from.x-nx,from.y-ny],[from.x+nx,from.y+ny],[to.x+nx,to.y+ny],[to.x-nx,to.y-ny]]);
+})(jongnoCrossing);
+export const uijeongbuPavedConnections=[0,3,5,6,7,8];
 
 export const uijeongbuWalks=[
   {width:4.2,points:points([[40,450],[38,477],[38.5,494],[44.7,508.6],[45.1,512.7],[53.2,515.9],
@@ -58,5 +80,5 @@ export const uijeongbuRemains=[
 ];
 
 export function isUijeongbuWalkable(x,y){
-  return [uijeongbuOutline,uijeongbuBusPavement,...uijeongbuConnections].some(outline=>insidePlazaPolygon(x,y,outline));
+  return [uijeongbuOutline,uijeongbuBusPavement,crossingStrip,...uijeongbuConnections].some(outline=>insidePlazaPolygon(x,y,outline));
 }

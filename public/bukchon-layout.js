@@ -30,6 +30,29 @@ function makePath(name,kind,width,vertices){
     minY:Math.min(...points.map(p=>p.y))-half-3,maxY:Math.max(...points.map(p=>p.y))+half+3};
 }
 
+// A stretch that does not keep one width, given as rows across it: [left, right, level].
+// It carries no centre line to paint and no building lots along it.
+function makeStrip(name,kind,rows){
+  const left=rows.map(([[x,y],,level=0])=>point([x,y,level])),right=rows.map(([,[x,y],level=0])=>point([x,y,level]));
+  const points=left.map((l,i)=>point([(l.x+right[i].x)/2,(l.y+right[i].y)/2,l.level]));
+  const segments=points.slice(1).map((b,i)=>{
+    const a=points[i],dx=b.x-a.x,dy=b.y-a.y;
+    return {a,b,dx,dy,squared:dx*dx+dy*dy};
+  });
+  const xs=[...left,...right].map(p=>p.x),ys=[...left,...right].map(p=>p.y);
+  return {name,kind,width:Math.max(...left.map((l,i)=>Math.hypot(l.x-right[i].x,l.y-right[i].y))),points,left,right,
+    outline:[...left,...right.slice().reverse()],segments,plain:true,lots:false,
+    minX:Math.min(...xs)-3,maxX:Math.max(...xs)+3,minY:Math.min(...ys)-3,maxY:Math.max(...ys)+3};
+}
+// Drops the rows of a north-south path that lie south of a line, where the junction takes over.
+// Building lots are still counted along the whole of it, so the streets beyond keep their houses.
+function northOf(path,y,keepLots=false){
+  const from=path.points.findIndex(p=>p.y<=y),half=path.width/2;
+  const points=path.points.slice(from),left=path.left.slice(from),right=path.right.slice(from);
+  return {...path,points,left,right,outline:[...left,...right.slice().reverse()],
+    segments:keepLots?path.segments:path.segments.slice(from),maxY:points[0].y+half+3};
+}
+
 // Samcheong-ro and Cheongwadae-ro centre lines follow OSM. The smooth street
 // profile is relative to the palace forecourt and uses 30 m SRTM elevations.
 function atY(y,rows){
@@ -61,8 +84,10 @@ const section=(rows,offset=0)=>rows.map(y=>[atY(y,mainAxis)+offset,y,samcheongLe
 const avenue=section(mainRows);
 const eastPavement=section(mainRows,10);
 const oldWallSamples=gbEastWall.map(({y})=>y).filter(y=>y< -949&&y> -1595);
-const wallWalkRows=[...new Set([...oldWallSamples,...mainRows.filter(y=>y> -1467),
-  ...northAxis.map(([y])=>y).filter(y=>y< -1467&&y> -1595),-1595])].sort((a,b)=>b-a);
+// South of this line the pavements belong to the Dongsipjagak junction.
+const junctionNorth=-968;
+const wallWalkRows=[...new Set([junctionNorth,...oldWallSamples,...mainRows.filter(y=>y> -1467),
+  ...northAxis.map(([y])=>y).filter(y=>y< -1467&&y> -1595),-1595])].filter(y=>y<=junctionNorth).sort((a,b)=>b-a);
 function westEdges(y){
   const curb=atY(y,y>=-1466.25?mainAxis:northAxis)-6.8;
   const wall=y< -944?gbEastWallX(y):null;
@@ -87,6 +112,9 @@ const crosswalks=crosswalkSurvey.map(([name,y,width,axis])=>{
   const west=axis===northAxis||y> -1466?westEdges(y)[1]-1.6:street-10;
   return makePath(name,"crosswalk",width,[[west,y,level+.14],[street,y,level],[street+11,y,level+.14]]);
 });
+// The crossing north of Dongsipjagak runs between the two kerbs of the widened road.
+crosswalks[0]=makePath(crosswalkSurvey[0][0],"crosswalk",5.6,[
+  [688.6,-955.8,samcheongLevel(-955)+.14],[704.6,-954.8,samcheongLevel(-955)],[721,-953.4,samcheongLevel(-955)+.14]]);
 const entrancePaths=gbEastOpenings.map(({id,name,x,y})=>{
   const pavement=westCentre(y),level=samcheongLevel(y)+.14;
   const west=x-(id==="palace-parking"?27:19);
@@ -122,13 +150,58 @@ export const bukchonStreetTrees=[
   [945,-1731,6.5],[943,-1745,5.6],[856,-1400,7.2],[1069,-1741,6.4]
 ];
 
+// ---- The Dongsipjagak junction ---------------------------------------------------------
+// Kerbs, islands and crossings follow OpenStreetMap and the 2026 aerial photograph. The tower
+// stands on its own island in the road: southbound traffic passes west of it along the cut
+// corner of the palace wall, northbound traffic east of it.
+const pave=.14,junctionSouth=-954.6;
+const [wallFoot,wallKerb]=westEdges(junctionNorth);
+// The palace-side pavement: under the south wall, round the cut corner, and up to Samcheong-ro.
+const palaceCornerWalk=makeStrip("광화문 동편 인도","pavement",[
+  [[556,-901.2],[556,-882.4],.03],
+  [[576.7,-901.7],[576.7,-887.4],.09],
+  [[603.9,-903.1],[607.5,-890.5],pave],
+  [[626.8,-907.1],[638.3,-894.5],pave],
+  [[650.1,-910.4],[655,-899],pave+samcheongLevel(-905)],
+  [[657.6,-920.6],[662,-911],pave+samcheongLevel(-916)],
+  [[673.5,-942.5],[676.1,-934.9],pave+samcheongLevel(-939)],
+  [[683.6,-953.4],[688.5,-950],pave+samcheongLevel(-952)],
+  [[690.4,-961],[694.5,-957.5],pave+samcheongLevel(-959)],
+  [[690.4,-964.5],[698.5,-962],pave+samcheongLevel(-963)],
+  [[wallFoot,junctionNorth],[wallKerb,junctionNorth],pave+samcheongLevel(junctionNorth)]
+]);
+// The carriageway north of the junction box, from the cut corner across to the east kerb.
+const junctionNorthArm=makeStrip("삼청로 남단","road",[
+  [[655,-899],[719,-900.5],samcheongLevel(-900)],
+  [[662,-911],[719,-911],samcheongLevel(-911)],
+  [[669.1,-923],[718.9,-922.4],samcheongLevel(-923)],
+  [[676.1,-934.9],[718.6,-935],samcheongLevel(-935)],
+  [[688.5,-950],[717.6,-948],samcheongLevel(-949)],
+  [[692.2,junctionSouth],[715.9,junctionSouth],samcheongLevel(junctionSouth)],
+  [[698.5,-962],[702.4,-962],samcheongLevel(-962)],
+  [[wallKerb,junctionNorth],[wallKerb+.5,junctionNorth],samcheongLevel(junctionNorth)]
+]);
+const junctionEastWalk=makeStrip("동십자각 동편 인도","pavement",[
+  [[718.9,-922.2],[727,-922.6],pave+samcheongLevel(-922)],
+  [[718.6,-935],[726.4,-935],pave+samcheongLevel(-935)],
+  [[717.6,-948],[724.6,-948],pave+samcheongLevel(-948)],
+  [[715.8,-956],[722.1,-956],pave+samcheongLevel(-956)]
+]);
+// The corner of Jongno 1-gil and Yulgok-ro, in front of Twin Tree Tower.
+const jongnoCornerWalk=makeStrip("종로1길 동편 모퉁이 인도","pavement",[
+  [[700.5,-851.5],[706.3,-849],pave],[[703.6,-862],[710,-858.5],pave],[[706.2,-870.2],[713.2,-864.6],pave],
+  [[714,-873.4],[717.5,-866],pave],[[730,-873.4],[730.5,-866.6],pave],[[745,-876],[745.4,-870],pave]
+]);
+// The junction has its own kerbs, so nothing here is lined with building lots.
+const junctionPath=(...values)=>({...makePath(...values),lots:false});
+// The island the tower stands on.
+export const dongsipjagakIsland={...dongsipjagak,width:16.5,depth:17.8};
+
 export const bukchonPaths=[
-  makePath("삼청로","road",13.8,avenue),
+  northOf(makePath("삼청로","road",13.8,avenue),junctionSouth),
   wallPavement(),
-  makePath("삼청로 동편 인도","pavement",6.3,eastPavement),
-  makePath("광화문 동편 인도","pavement",7.4,[
-    [555.2,-878,0],[592,-878,0],[624,-880,0],[669,-883,0],[698,-892,0]
-  ]),
+  northOf(makePath("삼청로 동편 인도","pavement",6.3,eastPavement),junctionSouth,true),
+  palaceCornerWalk,
   makePath("율곡로 북쪽 인도","pavement",4.8,[
     [724.4,-924.3,.16],[729.7,-921.8,.16],[739.9,-919.9,.16],[746,-916.6,.15],[789.3,-912.5,.15],
     ...[[800,-911],[879,-898.1],[884.2,-897.3],[939.5,-881.2],[974.2,-877.3],
@@ -174,15 +247,18 @@ export const bukchonPaths=[
     [1011.2,-863,.065],[1040,-869.3,.12],[1070.2,-879.1,.2],[1110,-890.2,.26]
   ]),
   makePath("율곡로 남쪽 인도","pavement",4.4,[
-    [667,-861,.15],[678,-861.6,.14],[691,-863,.13],[702.8,-861.3,.13],
-    [708.8,-857.8,.135],[719.9,-864.6,.136],[734.1,-871.2,.14],
+    [741,-872.6,.14],
     [750.5,-874.4,.14],[769.4,-877.3,.15],[790.1,-876.5,.15],[838.8,-871.1,.14],
     [855,-868.1,.145],[883,-862.9,.15],[919,-854.5,.15],[946,-851,.15]
   ]),
-  makePath("율곡로 서쪽 횡단보도","crosswalk",5.5,[
-    [719.9,-864.6,.14],[719.9,-876.9,.09],[724.2,-887.3,.045],[724.9,-902.2,.045],
-    [725.6,-911.2,.055],[723.4,-919.9,.105],[724.4,-925.5,.16]
-  ])
+  // Crossing Yulgok-ro east of the junction: over the right-turn lane to a refuge island,
+  // across the carriageway to the next island, and over the other right-turn lane.
+  junctionPath("율곡로 횡단보도","crosswalk",8.4,[[725.7,-880.2,.05],[725.7,-908.6,.05]]),
+  junctionNorthArm,junctionEastWalk,jongnoCornerWalk,
+  junctionPath("율곡로 남쪽 교통섬","pavement",9,[[724.5,-877.2,.12],[724.5,-881.4,.12]]),
+  junctionPath("율곡로 북쪽 교통섬","pavement",9.6,[[723.6,-908,.14],[723.6,-915.6,.16]]),
+  junctionPath("종로1길 우회전 차로 횡단보도","crosswalk",7.2,[[724.6,-871.4,.1],[724.6,-878,.1]]),
+  junctionPath("율곡로 우회전 차로 횡단보도","crosswalk",6.2,[[724.6,-915.2,.12],[724.6,-922.8,.14]])
 ];
 
 function inPath(x,y,path){
@@ -296,7 +372,7 @@ export function bukchonTerrain(x,y){
     sampleMeshHeight(bukchonSurfaceGrade,{x,y});
 }
 export const bukchonLandmarks=[
-  {...point([697,-891]),name:"동십자각 앞"},
+  {...point([656.5,-910.5]),name:"동십자각 앞"},
   {...geonchunCross.points[0],name:"건춘문 앞 횡단보도"},
   {...crossingApproach(geonchunCross),name:"국립현대미술관 서울 앞"},
   {...folkMuseumEastDoor},

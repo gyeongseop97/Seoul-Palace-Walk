@@ -94,10 +94,11 @@ const itineraries=[
 export const BUS_CYCLE_MS=itineraries.reduce((total,{travelMs})=>total+travelMs+BUS_DWELL_MS,0);
 export const BUS_DEPARTURE_MS=BUS_CYCLE_MS/BUS_COUNT;
 
-// Connect Sajik-ro to Samcheong-ro, cover the fork and widen the northern turn.
+// The Dongsipjagak junction box, from the end of Sajik-ro to the kerbs of each corner, then
+// the fork and the northern turn on Samcheong-ro.
 export const bukchonBusRoads=[
-  [[653,-820],[688,-820],[710,-829],[721,-850],[725,-885],[723,-912],[717,-918],
-    [704,-909],[693,-888],[677,-870],[665,-857],[653,-852]],
+  [[655.8,-859.7],[681.8,-864.7],[706.4,-870.4],[714,-873.6],[730,-873.6],[745,-876.2],[757,-879.5],
+    [757,-911.2],[746,-914],[739.9,-917.3],[729.7,-919.2],[724.4,-921.8],[718.9,-922.2],[718.9,-901],[655,-899]],
   [[762,-1458],[777,-1458],[781,-1470],[785,-1486],[786,-1505],
     [780,-1514],[762,-1514],[755,-1505],[755,-1489],[758,-1472]],
   [[923,-1853],[929,-1853],[934,-1864],[943,-1870],[946,-1878],[946,-1885],
