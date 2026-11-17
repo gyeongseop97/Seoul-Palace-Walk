@@ -1,13 +1,19 @@
 import {addLandmarks,addObstacle,addZone} from "./layout.js";
 import {insideCorridorPolygon} from "./sejong-corridor-layout.js";
+import {plazaAvenueOutline,plazaEastSidewalks,plazaOutline} from "./plaza-layout.js";
+import {plazaWestPavement} from "./gwanghwamun-plaza.js";
+import {bukchonPavers} from "./bukchon-surfaces.js";
 import {gradeAvenueMeshes} from "./avenue-terrain.js";
+import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
+import {makeCrosswalkMarkings} from "./crosswalk-markings.js";
 
 const point=(x,y)=>({x,y});
 const walk=(name,width,points)=>({name,width,points:points.map(([x,y])=>point(x,y))});
 export const subwayAccessPaths=[
   walk("시청역 남쪽 보도",7,[[522,285],[543,298],[551,317],[546,336],[534,349],[522,374],[519,397]]),
   walk("시청역 덕수궁길 보도",8,[[475,307],[470,325],[464,346],[465.8,357],[460,365],[445,377],[438,395],[434,405]]),
-  walk("시청역 남쪽 횡단보도",6,[[463,346],[497,350],[534,349]]),
+  // Meet the east sidewalk before the corner of The Plaza hotel.
+  walk("시청역 남쪽 횡단보도",6,[[467.5,334],[503,336],[545,331.5]]),
   walk("광화문역 서쪽 보도",8,[[443,-413],[434,-416.7],[418,-417.2],[400,-418],[364,-418],[331,-418],[320,-427],
     [317,-438],[302,-446],[298,-455]]),
   walk("광화문역 동쪽 보도",8,[[524,-324],[526,-346],[527,-376],[530,-388]]),
@@ -37,7 +43,7 @@ function entrance(area,number,x,y,heading){
 export const expandedSubwayStops=[
   entrance("city",1,461.2,354.4,0),entrance("city",4,523.2,105,0),entrance("city",5,525.3,187.4,0),
   entrance("city",6,547.8,328.6,0),entrance("city",7,518.3,388.3,0),entrance("city",12,434.7,395.8,0),
-  entrance("plaza",1,299.5,-452.5,0),entrance("plaza",2,522.6,-521.7,0),entrance("plaza",3,530.2,-384.9,0),
+  entrance("plaza",1,299.5,-452.5,0),entrance("plaza",2,522.6,-521.7,0),entrance("plaza",3,526.4,-384.9,0),
   entrance("plaza",4,525.5,-322.4,180),entrance("plaza",5,522.9,-224.6,0),entrance("plaza",6,454.8,-221.5,90),
   entrance("plaza",8,321.0,-434.6,0),entrance("plaza",9,480.3,-388.8,0),
   entrance("palace",1,61.6,-932.5,90),entrance("palace",2,80.2,-953.1,180),entrance("palace",3,104.5,-936.3,90),
@@ -59,7 +65,7 @@ const crossingIndexes=[2,7];
 const inside=(x,y,polygon)=>insideCorridorPolygon(x,y,polygon);
 addZone({name:"지하철 출입구 보행로",
   contains:(x,y)=>x>=55&&x<550&&(y>280||y< -380),
-  walkable:(x,y)=>pavement.some(polygon=>inside(x,y,polygon))
+  walkable:(x,y)=>!inside(x,y,plazaAvenueOutline)&&pavement.some(polygon=>inside(x,y,polygon))
 });
 addLandmarks(expandedSubwayStops.map(stop=>({...stop.arrive,name:stop.name})));
 
@@ -70,19 +76,38 @@ export function registerExpandedSubway(){
 export function* buildSubwayAccess(T,root,{wx,wz,box,matte},floorAt,{terrainHeight}={}){
   const approaches=new T.Group();
   root.add(approaches);
-  for(const [index,outline] of pavement.entries()){
-    const shape=new T.Shape(outline.map(p=>new T.Vector2(wx(p.x),-wz(p.y))));
-    const geometry=new T.ShapeGeometry(shape);
+  const cutSidewalks=makeStreetSurfaceCut(T,pavement.filter((_,index)=>!crossingIndexes.includes(index)));
+  const existing=[plazaOutline,plazaAvenueOutline,...plazaEastSidewalks,...plazaWestPavement()];
+  const stone=bukchonPavers(T);
+  function surface(parts,color,height,name=""){
+    if(!parts.length)return;
+    const shapes=parts.map(outline=>new T.Shape(outline.map(p=>new T.Vector2(wx(p.x),-wz(p.y)))));
+    const geometry=new T.ShapeGeometry(shapes),{position,uv}=geometry.attributes;
+    if(color?.map)for(let i=0;i<uv.count;i++)uv.setXY(i,position.getX(i)/3.6,position.getY(i)/3.6);
     geometry.rotateX(-Math.PI/2);
-    const crossing=crossingIndexes.includes(index),mesh=new T.Mesh(geometry,matte(crossing?0x62635d:0x9c9686));
-    mesh.position.y=crossing?.069:.052;mesh.receiveShadow=true;
+    const mesh=new T.Mesh(geometry,color?.isMaterial?color:matte(color));
+    mesh.name=name;
+    mesh.position.y=height;mesh.receiveShadow=true;
     mesh.userData.followTerrain=true;approaches.add(mesh);
-    if(crossing){
-      const {width,points:[a,b]}=subwayAccessPaths[index],dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
-      for(let offset=1;offset<length-.6;offset+=1.12){
-        const p=box(0xe3dfc9,wx(a.x+dx*offset/length),.082,wz(a.y+dy*offset/length),.47,.014,width-.24,approaches);
-        p.rotation.y=-Math.atan2(dy,dx);
+  }
+  for(const [index,outline] of pavement.entries()){
+    if(crossingIndexes.includes(index)){
+      const road=cutSidewalks(outline),markings=makeCrosswalkMarkings(T,road);
+      const {width,points}=subwayAccessPaths[index],paint=[],tactile=[];
+      const bends=points.slice(1,-1);
+      surface(road,0x62635d,.061);
+      for(let i=1;i<points.length;i++){
+        const bands=markings(points[i-1],points[i],width);
+        paint.push(...bands.paint);
+        tactile.push(...bands.tactile.filter(part=>!bends.some(bend=>
+          part.some(p=>Math.hypot(p.x-bend.x,p.y-bend.y)<.87))));
       }
+      surface(paint,0xe3dfc9,.070);
+      surface(tactile,0xbba05a,.069);
+    }else{
+      const {name}=subwayAccessPaths[index],cut=makeStreetSurfaceCut(T,existing);
+      surface(cut(outline),stone,.031,name);
+      existing.push(outline);
     }
     yield;
   }
@@ -92,6 +117,7 @@ export function* buildSubwayAccess(T,root,{wx,wz,box,matte},floorAt,{terrainHeig
     group.position.set(wx(stop.x),floorAt(stop),wz(stop.y));
     group.rotation.y=stop.angle;root.add(group);
     const part=(color,x,y,z,w,h,d)=>box(color,x,y,z,w,h,d,group);
+    part(0x5d5c55,0,-.105,0,2.34,.24,4.80);
     part(0x302f2f,0,.07,0,2.36,.14,4.8);
     for(let step=0;step<6;step++)part(step%2?0x6d6c64:0x535653,0,.13+step*.014,1.91-step*.66,2.16,.058,.64);
     for(const side of [-1,1]){

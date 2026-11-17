@@ -1,12 +1,13 @@
 import {addObstacle} from "./layout.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
+import {makeCrosswalkMarkings} from "./crosswalk-markings.js";
 import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
 import {basinWater,tickWater} from "./water-shader.js";
 import {assemblePlazaCity,registerPlazaCity} from "./plaza-city.js";
 import {addPlazaMonuments,plazaMonumentFootprints} from "./plaza-monuments.js";
 import {sajikEastRoad,uijeongbuOutline} from "./uijeongbu-layout.js";
 import {plazaAt,plazaOutline,plazaBeds,plazaSites,plazaTransitStops,insidePlazaPolygon,
-  plazaRoadProfile,plazaCrossings,plazaCrossingApronHalf,plazaSideForecourts,eastCurb,eastRoadWidth,sajikRoad,haechiBasin,
+  plazaRoadProfile,plazaAvenueOutline,plazaEastSidewalks,plazaCrossings,plazaCrossingApronHalf,plazaCrossingLandings,plazaSideForecourts,eastCurb,eastRoadWidth,sajikRoad,haechiBasin,
   sejongParkOutline,sejongParkCourt,sejongParkStage,sejongParkFountain,sejongParkMonoliths,sejongParkBenches} from "./plaza-layout.js";
 import {PLAZA_SHOW_VIEW_METRES,plazaShowFrame,plazaShowJet} from "./plaza-show.js";
 
@@ -176,17 +177,12 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
   for(const outline of plazaWestPavement())surface(outline,stone,.025);
   surface(sejongParkOutline,stone,.024);
   for(const outline of plazaSideForecourts.slice(1))surface(outline,stone,.025);
-  surface(rect(-310,20,sajikRoad.south,sajikRoad.north),road,-.012);
+  const westSajik=rect(-310,20,sajikRoad.south,sajikRoad.north);
+  surface(westSajik,road,-.012);
   const roadProfile=[...plazaRoadProfile.filter(([n])=>n<sajikRoad.south),[sajikRoad.south,eastCurb(sajikRoad.south)]];
-  const roadside=roadProfile.map(([north,east])=>plazaAt(east,north));
-  const farCurb=roadProfile.map(([north,east])=>plazaAt(east+eastRoadWidth,north));
-  surface([...roadside,...farCurb.slice().reverse()],road,-.012);
+  surface(plazaAvenueOutline,road,-.012);
   const parkBoundary=makeStreetSurfaceCut(T,[uijeongbuOutline,sajikEastRoad]);
-  for(const [start,end] of [[0,430.9],[439.8,sajikRoad.south]]){
-    const sections=[[start,eastCurb(start)],...roadProfile.filter(([n])=>n>start&&n<end),[end,eastCurb(end)]];
-    const along=sections.map(([n,e])=>plazaAt(e+eastRoadWidth,n));
-    const outside=sections.slice().reverse().map(([n,e])=>plazaAt(Math.max(48,e+eastRoadWidth+8),n));
-    const sidewalk=[...along,...outside];
+  for(const sidewalk of plazaEastSidewalks){
     surface(sidewalk,stone,.016,[],parkBoundary(sidewalk));
   }
   surface([plazaAt(eastCurb(430.9)+eastRoadWidth,430.9),plazaAt(35,430.9),
@@ -208,13 +204,19 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
     }
     for(const side of [-.17,.17])marking(0xd3a944,eastCurb(n)+14+side,n,.09,7.35,.012,0);
   }
-  for(const n of plazaCrossings){
-    const curb=eastCurb(n);
-    for(let i=.65;i<eastRoadWidth;i+=1.08)marking(0xd7d7cf,curb+i,n,.56,6.75,.014,0);
-    for(const side of [-.52,eastRoadWidth+.58])marking(0xa8a99f,curb+side,n,1.93,plazaCrossingApronHalf*2,.027,.011);
-    for(const side of [-.8,eastRoadWidth+.8])marking(0xd1a84a,curb+side,n,.38,6.9,.021,.028);
+  const crosswalkWhite=matte(0xe8e7dd),tactileYellow=matte(0xc9a14a);
+  const avenueMarkings=makeCrosswalkMarkings(T,[plazaAvenueOutline]);
+  const fillWestApproach=makeStreetSurfaceCut(T,[plazaOutline]);
+  for(const {north,west} of plazaCrossingLandings){
+    const curb=eastCurb(north),end=curb+eastRoadWidth;
+    const {paint,tactile}=avenueMarkings(plazaAt(curb-2,north),plazaAt(end+2,north),7.05);
+    surface(paint[0],crosswalkWhite,-.008,[],paint).name="광화문광장 횡단보도";
+    surface(west,stone,.025,[],fillWestApproach(west));
+    surface(tactile[0],tactileYellow,.047,[],tactile);
   }
-  for(let n=530;n<551;n+=1.04)marking(0xdeddd1,sajikRoad.crossX,n,sajikRoad.crossWidth-.45,.52,.018,0);
+  const {paint:sajikPaint}=makeCrosswalkMarkings(T,[westSajik])(
+    plazaAt(sajikRoad.crossX,sajikRoad.south-2),plazaAt(sajikRoad.crossX,sajikRoad.north+2),sajikRoad.crossWidth);
+  surface(sajikPaint[0],crosswalkWhite,-.008,[],sajikPaint).name="광화문 월대 횡단보도";
   for(let e=-116;e<20;e+=7.5){
     if(Math.abs(e-sajikRoad.crossX)<10)continue;
     block(0xc9c5b5,e,539.5,3.6,.11,.012,.003);

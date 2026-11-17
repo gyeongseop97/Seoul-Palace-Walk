@@ -42,7 +42,7 @@ export const uijeongbuConnections=[
   points([[36.4,505.6],[45.4,509.5],[35.3,556.5],[24.8,554.3]]),
   points([[38.6,428.8],[49.3,429.8],[48.9,445.6],[40.2,443.7]]),
   points([[124,534],[135.5,536.3],[139.7,552.5],[130,553.9],[121.5,542.5]]),
-  points([[120.5,483.9],[158.8,472.2],[162.0,480.2],[125,490.2]]),
+  points([[120.5,483.9],[154.1,472.2],[157.3,480.2],[125,490.2]]),
   // The east pavement of Jongno 1-gil, bending round the widened mouth to the junction corner.
   [...points([[137.5,443.6],[144.4,442.1],[160.5,477],[173.9,495.9],[190.6,521]]),
     ...surveyed([[681,-830],[692.5,-838.8],[706.3,-849],[700.5,-851.5],[686.5,-843.2],[674,-833.6]]),
@@ -59,6 +59,14 @@ const crossingStrip=(({from,to,width})=>{
   const length=Math.hypot(to.x-from.x,to.y-from.y),nx=-(to.y-from.y)/length*width/2,ny=(to.x-from.x)/length*width/2;
   return surveyed([[from.x-nx,from.y-ny],[from.x+nx,from.y+ny],[to.x+nx,to.y+ny],[to.x-nx,to.y-ny]]);
 })(jongnoCrossing);
+const markedCrossing=(name,outline,road)=>({name,outline,road,left:[outline[0],outline[3]],right:[outline[1],outline[2]]});
+const [eastNear,eastFar,eastFarRight,eastNearRight]=uijeongbuConnections[4];
+export const uijeongbuCrossings=[
+  markedCrossing("광화문 동쪽 사직로 횡단보도",uijeongbuConnections[1],sajikEastRoad),
+  markedCrossing("의정부지 남쪽 횡단보도",uijeongbuConnections[2],uijeongbuSideRoad),
+  markedCrossing("의정부지 동쪽 횡단보도",[eastNear,eastNearRight,eastFarRight,eastFar],uijeongbuSideRoad),
+  markedCrossing("종로1길 횡단보도",crossingStrip,uijeongbuSideRoad)
+];
 export const uijeongbuPavedConnections=[0,3,5,6,7,8];
 
 export const uijeongbuWalks=[

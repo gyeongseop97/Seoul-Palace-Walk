@@ -4,8 +4,9 @@ import {
 } from "./gyeongbok-layout.js";
 import {solidAt} from "./layout.js";
 import {plazaAt} from "./plaza-layout.js";
-import {bukchonPavers,coverTriangles,exposedSurface} from "./bukchon-surfaces.js";
-import {jongnoCrossing,sajikEastRoad,uijeongbuBusPavement,uijeongbuConnections,uijeongbuOutline,uijeongbuPavedConnections,uijeongbuRemains,
+import {bukchonPavers,coverTriangles,crosswalkPaintBands,exposedSurface} from "./bukchon-surfaces.js";
+import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
+import {sajikEastRoad,uijeongbuBusPavement,uijeongbuConnections,uijeongbuCrossings,uijeongbuOutline,uijeongbuPavedConnections,uijeongbuRemains,
   uijeongbuSideRoad,uijeongbuWalks} from "./uijeongbu-layout.js";
 import {gbEastOpenings,gbEastWall,gbMuseumWestGate,gbOuterWallRuns,gbWallOutline,gbWestPaths,insideGbWall,clipGbGround} from "./gyeongbok-perimeter.js";
 import {buildGyeongbokCompounds,inGyeongbokCompound} from "./gyeongbok-compounds.js";
@@ -863,18 +864,20 @@ export function* buildGyeongbok(T,scene,kit,tools){
       return plot([[-w/2,-d/2],[w/2,-d/2],[w/2,d/2],[-w/2,d/2]].map(([x,y])=>
         plazaAt(e+x*c-y*s,n+x*s+y*c)),matte(color),height);
     }
-    const stripe=(e,n,w,d,turn)=>paint(0xe7e3d6,e,n,w,d,turn,.010).name="의정부지 주변 횡단보도";
-    for(let i=0;i<22;i++)stripe(39.4-i*.23,530+i*1.09,8.1,.48,-.22);
-    for(let i=0;i<7;i++)stripe(44.6,433.4+i*.91,8.1,.44,.07);
-    for(let i=0;i<12;i++)stripe(135.1+i*1.14,485.5-i*.42,.49,5.9,-.34);
-    {
-      // The crossing over Jongno 1-gil, striped from kerb to kerb.
-      const {from,to,width}=jongnoCrossing,a=plazaAt(0,0),length=Math.hypot(to.x-from.x,to.y-from.y);
-      const turn=Math.atan2(from.y-to.y,to.x-from.x);
-      for(let metre=1.2;metre<length-1;metre+=1.09){
-        const t=metre/length;
-        stripe(from.x+(to.x-from.x)*t-a.x,a.y-(from.y+(to.y-from.y)*t),.49,width-.5,turn);
+    for(const {name,left,right,road} of uijeongbuCrossings){
+      const keepRoad=makeStreetSurfaceCut(T,[road],{keepInside:true});
+      const positions=[];
+      for(const band of crosswalkPaintBands(left,right))for(const [a,...rest] of keepRoad(band)){
+        for(let i=1;i<rest.length;i++){
+          const b=rest[i-1],c=rest[i],turn=(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+          if(Math.abs(turn)<1e-6)continue;
+          for(const {x,y} of turn<0?[a,b,c]:[a,c,b])positions.push(wx(x),.010,wz(y));
+        }
       }
+      const geometry=new T.BufferGeometry();
+      geometry.setAttribute("position",new T.Float32BufferAttribute(positions,3));geometry.computeVertexNormals();
+      const markings=flat(geometry,matte(0xe7e3d6),0,0,0);
+      markings.name=name;markings.userData.followTerrain=true;
     }
     // The centre line follows the middle of the widened carriageway.
     for(let e=47;e<=170;e+=9){

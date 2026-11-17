@@ -19,6 +19,10 @@ export const jeongdongExtensionLandmarks=[
 
 const [pyeongseong,gojongGate,park]=jeongdongExtensionLandmarks;
 const path=(name,width,surface,coordinates)=>({name,width,surface,points:points(coordinates)});
+const northWalkwayEdges=[
+  points([[323.3,114.6],[324,114.7],[334.5,115.8],[349.6,118.8],[360.7,122.4],[374.4,125.4],[387,125.9],[388.2,126]]),
+  points([[323.3,119.7],[324.2,119.8],[334,120.6],[348.3,123.5],[359.4,127.3],[373.8,130.4],[386.7,131.1],[388.2,131.2]])
+];
 export const jeongdongExtensionPaths=[
   path("덕수궁 서쪽 돌담길",6.1,"stone",[
     [fountain.x+5.4,fountain.y+2.6],[fountain.x+9.3,fountain.y-3.4],
@@ -30,9 +34,9 @@ export const jeongdongExtensionPaths=[
     [216.8,29.3],[225.1,33.5],[232.5,40.8],[242.2,54.7],[248.8,70.3],
     [252.8,86.3],[259.4,93.7],[284.1,101.1],[297,107.7],[311.5,114.5],[325,117.6]
   ]),
-  path("덕수궁 북쪽 보행로",3.8,"deck",[
+  {...path("덕수궁 북쪽 보행로",5.1,"deck",[
     [323.4,117.2],[334.2,118.2],[348.8,121.1],[360,124.9],[374.1,127.9],[388.1,128.6]
-  ]),
+  ]),edges:northWalkwayEdges},
   path("세종대로19길",5.4,"brick",[
     [387,128.4],[402.1,129],[423.4,128.6],[442.1,127.9],[453,128.2],[466,127.8],[478.4,127.9]
   ]),
@@ -57,7 +61,8 @@ export function extensionEdge(points,offset){
 export const extensionRibbon=(points,half)=>[...extensionEdge(points,half),...extensionEdge(points,-half).reverse()];
 
 const parkCourt=points([[8,17],[24,15],[33,20],[35,34],[27,43],[12,39],[6,30]]);
-const footprints=[parkCourt,...jeongdongExtensionPaths.map(path=>extensionRibbon(path.points,path.width/2))];
+const footprints=[parkCourt,...jeongdongExtensionPaths.map(({points,width,edges})=>
+  edges?[...edges[0],...edges[1].slice().reverse()]:extensionRibbon(points,width/2))];
 export const jeongdongParkCourt=parkCourt;
 
 const wall=(kind,height,coordinates)=>({kind,height,points:points(coordinates)});
@@ -70,8 +75,7 @@ export const jeongdongBoundaryWalls=[
   wall("brick",2.15,[[150.5,73],[149,60],[147.9,47],[148.6,34],[158.2,23.7],[180,22],[208.6,21.7],
     [220.9,23.5],[230.1,28],[239.3,37.4],[249.6,51.8],[255,67],[259.7,83],[264.2,88.2],
     [286.8,94.7],[301,102.2],[313.2,108.7],[325,112.8]]),
-  wall("rail",1.04,[[324,114.7],[334.5,115.8],[349.6,118.8],[360.7,122.4],[374.4,125.4],[387,125.9]]),
-  wall("rail",1.04,[[324.2,119.8],[334,120.6],[348.3,123.5],[359.4,127.3],[373.8,130.4],[386.7,131.1]]),
+  ...northWalkwayEdges.map(edge=>({kind:"rail",height:1.04,points:edge.slice(1,-1)})),
   wall("brick",1.62,[[385.9,124.1],[401.9,124.5],[422.7,124.2],[441.5,123.9]]),
   wall("stone",1.75,[[151.2,75.3],[138.2,70.8],[123,65.6],[109.8,61.4],[90.6,54.5],[71,44.8],
     [55.3,34],[34,26.3]]),

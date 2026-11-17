@@ -330,12 +330,21 @@ function updateChatSend(){
   chatSend.disabled=!session||!text||Boolean(queuedChat);
   chatSend.textContent=queuedChat?"전송 중":"전송";
 }
-chatInput.addEventListener("focus",resetInput);
 chatInput.addEventListener("input",updateChatSend);
 chatInput.addEventListener("compositionstart",()=>{composingChat=true;});
 chatInput.addEventListener("compositionend",()=>{composingChat=false;updateChatSend();});
 chatInput.addEventListener("keydown",event=>{
-  if(event.key==="Enter"&&(event.isComposing||event.keyCode===229||composingChat))event.preventDefault();
+  const composing=event.isComposing||event.keyCode===229||composingChat;
+  if(event.key==="Enter"&&composing)event.preventDefault();
+  if(event.key==="Escape"&&!composing){
+    event.preventDefault();
+    event.stopPropagation();
+    focusGame();
+  }
+});
+chatSend.addEventListener("pointerdown",event=>{
+  // Sending by touch or mouse should not blur the active editor or hide its keyboard.
+  if(event.button===0&&document.activeElement===chatInput)event.preventDefault();
 });
 $("chat-form").addEventListener("submit",event=>{
   event.preventDefault();
@@ -344,7 +353,9 @@ $("chat-form").addEventListener("submit",event=>{
   lastChatAt=Math.max(gameTime(),lastChatAt+1);
   me.chat=queuedChat={id:token(),text,at:lastChatAt};
   dirty=true;wakeSync();
-  chatInput.value="";updateChatSend();focusGame();
+  chatInput.value="";
+  chatInput.focus({preventScroll:true});
+  updateChatSend();
 });
 
 function toast(message){

@@ -81,6 +81,21 @@ export function eastCurb(north){
 export const eastRoadWidth=27;
 export const plazaCrossings=[9,80,246,418,514];
 export const plazaCrossingApronHalf=4.65;
+function plazaEastEdge(north){
+  const edges=plazaOutline.map((a,i)=>[a,plazaOutline[(i+1)%plazaOutline.length]]);
+  const crossings=edges.filter(([a,b])=>a.north!==b.north&&north>=Math.min(a.north,b.north)&&north<=Math.max(a.north,b.north));
+  return Math.max(...crossings.map(([a,b])=>a.east+(b.east-a.east)*(north-a.north)/(b.north-a.north)));
+}
+export const plazaCrossingLandings=plazaCrossings.map(north=>{
+  const first=north-plazaCrossingApronHalf,last=north+plazaCrossingApronHalf;
+  const sections=[first,last,...new Set([...plazaOutline.map(p=>p.north),...plazaRoadProfile.map(([n])=>n)]
+    .filter(n=>n>first&&n<last))].sort((a,b)=>a-b);
+  const west=[...sections.map(n=>plazaAt(Math.min(eastCurb(n)-1.75,plazaEastEdge(n)-.15),n)),
+    ...sections.slice().reverse().map(n=>plazaAt(eastCurb(n),n))];
+  const east=[...sections.map(n=>plazaAt(eastCurb(n)+eastRoadWidth,n)),
+    ...sections.slice().reverse().map(n=>plazaAt(eastCurb(n)+eastRoadWidth+1.75,n))];
+  return {north,west,east};
+});
 const plazaEastPavement=(north,clearance=5)=>plazaAt(eastCurb(north)+eastRoadWidth+clearance,north);
 export const plazaEastWalkSpine=[
   ...[7.2,80,246,344,349].map(north=>plazaEastPavement(north)),
@@ -90,6 +105,17 @@ export const plazaEastWalkSpine=[
 ];
 export const sajikRoad={south:529,north:551,crossX:-13,crossWidth:10.5};
 export const haechiBasin={west:-29,east:-14,south:97,north:138,rampEnd:120,depth:2.05};
+
+const avenueSections=(first,last)=>[first,...plazaRoadProfile.map(([n])=>n).filter(n=>n>first&&n<last),last];
+const avenueEdge=(sections,offset)=>sections.map(n=>plazaAt(eastCurb(n)+offset,n));
+export const plazaAvenueOutline=(()=>{
+  const sections=avenueSections(0,sajikRoad.south);
+  return [...avenueEdge(sections,0),...avenueEdge(sections.slice().reverse(),eastRoadWidth)];
+})();
+export const plazaEastSidewalks=[[0,430.9],[439.8,sajikRoad.south]].map(([first,last])=>{
+  const sections=avenueSections(first,last);
+  return [...avenueEdge(sections,eastRoadWidth),...sections.slice().reverse().map(n=>plazaAt(Math.max(48,eastCurb(n)+eastRoadWidth+8),n))];
+});
 
 const bed=(id,kind,points)=>({id,kind,outline:polygon(points)});
 export const yukjoLawn=bed("yukjo-lawn","lawn",
@@ -149,9 +175,8 @@ export function isPlazaWalkable(x,y){
   const east=x-plazaOrigin.x,north=plazaOrigin.y-y;
   const curb=eastCurb(north),sidewalk=curb+eastRoadWidth;
   if(north>=0&&north<=528){
-    const landing=east<curb+1.32||east>sidewalk-1.32;
-    const crossingHalf=landing?plazaCrossingApronHalf:3.7;
-    if(east>=curb-2.2&&east<=sidewalk+.4&&plazaCrossings.some(crossing=>Math.abs(north-crossing)<crossingHalf))return true;
+    if(east>=curb&&east<=sidewalk&&plazaCrossings.some(crossing=>Math.abs(north-crossing)<3.7))return true;
+    if(plazaCrossingLandings.some(({west,east})=>insidePlazaPolygon(x,y,west)||insidePlazaPolygon(x,y,east)))return true;
     if(east>=sidewalk&&east<=48)return true;
     if(north<430&&east>=-55&&east< -45&&!insidePlazaPolygon(x,y,plazaOutline))return true;
   }

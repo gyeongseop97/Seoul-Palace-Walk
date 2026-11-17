@@ -14,6 +14,7 @@ function tileMaterial(T,style){
     fieldstone:{base:[163,157,144],w:37,h:22,joint:16},
     brick:{base:[145,117,99],w:24,h:16,joint:23},
     deck:{base:[138,110,78],w:128,h:8,joint:29},
+    verge:{base:[143,130,100],w:16,h:16,joint:0},
     brickWall:{base:[163,107,86],w:32,h:16,joint:22}
   };
   const {base,w,h,joint}=options[style];
@@ -22,7 +23,10 @@ function tileMaterial(T,style){
       const row=Math.floor(y/h),offset=x+row%2*w/2,split=Math.floor(offset/w);
       const seam=y%h===0||offset%w===0;
       const noise=((x*371+y*209+(x^y)*53)%17)-8,block=(split*11+row*5)%15-7;
-      const shade=noise*.62+block-(seam?joint:0);
+      const variation=style==="verge"?
+        (Math.sin((x+2*y)*Math.PI/64)+Math.sin((3*x-y)*Math.PI/64)+Math.sin((5*x+2*y)*Math.PI/64))*2:
+        block-(seam?joint:0);
+      const shade=noise*.62+variation;
       pixels.set(seam&&style==="brickWall"?[127,115,103,255]:
         [base[0]+shade,base[1]+shade,base[2]+shade,255],(y*size+x)*4);
     }
@@ -57,15 +61,18 @@ export function buildJeongdongExtension(T,root,{wx,wz,box,cylinder,matte}){
   group.add(ground,boundaries,park,details);
   const surfaces={stone:tileMaterial(T,"stone"),brick:tileMaterial(T,"brick"),deck:tileMaterial(T,"deck")};
 
-  function strip(points,half,material,height){
+  function strip(edges,material,height){
     const coords=[],uv=[],indices=[];
-    const edges=[extensionEdge(points,half),extensionEdge(points,-half)];
     let distance=0;
-    for(const [index,p] of points.entries()){
-      if(index){const a=points[index-1];distance+=Math.hypot(p.x-a.x,p.y-a.y);}
+    for(const [index,a] of edges[0].entries()){
+      const b=edges[1][index],width=Math.hypot(b.x-a.x,b.y-a.y);
+      if(index){
+        const left=edges[0][index-1],right=edges[1][index-1];
+        distance+=Math.hypot(a.x+b.x-left.x-right.x,a.y+b.y-left.y-right.y)/2;
+      }
       for(const side of [0,1]){
         const p=edges[side][index];
-        coords.push(wx(p.x),height,wz(p.y));uv.push(distance/4.8,side*half/1.8);
+        coords.push(wx(p.x),height,wz(p.y));uv.push(distance/4.8,side*width/3.6);
       }
       if(index){const j=index*2;indices.push(j-2,j,j-1,j-1,j,j+1);}
     }
@@ -86,12 +93,25 @@ export function buildJeongdongExtension(T,root,{wx,wz,box,cylinder,matte}){
   }
 
   for(const [index,path] of jeongdongExtensionPaths.entries()){
-    const {points,width,surface:kind}=path;
+    const {points,width,surface:kind,edges=[extensionEdge(points,width/2),extensionEdge(points,-width/2)]}=path;
     // These layered edge heights avoid coplanar tiles at the fountain and avenue seams.
     const height=.046+index*.002;
-    strip(points,width/2,surfaces[kind],height);
+    strip(edges,surfaces[kind],height);
     if(kind==="deck"){
-      strip(points,width/2+.20,matte(0x71553f),height-.016);
+      const borders=edges.map((edge,side)=>extensionEdge(edge,side===0?.17:-.17));
+      strip(borders,matte(0x71553f),height-.014);
+      // The rail posts sit over the deck edge, with a packed-earth verge beyond.
+      const verge=tileMaterial(T,"verge");
+      for(const [side,border] of borders.entries()){
+        const sign=side===0?1:-1;
+        const outer=extensionEdge(border,sign*11).map((p,i)=>{
+          const taper=Math.sin(Math.PI*i/(border.length-1));
+          return {x:p.x,y:p.y+sign*taper*(2+Math.sin(i*1.7))};
+        });
+        const shoulder=extensionEdge(border,sign*1.15);
+        surface([...border,...outer.slice().reverse()],verge,.006);
+        surface([...border,...shoulder.slice().reverse()],surfaces.stone,.017);
+      }
     }else{
       const edging=extensionRibbon(points,width/2+.19);
       surface(edging,matte(curb),height-.016);

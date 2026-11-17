@@ -10,7 +10,7 @@ import {buildMmca} from "./mmca.js";
 import {diningVenues} from "./dining-data.js";
 import {buildDiningFacade} from "./dining-world.js";
 import {addObstacle} from "./layout.js";
-import {bukchonPavers,coverRibbon,exposedSurface} from "./bukchon-surfaces.js";
+import {bukchonPavers,coverRibbon,crosswalkPaintBands,exposedSurface} from "./bukchon-surfaces.js";
 
 const stone=0x9a9385, mortar=0x6e6559, charcoal=0x393b3c;
 const timber=0x573c2c, darkWood=0x352c27, brass=0xbc9052, asphalt=0x4b4a4a;
@@ -58,6 +58,7 @@ export function* buildBukchon(T,root,kit){
       mesh.material=mesh.material.clone();
       mesh.material.side=T.DoubleSide;
     }
+    return mesh;
   }
   const vertex=(values,point,offset)=>values.push(wx(point.x),point.level+offset,wz(point.y));
   function quad(values,a,b,c,d,offset=0,follow=true){
@@ -181,6 +182,12 @@ export function* buildBukchon(T,root,kit){
         meshFromTriangles(0x8c8070,frontage);
       }
     }
+    if(path.kind==="crosswalk"){
+      const markings=[];
+      for(const band of crosswalkPaintBands(path.left,path.right))addSurfacePolygon(markings,band,.018,footway);
+      const paint=meshFromTriangles(0xe2ddd1,markings);
+      if(paint)paint.name=path.name;
+    }
     for(const {a,b} of path.segments){
       const length=distance(a,b),angle=direction(a,b);
       if(path.kind==="road"&&!path.plain){
@@ -190,14 +197,6 @@ export function* buildBukchon(T,root,kit){
           addSurfacePolygon(marks,[apart(start,angle,-.065),apart(start,angle,.065),apart(end,angle,.065),apart(end,angle,-.065)],.016,crossings);
         }
         meshFromTriangles(0xcaa75e,marks);
-      }
-      if(path.kind==="crosswalk"){
-        const paint=[];
-        for(let metre=.6;metre<length-1;metre+=1.27){
-          const start=mix(a,b,metre/length),end=mix(a,b,(metre+.64)/length),width=path.width/2-.22;
-          addSurfacePolygon(paint,[apart(start,angle,-width),apart(start,angle,width),apart(end,angle,width),apart(end,angle,-width)],.018,footway);
-        }
-        meshFromTriangles(0xe2ddd1,paint);
       }
       if(path.kind==="alley"||path.kind==="lane"){
         const drain=[];

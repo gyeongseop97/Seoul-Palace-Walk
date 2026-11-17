@@ -1,8 +1,9 @@
 import {addObstacle} from "./layout.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {plazaAt,eastCurb,eastRoadWidth} from "./plaza-layout.js";
-import {cheonggyeAccess,cheonggyeSurfaces} from "./cheonggye-layout.js";
+import {cheonggyeAccess,cheonggyeRoadLeads,cheonggyeSurfaces} from "./cheonggye-layout.js";
 import {seoulPlazaOutline} from "./seoul-hwangudan-layout.js";
+import {makeCrosswalkMarkings,streetSegmentParts} from "./crosswalk-markings.js";
 import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
 import {corridorProfile,corridorProfileAt,corridorSidewalks,corridorEastLandingKerb,seoulPlazaCrossingLanding,corridorMainRoad,corridorBranches,corridorCrossings,
   insideCorridorPolygon} from "./sejong-corridor-layout.js";
@@ -62,7 +63,7 @@ export function buildSejongCorridor(T,scene,kit){
   const base=[[344,-299],[670,-299],[670,-168],[628,-172.7],[607,-166.8],[571,-164.3],
     [570,-143.7],[670,-130.3],[670,311],[344,311]].map(([x,y])=>({x,y}));
   surface(base,matte(0x71766b),-.071,2.6,cutEntrances(base));
-  const pavedOutlines=[seoulPlazaOutline,...entranceCuts,
+  const pavedOutlines=[seoulPlazaOutline,...entranceCuts,...cheonggyeRoadLeads.map(lead=>lead.outline),
     ...cheonggyeSurfaces.filter(({kind})=>kind==="plaza"||kind==="paving").map(({outline})=>outline)];
   for(const walk of corridorSidewalks){
     const cut=makeStreetSurfaceCut(T,pavedOutlines);
@@ -71,7 +72,8 @@ export function buildSejongCorridor(T,scene,kit){
   }
   surface(corridorMainRoad,asphalt,.021);
   const [,southWest,southEast]=corridorProfileAt(-292),northWest=eastCurb(0);
-  surface([{x:southWest,y:-291.8},{x:southEast,y:-291.8},plazaAt(northWest+eastRoadWidth,.3),plazaAt(northWest,.3)],asphalt,.009);
+  const avenueJoin=[{x:southWest,y:-291.8},{x:southEast,y:-291.8},plazaAt(northWest+eastRoadWidth,.3),plazaAt(northWest,.3)];
+  surface(avenueJoin,asphalt,.009);
   for(const {outline} of corridorBranches)surface(outline,asphalt,.053);
   const cycleBand=[...corridorProfile.map(([y,,west])=>({x:west-2.25,y})),
     ...corridorProfile.slice().reverse().map(([y,,west])=>({x:west-.26,y}))];
@@ -79,18 +81,23 @@ export function buildSejongCorridor(T,scene,kit){
 
   const crossingAt=(x,y)=>corridorCrossings.some(({outline})=>insideCorridorPolygon(x,y,outline));
   const branchAt=(x,y)=>corridorBranches.some(({outline})=>insideCorridorPolygon(x,y,outline));
+  const breaks=[...corridorCrossings,...corridorBranches,...cheonggyeRoadLeads].map(({outline})=>outline);
   // The east sidewalk follows the moved lane line north of the intersection.
   // Leave the north end of the zebra level and taper the new kerb into the plaza.
   for(let i=2;i<corridorEastLandingKerb.length-1;i++){
     const a=corridorEastLandingKerb[i],b=corridorEastLandingKerb[i+1];
-    strip(curb,a,b,.17,.075,.021);
-    strip(0xc6a44c,{x:a.x+1.44,y:a.y},{x:b.x+1.44,y:b.y},.23,.009,.038);
+    for(const [from,to] of streetSegmentParts(a,b,breaks,false)){
+      strip(curb,from,to,.17,.075,.021);
+      strip(0xc6a44c,{x:from.x+1.44,y:from.y},{x:to.x+1.44,y:to.y},.23,.009,.038);
+    }
   }
-  for(let y=-289;y<311;y+=2.6){
-    const [,west,east]=corridorProfileAt(y),[,nextWest,nextEast]=corridorProfileAt(y+2.59);
-    for(const [x,next] of [[west,nextWest],[east,nextEast]]){
-      if(x===east&&insideCorridorPolygon(x,y+1.3,seoulPlazaCrossingLanding))continue;
-      if(!crossingAt(x,y)&&!branchAt(x,y)&&!branchAt(x,y+2.59))strip(curb,{x,y},{x:next,y:y+2.59},.18,.082,.024);
+  for(let i=1;i<corridorProfile.length;i++){
+    const [y,,west,east]=corridorProfile[i-1],[nextY,,nextWest,nextEast]=corridorProfile[i];
+    for(const [index,x,next] of [[0,west,nextWest],[1,east,nextEast]]){
+      const openings=index?[...breaks,seoulPlazaCrossingLanding]:breaks;
+      for(const [from,to] of streetSegmentParts({x,y},{x:next,y:nextY},openings,false)){
+        strip(curb,from,to,.18,.082,.024);
+      }
     }
   }
   for(let y=-242;y<310;y+=7.3){
@@ -101,9 +108,9 @@ export function buildSejongCorridor(T,scene,kit){
       if(i===4){
         for(const offset of [-.12,.12]){
           const lane=x+offset;
-          strip(0xc9ab55,{x:lane,y:y-3.64},{x:lane,y:y+3.64},.075,.012,.03);
+          for(const [a,b] of streetSegmentParts({x:lane,y:y-3.64},{x:lane,y:y+3.64},breaks,false))strip(0xc9ab55,a,b,.075,.012,.03);
         }
-      }else strip(white,{x,y:y-1.61},{x,y:y+1.61},.095,.012,.03);
+      }else for(const [a,b] of streetSegmentParts({x,y:y-1.61},{x,y:y+1.61},breaks,false))strip(white,a,b,.095,.012,.03);
     }
   }
   for(let y=-235;y<315;y+=16.8){
@@ -124,21 +131,15 @@ export function buildSejongCorridor(T,scene,kit){
     cylinder(0xd0ccc0,wx(x),.65,wz(y),.075,.082,8,group);
     obstacle(x,y,.15,.15,.80);
   }
-  for(const {a,b,width} of corridorCrossings){
-    const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy),ux=dx/length,uy=dy/length;
-    const angle=Math.atan2(-ux,-uy);
-    for(let k=1;k<length-.54;k+=1.15){
-      const stripe=block(white,a.x+ux*k,a.y+uy*k,width-.28,.52,.015,.071,angle);
-      stripe.userData.followTerrain=true;stripe.userData.sharedTerrainGeometry=true;
-    }
-    for(const end of [a,b]){
-      const tactile=block(0xc69e40,end.x,end.y,width-.05,.46,.029,.049,angle);
-      tactile.userData.followTerrain=true;tactile.userData.sharedTerrainGeometry=true;
-      for(let i=1;i<width-.2;i+=.38){
-        const side=i-width/2;
-        block(0xd1b159,end.x-uy*side,end.y+ux*side,.09,.09,.012,.080);
-      }
-    }
+  const widePaint=makeCrosswalkMarkings(T,[corridorMainRoad,avenueJoin]);
+  const streamRoads=new Map([["stream-north",cheonggyeRoadLeads[0]],["stream-south",cheonggyeRoadLeads[1]]]);
+  for(const {name,a,b,width,street} of corridorCrossings){
+    const lead=streamRoads.get(street),avenue=street==="avenue";
+    const mark=avenue?widePaint:makeCrosswalkMarkings(T,[(lead??street).outline]);
+    const {paint,tactile}=mark(a,b,width);
+    const level=avenue ? .024 : lead ? .015 : .056;
+    if(paint.length)surface(paint[0],matte(white),level,2.6,paint).name=name;
+    if(tactile.length)surface(tactile[0],matte(0xc69e40),.057,2.6,tactile).name=name+" 점자블록";
   }
 
   function label(text,x,y,height,width,angle=0,background=null,ink="#ebe4d5"){
@@ -181,7 +182,7 @@ export function buildSejongCorridor(T,scene,kit){
     block(0x393e3b,x,y,.36,.30,.11,3.23,angle);
     obstacle(x,y,.20,.20);
   }
-  for(const [x,y,angle] of [[472.5,-254,Math.PI],[481,-285,0],[515.2,-247,Math.PI],[522,-289,0],
+  for(const [x,y,angle] of [[472.5,-254,Math.PI],[481,-285,0],[515.2,-247,Math.PI],[525.1,-290.9,0],
     [481,108,Math.PI/2],[523.4,94.6,-Math.PI/2],[481.6,292,Math.PI/2],[524.2,282.9,-Math.PI/2]])signal(x,y,angle);
 
   const trees=makeTreeBuilder(T,group,{rand:random,clearance:{meshFits:()=>true,trim:()=>true}});

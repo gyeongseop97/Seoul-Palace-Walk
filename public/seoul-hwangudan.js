@@ -1,6 +1,7 @@
 import {makeTreeBuilder,treePalettes} from "./lowpoly-trees.js";
 import {extensionRibbon} from "./jeongdong-extension-layout.js";
 import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
+import {makeCrosswalkMarkings} from "./crosswalk-markings.js";
 import {
   hwangudanBuildings,hwangudanBounds,hwangudanGround,hwangudanPaths,hwangudanPlantingBeds,hwangudanGate,
   hwangunggu,hwangudanStoneGate,hwangudanHotelPorch,hwangudanDrums,hwangudanRelics,hwangudanPlantings,hwangudanRails,
@@ -136,27 +137,29 @@ export function* assembleHwangudan(T,root,kit){
   const {minX,maxX,minY,maxY}=hwangudanBounds;
   plane(group,localPoints([{x:612,y:minY},{x:maxX,y:minY},{x:maxX,y:maxY},{x:572,y:maxY},{x:532,y:335},{x:minX+20,y:313},{x:592,y:277}]),matte(0x777d6d),-.083);
   for(const {kind,outline} of hwangudanGround){
-    if(kind==="crossing"||outline===seoulPlazaOutline)continue;
+    if(outline===seoulPlazaOutline)continue;
     const material=kind==="road"?asphalt:kind==="garden"?grass:paving;
     const height=kind==="road"?.025:kind==="garden"?.059:.046;
     plane(group,localPoints(outline),material,height);
   }
+  const roads=hwangudanGround.filter(({kind})=>kind==="road").map(({outline})=>outline);
+  const pavedAreas=hwangudanGround.filter(({kind})=>kind==="paving").map(({outline})=>outline);
+  const crossingMarkings=makeCrosswalkMarkings(T,roads);
+  const crossingApproaches=makeStreetSurfaceCut(T,[...roads,...pavedAreas]);
+  const mapShapes=parts=>parts.map(piece=>plan(localPoints(piece)));
   const walkFootprints=[],coveredWalks=[];
   for(const {name,width,points,kind} of hwangudanPaths){
     if(name.startsWith("서울광장 동쪽"))continue;
-    const p=localPoints(points);
+    const outline=extensionRibbon(points,width/2);
     if(kind==="crossing"){
-      const a=p[0],b=p[1],length=Math.hypot(b[0]-a[0],b[1]-a[1]);
-      for(let d=1.1;d<length-1;d+=1.92){
-        const x=a[0]+(b[0]-a[0])*d/length,z=a[1]+(b[1]-a[1])*d/length;
-        const stripe=block(group,0xe3ded0,x,z,.91,width-.6,.008,.06,Math.atan2(a[1]-b[1],b[0]-a[0]));
-        stripe.userData.followTerrain=true;stripe.userData.sharedTerrainGeometry=true;
-      }
+      const {paint,tactile}=crossingMarkings(points[0],points[1],width);
+      planes(group,mapShapes(crossingApproaches(outline)),paving,.057);
+      planes(group,mapShapes(paint),matte(0xe3ded0),.034);
+      planes(group,mapShapes(tactile),matte(0xbba05a),.069);
       continue;
     }
-    const outline=extensionRibbon(points,width/2);
     const cut=makeStreetSurfaceCut(T,coveredWalks);
-    walkFootprints.push(...cut(outline).map(piece=>plan(localPoints(piece))));
+    walkFootprints.push(...mapShapes(cut(outline)));
     coveredWalks.push(outline);
   }
   planes(group,walkFootprints,paving,.064);

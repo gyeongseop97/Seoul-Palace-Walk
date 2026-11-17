@@ -59,22 +59,22 @@ export const corridorBranches=[
   street("세종대로20길",[[507,83],[594,83.3],[613,85],[613,93.4],[550,93.8],[508,94.1]])
 ];
 
-const crossing=(name,x1,y1,x2,y2,width)=>{
+const crossing=(name,x1,y1,x2,y2,width,street="avenue")=>{
   const a=point(x1,y1),b=point(x2,y2),length=Math.hypot(x2-x1,y2-y1);
   const dx=(y2-y1)*width/(length*2),dy=(x1-x2)*width/(length*2);
-  return {name,a,b,width,outline:outline([[x1+dx,y1+dy],[x2+dx,y2+dy],[x2-dx,y2-dy],[x1-dx,y1-dy]])};
+  return {name,a,b,width,street,outline:outline([[x1+dx,y1+dy],[x2+dx,y2+dy],[x2-dx,y2-dy],[x1-dx,y1-dy]])};
 };
 export const corridorCrossings=[
-  crossing("세종대로사거리 서측 횡단보도",476.7,-247.8,476.8,-290.2,7.0),
+  crossing("세종대로사거리 서측 횡단보도",476.7,-247.8,476.8,-290.2,7.0,corridorBranches[0]),
   crossing("세종대로사거리 남측 횡단보도",480.1,-246,517.4,-246.3,6.0),
   crossing("세종대로사거리 북측 횡단보도",477,-290.5,517.9,-290.3,6.0),
-  crossing("세종대로사거리 동측 횡단보도",517.4,-244,517.8,-295.1,6.0),
-  crossing("세종대로21길 북쪽 횡단보도",472.4,-131,472.2,-146.9,5.2),
-  crossing("코리아나호텔 앞 횡단보도",473.2,-70,472.1,-89.2,5.1),
-  crossing("서울시의회 앞 골목 횡단보도",478.2,80.2,478.1,65.9,6.0),
-  crossing("청계천로 북쪽 횡단보도",524.2,-168.8,522.9,-187.0,5.0),
-  crossing("청계천로 남쪽 횡단보도",524.1,-124.8,521.4,-146.1,5.0),
-  crossing("서울시청 북측 횡단보도",519.2,97.2,519.3,80.4,5.8),
+  crossing("세종대로사거리 동측 횡단보도",521.0,-244,521.8,-295.1,6.0,corridorBranches[0]),
+  crossing("세종대로21길 북쪽 횡단보도",472.4,-131,472.2,-146.9,5.2,corridorBranches[1]),
+  crossing("코리아나호텔 앞 횡단보도",473.2,-70,472.1,-89.2,5.1,corridorBranches[2]),
+  crossing("서울시의회 앞 골목 횡단보도",478.2,80.2,478.1,65.9,6.0,corridorBranches[3]),
+  crossing("청계천로 북쪽 횡단보도",524.2,-168.8,522.9,-187.0,5.0,"stream-north"),
+  crossing("청계천로 남쪽 횡단보도",524.1,-124.8,521.4,-146.1,5.0,"stream-south"),
+  crossing("서울시청 북측 횡단보도",522.1,97.2,522.2,80.4,5.8,corridorBranches[4]),
   crossing("서울도시건축전시관 앞 횡단보도",483,104,522,99.3,6.6),
   crossing("대한문 앞 횡단보도",484.7,288.4,521.4,286.9,7.4)
 ];
@@ -99,9 +99,9 @@ export const corridorWalkSpine=outline([
 export const seoulPlazaApproach={...point(553.35,213),name:"서울광장"};
 export const corridorEastWalkSpine=[seoulPlazaApproach,...outline([
   [553.35,217],[541,217],[530,202],[526,181],[520.8,169],[520.8,136],[524.5,125],[524.5,114],
-  [524,98],[519.7,95],[519.7,82],[524,80],
+  [524,98],[522.1,95],[522.2,82],[524,80],
   [526,0],[526,-111],[524,-125],[522.7,-137],[522,-145],[526,-150],[525,-168],[523.8,-179],
-  [525,-187],[525,-231],[520,-244],[518.5,-250],[518.5,-284],[518.8,-292],[520.5,-297]
+  [525,-187],[525,-231],[521,-244],[521.1,-250],[521.6,-284],[521.75,-292],[520.5,-297]
 ]),plazaAt(43,7.2)];
 
 export function insideCorridorPolygon(x,y,vertices){

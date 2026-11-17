@@ -57,6 +57,35 @@ export function exposedSurface(points,covered){
   return exposed;
 }
 
+export function crosswalkPaintBands(left,right){
+  const bands=[],stripe=.56,period=1.24,inset=.22;
+  const mix=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
+  let distance=0,start=.28;
+  for(let i=1;i<left.length;i++){
+    const before=mix(left[i-1],right[i-1],.5),after=mix(left[i],right[i],.5);
+    const length=Math.hypot(after.x-before.x,after.y-before.y);
+    if(length<.001)continue;
+    const edgeAt=t=>{
+      const a=mix(left[i-1],left[i],t),b=mix(right[i-1],right[i],t);
+      const inner=Math.min(.25,inset/Math.hypot(b.x-a.x,b.y-a.y));
+      return [mix(a,b,inner),mix(b,a,inner)];
+    };
+    const end=distance+length;
+    while(start<end){
+      const low=Math.max(0,(start-distance)/length),high=Math.min(1,(start+stripe-distance)/length);
+      if(high>low){
+        const [a,b]=edgeAt(low),[c,d]=edgeAt(high);
+        bands.push([a,b,d,c]);
+      }
+      // Keep the same stripe phase when a white band spans a bend in the crossing.
+      if(start+stripe>end)break;
+      start+=period;
+    }
+    distance=end;
+  }
+  return bands;
+}
+
 export function bukchonPavers(T,{alley=false}={}){
   const size=128,pixels=new Uint8Array(size*size*4);
   const base=alley?[159,150,137]:[176,177,166],shift=alley?8:0;

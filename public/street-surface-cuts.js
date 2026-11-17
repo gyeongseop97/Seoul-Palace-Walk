@@ -24,23 +24,23 @@ function split(points,a,b){
   return [inside,outside];
 }
 
-function subtract(points,{triangle,range}){
+function partition(points,{triangle,range}){
   const box=bounds(points);
-  if(box.right<=range.left||box.left>=range.right||box.bottom<=range.top||box.top>=range.bottom)return [points];
+  if(box.right<=range.left||box.left>=range.right||box.bottom<=range.top||box.top>=range.bottom)return {outside:[points]};
   const outside=[];
   let remainder=points;
   for(let i=0;i<3;i++){
     const [inner,outer]=split(remainder,triangle[i],triangle[(i+1)%3]);
-    if(inner.length<3)return [points];
+    if(inner.length<3)return {outside:[points]};
     if(outer.length>=3)outside.push(outer);
     remainder=inner;
   }
-  return outside;
+  return {outside,inside:remainder};
 }
 
 // Clip ground layers in plan before giving them height and tile coordinates.
 // This also permits a stair cut to reach the edge of a road or sidewalk.
-export function makeStreetSurfaceCut(T,outlines){
+export function makeStreetSurfaceCut(T,outlines,{keepInside=false}={}){
   function triangles(points){
     const contour=points.map(({x,y})=>new T.Vector2(x,y));
     return T.ShapeUtils.triangulateShape(contour,[]).map(indices=>indices.map(i=>contour[i]));
@@ -52,9 +52,16 @@ export function makeStreetSurfaceCut(T,outlines){
   return outline=>{
     const box=bounds(outline);
     const relevant=cuts.filter(({range})=>box.right>range.left&&box.left<range.right&&box.bottom>range.top&&box.top<range.bottom);
-    if(!relevant.length)return [outline];
+    if(!relevant.length)return keepInside?[]:[outline];
     let pieces=triangles(outline);
-    for(const cut of relevant)pieces=pieces.flatMap(piece=>subtract(piece,cut));
-    return pieces.filter(piece=>Math.abs(T.ShapeUtils.area(piece))>epsilon);
+    const inside=[];
+    for(const cut of relevant){
+      pieces=pieces.flatMap(piece=>{
+        const result=partition(piece,cut);
+        if(keepInside&&result.inside)inside.push(result.inside);
+        return result.outside;
+      });
+    }
+    return (keepInside?inside:pieces).filter(piece=>Math.abs(T.ShapeUtils.area(piece))>epsilon);
   };
 }

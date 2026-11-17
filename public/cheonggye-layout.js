@@ -39,10 +39,11 @@ const plaza=ring([[518.1,-167.8],[531.3,-171.8],[548.5,-170.7],[591,-166.85],[60
   [599.6,-145],[580,-146.62],[573,-147.0],[568,-147.1],[555.3,-144.9],
   [535.6,-140.6],[524.4,-132.6],[519.7,-133.3],[522.4,-144.6],[519.2,-152.6]]);
 // The lower paving runs up to the bank wall; walkers keep a body's width clear of it.
-const pavedNorth=streamBand([[-1,-3.35],[-1,.2]]);
-const pavedSouth=streamBand([[1,-3.15],[1,.2]]);
-const walkersNorth=streamBand([[-1,-3.35],[-1,-.42]]);
-const walkersSouth=streamBand([[1,-3.15],[1,-.42]]);
+export const cheonggyeLowerEdge=side=>side<0?-3.35:-3.15;
+const pavedNorth=streamBand([[-1,cheonggyeLowerEdge(-1)],[-1,.2]]);
+const pavedSouth=streamBand([[1,cheonggyeLowerEdge(1)],[1,.2]]);
+const walkersNorth=streamBand([[-1,cheonggyeLowerEdge(-1)],[-1,-.42]]);
+const walkersSouth=streamBand([[1,cheonggyeLowerEdge(1)],[1,-.42]]);
 const water=streamBand([[-1,-3.26],[1,-3.08]]);
 // Stairs straight down the bank, as [x, side]. Each starts on a landing in the pavement,
 // so the pavement is laid in pieces that leave the stairwells open.
@@ -107,8 +108,12 @@ export const cheonggyeAccess=[
 // East of the plaza this pavement bends north, clear of the stairs that drop beside it.
 const approachNorth=access("청계광장 북쪽 보도",[[537.4,-170.8],[568,-169.7],[605,-166.5],[612,-167.2],[624,-166.9]],3.25,"paving");
 const approachSouth=access("청계광장 남쪽 보도",[[525.3,-132.9],[538.6,-138.3],[563.4,-138.7],[595,-137.7],[624,-137.6],[638,-137.6]],4.2,"paving");
-// The head of the plaza stairs, paved across from the plaza to the pavement beside it.
-const stairHead=access("청계광장 북쪽 계단 앞",[[602.4,-164.9],[609.3,-164.2]],4.7,"paving");
+// The granite landing connects the square and the north walk on both sides
+// of the stair opening. Its east edge stops at the upper bank.
+const stairHead={name:"청계광장 북쪽 계단 앞",kind:"paving",outline:ring([
+  [601,-165.8],[612,-167.18],[624,-166.9],[628.5,-165.6],
+  [628.5,-161.0],[624,-161.0],[622.8,-159.35],[614,-159.8],[607,-160.8],[601,-162.6]
+])};
 const startRamp=access("청계광장 경사로 입구",[[561,-151],[566,-148.1],[570.83,-145.86]],3.65,"paving");
 const sidePlaza=access("청계광장 보도 연결",[[536,-165],[540,-169],[548,-172.05],[559,-171]],3.7,"paving");
 const plazaSouthShoulder=access("청계광장 남측 연결 보도",
@@ -143,11 +148,21 @@ const crossings=deckLanes.flatMap(({centre:[a,b],width})=>[-1,1].map(side=>{
   return access("청계천로 횡단 연결",[[inside.x,inside.y],[p.x,edge]],Math.max(3.55,Math.min(6.1,width)),"crossing");
 }));
 export const stepStoneXs=[654,657.1,660.2,663.3,666.4,669.5];
-const stepping=stepStoneXs.map(x=>{
-  const north=bankAt(x,-1,-3.22),south=bankAt(x,1,-3.05);
-  return ribbon([north,south],1.05);
+const stoneWidth=1.34,stoneTop=-depth+.042;
+export const cheonggyeSteppingRows=stepStoneXs.map(x=>{
+  const shore=side=>bankAt(x,side,cheonggyeLowerEdge(side));
+  const north=shore(-1),south=shore(1),span=south.y-north.y;
+  const count=Math.round(span/1.42),pitch=span/count;
+  const stones=Array.from({length:count},(_,i)=>{
+    const from=north.y+i*pitch+(i===0?-.065:.135);
+    const to=north.y+(i+1)*pitch+(i===count-1?.065:-.135);
+    return {x,y:(from+to)/2,width:stoneWidth,length:to-from,top:stoneTop};
+  });
+  // A short stride bridges the gaps within a row. Extend its ends into both paved banks.
+  const land=side=>bankAt(x,side,cheonggyeLowerEdge(side)+.28);
+  const ends=[land(-1),land(1)];
+  return {kind:"stones",outline:ribbon(ends,stoneWidth-.08),ends,stones};
 });
-const steppingWay=ribbon([bankAt(660,-1,-3.6),bankAt(660,1,-3.55)],1.8);
 export const cheonggyeSurfaces=[
   {kind:"road",outline:northRoad},{kind:"road",outline:southRoad},
   {kind:"plaza",outline:plaza},approachNorth,approachSouth,startRamp,stairHead,sidePlaza,plazaSouthShoulder,...plazaSouthCrossings,
@@ -155,7 +170,7 @@ export const cheonggyeSurfaces=[
   {kind:"paving",outline:northFrontage},{kind:"paving",outline:southFrontage},...crossings,
   {kind:"lower",outline:pavedNorth},{kind:"lower",outline:pavedSouth},
   {kind:"water",outline:water},{kind:"wood",outline:footbridge.footprint},
-  {kind:"stones",outline:steppingWay},...cheonggyeAccess,
+  ...cheonggyeSteppingRows,...cheonggyeAccess,
   ...decks.map(({footprint})=>({kind:"bridge",outline:footprint}))
 ];
 
@@ -175,6 +190,8 @@ const polygonTest=(outline=>{
 });
 const onWalk=walkPolygons.map(polygonTest),onDeck=deckLanes.map(({outline})=>polygonTest(outline));
 const onLower=lowerWalks.map(polygonTest),onUpper=upperWalks.map(polygonTest),onRoad=roadWalks.map(polygonTest);
+const onBanks=[walkersNorth,walkersSouth].map(polygonTest);
+const onStones=cheonggyeSteppingRows.map(({outline})=>polygonTest(outline));
 const underDeck=decks.map(({footprint})=>polygonTest(footprint));
 const nearDeck=decks.map(({x,north,south,width,skew})=>
   polygonTest(ribbon([point(x,north-1.8),point(x+skew,south+1.8)],width+5.1)));
@@ -213,6 +230,7 @@ export function cheonggyeLevel({x,y,up}){
     const t=clamp((y-footbridge.north)/(footbridge.south-footbridge.north));
     return -depth+.25+Math.sin(t*Math.PI)*.71;
   }
+  if(!onBanks.some(contains=>contains(x,y))&&onStones.some(contains=>contains(x,y)))return stoneTop;
   if(onLower.some(contains=>contains(x,y)))return -depth;
   if(onUpper.some(contains=>contains(x,y)))return .04;
   return onRoad.some(contains=>contains(x,y))?.012:null;

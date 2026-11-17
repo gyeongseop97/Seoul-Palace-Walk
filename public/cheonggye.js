@@ -1,7 +1,8 @@
 import {makeTreeBuilder} from "./lowpoly-trees.js";
+import {makeCrosswalkMarkings} from "./crosswalk-markings.js";
 import {bankAt,cheonggyeAccess,cheonggyeAccessDrop,cheonggyeBedLevel,cheonggyeBounds,cheonggyeBridges,cheonggyeCascade,
-  cheonggyeRailOpening,cheonggyeRoadLeads,cheonggyeStations,cheonggyeSurfaces,cheonggyeTrees,cheonggyeWalkFrom,
-  riverAt,stepStoneXs,streamBand} from "./cheonggye-layout.js";
+  cheonggyeRailOpening,cheonggyeRoadLeads,cheonggyeStations,cheonggyeSteppingRows,cheonggyeSurfaces,cheonggyeTrees,cheonggyeWalkFrom,
+  riverAt,streamBand} from "./cheonggye-layout.js";
 import {CHEONGGYE_WATER_LEVEL,cheonggyeSeats} from "./cheonggye-seats.js";
 import {gradePalaceMeshes} from "./gyeongbok-terrain.js";
 import {insideCorridorPolygon} from "./sejong-corridor-layout.js";
@@ -238,10 +239,15 @@ export function* buildCheonggye(T,root,kit,terrain){
     surface(outline,groundMaterial,-.083,groundCut(outline)).name="Cheonggyecheon street-level ground";
   }
   const pavedOutlines=descentCuts.slice(),roadOutlines=descentCuts.slice();
-  const nonCrossing=streetLayers.filter(({kind})=>kind==="road"||kind==="bridge").map(({outline})=>outline);
-  for(const {kind,outline,points,width} of streetLayers){
+  const streetRoads=streetLayers.filter(({kind})=>kind==="road").map(({outline})=>outline);
+  const bridgeRoads=streetLayers.filter(({kind})=>kind==="bridge").map(({outline})=>outline);
+  const cutDescents=makeStreetSurfaceCut(T,descentCuts);
+  const crossingPaint=makeCrosswalkMarkings(T,streetRoads);
+  const clearDeck=makeStreetSurfaceCut(T,bridgeRoads),keepDeck=makeStreetSurfaceCut(T,bridgeRoads,{keepInside:true});
+  const crosswalkWhite=matte(0xdbd9cf);
+  for(const {name,kind,outline,points,width} of streetLayers){
     if(kind==="plaza"||kind==="paving"){
-      surface(outline,paving,.039,makeStreetSurfaceCut(T,pavedOutlines)(outline));
+      surface(outline,paving,.039,makeStreetSurfaceCut(T,[...pavedOutlines,...streetRoads])(outline));
       pavedOutlines.push(outline);
     }
     if(kind==="road"){
@@ -250,14 +256,14 @@ export function* buildCheonggye(T,root,kit,terrain){
     }
     if(kind==="lower")surface(outline,lower,cheonggyeBedLevel);
     if(kind==="crossing"){
-      const covered=[...pavedOutlines,...nonCrossing];
+      const covered=[...pavedOutlines,...streetRoads,...bridgeRoads];
       surface(outline,paving,.039,makeStreetSurfaceCut(T,covered)(outline));
       pavedOutlines.push(outline);
-      const [a,b]=[points[0],points.at(-1)],dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
-      for(let i=2;i<length-1;i+=1.1){
-        const x=a.x+dx*i/length,y=a.y+dy*i/length;
-        if(!cheonggyeRailOpening(x,y))block(0xc5c3b5,x,y,width-.36,.49,.018,at(x,y)+.046,-Math.atan2(-dx,dy));
-      }
+      const {paint}=crossingPaint(points[0],points.at(-1),width);
+      const cuts=paint.flatMap(cutDescents);
+      const groundMarkings=cuts.flatMap(clearDeck),deckMarkings=cuts.flatMap(keepDeck);
+      if(groundMarkings.length)surface(outline,crosswalkWhite,.017,groundMarkings).name=name;
+      if(deckMarkings.length)surface(outline,crosswalkWhite,.131,deckMarkings).name=name;
     }
   }
   yield;
@@ -484,20 +490,19 @@ export function* buildCheonggye(T,root,kit,terrain){
     }
     yield;
   }
-  // Stepping stones: rows of separate blocks, so the water runs between them.
-  for(const [i,x] of stepStoneXs.entries()){
-    const [y,north,south]=riverAt(x),from=y-north+2.6,span=north+south-5.2,count=Math.round(span/1.42),pitch=span/count;
-    for(let j=0;j<count;j++){
-      const sy=from+(j+.5)*pitch;
-      block(stone[(i*3+j)%stone.length],x+((i+j)%2?.03:-.03),sy,1.34,pitch-.30,.39,at(x,sy)+waterLevel-.12);
+  for(const [i,{stones}] of cheonggyeSteppingRows.entries()){
+    for(const [j,{x,y,width,length,top}] of stones.entries()){
+      const height=.43;
+      block(stone[(i*3+j)%stone.length],x,y,width,length,height,at(x,y)+top-height).name="청계천 징검돌";
     }
   }
-  for(const {x,y,side} of cheonggyeSeats.filter(({ledge})=>ledge)){
+  for(const {x,y,side,slots} of cheonggyeSeats.filter(({ledge})=>ledge)){
     const base=at(x,y)+cheonggyeBedLevel;
     block(0x908d82,x,y-side*.070,2.53,.54,.18,base-.145);
-    for(const offset of [-.61,.61]){
-      block(0xb7b1a2,x+offset,y+side*.075,1.13,.47,.073,base-.03);
-      block(0xa39e91,x+offset,y-side*.258,1.13,.20,.095,base-.146);
+    for(const slot of slots){
+      const top=at(slot.x,slot.y)+slot.base;
+      block(0xb7b1a2,slot.x,slot.y+side*.102,1.13,.47,.073,top-.073);
+      block(0xa39e91,slot.x,slot.y-side*.168,1.13,.20,.095,top-.189);
     }
   }
   // Spring, by Claes Oldenburg and Coosje van Bruggen (2006): a tall spiral shell, blue outside

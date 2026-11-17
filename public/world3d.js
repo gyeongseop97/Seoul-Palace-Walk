@@ -26,7 +26,7 @@ import { registerDiningNavigation } from "./dining-layout.js";
 import { buildDiningFacade } from "./dining-world.js";
 import { PET_MS, FEED_MS, ITEMS, diningTray, jumpLift, renderedJumpLift } from "./activities.js";
 import { bikeFallAt } from "./avatar-gestures.js";
-import { FOOT_BATH_PERIOD,footKickAge,makeWalkerModels } from "./walker-model.js";
+import { FOOT_BATH_PERIOD,footBathSeatBase,footKickAge,makeWalkerModels } from "./walker-model.js";
 import { addMinigameMarkers, registerMinigameProps } from "./minigame-markers.js";
 import { makeMinigameWorld } from "./minigame-world.js";
 import { makeInteractionMarkers } from "./interaction-markers.js";
@@ -58,8 +58,8 @@ import { jeongdongExtensionBounds,registerJeongdongExtension } from "./jeongdong
 import { buildJeongdongExtension } from "./jeongdong-extension.js";
 import { bukchonBounds,bukchonWalkable,bukchonGroundHeight,bukchonSurfaceGrade,registerBukchonTrees } from "./bukchon-layout.js";
 import { hwangudanBounds,hwangudanWalkable,hwangudanFloorHeight,registerHwangudanNavigation } from "./seoul-hwangudan-layout.js";
-import { cheonggyeBounds,cheonggyeWalkable,cheonggyeLevel,cheonggyeCameraCeiling,cheonggyeCameraWall,
-  registerCheonggyeNavigation } from "./cheonggye-layout.js";
+import { cheonggyeBounds,cheonggyeWalkable,cheonggyeLevel,cheonggyeCameraCeiling,cheonggyeCameraWall,cheonggyeOpenAir,
+  inCheonggye,registerCheonggyeNavigation } from "./cheonggye-layout.js";
 import { CHEONGGYE_WATER_LEVEL,cheonggyeSeats } from "./cheonggye-seats.js";
 import { songhyeonBounds,songhyeonWalkable,songhyeonGroundHeight,registerSonghyeonNavigation } from "./songhyeon-layout.js";
 import { decodeWishFace, WISH_WIDTH, WISH_HEIGHT, WISH_COLORS, WISH_FLIGHT_MS } from "./wish-art.js";
@@ -804,6 +804,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     const bus=position.bus&&busAt(position.bus.index,clock),pose=bus&&busSeatPose(bus,position.bus.seat);
     if(pose)return {...pose,base:BUS_FLOOR+.015+busGround(bus)};
     const seat=benches[position.seat]?.slots[position.seatSide??0];
+    if(seat?.footBath)return {...seat,base:footBathSeatBase(outsideGroundOffset(seat)+seat.base)};
     return seat?{...seat,base:(seat.base??0)+(interiorAt(seat.x,seat.y)?0:
       songhyeonGroundHeight(seat.x,seat.y)??outsideGroundOffset(seat))}:null;
   }
@@ -930,7 +931,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     }
     if(element.hidden===show)element.hidden=!show;
   }
-  let cameraAnchor=null,cameraOnBridge=false,cameraDistance=0,prevTime=0,governedAt=0,cullAt=0;
+  let cameraAnchor=null,cameraOnBridge=false,lowerStream=false,cameraDistance=0,prevTime=0,governedAt=0,cullAt=0;
   let visibleRoot=outdoors,visibleInterior=null;
   let shadowDirty=true,shadowTime=-Infinity,shadowFrame=-Infinity,shadowX=Infinity,shadowY=Infinity;
   const shadowDirection=new T.Vector3();
@@ -1269,7 +1270,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     cameraAnchor=anchorKey;
     const streamLevel=cheonggyeLevel(anchor);
     cameraOnBridge=Boolean(anchor.up&&streamLevel===.12);
-    const lowerStream=streamLevel!=null&&streamLevel<-.34&&!cameraOnBridge;
+    lowerStream=streamLevel!=null&&streamLevel<-.34&&!cameraOnBridge;
     const anchorRoof=lowerStream?cheonggyeCameraCeiling(anchor.x,anchor.y):null;
     const approachRoof=lowerStream?cheonggyeCameraCeiling(anchor.x,anchor.y,true):null;
     const anchorGrade=lowerStream?outsideGroundOffset(anchor):0;
@@ -1489,8 +1490,11 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     if(showMarker.visible&&ray.intersectObject(showMarker,false).length)return {x:plazaShowSpot.x,y:plazaShowSpot.y};
     for(let step=.25;step<=105;step+=.25){
       ray.ray.at(step,sample);
-      if(sample.y>floorHeight({x:sample.x+300,y:sample.z+225,up:cameraOnBridge}))continue;
-      return {x:sample.x+300,y:sample.z+225};
+      const point={x:sample.x+300,y:sample.z+225,up:cameraOnBridge};
+      // Below street level the retaining-wall gap and the channel have no street floor.
+      const openWater=lowerStream&&inCheonggye(point.x,point.y)&&cheonggyeOpenAir(point.x,point.y)&&cheonggyeLevel(point)==null;
+      const height=openWater?outsideGroundOffset(point)+CHEONGGYE_WATER_LEVEL:floorHeight(point);
+      if(sample.y<=height)return {x:point.x,y:point.y};
     }
     return null;
   }

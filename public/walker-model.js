@@ -42,7 +42,11 @@ const HIP = .090, SHOULDER = .236, STANCE = .096, REACH = .76, GESTURE_REACH = .
 const LIMB = {leg:[.120,.101], roomy:[.136,.114], arm:[.090,.079], bare:[.080,.072], padded:[.104,.091]};
 const FOOT = [.76,.84,.74], HAND = .76;
 // Keeps the hips at bench height (.57 m) whatever the body scale.
-const SEAT_LIFT = .574-(.546-HIP_DROP)*BODY;
+const SEATED_HIPS = .574, WAIST_Y = -.036, WAIST_RADIUS = .108;
+const SEAT_LIFT = SEATED_HIPS-(.546-HIP_DROP)*BODY;
+// A waterside seat specifies the stone top. Put the bottom of the seated waist on it.
+const FOOT_BATH_ROOT_DEPTH = SEATED_HIPS+(WAIST_Y-WAIST_RADIUS)*BODY-.007;
+export const footBathSeatBase = surface => surface-FOOT_BATH_ROOT_DEPTH;
 const CYCLING_HIP = .704;
 const CYCLING_LIFT = bikeFit.saddleY+.09-CYCLING_HIP*BODY;
 const CHAT_BUBBLE_MS = 6000;
@@ -598,7 +602,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     lower.scale.set(WIDE,1,WIDE);
     const palette = outfitMaterials(coat ?? 0xab5947);
     const torso = part(garb,torsoGeometry.coat,palette.lining,0,0,0,1,1,1);
-    const waist = part(lower,sphere,pants,0,-.036,0,.190,.108,.132);
+    const waist = part(lower,sphere,pants,0,WAIST_Y,0,.190,WAIST_RADIUS,.132);
     // Skin just inside the collar; kept flat so only the neck itself stands above the clothes.
     const collarbone = part(garb,sphere,skin,0,.462,0,.092,.026,.088);
     const overcoat = joint(garb);
@@ -717,7 +721,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     tray.name="Two-handed meal tray";tray.scale.setScalar(.91/BODY);tray.visible=false;
     const showTray=createItemProp(tray);
     // The shoes wait on the paving beside a bather.
-    const shoesAside = joint(group,.21,.53+.128*FOOT[1]*BODY,-.43);
+    const shoesAside = joint(group,.21,FOOT_BATH_ROOT_DEPTH+.128*FOOT[1]*BODY,-.43);
     SIDE.forEach((side,i) => {
       const shoe = part(shoesAside,footGeometry,details,side*.062,0,i*.012,FOOT[0]*BODY,FOOT[1]*BODY,FOOT[2]*BODY);
       shoe.rotation.y = side*.16-.5;
@@ -844,7 +848,6 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
         leg.bottom.visible = !chima;
       }
       for (const shoe of model.shoesAside.children) shoe.geometry = footGeometries[outfit];
-      model.shoesAside.visible = bathing;
       for (const arm of model.arms) {
         const bare = outfit === "tee" || outfit === "dress" || outfit === "shorts", padded = outfit === "puffer";
         const roomy = padded || outfit === "hoodie" || outfit === "varsity";
@@ -948,7 +951,10 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const vaulting=position.vaultBase!=null&&lift>0;
     model.floorY = !vaulting && wasVisible && model.floorY !== null && Math.abs(floor-model.floorY) < 1.6
       ? mix(model.floorY,floor,1-Math.exp(-delta*17)) : floor;
-    group.position.set(wx(seat?.x ?? position.x),seat ? (seat.base ?? 0) : model.floorY+lift,wz(seat?.y ?? position.y));
+    model.seatBlend = mix(model.seatBlend,Number(Boolean(seat)),smoothPose);
+    const standingY=model.floorY+lift, seatBase=seat?.base??0;
+    const bodyBase=seat?.footBath?mix(standingY,seatBase,model.seatBlend):seat?seatBase:standingY;
+    group.position.set(wx(seat?.x ?? position.x),bodyBase,wz(seat?.y ?? position.y));
     const travel = model.lastX === null ? 0 : Math.hypot(position.x-model.lastX,position.y-model.lastY);
     model.lastX = position.x;
     model.lastY = position.y;
@@ -965,7 +971,6 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       model.bike.group.visible = false;
     }
     model.sprint = mix(model.sprint,Number(running),smoothPose);
-    model.seatBlend = mix(model.seatBlend,Number(Boolean(seat)),smoothPose);
     model.petBlend = mix(model.petBlend,Math.max(petPose,feedPose),smoothPose);
     const sprint = riding ? 0 : model.sprint;
     const seated = riding ? 1 : model.seatBlend, crouch = riding ? 0 : model.petBlend;
@@ -1016,6 +1021,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const taste=biteAge>=410&&biteAge<1250?{bungeoppang:"grin",bungeoppangCustard:"grin",bungeoppangBurnt:"pout",bungeoppangTorn:"cat"}[snack.kind]:null;
     const bathing = Boolean(seat?.footBath) && seated > .5, hemLift = bathing ? 1 : 0;
     appearance(model,position,blinkTick>3970&&blinkTick<4100,blushLevel,woozy,Boolean(sick?.weight>.38),smiling?"peace":taste,bathing);
+    model.shoesAside.visible=bathing&&seated>.99;
     if (model.hem.visible) {
       model.hem.scale.set(1+seated*.08,1-seated*.61,1+stride*.10);
       model.hem.rotation.set(-seated*.37-sprint*.12,pendulum*sway*.065,pendulum*sway*.044);
@@ -1047,10 +1053,10 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       const dance=acting?.kind==="dance"&&!walking?acting.weight*(1-seated):0;
       const danceStep=dance?Math.sin(acting.time*TAU*1.36+side*Math.PI*.5):0;
       const paddle = seat?.footBath ? seated*footBathSwing(footKickAge(position,clock),i) : 0;
-      const ankleY = SOLE+lift*(1-seated)+seated*(seat?.footBath?-.082:.10)+Math.max(0,paddle)*.085
+      const ankleY = SOLE+lift*(1-seated)+seated*(seat?.footBath?-.174:.10)+Math.max(0,paddle)*.085
         +airborne*(.17+i*.05)+Math.max(0,danceStep)*dance*.081;
       leg.target.set(side*(STANCE+crouch*.033+dance*.044)-pelvis.position.x,ankleY-pelvis.position.y,
-        mix(step+crouch*.09,seat?.footBath?.50:.42,seated)+paddle*.085+airborne*(.10+i*.05)+danceStep*dance*.10);
+        mix(step+crouch*.09,seat?.footBath?.22:.42,seated)+paddle*.085+airborne*(.10+i*.05)+danceStep*dance*.10);
       solve(leg,leg.target,forward);
       const roll = (footPhase < stance ? 0 : Math.sin(swing*TAU)*.24*stride) * (1-seated);
       pitch.setFromAxisAngle(xAxis,roll+seated*.06-Math.max(0,paddle)*.35);
