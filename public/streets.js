@@ -9,6 +9,7 @@ import {standPlantingFootprints} from "./street-stands.js";
 import {diningVenues} from "./dining-data.js";
 import {makePalaceClearance} from "./palace-plantings.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
+import {pondWater,tickWater} from "./water-shader.js";
 import {buildGyeongbok,buildSubwayExit} from "./gyeongbok.js";
 import {cityHallStation,cityHallExit3} from "./gyeongbok-layout.js";
 import {gyeongbokObstacles,gyeongbokBenches} from "./gyeongbok-obstacles.js";
@@ -420,36 +421,7 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
       return {x:x+dx*scale,y:y+dy*scale};
     });
     plot(bank,matte(0x7e8070),.026);
-    const uniforms=T.UniformsUtils.merge([T.UniformsLib.fog,{clock:{value:0},night:{value:0}}]);
-    waterMaterial=new T.ShaderMaterial({
-      uniforms,fog:true,
-      vertexShader:`
-        varying vec2 lake;
-        #include <fog_pars_vertex>
-        void main() {
-          lake=position.xy;
-          vec4 mvPosition=modelViewMatrix*vec4(position,1.0);
-          gl_Position=projectionMatrix*mvPosition;
-          #include <fog_vertex>
-        }
-      `,
-      fragmentShader:`
-        varying vec2 lake;
-        uniform float clock,night;
-        #include <fog_pars_fragment>
-        void main() {
-          vec2 p=lake;
-          float broad=sin(p.x*.48+p.y*.14+clock*.27)*sin(p.y*.39-p.x*.18-clock*.23);
-          float narrow=sin(p.x*3.45+p.y*.73+sin(p.y*.89)*1.5+clock*.75);
-          float ripple=pow(.5+.5*narrow,9.0)*(.5+.5*broad);
-          vec3 depth=mix(vec3(.067,.185,.168),vec3(.019,.045,.075),night);
-          vec3 reflectedSky=mix(vec3(.35,.53,.55),vec3(.10,.18,.28),night);
-          gl_FragColor=vec4(mix(depth,reflectedSky,.31+broad*.13+ripple*.29),1.0);
-          #include <colorspace_fragment>
-          #include <fog_fragment>
-        }
-      `
-    });
+    waterMaterial=pondWater(T);
     const lake=plot(outline,waterMaterial,.043);
     lake.userData.followTerrain=false;
     lake.userData.terrainAnchor={x,y};
@@ -476,7 +448,7 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
       const shrub=shape(leaf,i%2?0x718152:0x586945,centre.x+Math.cos(angle)*.72,.29+i*.03,centre.z+Math.sin(angle)*.55);
       shrub.scale.set(.53,.34,.46);shrub.rotation.y=angle;
     }
-    return (clock,night)=>{uniforms.clock.value=clock;uniforms.night.value=night;};
+    return (clock,night)=>tickWater([waterMaterial],clock,night);
   }
   for(let i=1;i<route.length;i++){
     const street=line(route[i-1],route[i]);

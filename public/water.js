@@ -1,4 +1,5 @@
 import {addObstacle} from "./layout.js";
+import {basinWater} from "./water-shader.js";
 
 function basinOutline(T,radius){
   const points=Array.from({length:64},(_,i)=>{
@@ -40,27 +41,9 @@ export function addWater(T,scene,sources,{cylinder,rand,terrain=()=>0}) {
       cylinder(0xaba89b,x,.44,z,r*1.012,.15,36,source);
     }
     const poolShape=scalloped?stoneBasin(T,source,x,z,r):new T.CircleGeometry(r*.91,42);
-    const pool = new T.Mesh(poolShape,new T.ShaderMaterial({
-      uniforms:{clock:{value:0},night:{value:0},parterre:{value:Number(scalloped)}},
-      vertexShader:`
-        varying vec2 field;
-        void main(){field=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}
-      `,
-      fragmentShader:`
-        uniform float clock,night,parterre;
-        varying vec2 field;
-        void main(){
-          vec2 p=(field-.5)*2.0;float r=length(p);
-          float ripples=pow(.5+.5*sin(r*35.0-clock*4.1),12.0)*exp(-r*1.2);
-          float wave=.5+.5*sin(p.x*35.0+p.y*21.0+clock*1.1)*sin(p.y*28.0-p.x*17.0-clock*.9);
-          vec3 deep=mix(mix(vec3(.15,.35,.40),vec3(.08,.42,.55),parterre),vec3(.025,.081,.14),night);
-          vec3 highlight=mix(vec3(.52,.77,.82),vec3(.28,.50,.68),night);
-          vec3 color=mix(deep,highlight,.22+wave*.26+ripples*.31+r*.11);
-          gl_FragColor=vec4(color,1.0);
-          #include <colorspace_fragment>
-        }
-      `
-    }));
+    // The Seokjojeon basin is green bronze under the water; the Jeongdong one is pale stone.
+    const pool = new T.Mesh(poolShape,scalloped?basinWater(T,{bed:[0x6f8f80,0x9db5a2],tile:1.6,tint:0x2a8a86,depth:.26}):
+      basinWater(T,{bed:[0x9aa09a,0xc6c8bd],tile:2.4,tint:0x2f8fa0,depth:.2}));
     pool.rotation.x=-Math.PI/2;pool.position.set(x,scalloped?.493:.531,z);source.add(pool);
     cylinder(scalloped?0x426658:0x939b94,x,.76,z,r*.095,.49,16,source);
     cylinder(scalloped?0x567c68:0xb6b1a0,x,1.028,z,r*.136,.13,16,source);

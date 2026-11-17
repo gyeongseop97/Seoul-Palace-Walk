@@ -2,6 +2,7 @@ import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {bankAt,cheonggyeAccess,cheonggyeAccessDrop,cheonggyeBedLevel,cheonggyeBounds,cheonggyeBridges,cheonggyeCascade,cheonggyeLevel,
   cheonggyeOpenAir,cheonggyeRailOpening,cheonggyeRoadLeads,cheonggyeStations,cheonggyeSurfaces,cheonggyeTrees,cheonggyeWalkFrom,riverAt,stepStoneXs} from "./cheonggye-layout.js";
 import {CHEONGGYE_WATER_LEVEL,cheonggyeSeats} from "./cheonggye-seats.js";
+import {waterCells,waterNoise} from "./water-shader.js";
 
 export function* buildCheonggye(T,root,kit,terrain){
   const {wx,wz,box,cylinder,matte}=kit;
@@ -69,14 +70,6 @@ export function* buildCheonggye(T,root,kit,terrain){
   const lower=new T.MeshStandardMaterial({color:0xd8d0bb,map:cobbles,roughness:.97,side:T.DoubleSide});
   // Clear, shallow water: the pebbled bed shows through with moving light on it, the surface
   // ripples downstream and mirrors the sky, and foam gathers at the banks and below the falls.
-  const waterNoise=`
-    float hash(vec2 p){p=fract(p*vec2(.1371,.0917)+.13);p+=dot(p,p.yx+19.19);return fract((p.x+p.y)*p.x*7.31);}
-    vec2 hash2(vec2 p){float n=hash(p);return vec2(n,hash(p*1.31+n*5.7+2.9));}
-    float noise(vec2 p){
-      vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
-      return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y);
-    }
-    float fbm(vec2 p){return .56*noise(p)+.29*noise(p*2.07+3.1)+.15*noise(p*4.31+7.7);}`;
   const water=new T.ShaderMaterial({
     uniforms:{clock:{value:0},night:{value:0},mist:{value:new T.Color(0xa4b3b4)}},
     side:T.DoubleSide,
@@ -99,15 +92,7 @@ export function* buildCheonggye(T,root,kit,terrain){
       varying vec2 flow;
       varying float viewDepth;
       ${waterNoise}
-      // Distance to the nearest cell centre, the gap to the next one, and a tone for the cell.
-      vec3 cells(vec2 p){
-        vec2 i=floor(p),f=fract(p);float best=8.,next=8.,tone=0.;
-        for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){
-          vec2 g=vec2(float(x),float(y)),o=hash2(i+g);float d=length(g+o-f);
-          if(d<best){next=best;best=d;tone=o.x;}else if(d<next)next=d;
-        }
-        return vec3(best,next-best,tone);
-      }
+      ${waterCells}
       // The surface as a height: ripples carried downstream, quicker and rougher in white water.
       float swell(vec2 p,float rough){
         float t=clock;

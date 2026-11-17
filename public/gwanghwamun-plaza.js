@@ -1,5 +1,6 @@
 import {addObstacle} from "./layout.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
+import {basinWater,tickWater} from "./water-shader.js";
 import {assemblePlazaCity,registerPlazaCity} from "./plaza-city.js";
 import {addPlazaMonuments,plazaMonumentFootprints} from "./plaza-monuments.js";
 import {plazaAt,plazaOutline,plazaBeds,plazaSites,plazaTransitStops,insidePlazaPolygon,
@@ -108,7 +109,8 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
     glow.push({material,day,strength});return material;
   };
   const lampGlass=lamp(0xf1e8c8,0xffcb81,.05,1.8);
-  const water=lamp(0x6cabc2,0x1a5f83,.04,.30);
+  // Shallow water over dark granite, for the old channel, the basins and the water wall.
+  const water=basinWater(T,{bed:[0x4d5552,0x77807b],tile:1.25,tint:0x2e8fa6,depth:.12});
   const world=(e,n)=>{const point=plazaAt(e,n);return {x:wx(point.x),z:wz(point.y)};};
   function block(color,e,n,w,d,h,base=0,rotation=0){
     const {x,z}=world(e,n),mesh=box(color?.isMaterial?0xffffff:color,x,base+h/2,z,w,h,d,group);
@@ -439,6 +441,7 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
   return function updatePlaza(now,night,anchor,showStart=0,clock=now){
     if(!anchor){fountains(now,night,null);return;}
     for(const item of glow)item.material.emissiveIntensity=item.day+night*item.strength;
+    tickWater([water],now*.001,night);
     for(const [i,material] of mediaMaterials.entries()){
       material.emissive.setHSL(.51+Math.sin(now*.00036+i*.09)*.095,.48,.43+Math.sin(now*.0012-i*.45)*.17);
     }

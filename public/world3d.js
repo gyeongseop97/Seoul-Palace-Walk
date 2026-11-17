@@ -1148,7 +1148,9 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     const roster=[me,...peers],present=new Set(roster.map(player=>player.id));
     minigameWorld.begin(clock,indoors?null:anchor,state.minigames,state.minigameAction,state.minigameFree);
     if(!indoors){
-      if(deoksRoot.parent===outdoors&&distanceToDistrict(anchor,deoksBounds)<120){drawWater(now*.001,night);drawPond(now*.001,night);}
+      // Every pond shares one surface, so it keeps moving at Gyeongbokgung too.
+      drawPond(now*.001,night);
+      if(deoksRoot.parent===outdoors&&distanceToDistrict(anchor,deoksBounds)<120)drawWater(now*.001,night);
       nightSky(night*(1-cloud*.91)*(1-fog*.89));
       drawPalaceSky(clock,night,{cloud,fog,twilight,direction:weather?skyUniforms.solar.value:undefined,haze:scene.fog.color});
       birds.update(clock,delta,roster);

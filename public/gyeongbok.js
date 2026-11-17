@@ -454,7 +454,7 @@ export function* buildGyeongbok(T,scene,kit,tools){
   const streamNorth=180,streamWidth=5.2,bridgeHalf=5.2;
   for(const side of [-1,1]){
     const length=heungnye.east-1.2-bridgeHalf,east=side*(bridgeHalf+length/2);
-    slab(0x4f7377,east,streamNorth,length,streamWidth,.05,.02);
+    slab(0x4f7377,east,streamNorth,length,streamWidth,.05,.02).material=waterMaterial;
     for(const edge of [-1,1])slab(0xa5a79e,east,streamNorth+edge*(streamWidth/2+.2),length,.4,.36);
     solid(east,streamNorth,length,streamWidth+.8,.36);
     slab(0xa2a49a,side*bridgeHalf,streamNorth,.34,streamWidth+2.2,.95);
