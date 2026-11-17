@@ -1,7 +1,7 @@
 import * as T from "three";
 import { buildJeongdong, hallRooms } from "./streets.js";
 import { addWater } from "./water.js";
-import { addObstacle, solidAt, platformAt, waterDepth, loftHeight, bridge, gate, middle, hall, stoneHall, courtAngle, fountain,ticketGuide } from "./layout.js";
+import { addObstacle, solidAt, platformAt, loftHeight, bridge, gate, middle, hall, stoneHall, courtAngle, fountain,ticketGuide } from "./layout.js";
 import { addParkLife } from "./park-life.js";
 import { addPalaceBirds } from "./palace-birds.js";
 import { addPalaceSky } from "./palace-sky.js";
@@ -825,8 +825,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     }
     return level;
   }
-  // Where a walker's feet are drawn: waist-deep below the surface while wading a pond.
-  const footing=position=>floorHeight(position)-waterDepth(position.x,position.y);
+  const footing=floorHeight;
   const rippleGeometry=new T.RingGeometry(.5,.58,30),ripples=new Map();
   rippleGeometry.rotateX(-Math.PI/2);
   const dropGeometry=new T.SphereGeometry(.024,6,5);
@@ -854,9 +853,10 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       drop.scale.setScalar(1-age*1.4);
     });
   }
-  function drawRipples(id,player,now,wet,surface=null){
+  // Rings spreading from feet resting in the stream.
+  function drawRipples(id,now,surface=null){
     let rings=ripples.get(id);
-    if(!wet){
+    if(!surface){
       drawSplash(rings,null);
       if(rings)for(const ring of rings)ring.visible=false;
       return;
@@ -867,14 +867,13 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       ripples.set(id,rings);
     }
     drawSplash(rings,surface);
-    const busy=Math.hypot(player.vx||0,player.vy||0)>.05;
-    const {x,y}=surface??player,level=surface?.level??groundHeight(player)+.062;
+    const {x,y,level}=surface;
     rings.forEach((ring,i)=>{
-      const phase=(now*(busy?.0011:.00055)+i*.5)%1;
+      const phase=(now*.00055+i*.5)%1;
       ring.visible=true;
       ring.position.set(wx(x),level,wz(y));
-      ring.scale.setScalar(surface ? .37+phase*.60 : .75+phase*(busy ? 1.9 : 1.2));
-      ring.material.opacity=(1-phase)*(surface ? .26 : busy ? .62 : .34);
+      ring.scale.setScalar(.37+phase*.60);
+      ring.material.opacity=(1-phase)*.26;
     });
   }
   function groundHeight(position) {
@@ -1194,14 +1193,14 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     roster.forEach(player=>{
       let model=models.get(player.id);
       const visible=interiorAt(player.x,player.y)===insideId&&Math.hypot(player.x-anchor.x,player.y-anchor.y)<135;
-      if(!visible){if(model){model.group.visible=false;model.group.removeFromParent();walkerModels.clearChat(model);}drawRipples(player.id,player,now,false);
+      if(!visible){if(model){model.group.visible=false;model.group.removeFromParent();walkerModels.clearChat(model);}drawRipples(player.id,now);
         updateTableTray(player,null,clock);return;}
       if(!model){model=walkerModels.create(player.coat??0xab5947,player.nickname,labelSprite);models.set(player.id,model);}
       else if(!model.group.parent)scene.add(model.group);
       const floor=footing(player.bikeDriverPosition??player);
       const tableSeat=seatAt(player,clock);
       const waterPoint=tableSeat?.waterPoint;
-      drawRipples(player.id,player,now,Boolean(waterPoint)||waterDepth(player.x,player.y)>0&&jumpLift(player,clock)<.3,
+      drawRipples(player.id,now,
         waterPoint?{...waterPoint,level:outsideGroundOffset(waterPoint)+CHEONGGYE_WATER_LEVEL+.016,seat:tableSeat,kick:footKickAge(player,clock)}:null);
       updateTableTray(player,tableSeat,clock);
       walkerModels.update(model,diningPose(player),{now,clock,delta,seat:tableSeat,floor,jump:renderedJumpLift(player,clock,floor),emojiTexture,chatTexture,

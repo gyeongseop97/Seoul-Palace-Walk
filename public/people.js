@@ -1,5 +1,4 @@
-// People may wade through the palace ponds, so their movement checks allow shallow water.
-import {wadeSegment as clearSegment,distance,platformAt,loftStair} from "./layout.js";
+import {clearSegment,distance,platformAt,loftStair} from "./layout.js";
 import {JUMP_HEIGHT,jumpDuration,jumpLift} from "./activities.js";
 import {busAt,busSeatPose} from "./sejong-bus.js";
 import {canRideBikeSegment} from "./bike-movement.js";

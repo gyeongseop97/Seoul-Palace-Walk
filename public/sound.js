@@ -1,6 +1,6 @@
 import {PLAZA_SHOW_BEAT_MS,PLAZA_SHOW_BEATS,PLAZA_SHOW_DURATION_MS,PLAZA_SHOW_HEARING_METRES,plazaShowNotes} from "./plaza-show.js";
 
-// A small synthesized soundscape: footsteps, wading, birdsong, crickets, a cat's meow, the
+// A small synthesized soundscape: footsteps, birdsong, crickets, a cat's meow, the
 // transit chimes, passing buses and the guard drum. Everything is generated with Web Audio, so there are no
 // audio files to load. Sound starts on the first tap or key press, as browsers require.
 export function makeSound(){
@@ -256,8 +256,7 @@ export function makeSound(){
       }
     },
     step(surface){
-      if(surface==="water")burst({type:"bandpass",frequency:620,q:.7,gain:.2,decay:.24,rate:.6});
-      else if(surface==="wood")burst({frequency:380,gain:.17,decay:.07});
+      if(surface==="wood")burst({frequency:380,gain:.17,decay:.07});
       else burst({type:"bandpass",frequency:1500,q:.9,gain:.075,decay:.05});
     },
     chirp(relativeGain=1){

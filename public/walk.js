@@ -1,6 +1,6 @@
 import {
   route,palacePaths,palaceCourts,palaceGardens,palacePond,palaceWalls,fountain,ticket,ticketApproach,ticketGuide,gate,bridge,court,spawn,
-  middle,hall,stoneHall,stoneFountain,city,pavilions,estateOutline,nearest,distance as near,walkable,solidAt,clearSegment,wadeSegment,waterDepth,loftStep,loftHeight,loftStair,planWalk,platformAt
+  middle,hall,stoneHall,stoneFountain,city,pavilions,estateOutline,nearest,distance as near,walkable,solidAt,clearSegment,loftStep,loftHeight,loftStair,planWalk,platformAt
 } from "./layout.js";
 import {normalize,angleDelta,hexCoat,moving,receivePeople,smoothPeople,handPosition,handSide,pairFits} from "./people.js";
 import {ITEMS,PET_MS,FEED_MS,diningTray,jumpDuration,jumpLift} from "./activities.js";
@@ -15,7 +15,7 @@ import {bindMapGestures} from "./map-gestures.js";
 import {bindMapLabels} from "./map-labels.js";
 import {makeSound} from "./sound.js";
 import {ceremonyAt} from "./palace-people.js";
-import {cityHallStation,gbSites,gbBounds,gbLake,gbPond,gbPaths,gbCourts,gbLawns,gbShortcuts,wishPond,gbPhotoZone,inGyeongbok,gbWoldae,onWoldaeApproach,nearWoldaeRailing,at as palaceAt} from "./gyeongbok-layout.js";
+import {cityHallStation,gbSites,gbBounds,gbLake,gbPond,gbPaths,gbCourts,gbLawns,gbShortcuts,wishPond,gbPhotoZone,inGyeongbok,gbWoldae,onWoldaeApproach,nearWoldaeRailing,at as palaceAt,gyeongbokWater} from "./gyeongbok-layout.js";
 import {inGwanghwamunPlaza,plazaAt,plazaBounds,plazaSites,plazaOutline,plazaPaths,plazaShortcuts,plazaBeds,plazaRoadProfile,plazaEastWalkSpine,eastRoadWidth,sajikRoad,sejongParkOutline} from "./plaza-layout.js";
 import {corridorBounds,corridorLandmarks,corridorSidewalks,corridorCrossings,corridorWalkSpine,corridorEastWalkSpine,corridorMainRoad,inSejongCorridor,seoulPlazaApproach} from "./sejong-corridor-layout.js";
 import {transitRoutes,transitStops} from "./transit-routes.js";
@@ -496,7 +496,7 @@ function streamNearness({x,y}){
 }
 let lastPaddle=-1;
 const bathing=()=>me.seat!=null&&Boolean(world?.benches[me.seat]?.footBath);
-function soundscape(time,travelled,wading,running=false){
+function soundscape(time,travelled,running=false){
   if(!session||!world||riding)return;
   // Feet kicking in the stream splash each time one of them breaks the surface.
   const kickAge=bathing()?footKickAge(me,time):null;
@@ -521,9 +521,9 @@ function soundscape(time,travelled,wading,running=false){
   else if(travelled>0&&sound.enabled){
     strideLeft-=travelled;
     if(strideLeft<=0&&time>=nextStep){
-      strideLeft=wading?1.15:running?3.25:1.55;
+      strideLeft=running?3.25:1.55;
       nextStep=time+440;
-      sound.step(wading?"water":me.up||loftStair(me.x,me.y)!=null?"wood":"stone");
+      sound.step(me.up||loftStair(me.x,me.y)!=null?"wood":"stone");
     }
   }
   if(sound.enabled&&!document.hidden){
@@ -937,7 +937,7 @@ function pairedPose(link,leader,follower,now){
   const origin=formations.get(link.id),target=handPosition(leader,link.side);
   const age=Math.min(1,(now-origin.started)/410),blend=age*age*(3-2*age);
   const next={x:origin.x+(target.x-origin.x)*blend,y:origin.y+(target.y-origin.y)*blend,heading:target.heading};
-  if(wadeSegment(follower,next))return next;
+  if(clearSegment(follower,next))return next;
   return {...follower,heading:target.heading};
 }
 
@@ -1439,8 +1439,7 @@ function setMap(open){
 $("map-toggle").addEventListener("click",()=>setMap($("map-toggle").getAttribute("aria-expanded")!=="true"));
 $("close-map").addEventListener("click",()=>setMap(false));
 function walkingSteps(target){
-  // Routes keep to dry ground unless the walker is already in a pond or taps one.
-  const feet=feetHeight(gameTime()),wet=waterDepth(me.x,me.y)>0||waterDepth(target.x,target.y)>0;
+  const feet=feetHeight(gameTime());
   const deckExits=cheonggyeDeckExits(me);
   if(deckExits){
     if(cheonggyeDeckStep(me,target.x,target.y)?.up&&cheonggyeDeckExits({...target,up:true})?.[0].x===deckExits[0].x)return [target];
@@ -1452,9 +1451,17 @@ function walkingSteps(target){
   }
   // Upstairs there is no route grid: head straight for the spot and let each step be checked.
   const aloft=me.up||loftStair(me.x,me.y)!=null;
-  let steps=aloft?[target]:wet?[]:planWalk(me,target,feet);
-  if(!steps.length&&!isCycling(me))steps=planWalk(me,target,feet,true);
-  return steps;
+  return aloft?[target]:planWalk(me,target,feet);
+}
+// The palace ponds are not entered. A walker whose saved place is out in one of them is set
+// back on the nearest bank.
+function leaveWater(){
+  if(!session||riding||me.bus||isCycling(me)||!gyeongbokWater(me.x,me.y))return;
+  for(let radius=1;radius<90;radius++)for(let i=0;i<24;i++){
+    const angle=i*Math.PI/12,x=me.x+Math.cos(angle)*radius,y=me.y+Math.sin(angle)*radius;
+    if(!walkable(x,y))continue;
+    Object.assign(me,{x,y,vx:0,vy:0});dirty=true;return;
+  }
 }
 function canWalkTo(){
   const time=gameTime();
@@ -1699,7 +1706,7 @@ function move(x,y){
   const loft=bridge===undefined?loftStep(me,x,y):bridge;
   if(isBikeDriver(me)){
     if(loft!==undefined||!canRideBikeSegment(me,{x,y}))return false;
-  }else if(loft===null||loft===undefined&&!wadeSegment(me,{x,y},.36,feetHeight(gameTime())))return false;
+  }else if(loft===null||loft===undefined&&!clearSegment(me,{x,y},.36,feetHeight(gameTime())))return false;
   const aim=normalize(Math.atan2(x-me.x,me.y-y)*180/Math.PI);
   const link=myLink();
   const heading=link?.active?normalize(me.heading+angleDelta(me.heading,aim)*.26):aim;
@@ -2825,8 +2832,8 @@ function motion(now,elapsed){
   const wasMoving=moving(me)||me.blocked,wasBlocked=me.blocked,wasRunning=me.running;
   const leader=follower&&!exitPress&&people.get(link.leader);
   // Wading through a pond is slow going, and there is no running in the water.
-  const wading=waterDepth(me.x,me.y)>0,pace=!arcade.kind&&(runToggled||shiftHeld)&&!wading&&!(isUmbrellaLink(link)&&link.active);
-  const speed=elapsed*(isBikeDriver(me)?9.4:wading?1.1:pace?6.675:2.58);
+  const pace=!arcade.kind&&(runToggled||shiftHeld)&&!(isUmbrellaLink(link)&&link.active);
+  const speed=elapsed*(isBikeDriver(me)?9.4:pace?6.675:2.58);
   let blocked=false;
   if(leader){
     const next=pairedPose(link,leader.position,me,now);
@@ -2847,7 +2854,7 @@ function motion(now,elapsed){
     Object.assign(me,{vx:0,vy:0,running:false,blocked:false});
     dirty=true;wakeSync();return false;
   }
-  soundscape(gameTime(now),moved&&!isCycling(me)&&me.seat==null?Math.min(1.2,Math.hypot(me.x-oldX,me.y-oldY)):0,wading,pace);
+  soundscape(gameTime(now),moved&&!isCycling(me)&&me.seat==null?Math.min(1.2,Math.hypot(me.x-oldX,me.y-oldY)):0,pace);
   if(moved){
     const location=placeName(me);
     if($("location").textContent!==location)$("location").textContent=location;
@@ -3006,6 +3013,7 @@ function frame(now){
     refreshShortcuts();
     updateHandControls();
     nearbyControls.refresh(preferredNearbyAction(time));peerControls.refresh(preferredPeerAction(time));
+    leaveWater();
     updateLocationGuides(time);updateMaps(self,others);
   }
   lastScene={me:self,peers:[...others.values()],parkedBikes,view:ownView,firstPerson:Boolean(bungeoMode||firstPerson&&!arcade.kind)&&!photoMode.camera,

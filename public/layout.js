@@ -232,10 +232,9 @@ export const city = [
 export const landmarks=[spawn,ticket,gate,bridge,middle,court,hall,stoneHall,stoneFountain,palacePond,...palace,...route,...pavilions];
 export function addLandmarks(points){landmarks.push(...points);}
 // Neighbouring zones share the same coordinate system and may overlap at their edges.
-const zones=[],waterZones=[],layeredZones=[];
+const zones=[],layeredZones=[];
 export function addZone(zone){
   zones.push(zone);
-  if(zone.water)waterZones.push(zone);
   if(zone.connects)layeredZones.push(zone);
 }
 function layerConnects(ax,ay,bx,by){
@@ -414,30 +413,6 @@ export function loftStep(from,x,y){
   // Stepping off the foot of the stairs back onto the ground.
   return Math.abs(platformAt(x,y)-here)<=.36?undefined:null;
 }
-// Shallow water (a palace pond) can be waded by people. Animals and planned routes keep to
-// dry ground, so the plain checks below never count water as walkable.
-export function waterDepth(x,y){
-  for(const zone of waterZones){
-    if(!zone.contains(x,y))continue;
-    const depth=zone.water(x,y);
-    if(depth)return depth;
-  }
-  return 0;
-}
-export function wadeable(x,y,feet=0){
-  return walkable(x,y,feet)||waterDepth(x,y)>0&&!solidAt(x,y,feetLevel(feet));
-}
-export function wadeSegment(from,to,step=.36,feet=0){
-  const dx=to.x-from.x,dy=to.y-from.y;
-  const count=Math.ceil(Math.hypot(dx,dy)/step);
-  let ax=from.x,ay=from.y;
-  for(let i=1;i<=count;i++){
-    const x=from.x+dx*i/count,y=from.y+dy*i/count;
-    if(!wadeable(x,y,feet)||!layerConnects(ax,ay,x,y))return false;
-    ax=x;ay=y;
-  }
-  return !count||!crossesObstacle(from,to,feetLevel(feet));
-}
 const deoksugungNorthEdge=30;
 export function walkable(x,y,feet=0){
   const interior=interiorAt(x,y);
@@ -447,7 +422,6 @@ export function walkable(x,y,feet=0){
   let open=false;
   for(const zone of zones){
     if(!zone.contains(x,y))continue;
-    if(zone.water?.(x,y))return false;
     if(!open)open=zone.walkable(x,y);
   }
   if(open)return true;
@@ -519,8 +493,8 @@ function snap(point,radius,direct,feet,field,open=walkable,clear=clearSegment){
 // feet lets a walker standing on a bench or ledge plan the first step down from it.
 // A straight line walked the way a person walks it: every short stride may climb a ledge one
 // step high, so routes can run up stone steps and across terraces and floors.
-function strideSegment(from,to,wade,feet){
-  const dx=to.x-from.x,dy=to.y-from.y,count=Math.max(1,Math.ceil(Math.hypot(dx,dy)/.3)),clear=wade?wadeSegment:clearSegment;
+function strideSegment(from,to,feet){
+  const dx=to.x-from.x,dy=to.y-from.y,count=Math.max(1,Math.ceil(Math.hypot(dx,dy)/.3)),clear=clearSegment;
   let previous=from,level=feet||platformAt(from.x,from.y)+.19;
   for(let i=1;i<=count;i++){
     const next={x:from.x+dx*i/count,y:from.y+dy*i/count};
@@ -552,22 +526,20 @@ function takeCandidate(heap){
   heap[index]=last;
   return first;
 }
-// wade plans a route that may cross shallow water.
-export function planWalk(from,target,feet=0,wade=false){
+export function planWalk(from,target,feet=0){
   if(!inWalkingBounds(from)||!inWalkingBounds(target))return [];
   const fromInterior=interiorAt(from.x,from.y),targetInterior=interiorAt(target.x,target.y);
   if(fromInterior!==targetInterior)return [];
-  const ground=wade?wadeable:walkable;
-  const open=(x,y)=>ground(x,y,platformAt(x,y)+.19),clear=(a,b,step,level)=>strideSegment(a,b,wade,level);
+  const open=(x,y)=>walkable(x,y,platformAt(x,y)+.19),clear=(a,b,step,level)=>strideSegment(a,b,level);
   const exact=open(target.x,target.y);
   if(exact&&clear(from,target,.36,feet))return [target];
   const field=walkingField(from,target),{ox,oy,cols,rows}=field;
   // Two smaller searches around the known gate avoid scanning the length of the palace wall.
   if(field.viaGate&&distance(spawn,from.x,from.y)>0&&distance(spawn,target.x,target.y)>0){
-    const approach=planWalk(from,spawn,feet,wade);
+    const approach=planWalk(from,spawn,feet);
     const end=approach.at(-1);
     if(end?.x===spawn.x&&end.y===spawn.y){
-      const onward=planWalk(spawn,target,0,wade),destination=onward.at(-1);
+      const onward=planWalk(spawn,target),destination=onward.at(-1);
       if(destination&&(!exact||destination.x===target.x&&destination.y===target.y))return [...approach,...onward];
     }
   }

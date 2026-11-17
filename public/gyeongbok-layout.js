@@ -284,15 +284,12 @@ addLoft({
     return !columns.some(column=>Math.hypot(east-column.east,north-column.north)<.5);
   }
 });
-// Both ponds are shallow enough to wade: people sink to the waist and move slowly.
-export const gbWaterDepth=.45;
+// True over the pond at Gyeonghoeru and the one round Hyangwonjeong. Nobody walks into either.
 export function gyeongbokWater(x,y){
   const east=x-gwanghwamun.x,north=gwanghwamun.y-y;
-  return inLake(east,north)||inPond(east,north)?gbWaterDepth:0;
+  return inLake(east,north)||inPond(east,north);
 }
-addZone({
-  name:"경복궁",contains:inGbBounds,walkable:gyeongbokWalkable,water:gyeongbokWater
-});
+addZone({name:"경복궁",contains:inGbBounds,walkable:gyeongbokWalkable});
 addLandmarks([
   ...gbSites,gbStation,cityHallStation,cityHallExit3,cityHallBusStop,gbBusStop,
   at(0,-28,"광화문 월대"),uijeongbuEntry,uijeongbuGarden,plazaAt(34,539,"광화문 동쪽 횡단보도"),at(-50,-36,"광화문 광장"),at(45,-36,"광화문 광장"),at(0,70,"흥례문 앞마당"),at(0,180,"영제교"),at(0,262,"근정전 마당"),
