@@ -1223,15 +1223,20 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
         if(insideId===ARCADE_UPPER_SITE.id){
           let gear=model.arcadeGear;
           const kind=activity?.kind,using=kind==="baseball"&&Boolean(activity.hand)||Object.hasOwn(TARGET_LANES,kind);
-          const handIndex=kind==="baseball"&&activity.hand==="left"?0:1;
+          // The bat sits in the top hand, the one on the side away from the pitcher.
+          const handIndex=kind==="baseball"?(activity.hand==="left"?1:0):1;
           if(using&&(gear?.kind!==kind||gear.handIndex!==handIndex)){
             gear?.group.removeFromParent();
             const group=new T.Group(),hand=model.arms[handIndex].end;
             group.position.set(0,-.045,.058);hand.add(group);
             if(kind==="baseball"){
-              const lean=.28*baseballBatterSide(activity.hand);
-              cylinder(0xd4ac78,0,.31,0,.045,.61,12,group,.56).rotation.z=lean;
-              cylinder(0x43545a,-lean*.09,.065,0,.027,.16,10,group).rotation.z=lean;
+              // Knob, taped handle, taper and barrel along the group's own y; the pose turns the whole bat.
+              group.position.set(0,-.06,.03);
+              cylinder(0xc99a63,0,-.125,0,.034,.022,10,group);
+              cylinder(0x3d4a50,0,.0,0,.021,.24,10,group);
+              cylinder(0xd4ac78,0,.24,0,.021,.26,12,group,1.75);
+              cylinder(0xd4ac78,0,.52,0,.037,.30,12,group,1.12);
+              cylinder(0xddb886,0,.676,0,.041,.016,12,group,.82);
             }else if(kind==="archery"){
               arcadeBowGeometry??=new T.TorusGeometry(.28,.027,7,16,Math.PI*1.14);
               shape(arcadeBowGeometry,0xc38b56,0,.08,.12,group).rotation.z=-Math.PI*.57;

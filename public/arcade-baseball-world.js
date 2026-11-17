@@ -79,7 +79,8 @@ export function addBaseballLane(T,parent,{box,cylinder,shape}){
     active(box(accent,(left+right)/2,y,0,right-left,.008,.008,zone)).material=guides;
   }
   const reticle=new T.Group();reticle.name="배트 조준";zone.add(reticle);
-  const bat=new T.Group();reticle.add(bat);
+  // The bat turns about its knob, so it is the barrel that sweeps through the aim point.
+  const knob=-.31,bat=new T.Group();reticle.add(bat);
   const outline=new T.Shape();
   outline.moveTo(-.31,-.017);outline.lineTo(-.295,-.017);outline.lineTo(-.295,-.009);
   outline.quadraticCurveTo(-.18,-.012,-.092,-.030);outline.quadraticCurveTo(.005,-.043,.095,-.043);
@@ -87,10 +88,20 @@ export function addBaseballLane(T,parent,{box,cylinder,shape}){
   outline.quadraticCurveTo(.016,.041,-.092,.029);outline.quadraticCurveTo(-.18,.013,-.295,.010);
   outline.lineTo(-.295,.018);outline.lineTo(-.31,.018);outline.closePath();
   const batFill=new T.MeshBasicMaterial({color:0x18272c,transparent:true,opacity:.59,depthWrite:false,side:T.DoubleSide});
-  const silhouette=active(new T.Mesh(new T.ShapeGeometry(outline),batFill));bat.add(silhouette);
-  const batLine=new T.LineLoop(new T.BufferGeometry().setFromPoints(outline.getPoints(12).map(p=>new T.Vector3(p.x,p.y,.001))),
+  const silhouette=active(new T.Mesh(new T.ShapeGeometry(outline),batFill));silhouette.position.x=-knob;bat.add(silhouette);
+  const batLine=new T.LineLoop(new T.BufferGeometry().setFromPoints(outline.getPoints(12).map(p=>new T.Vector3(p.x-knob,p.y,.001))),
     new T.LineBasicMaterial({color:0xffe3a5,transparent:true,opacity:.8,depthWrite:false}));
   bat.add(batLine);
+  // How far the barrel is raised about the knob: cocked back, whipped level at contact, carried through.
+  const ease=t=>t*t*(3-2*t),between=(a,b,t)=>a+(b-a)*Math.max(0,Math.min(1,t));
+  function batLift(age){
+    const rest=.12,load=.82,through=-.92,lead=BASEBALL_SWING_LEAD_MS;
+    if(!(age>=0)||age>=330)return rest;
+    if(age<lead*.5)return between(rest,load,ease(age/(lead*.5)));
+    if(age<lead)return between(load,0,(age-lead*.5)/(lead*.5));
+    if(age<lead+60)return between(0,through,(age-lead)/60);
+    return between(through,rest,ease((age-lead-60)/(330-lead-60)));
+  }
   const sweetSpot=new T.MeshBasicMaterial({color:0xffe3a5,transparent:true,opacity:.94,depthWrite:false});
   const ring=active(new T.Mesh(new T.RingGeometry(.039,.048,24),sweetSpot));
   ring.position.z=.003;reticle.add(ring);
@@ -109,11 +120,9 @@ export function addBaseballLane(T,parent,{box,cylinder,shape}){
       const {x,y}=state.aim??BASEBALL_CENTER,{hand,pitch}=state;
       reticle.visible=Boolean(hand);
       reticle.position.set(x,y,.033);
-      const swingAge=now-(state.swingAt??-Infinity);
-      const sweep=swingAge>=0&&swingAge<220?Math.sin(swingAge/220*Math.PI):0;
       const side=baseballBatterSide(hand);
-      bat.rotation.z=.35+1.55*sweep;
-      bat.scale.x=-side;
+      bat.scale.x=-side;bat.position.x=-side*knob;
+      bat.rotation.z=-side*batLift(now-(state.swingAt??-Infinity));
       const contact=now+BASEBALL_SWING_LEAD_MS;
       const swingWindow=pitch&&!state.result&&Math.abs(contact-(pitch.at+pitch.flight))<=BASEBALL_HIT_WINDOW_MS;
       const predicted=swingWindow?baseballPitchPosition(pitch,contact):null;

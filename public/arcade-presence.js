@@ -122,21 +122,62 @@ export function poseArcade(state,model,clock){
       model.chest.rotateX(.20*swing);
     }
   }else if(state?.kind==="baseball"&&state.hand){
-    const elapsed=clock-(state.swingAt??-Infinity);
-    const swing=elapsed>=0&&elapsed<410?Math.sin(Math.PI*elapsed/410):0;
-    const side=baseballBatterSide(state.hand);
-    const [grip,lead]=side<0?[model.arms[1],model.arms[0]]:model.arms;
-    model.chest.rotateY(side*(-.26+1.34*swing));
-    model.chest.rotateX(.08*swing);
-    grip.upper.rotateX(-.92-.54*swing);
-    grip.upper.rotateZ(side*(.22-.37*swing));
-    grip.lower.rotateX(-.94+.53*swing);
-    lead.upper.rotateX(-.83-.56*swing);
-    lead.upper.rotateZ(side*(.26-.44*swing));
-    lead.lower.rotateX(-.84+.62*swing);
+    poseBatter(model,baseballBatterSide(state.hand),clock-(state.swingAt??-Infinity));
   }else if(state?.kind&&Object.hasOwn(TARGET_LANES,state.kind)){
     const recoil=state.phase==="flying"?.30:0;
     model.arms[0].upper.rotateX(-1.15+recoil);model.arms[0].lower.rotateX(-.71);
     model.arms[1].upper.rotateX(-1.46+recoil);model.arms[1].lower.rotateX(state.kind==="archery"?-.20:-.63);
+  }
+}
+
+// ---- The batter ---------------------------------------------------------------------------
+// Positions are in the chest's own space: x to the model's left, y up, z forward. rear is the
+// side away from the pitcher, where the bat is held. Each key is the grip's place, the way the
+// bat points from knob to barrel, and how far the chest has turned.
+const SWING_MS=410,upperArm=.228,foreArm=.206;
+const batterKeys=rear=>[
+  {grip:[rear*.34,.44,.10],bat:[rear*.62,.74,-.28],turn:rear*.42},    // set: hands off the rear shoulder, bat up and clear of the head
+  {grip:[rear*.05,.27,.40],bat:[rear*.52,-.10,.85],turn:-rear*.38},   // contact: arms out, barrel over the plate
+  {grip:[-rear*.30,.42,.14],bat:[-rear*.85,.35,-.38],turn:-rear*1.08} // finish: carried round past the front shoulder
+];
+const mix3=(a,b,t)=>a.map((value,i)=>value+(b[i]-value)*t);
+const smooth=t=>t*t*(3-2*t);
+function batterPose(rear,elapsed){
+  const [set,contact,finish]=batterKeys(rear),t=elapsed>=0&&elapsed<SWING_MS?elapsed/SWING_MS:1;
+  const [from,to,portion]=t<.30?[set,contact,smooth(t/.30)]:t<.62?[contact,finish,smooth((t-.30)/.32)]:
+    t<1?[finish,set,smooth((t-.62)/.38)]:[set,set,0];
+  return {grip:mix3(from.grip,to.grip,portion),bat:mix3(from.bat,to.bat,portion),turn:from.turn+(to.turn-from.turn)*portion};
+}
+// Bends an arm so its hand reaches a point; pole says which way the elbow should stick out.
+function reachArm(arm,target,pole,Vector,Quaternion){
+  const shoulder=arm.upper.position,reach=new Vector(target[0]-shoulder.x,target[1]-shoulder.y,target[2]-shoulder.z);
+  const span=Math.min(upperArm+foreArm-.004,Math.max(.06,reach.length())),aim=reach.clone().normalize();
+  const hint=new Vector(...pole);
+  hint.addScaledVector(aim,-hint.dot(aim)).normalize();
+  const lift=Math.acos(Math.max(-1,Math.min(1,(upperArm*upperArm+span*span-foreArm*foreArm)/(2*upperArm*span))));
+  const along=aim.clone().multiplyScalar(Math.cos(lift)).addScaledVector(hint,Math.sin(lift));
+  const elbow=along.clone().multiplyScalar(upperArm),fore=aim.clone().multiplyScalar(span).sub(elbow).normalize();
+  // The upper arm hangs along -y and the elbow folds toward its own +z, so that axis is turned to face the forearm.
+  const down=new Vector(0,-1,0),aimed=new Quaternion().setFromUnitVectors(down,along);
+  const facing=new Vector(0,0,1).applyQuaternion(aimed),wanted=fore.clone().addScaledVector(along,-fore.dot(along)).normalize();
+  const twist=Math.atan2(new Vector().crossVectors(facing,wanted).dot(along),facing.dot(wanted));
+  arm.upper.quaternion.copy(new Quaternion().setFromAxisAngle(along,twist).multiply(aimed));
+  arm.lower.quaternion.setFromAxisAngle(new Vector(1,0,0),-Math.acos(Math.max(-1,Math.min(1,along.dot(fore)))));
+}
+function poseBatter(model,side,elapsed){
+  const Vector=model.group.position.constructor,Quaternion=model.group.quaternion.constructor;
+  // A right-handed batter stands with the left shoulder to the pitcher, so the bat is held on the right.
+  const rear=side,{grip,bat,turn}=batterPose(rear,elapsed);
+  const top=model.arms[rear<0?0:1],bottom=model.arms[rear<0?1:0];
+  const axis=new Vector(...bat).normalize(),hold=(offset)=>grip.map((value,i)=>value+axis.getComponent(i)*offset);
+  model.chest.rotateY(turn);
+  reachArm(top,hold(.05),[rear,-.45,-.35],Vector,Quaternion);
+  reachArm(bottom,hold(-.05),[-rear*.55,-1,.15],Vector,Quaternion);
+  // The eyes stay on the pitcher while the body turns under them.
+  model.headJoint.rotateY(Math.max(-1.15,Math.min(1.15,-rear*.9-turn)));
+  const gear=model.arcadeGear;
+  if(gear?.kind==="baseball"){
+    const hand=top.upper.quaternion.clone().multiply(top.lower.quaternion).multiply(top.end.quaternion).invert();
+    gear.group.quaternion.copy(hand.multiply(new Quaternion().setFromUnitVectors(new Vector(0,1,0),axis)));
   }
 }

@@ -5,10 +5,11 @@ export const BASEBALL_SCREEN_Z=-5.38;
 export const BASEBALL_PITCH_COUNT=6;
 export const BASEBALL_SWING_LEAD_MS=82;
 export const BASEBALL_HIT_WINDOW_MS=104;
-export const BASEBALL_ZONE={left:-.47,right:.47,bottom:.70,top:1.61};
+// From the knees to the chest of the small-bodied batters who play here.
+export const BASEBALL_ZONE={left:-.30,right:.30,bottom:.24,top:.68};
 export const BASEBALL_CENTER={x:0,y:(BASEBALL_ZONE.bottom+BASEBALL_ZONE.top)/2};
 export const BASEBALL_BATTER_OFFSET=.86;
-export const BASEBALL_CONTACT_RADIUS=.23;
+export const BASEBALL_CONTACT_RADIUS=.15;
 export const baseballBatterSide=hand=>hand==="left"?1:-1;
 const ballRadius=.075,gravity=9.81;
 const pointValues={miss:0,foul:0,single:1,double:2,home:4};
@@ -56,8 +57,8 @@ export function makeArcadeBaseball(random=Math.random){
   function beginPitch(now){
     const index=state.pitchNo;
     const [column,row]=zones[index];
-    const pitch={at:now+890,flight:Math.round(825+random()*276),targetX:column*.30+(random()-.5)*.15,
-      height:BASEBALL_CENTER.y+row*.27+(random()-.5)*.21,bend:(random()-.5)*.48};
+    const pitch={at:now+890,flight:Math.round(825+random()*276),targetX:column*.19+(random()-.5)*.10,
+      height:BASEBALL_CENTER.y+row*.13+(random()-.5)*.12,bend:(random()-.5)*.34};
     state={...state,pitchNo:index+1,pitch,swingAt:null,hit:null,result:null};
     nextAt=pitch.at+pitch.flight+1070;
   }

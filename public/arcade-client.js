@@ -2,7 +2,7 @@ import {ARCADE_GAMES} from "./arcade-layout.js";
 import {BASKET_CHARGE_MS,BASKET_REST_POWER,makeArcadeGames} from "./arcade-games.js";
 import {makeArcadeRhythm} from "./arcade-rhythm.js";
 import {drawPumpTrack} from "./arcade-pump-track.js";
-import {bowlingScore,bowlingTurn} from "./arcade-bowling.js";
+import {BOWLING_SWEET_SPOT,bowlingScore,bowlingTurn} from "./arcade-bowling.js";
 import {makeArcadeMoles} from "./arcade-mole.js";
 import {makeArcadeTargets,TARGET_CHARGE_MS} from "./arcade-targets.js";
 import {BASEBALL_PITCH_COUNT,makeArcadeBaseball} from "./arcade-baseball.js";
@@ -234,12 +234,15 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
       chargeGauge.hidden=!ready;
       act.toggleAttribute("data-native-touch",ready);
       chargeGauge.value=charge?powerAt(now):0;
+      // The gauge lights up while it is passing the middle, where a throw is strongest and straightest.
+      const sweet=Boolean(charge)&&Math.abs(chargeGauge.value-BOWLING_SWEET_SPOT)<.07?"#9be08c":"";
+      if(chargeGauge.style.accentColor!==sweet)chargeGauge.style.accentColor=sweet;
       act.hidden=false;act.disabled=pending||!ready&&!canJoin;
       text(act,pending?"확인 중":finished?"다시 하기":canJoin?"참가하기":
-        !ready?"차례 기다리는 중":charge?"놓아서 굴리기":"꾹 눌러 굴리기");
+        !ready?"차례 기다리는 중":charge?"가운데에서 놓기":"꾹 눌러 굴리기");
       text(status,pending?"볼링 레인에 연결 중…":finished?`게임 종료 · ${bowlingScore(self.frames).total}점`:
         !self?"친구도 이 레인에서 볼링을 누르면 함께 칠 수 있어요.":
-        ready?`${turn.frame}프레임 · ${turn.attempt}구 · 내 차례`:
+        ready?`${turn.frame}프레임 · ${turn.attempt}구 · 내 차례 · 게이지 한가운데에서 놓아야 세고 곧게 굴러가요`:
         match.roll?`${match.players.find(player=>player.id===match.rollPlayer)?.nickname??"참가자"} 님이 굴렸어요`:
         `${turn?.player.nickname??"다음 참가자"} 님 차례`);
       return stepped;

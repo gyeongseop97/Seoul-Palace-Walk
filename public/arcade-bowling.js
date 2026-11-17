@@ -14,6 +14,15 @@ for(let row=0;row<4;row++){
   for(let col=0;col<=row;col++)rack.push({x:(col-row/2)*pinSpacing,z:-3.829-row*rowSpacing});
 }
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
+// The throwing gauge sweeps from end to end. A ball let go at the middle of it is at its
+// strongest and runs true; either side of that it loses pace and pulls off line toward the
+// side it was missed on, and at the ends of the gauge it is a dud that barely leaves the hand.
+export const BOWLING_SWEET_SPOT=.5;
+const maxDrift=8*Math.PI/180;
+export function bowlingRelease(gauge){
+  const miss=clamp((gauge-BOWLING_SWEET_SPOT)*2,-1,1),wide=Math.pow(Math.abs(miss),1.5);
+  return {power:clamp(1-wide,0,1),drift:Math.sign(miss)*wide*maxDrift};
+}
 const simulateCache=new Map();
 const idle={roll:null,rolling:false,ball:null,pins:pinRack(allPins),knocked:0,result:null,standing:allPins};
 
@@ -181,7 +190,8 @@ export function bowlingTurn(match){
 export function bowlingMatchRoll(match,pan,power,now,offset=0){
   const turn=bowlingTurn(match);
   if(!turn||match.roll||![pan,power,now].every(Number.isFinite))return null;
-  return {at:now,angle:bowlingAimAngle(pan),power:clamp(power,0,1),mask:turn.mask,attempt:turn.attempt,offset:bowlingOffset(offset)};
+  const release=bowlingRelease(clamp(power,0,1));
+  return {at:now,angle:bowlingAimAngle(pan)+release.drift,power:release.power,mask:turn.mask,attempt:turn.attempt,offset:bowlingOffset(offset)};
 }
 
 export function advanceBowlingMatch(match,knocked,standingMask){
@@ -235,7 +245,8 @@ export function makeBowling(){
       const previous=bowlingFrame(roll,now);
       if(previous.rolling)return null;
       const second=Boolean(roll?.attempt===1&&previous.standing);
-      roll={at:now,angle:bowlingAimAngle(pan),power:clamp(power,0,1),mask:second?previous.standing:allPins,
+      const release=bowlingRelease(clamp(power,0,1));
+      roll={at:now,angle:bowlingAimAngle(pan)+release.drift,power:release.power,mask:second?previous.standing:allPins,
         attempt:second?2:1,offset:bowlingOffset(offset)};
       return roll;
     },
