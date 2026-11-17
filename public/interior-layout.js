@@ -2,7 +2,8 @@ import {museumBounds} from "./visit-layout.js";
 import {mmcaVenue} from "./mmca-gallery-layout.js";
 import {diningVenues} from "./dining-data.js";
 
-export const interiorBounds={museum:museumBounds,[mmcaVenue.id]:mmcaVenue.bounds,
+export const arcadeBounds={minX:515.9,maxX:524.1,minY:508.6,maxY:521.4};
+export const interiorBounds={museum:museumBounds,[mmcaVenue.id]:mmcaVenue.bounds,arcade:arcadeBounds,
   ...Object.fromEntries(diningVenues.map(venue=>[venue.id,venue.bounds]))};
 const rooms=Object.entries(interiorBounds);
 

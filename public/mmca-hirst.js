@@ -1,10 +1,11 @@
 // Independently modeled game works. No photograph or mesh of the originals is used.
+const hirstBuilders=new Map([["skull",buildSkull],["shark",buildShark],["hirst-cow-head",buildCowCase]]);
 export function addHirstWork(T,root,{wx,wz},exhibit){
-  if(exhibit.id!=="skull"&&exhibit.id!=="shark")return null;
+  const build=hirstBuilders.get(exhibit.id);
+  if(!build)return null;
   const group=new T.Group();group.name=exhibit.title;
   group.position.set(wx(exhibit.x),0,wz(exhibit.y));
   root.add(group);
-  const build=exhibit.id==="skull"?buildSkull:buildShark;
   build(T,group,exhibitionKit(T,group));
   return group;
 }
@@ -418,4 +419,135 @@ function buildShark(T,root,{surface,glow,mesh,box,glass,vitrine}){
   for(let i=0;i<112;i++)particles.push(((i*193)%887)/100-4.43,.45+((i*271)%326)/100,((i*137)%439)/100-2.19);
   const points=new T.BufferGeometry();points.setAttribute("position",new T.Float32BufferAttribute(particles,3));
   root.add(new T.Points(points,new T.PointsMaterial({color:0xa2d5d7,size:.031,transparent:true,opacity:.23,depthWrite:false})));
+}
+
+const cowProfiles=[
+  [-.61,.045,.006,.008],[-.56,.032,.218,.223],[-.43,.021,.341,.318],
+  [-.27,.014,.337,.327],[-.09,-.013,.292,.298],[.09,-.059,.236,.237],
+  [.24,-.098,.185,.179],[.43,-.140,.187,.120],[.57,-.15,.120,.071],[.61,-.15,.008,.009]
+];
+
+function cowHeadSurface(T){
+  const positions=[],colors=[],indices=[];
+  const rings=38,sections=36;
+  const brown=new T.Color(0x523630),black=new T.Color(0x241e24),cream=new T.Color(0xd5b796),tone=new T.Color();
+  const profile=new T.CatmullRomCurve3(cowProfiles.map(([z,y,w,h])=>new T.Vector3(z,w,h)),false,"catmullrom");
+  const center=new T.CatmullRomCurve3(cowProfiles.map(([z,y])=>new T.Vector3(z,y,0)),false,"catmullrom");
+  for(let i=0;i<=rings;i++){
+    const t=i/rings,shape=profile.getPoint(t),axis=center.getPoint(t);
+    for(let j=0;j<sections;j++){
+      const angle=j/sections*2*Math.PI,top=Math.cos(angle),lateral=Math.sin(angle),z=axis.x;
+      const brow=Math.exp(-((z+.072)**2)/.018)*Math.max(0,1-Math.abs(top-.42)*2.3);
+      const x=lateral*(shape.y+.025*brow),y=axis.y+top*shape.z;
+      positions.push(x,y,z);
+      const stripe=Math.abs(lateral+.13+.11*Math.sin(z*12)),border=.31+.079*Math.sin(z*10)+.06*Math.cos(z*25);
+      const blaze=(1-T.MathUtils.smoothstep(stripe,border-.036,border+.034))*T.MathUtils.smoothstep(top,.26,.58);
+      const cheek=T.MathUtils.smoothstep(top,-.87,.66)*.53+Math.max(0,Math.sin(z*22+lateral*3))*.12;
+      tone.copy(black).lerp(brown,cheek).lerp(cream,blaze*.93);
+      tone.multiplyScalar(.92+.10*Math.sin(z*81+x*87+y*42)+.07*Math.cos(z*140+x*115-y*70));
+      colors.push(tone.r,tone.g,tone.b);
+      if(i<rings){
+        const a=i*sections+j,b=i*sections+(j+1)%sections;
+        indices.push(a,a+sections,b,b,a+sections,b+sections);
+      }
+    }
+  }
+  // The tiny end rings close the sculpture all the way around the muzzle and the crown.
+  for(let i=1;i<sections-1;i++)indices.push(0,i,i+1,rings*sections,rings*sections+i+1,rings*sections+i);
+  const geometry=new T.BufferGeometry();
+  geometry.setAttribute("position",new T.Float32BufferAttribute(positions,3));
+  geometry.setAttribute("color",new T.Float32BufferAttribute(colors,3));
+  geometry.setIndex(indices);geometry.computeVertexNormals();
+  return geometry;
+}
+
+function taperedHorn(T,side){
+  const path=new T.CatmullRomCurve3([
+    new T.Vector3(side*.226,.224,-.32),new T.Vector3(side*.337,.289,-.338),
+    new T.Vector3(side*.451,.390,-.325),new T.Vector3(side*.515,.482,-.275)
+  ]);
+  const rings=16,sections=10,frames=path.computeFrenetFrames(rings,false);
+  const positions=[],indices=[],colors=[],point=new T.Vector3();
+  const rootColor=new T.Color(0x726155),ivory=new T.Color(0xe9d4b2),tipColor=new T.Color(0x514742),tone=new T.Color();
+  for(let i=0;i<=rings;i++){
+    const t=i/rings,center=path.getPointAt(t);
+    const radius=.077*(1-t)**1.06+.002;
+    for(let j=0;j<sections;j++){
+      const angle=Math.PI*2*j/sections,groove=.92+.08*Math.cos(i*1.45);
+      point.copy(center).addScaledVector(frames.normals[i],radius*groove*Math.cos(angle))
+        .addScaledVector(frames.binormals[i],radius*groove*Math.sin(angle));
+      positions.push(point.x,point.y,point.z);
+      tone.copy(rootColor).lerp(ivory,T.MathUtils.smoothstep(t,.10,.47)).lerp(tipColor,T.MathUtils.smoothstep(t,.62,1));
+      colors.push(tone.r,tone.g,tone.b);
+      if(i<rings){
+        const a=i*sections+j,b=i*sections+(j+1)%sections;
+        indices.push(a,b,a+sections,b,b+sections,a+sections);
+      }
+    }
+  }
+  const geometry=new T.BufferGeometry();
+  geometry.setAttribute("position",new T.Float32BufferAttribute(positions,3));
+  geometry.setAttribute("color",new T.Float32BufferAttribute(colors,3));
+  geometry.setIndex(indices);geometry.computeVertexNormals();
+  return geometry;
+}
+
+function buildCowCase(T,root,{surface,glow,mesh,box,glass,vitrine}){
+  const width=3.20,depth=1.68,bottom=.118,top=1.72,rail=.043;
+  const frame=surface(0x29333c,.51,.37),floor=surface(0x333839,.20,.58),edge=surface(0x686969,.48,.43);
+  const pane=glass(0xa3bbbd,.018);
+  box(floor,0,.055,0,3.26,.11,1.74);
+  box(edge,0,.119,0,3.195,.034,1.67);
+  box(floor,0,.141,0,3.153,.012,1.632);
+  vitrine({width,depth,bottom,top,frame,pane,rail});
+  mesh(new T.PlaneGeometry(width-rail,depth-rail),pane,0,top,0).rotation.x=-Math.PI/2;
+  mesh(new T.PlaneGeometry(depth-rail,top-bottom),glass(0x9eb6b3,.010),-.06,(top+bottom)/2,0).rotation.y=Math.PI/2;
+  for(const side of [-1,1])box(frame,-.06,(top+bottom)/2,side*depth/2,rail,top-bottom,rail);
+  for(const level of [bottom,top])box(frame,-.06,level,0,rail,rail,depth);
+  const lamp=glow(0xc5e4de);
+  for(const side of [-1,1])box(lamp,0,top-.075,side*.71,3.08,.021,.03);
+
+  const cabinet=surface(0xd9d8ca,.09,.51),fitting=surface(0x454b56,.36,.39),tube=glow(0x8ed1f7);
+  box(cabinet,-.90,.425,-.18,.74,.555,.68);
+  box(surface(0xb0b1a9),-.90,.677,-.18,.77,.065,.71);
+  box(fitting,-.90,.578,.165,.142,.029,.012);
+  for(const x of [-1.18,-.62])box(fitting,x,1.451,-.39,.014,.49,.014);
+  box(fitting,-.90,1.207,-.39,.64,.246,.095);
+  for(const y of [1.15,1.24])box(tube,-.90,y,-.339,.552,.031,.014);
+  for(let i=0;i<14;i++)box(frame,-1.189+i*.044,1.207,-.321,.008,.19,.015);
+
+  const head=new T.Group();head.name="소머리 모형";
+  head.position.set(.76,0,-.04);head.rotation.set(.235,.26,-.11,"YXZ");root.add(head);
+  const coat=new T.MeshStandardMaterial({vertexColors:true,roughness:.69,metalness:.02});
+  mesh(cowHeadSurface(T),coat,0,0,0,head);
+  const earLeather=surface(0x3a292b,.07,.7),earInner=surface(0x775151,.04,.66);
+  const muzzle=surface(0x392d36,.08,.49),lid=surface(0x382426,.04,.55),eye=new T.MeshPhongMaterial({color:0x15141b,specular:0x805f5a,shininess:25});
+  const detailSphere=new T.SphereGeometry(1,20,12);
+  const oval=(material,x,y,z,scale,parent=head)=>{
+    const part=mesh(detailSphere,material,x,y,z,parent);part.scale.set(...scale);return part;
+  };
+  oval(muzzle,0,-.139,.501,[.217,.120,.134]);
+  const mouth=new T.CatmullRomCurve3([[-.18,-.224,.552],[-.12,-.236,.583],[0,-.242,.595],[.12,-.236,.583],[.18,-.224,.552]]
+    .map(point=>new T.Vector3(...point)));
+  mesh(new T.TubeGeometry(mouth,18,.007,5,false),lid,0,0,0,head);
+  for(const side of [-1,1]){
+    mesh(taperedHorn(T,side),coat,0,0,0,head);
+    const ear=new T.Group();ear.position.set(side*.355,.125,-.28);ear.rotation.set(-.16,side*.3,side*.26);head.add(ear);
+    oval(earLeather,side*.100,0,0,[.221,.083,.071],ear);
+    oval(earInner,side*.115,.007,.051,[.168,.049,.028],ear);
+    const socket=new T.Group();socket.position.set(side*.24,.065,.077);socket.rotation.y=side*1.182;head.add(socket);
+    oval(lid,0,0,0,[.081,.043,.049],socket);
+    oval(eye,0,.001,.041,[.057,.024,.019],socket);
+    oval(surface(0x9d7868),-.012,.011,.057,[.014,.006,.003],socket);
+    const nostril=oval(lid,side*.127,-.123,.608,[.045,.022,.015]);
+    nostril.rotation.y=side*.56;nostril.rotation.z=side*.24;
+  }
+  const bounds=new T.Box3().setFromObject(head,true);
+  head.position.y+=.148-bounds.min.y;
+
+  const dish=new T.CylinderGeometry(.124,.096,.029,20),dishInterior=new T.CylinderGeometry(.095,.095,.007,20);
+  for(const [x,z] of [[.23,.50],[1.29,-.41]]){
+    mesh(dish,edge,x,.161,z);
+    mesh(dishInterior,x<.5?surface(0x555246):surface(0xa4a6a0),x,.177,z);
+  }
 }

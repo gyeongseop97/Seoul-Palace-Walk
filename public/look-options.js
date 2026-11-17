@@ -11,8 +11,10 @@ export const LOOK_OPTIONS = {
   eyes: ["round", "soft", "bright", "almond", "gentle", "sleepy", "dot", "sharp", "fierce"],
   brows: ["soft", "straight", "arched", "thick", "thin", "droopy", "raised", "short"],
   mouth: ["smile", "grin", "calm", "cat", "pout"],
+  glasses: ["none", "horn", "round", "square"],
+  beard: ["none", "moustache", "stubble", "goatee", "full"],
   outfit: ["coat", "puffer", "tee", "hanbok", "jacket", "hoodie", "knit", "shirt", "dress", "overalls", "varsity", "suit",
     "school", "shorts"]
 };
 // Looks saved before an option existed fall back to these.
-export const LOOK_DEFAULTS = {hairColor: "auto", skin: "light", brows: "soft", mouth: "smile"};
+export const LOOK_DEFAULTS = {hairColor: "auto", skin: "light", brows: "soft", mouth: "smile", glasses: "none", beard: "none"};

@@ -1,3 +1,5 @@
+import {buildRecliningMask} from "./mmca-mask.js";
+
 const tau=Math.PI*2;
 const mix=(a,b,t)=>a+(b-a)*t;
 const clamp=(value,min=0,max=1)=>Math.min(max,Math.max(min,value));
@@ -147,65 +149,6 @@ function pharmacyCabinet(kit){
   }
 }
 
-const gaussian=(x,y,px,py,dx,dy)=>Math.exp(-(((x-px)/dx)**2+((y-py)/dy)**2));
-function sleepingMask(kit){
-  const {T,mesh,matte,block,oval,tube,group}=kit;
-  const clothColor=0x87958d;
-  block(0x766961,0,.386,0,2.56,.132,1.96);
-  oval(clothColor,0,.565,0,1.27,.225,1.00);
-  for(let fold=0;fold<7;fold++){
-    const x=(fold-3)*.307;
-    tube(fold%2?0x77867e:0x9ca7a0,[[x,.522,.83],[x+.08,.568,.72],[x+.10,.590,.55]],.017);
-  }
-  const face=group(-.06,1.66,.012);
-  face.rotation.set(-.51,.22,-.15,"YXZ");
-  const shape=new T.SphereGeometry(1,56,36),points=shape.getAttribute("position"),tints=[];
-  const tint=new T.Color(),skin=new T.Color(0xca9a86),flush=new T.Color(0xb77c6b);
-  const rX=.79,rY=1.13,rZ=.66;
-  const widthAt=y=>rX*(1-.13*Math.max(0,-y/rY));
-  const raised=(x,y)=>.25*gaussian(x,y,.045,.015,.142,.23)+.085*gaussian(x,y,.017,.269,.107,.31)+
-    .066*gaussian(x,y,.00,-.46,.37,.19)+.040*gaussian(Math.abs(x),y,.36,-.095,.24,.28)-
-    .081*gaussian(Math.abs(x),y,.335,.236,.179,.15);
-  const faceZ=(x,y)=>rZ*Math.sqrt(Math.max(0,1-(x/widthAt(y))**2-(y/rY)**2))+raised(x,y);
-  for(let i=0;i<points.count;i++){
-    const ux=points.getX(i),uy=points.getY(i),uz=points.getZ(i),y=uy*rY,x=ux*widthAt(y);
-    const front=Math.max(0,uz),z=rZ*uz+front**.52*raised(x,y);
-    points.setXYZ(i,x,y,z);
-    const blush=gaussian(Math.abs(x),y,.43,-.071,.23,.28);
-    const tone=.98+.025*Math.sin(x*121+y*111)+.022*Math.cos(y*89-z*60)-
-      .047*gaussian(Math.abs(x),y,.322,.23,.34,.12);
-    tint.copy(skin).lerp(flush,blush*.39*front).multiplyScalar(tone);
-    tints.push(tint.r,tint.g,tint.b);
-  }
-  shape.setAttribute("color",new T.Float32BufferAttribute(tints,3));shape.computeVertexNormals();
-  mesh(shape,new T.MeshStandardMaterial({vertexColors:true,roughness:.82}),0,0,0,face);
-  const temple=new T.SphereGeometry(1,32,16,0,tau,0,1.43);
-  const hair=mesh(temple,matte(0x423937,.89),0,.33,-.015,face);
-  hair.scale.set(.711,.84,.613);
-  for(let comb=0;comb<18;comb++){
-    const a=comb/18*tau;
-    const strand=[];
-    for(const t of [.16,.43,.74,1.04,1.31]){
-      strand.push([Math.cos(a+t*.18)*Math.sin(t)*.714,.33+Math.cos(t)*.847,
-        -.014+Math.sin(a+t*.18)*Math.sin(t)*.62]);
-    }
-    tube(comb%3===0?0x655754:0x534745,strand,.012,face);
-  }
-  for(const side of [-1,1]){
-    oval(0xc38473,side*.742,-.016,-.025,.151,.239,.126,face).rotation.z=side*.15;
-    oval(0xa47063,side*.799,-.004,.066,.041,.14,.024,face);
-    const pointsOnFace=(xs,ys,depth)=>xs.map((value,index)=>{
-      const x=side*value,y=ys[index];return [x,y,faceZ(x,y)+depth];
-    });
-    tube(0x956857,pointsOnFace([.141,.232,.347,.431,.531],[.205,.178,.169,.182,.223],.013),.016,face);
-    tube(0x785548,pointsOnFace([.137,.251,.347,.468,.534],[.335,.384,.392,.368,.334],.013),.021,face);
-    oval(0x8d6257,side*.085,-.111,faceZ(side*.085,-.111)-.017,.038,.018,.019,face);
-  }
-  const lipPoints=[[-.213,-.31],[-.124,-.337],[.008,-.34],[.125,-.332],[.22,-.306]];
-  tube(0x7d5b54,lipPoints.map(([x,y])=>[x,y,faceZ(x,y)+.022]),.013,face);
-  tube(0xb77e77,lipPoints.slice(1,4).map(([x,y])=>[x,y-.033,faceZ(x,y-.033)+.021]),.026,face);
-}
-
 function taperedFinger(kit,coordinates,radii,color,parent){
   const {T,vector,mesh,matte}=kit;
   const path=new T.CatmullRomCurve3(coordinates.map(vector),false,"catmullrom",.40);
@@ -298,7 +241,7 @@ function cornerFigure(kit){
   tube(0x5e4d3e,[[-.049,.281,0],[-.025,.343,0],[.032,.346,0],[.061,.278,0]],.010,bag);
 }
 
-const builders={"hirst-spin":spinPainting,"hirst-cabinet":pharmacyCabinet,"mueck-mask":sleepingMask,
+const builders={"hirst-spin":spinPainting,"hirst-cabinet":pharmacyCabinet,"mueck-mask":({T,root})=>buildRecliningMask(T,root),
   "mueck-hand":openHand,"mueck-scale":cornerFigure};
 
 export function addGuestMuseumWork(T,art,exhibit){

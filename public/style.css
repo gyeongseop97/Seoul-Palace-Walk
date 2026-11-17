@@ -312,7 +312,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   .map-panel{display:none;position:fixed;z-index:5;left:8px;right:8px;bottom:max(8px,env(safe-area-inset-bottom,0px));max-height:calc(100dvh - 8px - max(8px,env(safe-area-inset-bottom,0px)));overflow-y:auto;overscroll-behavior:contain;box-shadow:0 -15px 65px #0b1312aa}
   .map-panel.expanded{display:flex;z-index:8}
   .map-panel .map-wrap{height:min(42dvh,340px);min-height:78px}
-  .map-panel :is(.panel-head,.map-route,.map-footer){flex:none}
+  .map-panel :is(.panel-head,.map-filter,.map-route,.map-footer){flex:none}
   .map-footer{min-height:54px}
   #toast{bottom:max(63px,calc(env(safe-area-inset-bottom,0px) + 54px));pointer-events:none}
 }
@@ -350,6 +350,8 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 .arcade-head button,.arcade-move button,.arcade-panel>.primary{min-height:44px}
 .arcade-panel p{margin:0;font-size:12px;line-height:1.35;color:#f6e0b7}
 .arcade-panel progress{width:100%;height:7px;accent-color:#7bd4c6}
+#arcade-act{touch-action:none}
+#arcade-pump-track{display:block;width:100%;height:auto;border:1px solid #80bcb580;border-radius:7px;pointer-events:none}
 .arcade-move{display:flex;gap:4px}
 .arcade-move button{flex:1 1 44px;touch-action:none}
 .arcade-machine-active :is(.joystick,.game-hud,.peer-hud),.arcade-pump-active :is(.game-hud,.peer-hud){visibility:hidden}
@@ -360,20 +362,28 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 #bus-seats button:disabled{opacity:.54}
 .map-key{display:flex;flex-wrap:wrap;gap:2px 8px}
 .map-key span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.map-key span[hidden], [data-map-category][hidden]{display:none}
 .map-key .theirs{margin:0}
-.map-key .bus-dot{background:#91c9f2}
-.map-key .subway-dot{background:#a68be3;border-radius:3px}
-.map-key .bike-dot{background:#8ed7a2}
-.map-key .stamp-dot{background:#ffd07e;box-shadow:0 0 0 1px #5c4231}
+.map-filter{display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:12px;color:var(--sage-3)}
+.map-filter select{width:auto;min-height:34px;border:1px solid var(--pine-8);border-radius:6px;
+  padding:4px 10px;color:var(--ivory-1);background:var(--pine-3);font:inherit}
+:is([data-map-category="heritage"],[data-map-legend="heritage"]){--marker-color:#dba982}
+:is([data-map-category="park"],[data-map-legend="park"]){--marker-color:#d0e285}
+:is([data-map-category="shop"],[data-map-legend="shop"]){--marker-color:#f2a6c7}
+:is([data-map-category="activity"],[data-map-legend="activity"]){--marker-color:#f38e65}
+:is([data-map-category="bus"],[data-map-legend="bus"]){--marker-color:#91c9f2}
+:is([data-map-category="subway"],[data-map-legend="subway"]){--marker-color:#b7a0ff}
+:is([data-map-category="bike"],[data-map-legend="bike"]){--marker-color:#74d4b7}
+:is([data-map-category="stamp"],[data-map-legend="stamp"]){--marker-color:#ffd07e}
+.map-swatch{background:var(--marker-color)}
+.map-marker[role="button"]{cursor:pointer}
+.map-marker-hit{fill:transparent;stroke:none}
+.map-marker-dot{fill:var(--marker-color);stroke:#202b25;stroke-width:1.3;vector-effect:non-scaling-stroke}
+.map-marker:is(:hover,:focus-visible) .map-marker-dot{stroke:#fff3d4;stroke-width:2.2}
 .map-key .stamp-dot.unvisited{background:#ffd07e28;box-shadow:0 0 0 1px #dfc8959c}
 #stamp-pins circle{fill:#ffe1a339;stroke:#ead3a5ad;stroke-width:1.35;vector-effect:non-scaling-stroke;cursor:pointer}
-#stamp-pins circle.collected{fill:#ffd07e;stroke:#543629}
-#stamp-pins circle:hover,#stamp-pins circle.selected{fill:var(--gold-1);stroke:var(--gold-9)}
-.game-map-pin{cursor:pointer}
-.game-map-pin path{fill:#9de2cc;stroke:var(--pine-6);stroke-width:1.4;vector-effect:non-scaling-stroke}
-.game-map-pin text{fill:#d1f5e6;stroke:var(--pine-4);stroke-width:3;paint-order:stroke;stroke-linejoin:round;font-size:12px;font-weight:750}
-.game-map-pin:hover path,.game-map-pin.selected path{fill:var(--gold-1)}
-.game-map-pin:hover text,.game-map-pin.selected text{fill:var(--gold-1)}
+#stamp-pins circle.collected{fill:var(--marker-color);stroke:#543629}
+#stamp-pins circle:is(:hover,:focus-visible,.selected){fill:var(--gold-1);stroke:var(--gold-9)}
 #map-game-destinations{display:grid;gap:8px}
 #map-game-destinations button{display:grid;gap:2px;justify-items:start;text-align:left;white-space:normal}
 #map-game-destinations span{color:var(--muted);font-size:12px;font-weight:500}
@@ -408,8 +418,8 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 .character-options fieldset{min-width:0;margin:0;padding:0;border:0}
 .character-options legend{color:var(--gold-2);font-size:13px;font-weight:650;margin-bottom:4px}
 .options-row{display:flex;gap:5px;flex-wrap:wrap}
-.character-tabs{display:flex;gap:3px;padding:4px;overflow-x:auto;scrollbar-width:none;background:var(--pine-2);border:1px solid var(--pine-6);border-radius:12px}
-.character-options .character-tabs button{flex:1 1 auto;min-height:38px;padding:4px 7px;font-size:13px;background:transparent;border-color:transparent;color:var(--sage-2)}
+.character-tabs{display:flex;flex-wrap:wrap;gap:3px;padding:4px;background:var(--pine-2);border:1px solid var(--pine-6);border-radius:12px}
+.character-options .character-tabs button{flex:1 0 auto;min-height:44px;padding:4px 7px;font-size:13px;background:transparent;border-color:transparent;color:var(--sage-2)}
 .character-options .character-tabs button[aria-pressed="true"]{background:var(--pine-5);border-color:var(--pine-7);color:var(--ivory-1)}
 .character-options fieldset[data-look-group]{min-height:148px}
 .character-options fieldset[data-look-group] legend{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
@@ -876,8 +886,6 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 @keyframes ride-door-right{0%,24%{transform:translateX(0)}32%,44%{transform:translateX(18px)}52%,100%{transform:translateX(0)}}
 @media (prefers-reduced-motion:reduce){.transit,.transit-track i,.ride-train,.ride-tunnel,.ride-door-left,.ride-door-right{animation:none}}
 
-.gyeongbok-label{font-size:21px;stroke-width:5px}
-.plaza-map-label{font-size:17px;stroke-width:4px}
 
 .fullscreen-tools,.desktop-tools{display:none}
 @media (width > 810px) and (not (pointer:coarse)){

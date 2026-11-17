@@ -28,17 +28,19 @@ const storefronts={
   highball:{subtitle:"HIGHBALL",wall:0xa79786,paint:0x405761,counter:0x9f835f,glass:0xdbd6a9,sign:"#324753",ink:"#fae4af"}
 };
 const avenueShops=[
-  ["coffee","세종로 로스터리",-58.6,109,11.2],
-  ["cake","오후 케이크",-58.6,125,11.2],
-  ["wine","와인 서가",-58.6,279],
-  ["churu","광화문 편의점",-57.8,303],
+  // West frontage gaps. Leave the garden verge (282–338) and the arcade entrance clear.
+  ["churu","광화문 편의점",-58.6,23],
+  ["coffee","세종로 로스터리",-58.6,115,11.2],
+  ["wine","와인 서가",-58.6,269],
+  ["bungeoppang","정류장 붕어빵",-58.6,393],
+  // East frontage between the existing city buildings, with space for the through sidewalk.
+  ["cake","오후 케이크",52.1,100.5,11.2],
+  ["highball","광장 하이볼",52.1,133,11.2],
+  ["coffee","광장 앞 커피",52.1,232,11.2],
   ["churu","세종로 편의점",51.2,340],
-  ["coffee","광장 앞 커피",-58.6,348],
-  ["bungeoppang","정류장 붕어빵",-58.6,368],
-  ["highball","광장 하이볼",-58.6,388],
-  ["coffee","의정부지 앞 카페",52.1,438],
-  ["bingsu","육조길 빙수",52.1,457],
-  ["wine","육조길 와인",52.1,476]
+  ["coffee","의정부지 앞 카페",52.1,433,10.2],
+  ["bingsu","육조길 빙수",52.1,452,11.2],
+  ["wine","육조길 와인",52.1,512,11.2]
 ].map(([kind,name,east,north,width])=>({
   ...(kind==="churu"?{w:7.8,d:5.7,h:3.62}:{w:width??15.94,d:7.2,h:8.4,...storefronts[kind]}),
   ...plazaAt(east,north,name),kind,area:"gwanghwamun",angle:east<0?Math.PI/2:-Math.PI/2

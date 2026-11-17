@@ -12,7 +12,8 @@ import { BUNGEO_STALL } from "./bungeo-data.js";
 import { addBungeoStall, registerBungeoStall } from "./bungeo-world.js";
 import { makeBungeoCustomer } from "./bungeo-customer.js";
 import { ARCADE_GAMES,ARCADE_SITE,registerArcade } from "./arcade-layout.js";
-import { addArcade } from "./arcade-world.js";
+import { addArcadeExterior } from "./arcade-world.js";
+import { poseArcade } from "./arcade-presence.js";
 import { hanbokRental,registerHanbokRental } from "./passport-data.js";
 import { addHanbokRental } from "./wearables-models.js";
 import { assembleMuseum, registerMuseumNavigation, isInsideMuseum, museumOutsideDoor, museumInsideDoor, museumInsideSpawn, stairHeight } from "./museum.js";
@@ -308,8 +309,8 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   const interactionMarkers=makeInteractionMarkers(T,scene,{wx,wz,floorHeight},[
     amenity(BUNGEO_STALL,"붕어빵 굽기"),
     ...stations.map(station=>({...station,kind:"food",label:station.kind==="churu"?"츄르 사기":ITEMS[station.kind].name+" 받기"})),
-    ...[museum,mmcaVenue,...diningVenues].flatMap(venue=>[
-      {...venue.outsideDoor,kind:"enter",label:diningById[venue.id]?"식당 입장":"전시관 입장"},
+    ...[museum,mmcaVenue,ARCADE_SITE,...diningVenues].flatMap(venue=>[
+      {...venue.outsideDoor,kind:"enter",label:venue===ARCADE_SITE?"오락실 입장":diningById[venue.id]?"식당 입장":"전시관 입장"},
       {...venue.insideDoor,kind:"exit",label:"나가기"}
     ]),
     ...diningVenues.map(venue=>({...(venue.kioskPoint??venue.menuPoint),kind:"food",
@@ -434,7 +435,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     yield* gradeAvenueMeshes(T,transportGround,southWorldSurfaceHeight);
     return yield* consolidate(transportRoot,new Set());
   }};
-  let updatePlaza,updateHwangudan,bungeoStall,arcadeRoom,northWildlife,plazaWildlife,southWildlife,buildTurn=false;
+  let updatePlaza,updateHwangudan,bungeoStall,northWildlife,plazaWildlife,southWildlife,buildTurn=false;
   const wildlife=[["jeongdong",jeongdongExtensionBounds],["hwangudan",hwangudanBounds],["bukchon",bukchonBounds]]
     .map(([id,bounds])=>({id,bounds,steps:null,ready:false}));
   const plaza={root:plazaRoot,bounds:plazaBounds,*build(){
@@ -448,7 +449,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     yield* gradeAvenueMeshes(T,plazaRoot.children,southWorldSurfaceHeight);
     yield* addDiningFronts(plazaRoot,"gwanghwamun");
     bungeoStall=addBungeoStall(T,plazaRoot,makeKit(plazaRoot),southWorldSurfaceHeight);
-    arcadeRoom=addArcade(T,plazaRoot,makeKit(plazaRoot),southWorldSurfaceHeight);
+    addArcadeExterior(T,plazaRoot,makeKit(plazaRoot),southWorldSurfaceHeight);
     addMinigameMarkers(T,plazaRoot,kit,["kite"],floorHeight);
     const chunks=yield* consolidate(plazaRoot,new Set([monuments.yiFallback]),foliage.register);
     void loadYiStatue(monuments);
@@ -488,6 +489,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   const indoorsById={
     museum:gallery,
     [mmcaVenue.id]:indoorDistrict(mmcaVenue,()=>import("./mmca-gallery.js"),"buildMmcaGallery"),
+    [ARCADE_SITE.id]:indoorDistrict(ARCADE_SITE,()=>import("./arcade-world.js"),"buildArcadeInterior"),
     ...Object.fromEntries(diningVenues.map(venue=>[venue.id,indoorDistrict(venue,()=>import("./dining-world.js"),"buildDiningInterior")])),
   };
   const indoorDistricts=Object.values(indoorsById);
@@ -978,6 +980,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     outdoors.visible=!indoors;
     for(const district of indoorDistricts)district.view?.setVisible(district===interior);
     interior?.view?.update?.(clock,state.galleryLight??0,service,anchor);
+    interior?.view?.updateArcade?.(state.arcade,now,peers);
     updateServiceTrays(service,clock);
     guideMarker.visible=!indoors&&Math.hypot(anchor.x-ticketGuide.x,anchor.y-ticketGuide.y)<22;
     showMarker.visible=atPlaza&&!indoors&&Math.hypot(anchor.x-plazaShowSpot.x,anchor.y-plazaShowSpot.y)<38;
@@ -1003,7 +1006,6 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       const viewer=indoors?null:anchor;
       updatePlaza(now,night,viewer,fountainShow?.startedAt??0,clock);
       bungeoStall?.update(state.bungeoMolds,clock,viewer,state.bungeoStock,state.bungeoMode);
-      arcadeRoom?.update(state.arcade,clock,viewer);
     }
     bungeoCustomer.update(state.bungeoOrder,!indoors&&plazaRoot.parent===outdoors?anchor:null,now,clock,delta);
     if(hwangudan.root.parent===outdoors)updateHwangudan?.(night);
@@ -1063,6 +1065,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       walkerModels.update(model,diningPose(player),{now,clock,delta,seat:tableSeat,floor,jump:renderedJumpLift(player,clock,floor),emojiTexture,chatTexture,
         turnEase:player===me?1-Math.exp(-delta*22):1});
       minigameWorld.pose(player,model,state.photoCapture);
+      if(insideId===ARCADE_SITE.id)poseArcade(player===me?state.arcade:player.arcade,model);
       if(model.label)model.label.visible=!state.photoCapture;
     });
     minigameWorld.live(models,indoors||state.photoCapture?null:state.minigameAimPreview);
@@ -1096,7 +1099,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       camera.rotateZ(fallWeight*.62);
       cameraDistance=0;
     }else{
-      const ceiling=diningById[insideId]?4.5:4.97;
+      const ceiling=insideId===ARCADE_SITE.id?3.74:diningById[insideId]?4.5:4.97;
       const distance=Math.min(outsideBus?11.8-view.zoom*1.15:4.55-view.zoom*.42,indoors&&arm.y>0?(ceiling-pivot.y)/arm.y:Infinity);
       let available=distance;
       // Shorten the orbit arm at walls and let it ease back out as space opens.
@@ -1128,10 +1131,21 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       cameraDistance=0;
     }else if(state.arcade?.kind==="claw"||state.arcade?.kind==="basket"){
       const claw=state.arcade.kind==="claw",machine=ARCADE_GAMES[state.arcade.kind].machine;
-      const fov=camera.aspect<.75?69:53,ground=southWorldSurfaceHeight(ARCADE_SITE.body);
-      const distance=Math.max(claw?2.56:3.0,1.27/(Math.tan(fov*Math.PI/360)*camera.aspect)+.23);
-      camera.position.set(wx(machine.x)+distance,ground+(claw?2.15:2.04),wz(machine.y));
-      camera.lookAt(wx(machine.x),ground+(claw?1.20:1.15),wz(machine.y));
+      const fov=camera.aspect<.80?(claw?76:71):57;
+      if(claw){
+        const yaw=(view.pan-270)*Math.PI/180;
+        const framing=1.24/(Math.tan(fov*Math.PI/360)*camera.aspect)+.72;
+        const distance=Math.max(1.95,Math.min(4.46,Math.max(2.64,framing)-view.zoom*.24));
+        const x=Math.min(ARCADE_SITE.bounds.maxX-.22,machine.x+Math.cos(yaw)*distance);
+        const y=Math.max(ARCADE_SITE.bounds.minY+.23,Math.min(ARCADE_SITE.bounds.maxY-.23,machine.y+Math.sin(yaw)*distance));
+        camera.position.set(wx(x),Math.max(1.57,Math.min(3.52,2.28+view.tilt*.026)),wz(y));
+        camera.lookAt(wx(machine.x),1.53,wz(machine.y));
+      }else{
+        const heading=view.pan*Math.PI/180,tilt=view.tilt*Math.PI/180;
+        camera.position.set(wx(machine.x+2.81),1.62,wz(machine.y));
+        gaze.set(Math.sin(heading)*Math.cos(tilt),-Math.sin(tilt),-Math.cos(heading)*Math.cos(tilt));
+        camera.lookAt(gaze.add(camera.position));
+      }
       if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix();}
       cameraDistance=0;
     }else if(state.photoCamera){
@@ -1270,7 +1284,8 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     return renderer.domElement.toDataURL("image/jpeg",.92);
   }
   const renderStats=()=>({...renderer.info.render,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,
-    areas:{plaza:Boolean(plaza.chunks),palace:Boolean(palace.chunks),museum:Boolean(gallery.chunks)}});
+    areas:{plaza:Boolean(plaza.chunks),palace:Boolean(palace.chunks),
+      ...Object.fromEntries(Object.entries(indoorsById).map(([id,district])=>[id,Boolean(district.chunks)]))}});
   return {render,pick,pickBungeo,previewWalker,clearChat,floorHeight,groundHeight,renderStats,snapshot,capturePhoto,
     benches,stations,parkLife,birds,palacePeople,museum,underDoldamAwning};
 }

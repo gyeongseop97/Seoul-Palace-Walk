@@ -54,6 +54,7 @@ import {isPicnicItem} from "./picnic-data.js";
 import {BUNGEO_BURN_MS,BUNGEO_CUSTARD_ITEM,BUNGEO_GIFT_REACH,BUNGEO_ITEMS,BUNGEO_MOLD_COUNT,BUNGEO_STALL,BUNGEO_STOCK_CAPACITY,bungeoStep} from "./bungeo-data.js";
 import {ARCADE_GAMES,ARCADE_PUMP,ARCADE_SITE} from "./arcade-layout.js";
 import {bindArcade} from "./arcade-client.js";
+import {arcadeSnapshot,visibleArcade} from "./arcade-presence.js";
 import {ITEM_SLOTS,handLabel,itemAnimating,freeItemSlot,handsFree} from "./held-items.js";
 import {BIKE_FALL_DURATION_MS,GESTURE_DURATIONS,SICK_DURATION_MS,bikeFallChance,finishAlcoholSip} from "./avatar-gestures.js";
 
@@ -127,7 +128,7 @@ profileChoices.find(option=>option.value===me.character).checked=true;
 const photoAlbum=bindPhotoAlbum($("photo-album")),tutorial=bindTutorial($("tutorial-card"));
 const diningById=Object.fromEntries(diningVenues.map(venue=>[venue.id,venue]));
 const diningRegion={jeongdong:"덕수궁",gwanghwamun:"광화문광장",bukchon:"북촌"};
-const venueById={ [mmcaVenue.id]:mmcaVenue,...diningById };
+const venueById={ [mmcaVenue.id]:mmcaVenue,[ARCADE_SITE.id]:ARCADE_SITE,...diningById };
 const guestbook=bindGuestbook({getSession:()=>session,onClose:focusGame,request});
 const diningMenu=bindDiningMenu({onSelectDish:takeMeal});
 const galleryLogKey="seoul-palace-walk:mmca-exhibits";
@@ -367,7 +368,13 @@ function labelPerspective(){
 labelPerspective();
 const sound=makeSound();
 let arcadeReturnView=null;
-const arcade=bindArcade({root:sceneWrap,getAvatar:()=>me,playBeat:(lane,strong)=>sound.arcadeBeat(lane,strong),
+function adjustArcadeAim(pan,tilt){
+  const claw=arcade.kind==="claw",panLimit=claw?88:24;
+  ownView={...ownView,pan:Math.max(270-panLimit,Math.min(270+panLimit,ownView.pan+pan)),
+    tilt:Math.max(claw?-26:-22,Math.min(claw?43:28,ownView.tilt+tilt))};
+  dirty=true;
+}
+const arcade=bindArcade({root:sceneWrap,getAvatar:()=>me,getAim:()=>ownView,onAim:adjustArcadeAim,playBeat:(lane,strong)=>sound.arcadeBeat(lane,strong),
   onStart(kind,point){
     if(!canStartArcade(point))return false;
     const view=ownView;
@@ -376,7 +383,7 @@ const arcade=bindArcade({root:sceneWrap,getAvatar:()=>me,playBeat:(lane,strong)=
   },
   onStop(){
     if(arcadeReturnView)ownView=arcadeReturnView;
-    arcadeReturnView=null;resetInput();focusGame();
+    arcadeReturnView=null;resetInput();focusGame();dirty=true;wakeSync();
   }
 });
 let strideLeft=1.2,nextStep=0,nextBird=0,nextCat=0,nextCricket=0,nextBusSound=0,nextDrum=0,ceremonyAnnounced=-1;
@@ -521,7 +528,7 @@ function applyLookPatch(patch){
 function applyProfile(profile){
   nickname.value=profile.nickname;
   localStorage.setItem("jeongdong-nickname",profile.nickname);
-  chooseCharacter(profile.character);applyLookPatch(profile.look);
+  chooseCharacter(profile.character);applyLookPatch({...LOOK_DEFAULTS,...profile.look});
   profileChoices.find(option=>option.value===me.character).checked=true;
   if(session)toast("옷차림을 적용했어요. 이어서 입장하면 저장한 닉네임이 표시돼요.");
 }
@@ -539,7 +546,7 @@ characterOptions.forEach(option=>option.addEventListener("click",()=>chooseChara
 appearanceOptions.forEach(option=>option.addEventListener("click",()=>{
   const {feature,option:choice}=option.dataset;
   if(me.look[feature]===choice)return;
-  me.look={...me.look,[feature]:choice};saveAppearance();
+  applyLookPatch({[feature]:choice});
 }));
 function setEmotes(open){
   if(open){nearbyControls.close();peerControls.close();setGestures(false);}
@@ -878,7 +885,7 @@ function wakeSync(){
 }
 function syncCadence(){
   const fast=dirty||myLink()||queuedHand||queuedSignal||queuedFeed||queuedChat||queuedBus||queuedBike||seatClaim||moving(me)||me.blocked||
-    queuedShow||queuedClink||queuedPhoto||queuedMinigame||queuedPicnic||queuedDining||bungeoQueue.length||
+    queuedShow||queuedClink||queuedPhoto||queuedMinigame||queuedPicnic||queuedDining||bungeoQueue.length||arcade.kind||
     [...people.values()].some(person=>moving(person.avatar)||person.avatar.blocked);
   if(fast)return movingCadence();
   return session.mode==="open"?(people.size?195+Math.min(55,Math.max(0,people.size-5)*5):330):
@@ -894,10 +901,13 @@ async function sync(){
   const show=queuedShow,clink=queuedClink,photo=queuedPhoto,minigame=queuedMinigame,picnicCommand=queuedPicnic;
   const bungeo=bungeoQueue[0],bungeoWatch=Boolean(bungeo||near(BUNGEO_STALL,me.x,me.y)<=BUNGEO_STALL.watchRadius);
   syncStarted=sent;
-  const post=dirty||signal||hand||claim||feed||chat||bus||bike||show||clink||photo||minigame||picnicCommand||dining||bungeo||Date.now()-lastPost>=3800;
+  const sincePost=Date.now()-lastPost;
+  const post=dirty||signal||hand||claim||feed||chat||bus||bike||show||clink||photo||minigame||picnicCommand||dining||bungeo||
+    sincePost>=(arcade.kind?125:3800);
   const base={room:visit.room,id:visit.id,key:visit.key,lookPings:true,
     bikeOffers:isBikeDriver(me)||Boolean(tandemOffer),diningVenue:serviceVenue,...(bungeoWatch?{bungeoWatch}:null)};
   const avatar=post?{...me,catFriends:passport.friendlyCatIds()}:null;
+  if(avatar&&arcade.kind)avatar.arcade=arcadeSnapshot(arcade.state(sent));
   if(avatar&&claim)Object.assign(avatar,{seat:claim.bench,seatSide:claim.side});
   if(avatar){if(chat)avatar.chat=chat;else delete avatar.chat;}
   if(avatar&&(avatar.wish===lastWishSynced||gameTime(sent)-avatar.wish>=WISH_FLIGHT_MS))delete avatar.wishArt;
@@ -1333,9 +1343,10 @@ function busShortcut(id,label){
   return {label,aria:`${stop.name}으로 순간이동`,...stop.board,name:stop.name};
 }
 const shortcutButtons=["entrance-target","fountain-target","palace-target","stop-target","plaza-bus-target"];
+const jeongdongFountainApproach={x:fountain.x+4.8,y:fountain.y+5.3};
 const mapDestinations=[
   {label:"매표소",aria:"매표소로 순간이동",...ticketApproach,x:ticketApproach.x+1,y:ticketApproach.y-2.4,heading:entranceHeading},
-  {label:"분수대",aria:"정동 분수대로 순간이동",name:"정동 분수대",x:fountain.x+4.8,y:fountain.y+5.3,heading:318},
+  {label:"분수대",aria:"정동 분수대로 순간이동",name:"정동 분수대",...jeongdongFountainApproach,heading:318},
   {label:"중화전",aria:"중화전으로 순간이동",...court,heading:normalize(Math.atan2(hall.x-court.x,court.y-hall.y)*180/Math.PI)},
   {label:"교통편",aria:"시청역 2번 출구로 순간이동",...cityHallStation.arrive,name:cityHallStation.name},
   busShortcut("deoksugung","정류장")
@@ -1471,8 +1482,8 @@ window.addEventListener("keyup",event=>{
   keys.delete(event.key.length===1?event.key.toLowerCase():event.key);
 });
 function walkFromMap(event,source=event.target){
-  const game=gameMapSites.get(source.closest("[data-game-site]")?.dataset.gameSite);
-  if(game){showMapRoute(game);return;}
+  const site=mapPlaces[Number(source.closest("[data-map-place]")?.dataset.mapPlace)];
+  if(site){showMapRoute(site,{fit:false});return;}
   const stamp=stampById.get(source.closest("[data-stamp-id]")?.dataset.stampId);
   if(stamp){showMapRoute(stamp);return;}
   const target=source.closest("[data-walk-x]"),matrix=$("world").getScreenCTM();
@@ -1482,6 +1493,10 @@ function walkFromMap(event,source=event.target){
   walkTo(point);setMap(false);
 }
 $("world").addEventListener("click",walkFromMap);
+$("world").addEventListener("keydown",event=>{
+  if(!["Enter"," "].includes(event.key)||!event.target.matches("[data-map-place],[data-stamp-id]"))return;
+  event.preventDefault();event.stopPropagation();walkFromMap(event);
+});
 const clearSceneTouch=bindSceneTouch($("game"),gameShell,{
   canTap:started=>Boolean(session&&!photoMode.camera&&thumbId===undefined&&!keys.size&&started>manualInputAt),
   onBegin:()=>{setEmotes(false);focusGame();},
@@ -1492,18 +1507,20 @@ const clearSceneTouch=bindSceneTouch($("game"),gameShell,{
       else if(target?.cavity!==undefined)useBungeoMold(target.cavity,false);
       return;
     }
+    if(arcade.frozen)return;
     const target=world?.pick(x,y);
     if(target?.guide&&nearVisitorGuide())openVisitorGuide();
     else walkTo(target);
   },
   onDrag:(dx,dy)=>{
-    if(bungeoMode||arcade.frozen)return;
+    if(bungeoMode||arcade.kind==="pump")return;
     if(photoMode.camera){photoMode.drag(dx,dy);return;}
+    if(arcade.frozen){adjustArcadeAim(dx*.34,dy*.26);return;}
     ownView={...ownView,pan:normalize(ownView.pan+dx*.34),
       tilt:Math.max(-87,Math.min(firstPerson?65:48,ownView.tilt+dy*.26))};
     dirty=true;
   },
-  onPinch:delta=>{if(!bungeoMode&&!arcade.frozen)adjustZoom(delta);}
+  onPinch:delta=>{if(!bungeoMode&&(!arcade.frozen||arcade.kind==="claw"))adjustZoom(delta);}
 });
 
 // Absolute height of my feet while airborne or perched on a low structure. On plain ground it
@@ -1673,7 +1690,7 @@ function atIndoorStation(point,reach=2.8){return near(point,me.x,me.y)<reach&&cl
 function portalNearby(){
   if(!world||me.bus||isCycling(me)||queuedBus||queuedBike)return null;
   const inside=interiorAt(me.x,me.y);
-  const venues=inside?[venueAt(inside)]:[world.museum,mmcaVenue,...diningVenues];
+  const venues=inside?[venueAt(inside)]:[world.museum,mmcaVenue,ARCADE_SITE,...diningVenues];
   for(const venue of venues){
     const door=inside?venue?.insideDoor:venue?.outsideDoor;
     if(door&&atIndoorStation(door,2.5))return {inside:Boolean(inside),venue};
@@ -2112,7 +2129,7 @@ venueDoorButton.addEventListener("click",()=>{
 });
 function guestbookVenue(){
   const venue=venueById[interiorAt(me.x,me.y)];
-  return venue&&atIndoorStation(venue.guestbookPoint)?venue:null;
+  return venue?.guestbookPoint&&atIndoorStation(venue.guestbookPoint)?venue:null;
 }
 $("venue-guestbook").addEventListener("click",()=>{
   const venue=guestbookVenue();
@@ -2203,7 +2220,7 @@ function setActivity(id,label,disabled=false){
 }
 const arcadeLabels={claw:"인형뽑기",pump:"펌프 시작",basket:"농구 슛"};
 function canStartArcade(point){
-  return Boolean(session&&world&&!arcade.kind&&!photoMode.camera&&!bungeoMode&&!me.bus&&!isCycling(me)&&!queuedBus&&!queuedBike&&
+  return Boolean(session&&world&&interiorAt(me.x,me.y)===ARCADE_SITE.id&&!arcade.kind&&!photoMode.camera&&!bungeoMode&&!me.bus&&!isCycling(me)&&!queuedBus&&!queuedBike&&
     !riding&&!myLink()?.active&&!feedingLocked(gameTime())&&!sickLocked(gameTime())&&near(point,me.x,me.y)<=point.reach&&
     clearSegment(me,point));
 }
@@ -2533,7 +2550,7 @@ function updateActivities(time,guideNearby){
   const stop=eligible&&nearbyTransit();
   setActivity("subway",stop?"지하철 타기":null,riding||feeding||Boolean(myLink()?.active));
   const portal=eligible&&portalNearby();
-  const entrance=portal?.venue===mmcaVenue?"미술관 입장":diningById[portal?.venue?.id]?"식당 입장":"입장하기";
+  const entrance=portal?.venue===ARCADE_SITE?"오락실 입장":portal?.venue===mmcaVenue?"미술관 입장":diningById[portal?.venue?.id]?"식당 입장":"입장하기";
   setActivity("museum-door",portal?(portal.inside?"나가기":entrance):null,feeding||(!portal?.inside&&Boolean(myLink()?.active)));
   setActivity("venue-guestbook",eligible&&guestbookVenue()?"방명록":null);
   updateDiningControls(eligible,busy,time);
@@ -2644,10 +2661,12 @@ function motion(now,elapsed){
   return leader?leader.stepping||moved:moved||blocked;
 }
 function actors(now,stepping){
+  const time=gameTime(now),inArcade=interiorAt(me.x,me.y)===ARCADE_SITE.id;
   const self={...me,id:session?.id||"preview",stepping,catFriends:passport.friendlyCatIds()},others=new Map();
   for(const person of people.values()){
     others.set(person.id,{...person.avatar,...person.position,id:person.id,nickname:person.nickname,
-      coat:person.coat,stepping:person.stepping,running:person.running,sharedUmbrella:0,umbrellaShelter:null});
+      coat:person.coat,stepping:person.stepping,running:person.running,sharedUmbrella:0,umbrellaShelter:null,
+      arcade:inArcade?visibleArcade(person.arcade,time):null});
   }
   function actor(id){return id===self.id?self:others.get(id);}
   function alignBikePassenger(passenger){
@@ -2673,7 +2692,6 @@ function actors(now,stepping){
     }
     follower.stepping=leader.stepping;follower.running=leader.running;
   }
-  const time=gameTime(now);
   for(const clink of clinks){
     if(!clink.startedAt||time<clink.startedAt||time>=clink.endsAt)continue;
     const first=actor(clink.from),second=actor(clink.to);
@@ -2795,6 +2813,31 @@ function svg(parent,type,attributes,text){
 const outline=points=>points.map(p=>p.x.toFixed(1)+","+p.y.toFixed(1)).join(" ");
 const eastWalkRoute=outline([...corridorEastWalkSpine,...plazaEastWalkSpine.slice(1)]);
 const indoorMaps=[];
+const mapPlaces=[],mapCategory=$("map-category");
+function setMarkerFilter(mark){
+  mark.toggleAttribute("hidden",mapCategory.value!=="all"&&mapCategory.value!==mark.dataset.mapCategory);
+}
+mapCategory.addEventListener("change",()=>{
+  for(const mark of $("map-panel").querySelectorAll("[data-map-category]"))setMarkerFilter(mark);
+  for(const key of $("map-panel").querySelectorAll("[data-map-legend]")){
+    key.hidden=mapCategory.value!=="all"&&mapCategory.value!==key.dataset.mapLegend;
+  }
+});
+function drawMapPoint(layer,point,category,mini=false){
+  if(!point||!point.name)return;
+  const attributes={class:"map-marker","data-map-category":category};
+  if(!mini){
+    attributes["data-map-place"]=mapPlaces.push(point)-1;
+    attributes.role="button";
+    attributes.tabindex="0";
+    attributes["aria-label"]=point.name;
+  }
+  const pin=svg(layer,"g",attributes);
+  if(!mini)svg(pin,"title",{},point.name);
+  if(!mini)svg(pin,"circle",{cx:point.x,cy:point.y,r:"1.7%",class:"map-marker-hit"});
+  svg(pin,"circle",{cx:point.x,cy:point.y,r:mini?1.55:".75%",class:"map-marker-dot"});
+  setMarkerFilter(pin);
+}
 function drawIndoorMap(base,venue,galleries,mini){
   const layer=svg(base,"g",{visibility:"hidden"});
   indoorMaps.push({id:venue.id,layer});
@@ -2811,14 +2854,13 @@ function drawIndoorMap(base,venue,galleries,mini){
     for(const table of diningTables)svg(layer,"rect",{x:venue.center.x+table.x-1.15,y:venue.center.y+table.z-.69,
       width:2.3,height:1.38,rx:.25,fill:"#d0ab79"});
   }
-  const points=[[venue.guestbookPoint,"방명록"],[venue.insideDoor,"출구"]];
+  const points=[[venue.insideDoor,"출구"]];
+  if(venue.guestbookPoint)points.push([venue.guestbookPoint,"방명록"]);
   if(venue.menuPoint)points.push(venue.service==="robot"?[venue.kioskPoint,"키오스크"]:[venue.menuPoint,"카운터"]);
-  for(const [point,label] of points){
-    const mark=svg(layer,"g",{"data-walk-x":point.x,"data-walk-y":point.y});
-    svg(mark,"circle",{cx:point.x,cy:point.y,r:galleries.length?1.3:.68,fill:"#ffdf92"});
-    svg(mark,"text",{x:point.x,y:point.y-(galleries.length?2.25:1.1),fill:"#fff8ec","text-anchor":"middle",
-      "font-size":galleries.length?mini?3.6:2.8:mini?1.65:1.2},label);
+  if(venue.id===ARCADE_SITE.id){
+    for(const [kind,point] of Object.entries(ARCADE_GAMES))points.push([point,arcadeLabels[kind]]);
   }
+  for(const [point,name] of points)if(point)drawMapPoint(layer,{...point,name},"activity",mini);
 }
 let overviewOpen=false,overviewLayer;
 let mapViewport=null;
@@ -2858,23 +2900,18 @@ function drawMap(base,mini=false){
       ...style,
       transform:"rotate("+(-(building.angle||0)*180/Math.PI)+" "+building.x+" "+building.y+")",rx:2});
   }
-  const palaceLabels=mini?["돈덕전","정관헌","함녕전"]:["돈덕전","정관헌","광명문","함녕전","석어당","덕홍전"];
-  for(const point of [...pavilions.filter(building=>palaceLabels.includes(building.name)),palacePond]){
-    svg(base,"text",{x:point.x,y:point.y+2.6,class:mini?"mini-landmark":"map-label","text-anchor":"middle",
-      ...(mini?{}:{style:"font-size:9px;stroke-width:2.6px"})},point===palacePond?"연못":point.name);
-  }
   drawCorridor(base,mini);
-  drawGyeongbok(base,mini);
-  drawPlaza(base,mini);
-  drawExtensionPaths(base,jeongdongExtensionPaths,jeongdongExtensionLandmarks,mini);
-  drawExtensionPaths(base,subwayAccessPaths,[],mini);
+  drawGyeongbok(base);
+  drawPlaza(base);
+  drawExtensionPaths(base,jeongdongExtensionPaths);
+  drawExtensionPaths(base,subwayAccessPaths);
   for(const {outline:points,kind} of hwangudanGround){
     svg(base,"polygon",{points:outline(points),fill:kind==="garden"?"#56734f":kind==="road"?"#4e5351":"#8c8067"});
   }
   for(const building of hwangudanBuildings){
     svg(base,"polygon",{points:outline(building.outline),fill:"#716b5d",stroke:"#ac9c78","stroke-width":.9});
   }
-  drawExtensionPaths(base,hwangudanPaths,hwangudanLandmarks,mini);
+  drawExtensionPaths(base,hwangudanPaths);
   for(const {outline:points,kind} of bukchonPaths){
     svg(base,"polygon",{points:outline(points),fill:kind==="road"?"#4e5351":kind==="stairs"?"#c2b193":kind==="crosswalk"?"#d8d2bf":"#8c8067"});
   }
@@ -2882,10 +2919,9 @@ function drawMap(base,mini=false){
   for(const [surfaces,fill] of [[bukchonLawns,"#647e54"],[mmcaCourtyards,"#aa9c84"],[mmcaLawns,"#647e54"],[mmcaBuildings,"#82776a"]]){
     for(const {outline:points} of surfaces)svg(base,"polygon",{points:outline(points),fill,stroke:"#a99a7d","stroke-width":.65});
   }
-  drawExtensionPaths(base,bukchonPaths.filter(path=>path.kind!=="road"),bukchonLandmarks,mini);
+  drawExtensionPaths(base,bukchonPaths.filter(path=>path.kind!=="road"));
   svg(base,"polyline",{points:eastWalkRoute,fill:"none",stroke:"#ded2a9","stroke-width":mini?1.45:2.6,
     "stroke-linejoin":"round","stroke-dasharray":"3 3","pointer-events":"none"});
-  drawTransport(base,mini);
   const {minX,maxX,minY,maxY}=museumBounds;
   const interior=svg(base,"g",{visibility:"hidden"});
   indoorMaps.push({id:"museum",layer:interior});
@@ -2900,64 +2936,44 @@ function drawMap(base,mini=false){
   }
   svg(interior,"line",{x1:78.4,x2:81.6,y1:maxY,y2:maxY,stroke:"#d4b985","stroke-width":1.6});
   drawIndoorMap(base,mmcaVenue,mmcaGalleryRooms,mini);
+  drawIndoorMap(base,ARCADE_SITE,[],mini);
   for(const venue of diningVenues)drawIndoorMap(base,venue,[],mini);
-  if(mini){
-    for(const [point,label,dy] of [[ticket,"매표소",-6],[hall,"중화전",-6],
-      [stoneHall,"석조전",-6],[fountain,"정동 분수",10],[seoulPlazaApproach,"서울광장",-6]]){
-      svg(base,"circle",{cx:point.x,cy:point.y,r:2.55,fill:"#d9c28e"});
-      svg(base,"text",{x:point.x,y:point.y+dy,class:"mini-landmark","text-anchor":"middle"},label);
-    }
-    return;
-  }
-  for(const [point,label,dx,dy] of [[ticket,"매표소",22,-10],[gate,"대한문",19,19],[bridge,"금천교",-12,-9],
-    [middle,"중화문",0,18],[hall,"중화전",0,-17],[stoneHall,"석조전",0,-23],[stoneFountain,"분수 정원",3,-9],
-    [fountain,"정동 분수",-11,16],[city[3],"정동제일교회",-14,-13],[route[4],"덕수궁 돌담길",15,24]]){
-    svg(base,"circle",{cx:point.x,cy:point.y,r:3.6,fill:"#e1c790"});
-    svg(base,"text",{x:point.x+dx,y:point.y+dy,class:"map-label","text-anchor":"middle"},label);
-  }
-  const seoul=svg(base,"g",{"data-walk-x":seoulPlazaApproach.x,"data-walk-y":seoulPlazaApproach.y});
-  svg(seoul,"circle",{cx:seoulPlazaApproach.x,cy:seoulPlazaApproach.y,r:3.6,fill:"#e1c790"});
-  svg(seoul,"text",{x:seoulPlazaApproach.x-11,y:seoulPlazaApproach.y-9,class:"map-label","text-anchor":"middle"},"서울광장");
-  const activities=[
-    {...buskingSpot,y:buskingSpot.y+2.5},{...hanbokRental,name:"한복 대여소"},
-    ...traditionalGames.map(game=>({...game.point,name:game.name}))
-  ];
-  for(const point of activities){
-    const mark=svg(base,"g",{"data-walk-x":point.x,"data-walk-y":point.y});
-    svg(mark,"circle",{cx:point.x,cy:point.y,r:3.6,fill:"#d6ae83",stroke:"#513e32","stroke-width":1});
-    svg(mark,"text",{x:point.x,y:point.y-9,class:"map-label","text-anchor":"middle",
-      style:"font-size:11px;stroke-width:2.5px"},point.name);
-  }
-  svg(base,"text",{x:548,y:94,class:"map-faint","text-anchor":"middle"},"↑ N");
+  if(!mini)svg(base,"text",{x:548,y:94,class:"map-faint","text-anchor":"middle"},"↑ N");
+  drawMapPoints(mini?base:$("map-points"),mini);
 }
 function drawTransport(base,mini){
-  for(const [points,color] of [[bikeDocks.map(dock=>({...dock.access,name:dock.name})),"#8ed7a2"],
-    [busStops.map(stop=>({...stop.board,name:`${stop.name} · ${stop.direction}`,label:stop.id==="bukchon-terminal"?"돌계단길 정류장":""})),"#91c9f2"]]){
-    for(const point of points){
-      const mark=svg(base,"g",mini?{}:{"data-walk-x":point.x,"data-walk-y":point.y});
-      svg(mark,"circle",{cx:point.x,cy:point.y,r:mini?4.2:5.8,fill:color,stroke:"#18291f","stroke-width":mini?1:1.5});
-      if(!mini)svg(mark,"title",{},point.name);
-      if(!mini&&point.label)svg(mark,"text",{x:point.x-9,y:point.y+4,class:"map-label","text-anchor":"end"},point.label);
-    }
-  }
-  for(const stop of transitStops){
-    if(stop.mode!=="subway")continue;
-    const point=stop.arrive,mark=svg(base,"g",mini?{}:{"data-walk-x":point.x,"data-walk-y":point.y});
-    const r=mini?2.8:4.8;
-    svg(mark,"rect",{x:point.x-r,y:point.y-r,width:r*2,height:r*2,rx:r*.38,fill:"#a68be3",stroke:"#211c36","stroke-width":.8});
-    if(!mini)svg(mark,"title",{},stop.name);
-  }
+  for(const dock of bikeDocks)drawMapPoint(base,{...dock.access,name:dock.name},"bike",mini);
+  for(const stop of busStops)drawMapPoint(base,{...stop.board,name:`${stop.name} · ${stop.direction}`},"bus",mini);
+  for(const stop of transitStops)if(stop.mode==="subway")drawMapPoint(base,{...stop.arrive,name:stop.name},"subway",mini);
 }
-function drawExtensionPaths(base,paths,sites,mini){
+function drawMapPoints(base,mini){
+  const plazaHeritage=["woldae","yi","sejong","ruins"];
+  const heritage=[
+    ...pavilions,...gbSites,...corridorLandmarks,...jeongdongExtensionLandmarks,...hwangudanLandmarks,
+    ...bukchonLandmarks.filter(point=>!point.name.includes("쉼터")),...plazaHeritage.map(key=>plazaSites[key]),
+    ...[[gate,"대한문"],[bridge,"금천교"],[middle,"중화문"],[hall,"중화전"],[stoneHall,"석조전"],
+      [city[3],"정동제일교회"]].map(([point,name])=>({...point,name}))
+  ];
+  const parks=[
+    ...Object.entries(plazaSites).filter(([key])=>key!=="gate"&&!plazaHeritage.includes(key)).map(([,point])=>point),
+    ...bukchonLandmarks.filter(point=>point.name.includes("쉼터")),
+    {...fountain,approach:jeongdongFountainApproach},
+    ...[[stoneFountain,"분수 정원"],[palacePond,"연못"],[route[4],"덕수궁 돌담길"],
+      [seoulPlazaApproach,"서울광장"],[palaceAt(112,-111),"의정부지 역사유적광장"]].map(([point,name])=>({...point,name}))
+  ];
+  const activities=[
+    {...ticketApproach,name:"매표소"},{...buskingSpot,y:buskingSpot.y+2.5},{...hanbokRental,name:"한복 대여소"},
+    ...traditionalGames.map(game=>({...game.point,id:game.id,name:game.name}))
+  ];
+  for(const [category,points] of [["heritage",heritage],["park",parks],["activity",activities]]){
+    for(const point of points)drawMapPoint(base,point,category,mini);
+  }
+  drawTransport(base,mini);
+}
+function drawExtensionPaths(base,paths){
   for(const {points,width,kind,surface} of paths){
     svg(base,"polyline",{points:outline(points),fill:"none",stroke:kind==="crossing"?"#e0d8bc":surface==="deck"?"#af805d":"#af9e7e",
       "stroke-width":Math.max(1,width*.74),"stroke-opacity":.8,"stroke-linecap":"round","stroke-linejoin":"round","pointer-events":"none"});
-  }
-  for(const [index,site] of sites.entries()){
-    const mark=svg(base,"g",mini?{}:{"data-walk-x":site.x,"data-walk-y":site.y});
-    svg(mark,"circle",{cx:site.x,cy:site.y,r:mini?2.1:3.2,fill:"#e1c790"});
-    if(!mini||index===0)svg(mark,"text",{x:site.x+4,y:site.y-5,class:mini?"mini-landmark":"map-label",
-      style:"font-size:9px;stroke-width:2.5px"},site.name);
   }
 }
 function drawCorridor(base,mini){
@@ -2966,12 +2982,6 @@ function drawCorridor(base,mini){
   for(const crossing of corridorCrossings)svg(base,"polygon",{points:outline(crossing.outline),fill:"#c7c0aa"});
   svg(base,"polyline",{points:outline(corridorWalkSpine),fill:"none",stroke:"#d7c291","stroke-width":mini?1.15:2.6,
     "stroke-linejoin":"round","stroke-dasharray":"3 3"});
-  for(const [index,point] of corridorLandmarks.entries()){
-    const side=index%2?1:-1;
-    svg(base,"circle",{cx:point.x,cy:point.y,r:mini?1.5:3,fill:"#e1c790"});
-    svg(base,"text",{x:point.x+(mini?0:side*10),y:point.y+(mini?-3.5:4),class:mini?"mini-landmark":"map-label plaza-map-label",
-      "text-anchor":mini?"middle":side===1?"start":"end"},point.shortName??point.name);
-  }
 }
 function drawOverview(base){
   const layer=svg(base,"g",{visibility:"hidden"});
@@ -2990,7 +3000,7 @@ function drawOverview(base){
 }
 
 // The detailed views crop the same continuous world around each district.
-function drawGyeongbok(base,mini){
+function drawGyeongbok(base){
   const box=(west,east,south,north)=>{
     const a=palaceAt(west,north),b=palaceAt(east,south);
     return {x:a.x,y:a.y,width:b.x-a.x,height:b.y-a.y};
@@ -3000,10 +3010,6 @@ function drawGyeongbok(base,mini){
   svg(base,"rect",{...box(gbUijeongbu.west,gbUijeongbu.east,gbUijeongbu.south,gbUijeongbu.north),fill:"#55704c",stroke:"#929283","stroke-width":1.6,rx:4});
   svg(base,"rect",{...box(gbBusIsland.west,gbBusIsland.east,gbBusIsland.south,gbBusIsland.north),fill:"#766c5a",rx:3});
   for(const crossing of gbCrossings)svg(base,"rect",{...box(crossing.west,crossing.east,crossing.south,crossing.north),fill:"#d8d2bf",opacity:.85});
-  if(!mini){
-    const label=palaceAt((gbUijeongbu.west+gbUijeongbu.east)/2,(gbUijeongbu.south+gbUijeongbu.north)/2);
-    svg(base,"text",{x:label.x,y:label.y+4,class:"map-label gyeongbok-label","text-anchor":"middle"},"의정부지 광장");
-  }
   svg(base,"polygon",{points:outline(gbWallOutline),fill:"#465248",stroke:"#929283","stroke-width":2.6});
   for(const {kind,west,east,south,north} of gbLawns){
     const grass=clipGbGround(west,east,south,north);
@@ -3026,22 +3032,8 @@ function drawGyeongbok(base,mini){
       fill:building.kind==="museum"?"#6f7468":"#827659",stroke:"#aa9774","stroke-width":1,rx:2,
       transform:"rotate("+(-(building.angle||0)*180/Math.PI)+" "+building.x+" "+building.y+")"});
   }
-  const labels=mini?["광화문","흥례문","근정전","교태전","경회루","자경전","향원정","건청궁","국립고궁박물관"]:
-    ["광화문","흥례문","근정전","강녕전","교태전","경회루","자경전","향원정","건청궁","집옥재","국립고궁박물관","국립민속박물관",
-      "계조당","소주방","흥복전","함화당","태원전","장고"];
-  for(const building of gbSites.filter(spec=>labels.includes(spec.name))){
-    svg(base,"text",{x:building.x,y:building.y+(mini?building.d/2+6:building.d/2+22),class:mini?"mini-landmark":"map-label gyeongbok-label",
-      "text-anchor":"middle"},mini&&building.name==="국립고궁박물관"?"고궁박물관":building.name);
-  }
-  for(const stop of transitStops){
-    if(stop.mode!=="subway"||inGwanghwamunPlaza(stop.x,stop.y))continue;
-    const big=!mini&&inGyeongbok(stop.x,stop.y);
-    svg(base,"circle",{cx:stop.x,cy:stop.y,r:mini?1.9:big?7:3,fill:"#f1d8a6",stroke:"#513e32","stroke-width":mini?.6:big?2:.9});
-    svg(base,"text",{x:stop.x,y:stop.y-(mini?3.2:big?12:5),class:mini?"mini-landmark":big?"map-label gyeongbok-label":"map-label","text-anchor":"middle",
-      ...(mini||big?{}:{style:"font-size:8.5px;stroke-width:2.2px"})},mini?"지하철":stop.name);
-  }
 }
-function drawPlaza(base,mini){
+function drawPlaza(base){
   const northRoad=plazaAt(-310,sajikRoad.north),crosswalk=plazaAt(sajikRoad.crossX-sajikRoad.crossWidth/2,sajikRoad.north);
   svg(base,"rect",{x:northRoad.x,y:northRoad.y,width:620,height:sajikRoad.north-sajikRoad.south,fill:"#3a4240"});
   svg(base,"rect",{x:crosswalk.x,y:crosswalk.y,width:sajikRoad.crossWidth,height:sajikRoad.north-sajikRoad.south,fill:"#c7c0aa"});
@@ -3054,18 +3046,6 @@ function drawPlaza(base,mini){
   for(const {points,width,surface} of plazaPaths){
     svg(base,"polyline",{points:outline(points),fill:"none",stroke:surface==="stone"?"#b9ad90":"#9f9679",
       "stroke-width":width,"stroke-linecap":"round","stroke-linejoin":"round"});
-  }
-  const labels=[["gate","광화문",1],["woldae","월대",-1],["lawn","육조마당",-1],["pine","소나무정원",-1],
-    ["time","시간의 정원",1],["gratitude","감사의 정원",-1],["sejong","세종대왕",1],
-    ["play","놀이마당",-1],["haechi","해치마당",1],["hangeul","한글분수",-1],
-    ["yi","이순신",1],["myeongnyang","명량분수",1]];
-  const miniLabels=new Set(["lawn","time","sejong","haechi","hangeul","yi","myeongnyang"]);
-  for(const [key,label,side] of labels){
-    const point=plazaSites[key];
-    svg(base,"circle",{cx:point.x,cy:point.y,r:mini?1.7:3.6,fill:"#e1c790"});
-    if(!mini)svg(base,"line",{x1:point.x+side*4,y1:point.y,x2:point.x+side*11,y2:point.y,stroke:"#c2b58c","stroke-width":1});
-    if(!mini||miniLabels.has(key))svg(base,"text",{x:point.x+(mini?0:side*14),y:point.y+(mini?-5:4),class:mini?"mini-landmark":"map-label plaza-map-label",
-      "text-anchor":mini?"middle":side===1?"start":"end"},label);
   }
 }
 const gyeongbokViewBox=[42,gbBounds.minY-24,gbBounds.maxX-20,1098].join(" ");
@@ -3105,22 +3085,40 @@ function mapRegionAt(point,inside,overview){
 }
 const mapRoutePanel=$("map-route"),mapRoutePath=$("map-route-path"),mapRouteEnd=$("map-route-end");
 const mapRouteWalk=$("map-route-walk");
-function showMapRoute(site){
+function showMapRoute(site,{fit=true}={}){
   if(!session)return;
   resetInput();
   mapRoute={site,start:{x:me.x,y:me.y},steps:[]};
-  refreshMapRoute(true);
+  refreshMapRoute(fit);
   setMap(true);
   $("world").focus({preventScroll:true});
   $("map-panel").scrollIntoView({block:"nearest"});
+}
+function mapRouteDestination(site){
+  if(site.approach)return site.approach;
+  if(walkable(site.x,site.y,platformAt(site.x,site.y)+.19))return site;
+  const angle=site.angle??0,c=Math.cos(angle),s=Math.sin(angle);
+  const width=(site.w??0)/2,depth=(site.d??0)/2;
+  for(const padding of [2,5,10,18,30,48]){
+    const candidates=[];
+    for(let i=0;i<8;i++){
+      const bearing=i*Math.PI/4;
+      const along=Math.cos(bearing)*(width+padding),across=Math.sin(bearing)*(depth+padding);
+      const point={x:site.x+c*along+s*across,y:site.y-s*along+c*across};
+      if(walkable(point.x,point.y,platformAt(point.x,point.y)+.19))candidates.push(point);
+    }
+    if(candidates.length)return candidates.sort((a,b)=>near(me,a.x,a.y)-near(me,b.x,b.y))[0];
+  }
+  return site;
 }
 function refreshMapRoute(fit=false){
   const guide=mapRoute;
   guide.inside=interiorAt(me.x,me.y);
   guide.indoors=Boolean(guide.inside);
-  guide.destination=guide.indoors?venueAt(guide.inside)?.insideDoor:guide.site;
+  guide.leaving=guide.indoors&&interiorAt(guide.site.x,guide.site.y)!==guide.inside;
   guide.start={x:me.x,y:me.y};
   guide.loading=!world&&!worldFailed;
+  guide.destination=guide.leaving?venueAt(guide.inside)?.insideDoor:guide.loading?guide.site:mapRouteDestination(guide.site);
   guide.walking=false;
   guide.steps=guide.destination&&!guide.loading?walkingSteps(guide.destination):[];
   const end=guide.steps.at(-1);
@@ -3154,9 +3152,9 @@ function drawMapRoute(){
   let length=0;
   for(let i=1;i<points.length;i++)length+=near(points[i-1],points[i].x,points[i].y);
   const distance=length>=1000?(length/1000).toFixed(1)+"km":Math.ceil(length)+"m";
-  let text=(indoors?"출구까지 ":"도보 약 ")+distance;
+  let text=(guide.leaving?"출구까지 ":"도보 약 ")+distance;
   if(loading)text="도보 경로 찾는 중…";
-  else if(length<.25&&near(destination??guide.site,me.x,me.y)<1.2)text=indoors?"출구":"도착";
+  else if(length<.25&&near(destination??guide.site,me.x,me.y)<1.2)text=guide.leaving?"출구":"도착";
   else if(!steps.length)text="이 위치에서 걸어가는 길을 찾지 못했어요";
   setText($("map-route-distance"),text);
   mapRouteWalk.disabled=!steps.length||length<.25||isCycling(me)||!canWalkTo();
@@ -3185,19 +3183,11 @@ mapRouteWalk.addEventListener("click",()=>{
   setMap(false);focusGame();
 });
 function drawDestinations(world){
-  const layer=$("map-landscape");
-  const doors=[...world.stations,{...BUNGEO_STALL,area:"plaza"},{...ARCADE_SITE,area:"plaza"},{...world.museum.outsideDoor,name:"전시관 입구"},
-    {...mmcaVenue.outsideDoor,name:"국립현대미술관 입구",area:"bukchon"},
-    ...diningVenues.map(venue=>({...venue.outsideDoor,name:venue.name,area:venue.area}))];
-  for(const point of doors){
-    const mark=svg(layer,"g",{"data-walk-x":point.x,"data-walk-y":point.y});
-    const regional=Boolean(point.area);
-    const labelY=point.y-(regional?9:4.6);
-    if(point.area==="gyeongbokgung")svg(mark,"line",{x1:point.x,y1:point.y,x2:point.x,y2:labelY+3,stroke:"#c6aa7a"});
-    svg(mark,"circle",{cx:point.x,cy:point.y,r:regional?4:2.6,fill:"#f1d8a6",stroke:"#513e32","stroke-width":.9});
-    svg(mark,"text",{x:point.x,y:labelY,class:"map-label","text-anchor":"middle",
-      style:regional?"font-size:11px;stroke-width:2.8px":"font-size:8.5px;stroke-width:2.2px"},point.name);
-  }
+  const layer=$("map-points");
+  for(const point of [...world.stations,...diningVenues.map(venue=>({...venue.outsideDoor,name:venue.name}))])drawMapPoint(layer,point,"shop");
+  for(const point of [BUNGEO_STALL,ARCADE_SITE])drawMapPoint(layer,point,"activity");
+  for(const point of [{...world.museum.outsideDoor,name:"덕수궁 전시관 입구"},
+    {...mmcaVenue.outsideDoor,name:"국립현대미술관 입구"}])drawMapPoint(layer,point,"heritage");
 }
 function updateMaps(self,others){
   const area=outdoorMap(self);
@@ -3228,18 +3218,14 @@ function updateMaps(self,others){
     (self.x-miniMapWidth/2).toFixed(1),(self.y-miniMapHeight/2).toFixed(1),miniMapWidth,miniMapHeight
   ].join(" "));
   attr($("stamp-pins"),"visibility",indoors?"hidden":"visible");
+  attr($("map-points"),"visibility",indoors?"hidden":"visible");
   for(const [id,pin] of stampPins){
     const visited=passport.visited(id);
     pin.classList.toggle("collected",visited);
     pin.classList.toggle("selected",id===mapRoute?.site.id);
-    setText(pin.firstElementChild,stampById.get(id).name+(visited?" · 도장 완료":" · 미방문"));
+    const label=stampById.get(id).name+(visited?" · 도장 완료":" · 미방문");
+    setText(pin.firstElementChild,label);attr(pin,"aria-label",label);
     attr(pin,"r",(overview?13:palace?8:plaza||corridor?6:4.8)*Math.sqrt(mapViewport.view.h/mapViewport.base.h));
-  }
-  attr($("map-games"),"visibility",indoors?"hidden":"visible");
-  for(const [id,pin] of gameMapPins){
-    const site=gameMapSites.get(id);
-    attr(pin,"transform",`translate(${site.x} ${site.y}) scale(${mapViewport.view.h/410})`);
-    pin.classList.toggle("selected",id===mapRoute?.site.id);
   }
   if(mapRoute){
     if(mapRoute.inside!==inside||mapRoute.loading&&(world||worldFailed))refreshMapRoute(true);
@@ -3276,8 +3262,10 @@ drawMap($("map-landscape"));overviewLayer=drawOverview($("map-landscape"));
 drawMap($("mini-landscape"),true);
 const stampById=new Map(passportStamps.map(stamp=>[stamp.id,stamp]));
 const stampPins=new Map(passportStamps.map(stamp=>{
-  const pin=svg($("stamp-pins"),"circle",{cx:stamp.x,cy:stamp.y,"data-stamp-id":stamp.id});
+  const pin=svg($("stamp-pins"),"circle",{cx:stamp.x,cy:stamp.y,role:"button",tabindex:"0","aria-label":stamp.name,
+    "data-stamp-id":stamp.id,"data-map-category":"stamp"});
   svg(pin,"title",{},stamp.name);
+  setMarkerFilter(pin);
   return [stamp.id,pin];
 }));
 const gameMapSites=new Map(traditionalGames.map(game=>[game.id,{...game.point,id:game.id,name:game.name}]));
@@ -3289,15 +3277,6 @@ for(const game of traditionalGames){
   button.append(name,place);$("map-game-destinations").append(button);
   button.addEventListener("click",()=>{gameMapDialog.close();showMapRoute(gameMapSites.get(game.id));});
 }
-const gameMapPins=new Map(traditionalGames.map(game=>{
-  const pin=svg($("map-games"),"g",{"data-game-site":game.id,class:"game-map-pin"});
-  svg(pin,"title",{},game.name+" · "+game.place);
-  svg(pin,"path",{d:"M0 -5 5 0 0 5 -5 0Z"});
-  const position=game.id==="tuho"?{x:-8,y:4,"text-anchor":"end"}:
-    game.id==="jegi"?{x:8,y:4,"text-anchor":"start"}:{x:0,y:-8,"text-anchor":"middle"};
-  svg(pin,"text",position,game.name);
-  return [game.id,pin];
-}));
 const savedCode=sessionStorage.getItem("jeongdong-room-code");
 const savedOpen=sessionStorage.getItem("jeongdong-room-mode")==="open";
 if(nickname.value&&(savedCode&&(!suppliedCode||suppliedCode===savedCode)||savedOpen&&!suppliedCode)){

@@ -236,13 +236,14 @@
           <section id="arcade-panel" class="arcade-panel" aria-label="오락실 게임 조작" hidden>
             <div class="arcade-head"><strong id="arcade-title"></strong><button id="arcade-exit" type="button" class="quiet">그만하기</button></div>
             <p id="arcade-status" role="status"></p>
-            <progress id="arcade-beat" aria-label="다음 박자까지" max="1" value="0" hidden></progress>
+            <canvas id="arcade-pump-track" width="360" height="200" role="img" aria-label="판정선으로 내려오는 펌프 화살표" hidden></canvas>
             <div id="arcade-move" class="arcade-move" role="group" aria-label="기계 조작">
               <button type="button" class="quiet" data-arcade-move="left" aria-label="왼쪽">←</button>
               <button type="button" class="quiet" data-arcade-move="up" aria-label="앞">↑</button>
               <button type="button" class="quiet" data-arcade-move="down" aria-label="뒤">↓</button>
               <button type="button" class="quiet" data-arcade-move="right" aria-label="오른쪽">→</button>
             </div>
+            <progress id="arcade-charge" aria-label="던지는 힘" max="1" value="0" hidden></progress>
             <button id="arcade-act" type="button" class="primary" hidden></button>
           </section>
           <section class="photo-controls" id="photo-controls" aria-label="사진 모드" hidden>
@@ -313,6 +314,19 @@
           <h2>산책 지도</h2>
           <div class="top-actions"><button id="overview-map" class="quiet" type="button" aria-pressed="false" aria-controls="world">전체 지도</button><button id="map-games-open" class="quiet" type="button" aria-haspopup="dialog" aria-controls="map-games-dialog">전통놀이</button><button class="pill" id="presence" type="button" aria-label="접속자 목록 열기" aria-haspopup="dialog" aria-controls="roster-dialog"><i aria-hidden="true"></i><span>접속자</span></button><button id="close-map" class="quiet" type="button" aria-label="지도 닫기">×</button></div>
         </div>
+        <label for="map-category" class="map-filter">표시할 장소
+          <select id="map-category" aria-controls="world">
+            <option value="all">전체</option>
+            <option value="heritage">유적·전시</option>
+            <option value="park">정원·광장</option>
+            <option value="shop">상점·식당</option>
+            <option value="activity">즐길거리</option>
+            <option value="bus">버스</option>
+            <option value="subway">지하철</option>
+            <option value="bike">따릉이</option>
+            <option value="stamp">스탬프</option>
+          </select>
+        </label>
         <div id="map-route" class="map-route" hidden>
           <div role="status"><strong id="map-route-name"></strong><span id="map-route-distance"></span></div>
           <button id="map-route-walk" class="quiet" type="button">이 길로 걷기</button>
@@ -325,13 +339,13 @@
               <pattern id="stone" width="20" height="12" patternUnits="userSpaceOnUse"><path d="M0 1h20M0 7h20M5 1v6m10 0v5" stroke="#b59865" stroke-opacity=".5" fill="none"/></pattern>
               <g id="tree"><circle cx="2" cy="4" r="14" fill="#101c18"/><circle r="14" fill="#31493a" stroke="#6c8060" stroke-width="1"/><circle r="6" fill="#435a45"/><circle cx="-3" cy="-4" r="2" fill="#76825b"/></g>
             </defs>
-            <g id="map-landscape" aria-hidden="true"></g>
+            <g id="map-landscape"></g>
+            <g id="map-points"></g>
             <g id="map-route-path" aria-hidden="true" visibility="hidden">
               <polyline/><polyline/>
               <circle id="map-route-end" r="8"/>
             </g>
-            <g id="stamp-pins" aria-hidden="true"></g>
-            <g id="map-games" aria-hidden="true"></g>
+            <g id="stamp-pins"></g>
             <g id="map-people" aria-hidden="true"></g>
             <circle id="parked-bike-pin" r="5.8" fill="#8ed7a2" stroke="#f8e5ac" stroke-width="1.8" visibility="hidden" aria-hidden="true"><title>내가 세워둔 따릉이</title></circle>
             <g id="look-pins" aria-hidden="true"></g>
@@ -340,7 +354,7 @@
           </svg>
             <div class="map-location"><span>현재 위치</span><strong id="location">매표소 앞</strong></div>
         </div>
-        <div class="map-footer"><span class="map-key"><span><i class="dot mine"></i>나</span><span><i class="dot theirs"></i>동행</span><span><i class="dot bus-dot"></i>버스</span><span><i class="dot subway-dot"></i>지하철</span><span><i class="dot bike-dot"></i>따릉이</span><span><i class="dot stamp-dot"></i>찍은 도장</span><span><i class="dot stamp-dot unvisited"></i>미방문 도장</span></span><div class="map-links"><button id="model-credits" class="quiet" type="button" aria-haspopup="dialog">자료 출처</button><button id="entrance-target" class="quiet" type="button" aria-label="매표소로 순간이동">매표소</button><button id="fountain-target" class="quiet" type="button" aria-label="정동 분수대로 순간이동">분수대</button><button id="palace-target" class="quiet" type="button" aria-label="중화전으로 순간이동">중화전</button><button id="stop-target" class="quiet" type="button" hidden>정류장</button><button id="plaza-bus-target" class="quiet" type="button" hidden>정류장</button></div></div>
+        <div class="map-footer"><span class="map-key"><span><i class="dot mine"></i>나</span><span><i class="dot theirs"></i>동행</span><span data-map-legend="heritage"><i class="dot map-swatch"></i>유적·전시</span><span data-map-legend="park"><i class="dot map-swatch"></i>정원·광장</span><span data-map-legend="shop"><i class="dot map-swatch"></i>상점·식당</span><span data-map-legend="activity"><i class="dot map-swatch"></i>즐길거리</span><span data-map-legend="bus"><i class="dot map-swatch"></i>버스</span><span data-map-legend="subway"><i class="dot map-swatch"></i>지하철</span><span data-map-legend="bike"><i class="dot map-swatch"></i>따릉이</span><span data-map-legend="stamp"><i class="dot map-swatch"></i>찍은 도장</span><span data-map-legend="stamp"><i class="dot stamp-dot unvisited"></i>미방문 도장</span></span><div class="map-links"><button id="model-credits" class="quiet" type="button" aria-haspopup="dialog">자료 출처</button><button id="entrance-target" class="quiet" type="button" aria-label="매표소로 순간이동">매표소</button><button id="fountain-target" class="quiet" type="button" aria-label="정동 분수대로 순간이동">분수대</button><button id="palace-target" class="quiet" type="button" aria-label="중화전으로 순간이동">중화전</button><button id="stop-target" class="quiet" type="button" hidden>정류장</button><button id="plaza-bus-target" class="quiet" type="button" hidden>정류장</button></div></div>
       </article>
       <section class="panel desktop-tools" aria-labelledby="desktop-settings-title">
         <h2 id="desktop-settings-title">설정</h2>
@@ -524,7 +538,7 @@
       <section><h3>미술관과 동네 식당</h3><p>북촌의 국립현대미술관 서울에서 서도호, 데이미언 허스트, 론 뮤익 등 역대 전시를 바탕으로 만든 작품을 만나 보세요. 지도에서 한식집과 정동 비스트로, 세종 우동집, 삼청 중화식당을 찾을 수 있어요. 직원이 있는 곳에서는 앉아서 <strong>벨 누르기</strong>를, 키오스크가 있는 곳에서는 주문한 뒤 빈 식탁에 앉아 보세요. 음식이 도착하면 <strong>먹기</strong>를 누르세요. 미술관과 식당에는 같은 방 친구와 함께 쓰는 <strong>방명록</strong>도 있어요.</p></section>
       <section><h3>길에서 만나는 가게</h3><p>광화문에서는 팥빙수·붕어빵·하이볼을, 북촌에서는 꿀떡·매실주를 받아요. 기존 커피, 크레페, 맥주, 약과, 막걸리와 와인도 즐길 수 있어요. 지도에서 가게 이름을 누르면 입구로 걸어갑니다.</p></section>
       <section><h3>광화문 붕어빵 좌판</h3><p><strong>붕어빵 굽기</strong>를 누르면 1인칭에서 도구와 틀을 직접 누를 수 있어요. 반죽통을 집어 빈 틀에 한 칸씩 붓고, 팥이나 슈크림을 골라 담아 보세요. 익은 틀을 눌러 뒤집고 완성품은 판매대에 미리 모아 둘 수 있어요. 주문한 만큼만 건네고 남은 붕어빵은 다음 손님에게 팔 수 있어요.</p></section>
-      <section><h3>광화문 오락실</h3><p>지도에서 광화문 오락실을 찾아 보세요. 기계 앞에서 집게를 움직여 인형을 뽑거나 농구공을 던질 수 있어요. 펌프는 밝아지는 발판을 조이스틱이나 방향키로 이동해 박자에 맞춰 밟아요.</p></section>
+      <section><h3>광화문 오락실</h3><p>지도에서 광화문 오락실을 찾아 보세요. 기계 앞에서 집게를 움직여 인형을 뽑거나 농구공을 던질 수 있어요. 펌프는 내려오는 화살표가 판정선에 겹칠 때 조이스틱이나 방향키로 해당 발판을 밟아요.</p></section>
       <section><h3>고양이와 새</h3><p>고양이에게 천천히 다가가 <strong>쓰다듬기</strong>를 눌러 보세요. 츄르를 들고 기다리면 다가오는 고양이에게 <strong>간식 주기</strong>를 할 수 있어요. 친해진 고양이는 잠깐 멈춰 기다리면 먼저 다가오기도 해요. 산책길에서는 까치와 비둘기가 바닥을 쪼거나 나무에 쉬는 모습도 볼 수 있어요.</p></section>
       <section><h3>잔디밭 피크닉과 우산</h3><p>광화문광장 육조마당 잔디밭에서 <strong>돗자리 펴기</strong>를 누르고 음식이나 음료를 한 몫씩 나눠 보세요. 비나 눈이 오면 가까운 친구에게 <strong>우산 같이 쓰기</strong>를 요청할 수 있어요. 친구가 수락하면 우산을 든 사람이 앞장서요.</p></section>
       <section><h3>친구와 함께</h3><p>오픈서버에서 다른 산책자와 만나거나 초대코드로 친구와 같은 방에 들어오세요. 가까이에서 손을 잡고 벤치에 나란히 앉거나, 둘 다 음료를 들고 <strong>건배하기</strong>를 눌러 보세요. <strong>여기 봐</strong>를 누르면 상대에게 내 위치가 5초 동안 표시돼요.</p></section>
@@ -556,6 +570,8 @@
           <button type="button" data-look-tab="eyes" aria-pressed="false">눈</button>
           <button type="button" data-look-tab="brows" aria-pressed="false">눈썹</button>
           <button type="button" data-look-tab="mouth" aria-pressed="false">입</button>
+          <button type="button" data-look-tab="glasses" aria-pressed="false">안경</button>
+          <button type="button" data-look-tab="beard" aria-pressed="false">수염</button>
           <button type="button" data-look-tab="outfit" aria-pressed="false">옷</button>
         </div>
         <fieldset data-look-group="hair"><legend>헤어스타일</legend><div class="options-row">
@@ -620,6 +636,19 @@
           <button type="button" data-feature="mouth" data-option="calm" aria-pressed="false">다문 입</button>
           <button type="button" data-feature="mouth" data-option="cat" aria-pressed="false">고양이 입</button>
           <button type="button" data-feature="mouth" data-option="pout" aria-pressed="false">오므린 입</button>
+        </div></fieldset>
+        <fieldset data-look-group="glasses"><legend>안경</legend><div class="options-row">
+          <button type="button" data-feature="glasses" data-option="none" aria-pressed="false">없음</button>
+          <button type="button" data-feature="glasses" data-option="horn" aria-pressed="false">뿔테</button>
+          <button type="button" data-feature="glasses" data-option="round" aria-pressed="false">동그란 철테</button>
+          <button type="button" data-feature="glasses" data-option="square" aria-pressed="false">사각 안경</button>
+        </div></fieldset>
+        <fieldset data-look-group="beard"><legend>수염</legend><div class="options-row">
+          <button type="button" data-feature="beard" data-option="none" aria-pressed="false">없음</button>
+          <button type="button" data-feature="beard" data-option="moustache" aria-pressed="false">콧수염</button>
+          <button type="button" data-feature="beard" data-option="stubble" aria-pressed="false">짧은 수염</button>
+          <button type="button" data-feature="beard" data-option="goatee" aria-pressed="false">턱수염</button>
+          <button type="button" data-feature="beard" data-option="full" aria-pressed="false">덥수룩한 수염</button>
         </div></fieldset>
         <fieldset data-look-group="outfit"><legend>옷 디자인</legend><div class="options-row">
           <button type="button" data-feature="outfit" data-option="jacket" aria-pressed="false">재킷</button>

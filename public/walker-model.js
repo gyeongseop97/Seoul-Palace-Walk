@@ -6,6 +6,7 @@ import {makeUmbrella,makeWearables} from "./wearables-models.js";
 import {alcoholGlasses,alcoholLevel,gestureBody,gestureHands,MAX_ALCOHOL_LEVEL,peaceHandParts} from "./avatar-gestures.js";
 import {DINING_TRAY_WIDTH,diningGesture,makeDiningUtensil} from "./dining-dishes.js";
 import {FACE_LINES,sculptedHead} from "./avatar-head.js";
+import {FACE_SCALE,makeFaceAccessories} from "./avatar-face-accessories.js";
 import {HAIR_STYLES,TALL_HAIR,makeHairGeometry} from "./avatar-hair.js";
 import {LOOK_OPTIONS,SKIN_TONES} from "./look-options.js";
 
@@ -395,6 +396,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
   const wearables=makeWearables(T),umbrellaTemplate=makeUmbrella(T);
   const sphere = new T.SphereGeometry(1,16,12);
   const head = sculptedHead(T);
+  const faceAccessories = makeFaceAccessories(T,head);
   const shadowGeometry = new T.CircleGeometry(.30,24);
   const segment = roundedLathe(T, [[0,-1.125],[.49,-1.109],[.72,-1.068],[.86,-.994],
     [.92,-.67],[1,-.28],[.99,-.035],[.87,.048],[.56,.111],[0,.14]],1,12);
@@ -667,13 +669,14 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     // Hats were shaped around a plain ball; this fits them to the taller, fuller skull.
     const headwear = joint(face);
     headwear.scale.set(1.14,1.14,1.06);
-    const faceMesh = part(face,head,faceMaterial("round",false,0),0,0,0,.338,.322,.314);
+    const faceMesh = part(face,head,faceMaterial("round",false,0),0,0,0,...FACE_SCALE);
     const ears = part(face,earGeometry,earMaterials[0],0,0,0,1,1,1);
     let offset = 0;
     for (const letter of String(seedName ?? nickname ?? "")) offset = (offset * 31 + letter.charCodeAt(0)) >>> 0;
     const hairMesh = part(face,hairGeometry("short"),hairMaterial(HAIR_SHADES[offset % HAIR_SHADES.length]),0,0,0,1,1,1);
     const pin = part(face,sphere,hairpin,.262,.196,.262,.050,.016,.012);
     pin.rotation.z = .5;
+    const accessories = faceAccessories.create(face);
 
     const legs = SIDE.map(side => {
       const leg = chain(pelvis,side*HIP,-.014,LEG,LIMB.leg,pants);
@@ -707,7 +710,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     group.visible = false;
     group.traverse(mesh => { if (mesh.isMesh && mesh !== shadow) mesh.castShadow = true; });
     return {group,body,floorY:null,headwear,bag,varsity,tie,tieBlade,hoodie,knit,shirt,belt,dress,dressSkirt,overalls,skinParts:[collarbone,neck],skin:skinSet("light"),teeHem,pelvis,chest,torso,waist,face,garb,faceMesh,ears,headJoint,hairMesh,pin,overcoat,hem,pufferCollar,hanbokDetails,jacket,skirt,legs,arms,label,
-      shadow,emote,chatSprite:null,chatMessage:null,itemPivots,tray,showTray,utensil:null,palette,offset,phase:(offset%100)/100,
+      accessories,shadow,emote,chatSprite:null,chatMessage:null,itemPivots,tray,showTray,utensil:null,palette,offset,phase:(offset%100)/100,
       stride:0,sprint:0,seatBlend:0,petBlend:0,appearance:"",lastX:null,lastY:null,bike:null,hat:null,charm:null,umbrella:null};
   }
 
@@ -746,11 +749,13 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const chima = outfit === "hanbok" && position.character === "woman";
     const headwear=Object.hasOwn(wearables.headwear,look?.headwear)?look.headwear:"none";
     const keepsake=Object.hasOwn(wearables.keepsakes,look?.keepsake)?look.keepsake:"none";
-    const key = `${hair}/${eyes}/${outfit}/${chima}/${headwear}/${keepsake}/${woman}/${tone}/${hairColor}`;
+    const glasses=look?.glasses??"none", beard=look?.beard??"none";
+    const key = `${hair}/${eyes}/${outfit}/${chima}/${headwear}/${keepsake}/${woman}/${tone}/${hairColor}/${glasses}/${beard}`;
     if (key !== model.appearance) {
       model.appearance = key;
       model.hairMesh.geometry = hairGeometry(hair);
       model.hairMesh.material = hairMaterial(hairColor);
+      faceAccessories.apply(model.accessories,glasses,beard,HAIR_COLORS[hairColor]);
       model.tallHair = TALL_HAIR.has(hair);
       model.skin = skinSet(tone);
       for (const mesh of model.skinParts) mesh.material = model.skin.plain;

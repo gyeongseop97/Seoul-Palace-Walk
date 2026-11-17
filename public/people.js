@@ -4,6 +4,7 @@ import {JUMP_HEIGHT,jumpDuration,jumpLift} from "./activities.js";
 import {busAt,busSeatPose} from "./sejong-bus.js";
 import {canRideBikeSegment} from "./bike-movement.js";
 import {isBikeDriver,isCycling} from "./sejong-bike.js";
+import {receiveArcade} from "./arcade-presence.js";
 
 export const normalize = angle => ((angle % 360) + 360) % 360;
 export const angleDelta = (from,to) => normalize(to-from+180)-180;
@@ -43,6 +44,7 @@ export function receivePeople(people,rows,self,serverTime){
       person.fresh=false;
     }
     person.avatar=avatar;
+    person.arcade=receiveArcade(person.arcade,avatar.arcade,at);
     person.targetView=row.view;
     person.nickname=row.nickname;
     person.coat=row.coat;

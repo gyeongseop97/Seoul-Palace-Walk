@@ -13,6 +13,7 @@ import {GITHUB_PAGES_ORIGIN} from "./public/hosting.js";
 import {ensureSocialTables} from "./database/social-schema.mjs";
 import {ensureRoomPhotos,roomPhotoPayload,selectRoomPhoto,validPhoto,writeRoomPhoto} from "./server/room-photo.mjs";
 import {getRoomWeather} from "./server/room-weather.mjs";
+import {arcadeSnapshotLifetime,cleanArcadeActivity} from "./server/room-arcade.mjs";
 import {cleanupSocial,clinkStatement,leaveClinks,selectSocial,socialPayload,startFountainShow} from "./server/social.mjs";
 import {ensureMinigameTables} from "./database/minigame-schema.mjs";
 import {cleanupMinigames,leaveMinigames,minigamePayload,minigameStatements,selectMinigames,validMinigame} from "./server/minigames.mjs";
@@ -171,6 +172,7 @@ async function enterRoom(db,body){
   delete initialAvatar.bikeFallAt;
   delete initialAvatar.picnicClaim;
   delete initialAvatar.bungeoClaim;
+  delete initialAvatar.arcade;
   const {results}=await db.prepare(`
     INSERT INTO walkers (room,id,updated,avatar,view,player_key,nickname,coat)
     VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE((
@@ -186,9 +188,9 @@ async function enterRoom(db,body){
       ), 10000)) DESC, random() LIMIT 1
     ), ?))
     ON CONFLICT(room,id) DO UPDATE SET updated=MAX(walkers.updated,excluded.updated),
-      avatar=CASE WHEN walkers.updated<? THEN json_patch(
+      avatar=json_remove(CASE WHEN walkers.updated<? THEN json_patch(
         json_patch(json_remove(walkers.avatar,'$.bus','$.bike','$.bikeRide'), ${expiredRidePatch}), ${parkedBikePatch})
-        ELSE walkers.avatar END
+        ELSE walkers.avatar END,'$.arcade')
       WHERE walkers.player_key IS excluded.player_key
     RETURNING nickname,coat
   `).bind(target.id,id,now,JSON.stringify(initialAvatar),JSON.stringify(view),key,nickname,
@@ -199,7 +201,9 @@ async function enterRoom(db,body){
 }
 
 function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeAction,pendingPicnic,pendingBungeo){
-  const {feed,chat,bus,bike,bikeRide,bikeFallAt,picnicClaim,bungeoClaim,...snapshotData}=avatar;
+  const {feed,chat,bus,bike,bikeRide,bikeFallAt,picnicClaim,bungeoClaim,arcade,...snapshotData}=avatar;
+  const activity=key&&cleanArcadeActivity(avatar);
+  if(activity)snapshotData.arcade=activity;
   const snapshot=JSON.stringify(snapshotData);
   const inheritWish=avatar.wishArt===undefined&&avatar.wish>now-WISH_FLIGHT_MS?avatar.wish:null;
   const acknowledgedFeed=validId(feed?.claim)?feed.claim:null;
@@ -689,7 +693,8 @@ export async function api(request,env){
   const tableService=diningVenue?await diningService(db,{room,id,key,venueId:diningVenue,command:dining,now,active,
     players:new Map(rows.filter(row=>row.updated>=active).map(row=>[row.id,avatars.get(row.id)])),
     state:results[diningSelection].results[0]}):undefined;
-  const receiverIndoors=interiorAt(receiver.avatar.x,receiver.avatar.y)!==null;
+  const receiverInterior=interiorAt(receiver.avatar.x,receiver.avatar.y);
+  const receiverIndoors=receiverInterior!==null;
   const walkers=[],parkedBikes=[];
   for(const row of rows){
     const avatar=avatars.get(row.id);
@@ -697,6 +702,11 @@ export async function api(request,env){
     if(row.updated<active)continue;
     if(avatar.catFriends&&(row===ownRow||receiverIndoors||
       Math.hypot(avatar.x-receiver.avatar.x,avatar.y-receiver.avatar.y)>62))delete avatar.catFriends;
+    if(avatar.arcade!==undefined){
+      const activity=receiverInterior==="arcade"&&row.player_key&&row.updated>=now-arcadeSnapshotLifetime&&cleanArcadeActivity(avatar);
+      if(activity)avatar.arcade=activity;
+      else delete avatar.arcade;
+    }
     if(row.id===id||now-avatar.wish>=WISH_FLIGHT_MS)delete avatar.wishArt;
     const chat=avatar.chat;
     if(chat?.text&&chat.at>now-chatLifetime)avatar.chat={id:chat.id,text:chat.text,at:chat.at};

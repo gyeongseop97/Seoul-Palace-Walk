@@ -161,13 +161,15 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
 
   const key=new T.DirectionalLight(0xffedda,2.5);key.position.set(-9,14,6);gallery.add(key);
   const fill=new T.DirectionalLight(0xcae4ff,1.35);fill.position.set(9,12,-8);gallery.add(fill);
+  const hirstCaseLabels={skull:1.28,shark:2.57,"hirst-cow-head":.94};
   for(const exhibit of mmcaExhibits){
     yield;
     const artRoom=roomModels.get(exhibit.gallery);
-    if(exhibit.id==="skull"||exhibit.id==="shark"){
+    if(Object.hasOwn(hirstCaseLabels,exhibit.id)){
       addHirstWork(T,artRoom,{wx,wz},exhibit);
-      const skull=exhibit.id==="skull";
-      label([exhibit.title],exhibit.x,.64,exhibit.y+(skull?1.28:2.57),2.9,.45,0,"#77a7af",true);
+      const low=exhibit.id==="hirst-cow-head";
+      label([exhibit.title],exhibit.x-(low?1.21:0),low?.16:.64,exhibit.y+hirstCaseLabels[exhibit.id],
+        low?1.04:2.9,low?.20:.45,0,"#77a7af",true,artRoom);
       continue;
     }
     const art=group(wx(exhibit.x),0,wz(exhibit.y),artRoom);art.name=exhibit.title;
@@ -187,6 +189,10 @@ export function* buildMmcaGallery(T,root,{wx,wz}){
       const house=exhibit.id==="home";
       block(house?0x7f9994:0x9d8eaa,exhibit.x,.022,exhibit.y,house?6.64:4.08,.014,6.48);
       block(house?0xb4c9bf:0xc4bbc5,exhibit.x,.033,exhibit.y,house?1.89:2.26,.012,6.52);
+    }else if(exhibit.id==="mueck-mask"){
+      box(0x8e847a,0,.07,0,3.36,.14,2.71,art,true);
+      box(0xe5d8c9,0,.219,0,3.30,.20,2.65,art,true);
+      label([exhibit.title],exhibit.x,.36,exhibit.y+1.40,2.6,.34,0,"#9b7464",true,artRoom);
     }else{
       const {x,z}=art.position;
       box(0x303b42,x,.115,z,5.75,.23,5.52,artRoom,true);
