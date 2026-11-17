@@ -24,7 +24,7 @@ import {jeongdongExtensionLandmarks,jeongdongExtensionPaths} from "./jeongdong-e
 import {bukchonAlleyShortcut,bukchonBounds,bukchonPaths,bukchonLandmarks,bukchonWalkable,bukchonLawns} from "./bukchon-layout.js";
 import {hwangudanBounds,hwangudanGround,hwangudanPaths,hwangudanLandmarks,hwangudanBuildings,hwangudanWalkable} from "./seoul-hwangudan-layout.js";
 import {cheonggyeBounds,cheonggyeDeckExits,cheonggyeDeckStep,cheonggyeLandmarks,cheonggyeLevel,cheonggyeRoadLeads,cheonggyeStations,cheonggyeSurfaces,cheonggyeWalkable,inCheonggye,riverAt} from "./cheonggye-layout.js";
-import {FOOT_BATH_PERIOD} from "./walker-model.js";
+import {FOOT_BATH_PERIOD,footKickAge} from "./walker-model.js";
 import {inSonghyeon,songhyeonBounds,songhyeonOutline,songhyeonPaths,songhyeonLawns,songhyeonLandmarks} from "./songhyeon-layout.js";
 import {uijeongbuOutline,uijeongbuEntry,uijeongbuGarden,uijeongbuWalks,uijeongbuConnections,uijeongbuSideRoad,uijeongbuBusPavement,uijeongbuRemains,sajikEastRoad} from "./uijeongbu-layout.js";
 import {BUS_COUNT,BUS_SEATS,bukchonBusRoads,busAt,busSeatPose,busStopById,busStops,busStopTimes,nearBus} from "./sejong-bus.js";
@@ -86,7 +86,7 @@ function initialAvatar(){
       if(choices.includes(saved?.[feature]))look[feature]=saved[feature];
     }
   }catch{}
-  return {x:ticketApproach.x+1,y:ticketApproach.y-2.4,heading:entranceHeading,vx:0,vy:0,wish:0,wishOrigin:null,wishHeading:0,wishArt:null,wave:0,jump:0,vaultBase:null,emote:null,chat:null,
+  return {x:ticketApproach.x+1,y:ticketApproach.y-2.4,heading:entranceHeading,vx:0,vy:0,wish:0,wishOrigin:null,wishHeading:0,wishArt:null,wave:0,kick:0,jump:0,vaultBase:null,emote:null,chat:null,
     seat:null,seatSide:null,bus:null,bike:null,bikeRide:null,item:null,secondItem:null,itemUse:null,picnicClaim:null,bungeoReady:true,bungeoClaim:null,umbrella:false,umbrellaReady:false,
     blushUntil:0,blushLevel:0,alcoholGlasses:0,sickAt:0,bikeFallAt:0,gesture:null,pet:null,feed:null,
     running:false,blocked:false,up:false,character,look};
@@ -494,14 +494,16 @@ function streamNearness({x,y}){
   const off=y<centre?centre-north+3.3-y:y-centre-south+3.1;
   return {flow:Math.max(0,1-Math.max(0,off)/15),falls};
 }
-let lastPaddle=0;
+let lastPaddle=-1;
+const bathing=()=>me.seat!=null&&Boolean(world?.benches[me.seat]?.footBath);
 function soundscape(time,travelled,wading,running=false){
   if(!session||!world||riding)return;
-  // Paddling feet at a waterside seat splash once on every kick.
-  if(me.seat!=null&&world.benches[me.seat]?.footBath){
-    const kick=Math.floor(time/(FOOT_BATH_PERIOD/2));
-    if(kick!==lastPaddle){if(lastPaddle)sound.splash();lastPaddle=kick;}
-  }else lastPaddle=0;
+  // Feet kicking in the stream splash each time one of them breaks the surface.
+  const kickAge=bathing()?footKickAge(me,time):null;
+  if(kickAge!=null){
+    const beat=Math.floor(kickAge/(FOOT_BATH_PERIOD/2));
+    if(beat!==lastPaddle){sound.splash();lastPaddle=beat;}
+  }else lastPaddle=-1;
   const indoors=Boolean(interiorAt(me.x,me.y));
   if(!indoors&&!document.hidden){
     const distance=near(buskingSpot,me.x,me.y),cue=buskingBeat(time);
@@ -1419,6 +1421,12 @@ function interactBench(){
   if(choice)walkTo(choice.approach,choice);
 }
 $("sit").addEventListener("click",interactBench);
+// A burst of kicking for feet that are resting in the stream.
+$("foot-kick").addEventListener("click",()=>{
+  const time=gameTime();
+  if(!session||!bathing()||footKickAge(me,time)!=null)return;
+  me.kick=time;dirty=true;wakeSync();focusGame();
+});
 function setMap(open){
   if(!open)setFullscreenSidebar(false);
   if(open){mobileSettings.open=false;closeActionMenus();}
@@ -2904,6 +2912,8 @@ function actors(now,stepping){
 let lastFrame=performance.now(),interfaceAt=0,guideNearby=false;
 function preferredNearbyAction(time){
   if(me.bus||queuedBus)return "bus-action";
+  // With feet in the stream the kick comes first; walking away or the menu stands up.
+  if(bathing()&&!$("foot-kick").hidden)return "foot-kick";
   if(!$("sit").hidden&&!$("sit").disabled&&$("sit").dataset.footBath==="true")return "sit";
   if(!$("arcade-stairs").hidden)return "arcade-stairs";
   if(!venueDoorButton.hidden&&!venueDoorButton.disabled&&interiorAt(me.x,me.y))return venueDoorButton.id;
@@ -2987,6 +2997,8 @@ function frame(now){
       bench?.choice?(bench.choice.footBath?"발 담그고 앉기":"앉기"):bench?.nearby?"빈자리 없음":null;
     setActivity("sit",seatEnabled?seatLabel:null,eating||me.seat==null&&!bench?.choice);
     attr($("sit"),"data-foot-bath",Boolean(bench?.choice?.footBath));
+    const kicking=footKickAge(me,time)!=null;
+    setActivity("foot-kick",seatEnabled&&bathing()?(kicking?"발장구치는 중":"발장구치기"):null,kicking);
     attr($("sit"),"aria-pressed",me.seat!=null);
     setText($("game-place"),$("location").textContent);
     const area=outdoorMap(me),jeongdong=area==="덕수궁";

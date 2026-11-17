@@ -1,6 +1,6 @@
 import {makeTreeBuilder} from "./lowpoly-trees.js";
-import {bankAt,cheonggyeAccess,cheonggyeAccessDrop,cheonggyeBedLevel,cheonggyeBridges,cheonggyeRailOpening,cheonggyeRoadLeads,
-  cheonggyeStations,cheonggyeSurfaces,cheonggyeTrees,riverAt,stepStoneXs} from "./cheonggye-layout.js";
+import {bankAt,cheonggyeAccess,cheonggyeAccessDrop,cheonggyeBedLevel,cheonggyeBounds,cheonggyeBridges,cheonggyeCascade,cheonggyeLevel,
+  cheonggyeOpenAir,cheonggyeRailOpening,cheonggyeRoadLeads,cheonggyeStations,cheonggyeSurfaces,cheonggyeTrees,cheonggyeWalkFrom,riverAt,stepStoneXs} from "./cheonggye-layout.js";
 import {CHEONGGYE_WATER_LEVEL,cheonggyeSeats} from "./cheonggye-seats.js";
 
 export function* buildCheonggye(T,root,kit,terrain){
@@ -67,14 +67,27 @@ export function* buildCheonggye(T,root,kit,terrain){
   const darkPaving=new T.MeshStandardMaterial({color:0xc9cfc5,map:slabs,roughness:.93,side:T.DoubleSide});
   const asphalt=new T.MeshStandardMaterial({color:0x686d66,roughness:1,side:T.DoubleSide});
   const lower=new T.MeshStandardMaterial({color:0xd8d0bb,map:cobbles,roughness:.97,side:T.DoubleSide});
+  // Clear, shallow water: the pebbled bed shows through with moving light on it, the surface
+  // ripples downstream and mirrors the sky, and foam gathers at the banks and below the falls.
+  const waterNoise=`
+    float hash(vec2 p){p=fract(p*vec2(.1371,.0917)+.13);p+=dot(p,p.yx+19.19);return fract((p.x+p.y)*p.x*7.31);}
+    vec2 hash2(vec2 p){float n=hash(p);return vec2(n,hash(p*1.31+n*5.7+2.9));}
+    float noise(vec2 p){
+      vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+      return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y);
+    }
+    float fbm(vec2 p){return .56*noise(p)+.29*noise(p*2.07+3.1)+.15*noise(p*4.31+7.7);}`;
   const water=new T.ShaderMaterial({
     uniforms:{clock:{value:0},night:{value:0},mist:{value:new T.Color(0xa4b3b4)}},
     side:T.DoubleSide,
     vertexShader:`
+      attribute vec2 stream;
       varying vec3 point;
+      varying vec2 flow;
       varying float viewDepth;
       void main(){
         point=(modelMatrix*vec4(position,1.)).xyz;
+        flow=stream;
         vec4 view=modelViewMatrix*vec4(position,1.);
         viewDepth=-view.z;
         gl_Position=projectionMatrix*view;
@@ -83,34 +96,135 @@ export function* buildCheonggye(T,root,kit,terrain){
       uniform float clock,night;
       uniform vec3 mist;
       varying vec3 point;
+      varying vec2 flow;
       varying float viewDepth;
+      ${waterNoise}
+      // Distance to the nearest cell centre, the gap to the next one, and a tone for the cell.
+      vec3 cells(vec2 p){
+        vec2 i=floor(p),f=fract(p);float best=8.,next=8.,tone=0.;
+        for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){
+          vec2 g=vec2(float(x),float(y)),o=hash2(i+g);float d=length(g+o-f);
+          if(d<best){next=best;best=d;tone=o.x;}else if(d<next)next=d;
+        }
+        return vec3(best,next-best,tone);
+      }
+      // The surface as a height: ripples carried downstream, quicker and rougher in white water.
+      float swell(vec2 p,float rough){
+        float t=clock;
+        return fbm(vec2(p.x-t*.62,p.y+sin(p.x*.31+t*.4)*.12)*vec2(1.25,2.3))*.62
+          +fbm(vec2(p.x-t*1.05,p.y)*vec2(3.1,5.4)+11.)*(.24+rough*.34)
+          +noise(vec2(p.x-t*1.6,p.y)*vec2(7.4,11.)+31.)*(.07+rough*.16);
+      }
       void main(){
-        vec2 p=point.xz;
-        float a=dot(p,vec2(4.24,2.64))-clock*2.1;
-        float b=dot(p,vec2(2.1,-5.4))-clock*1.55;
-        float c=dot(p,vec2(10.4,5.6))-clock*3.15;
-        vec2 gradient=vec2(4.24,2.64)*(.054*cos(a))+vec2(2.1,-5.4)*(.031*cos(b))+vec2(10.4,5.6)*(.011*cos(c));
-        vec3 normal=normalize(vec3(-gradient.x,1.,-gradient.y));
+        // flow.x runs along the stream in metres; flow.y is -1 at the north edge and 1 at the south.
+        float edge=abs(flow.y),along=flow.x;
+        // Kept near zero so the noise stays crisp.
+        vec2 p=vec2(along-840.,point.z+355.);
+        float churn=step(623.5,along)*(1.-smoothstep(1.2,7.,along-624.));
+        float stones=smoothstep(651.5,653.5,along)*(1.-smoothstep(670.5,679.,along));
+        float rough=clamp(churn+stones*.55,0.,1.);
+        float e=.07,h=swell(p,rough);
+        vec2 slope=vec2(swell(p+vec2(e,0.),rough)-h,swell(p+vec2(0.,e),rough)-h)/e;
+        vec3 normal=normalize(vec3(-slope.x*.105,1.,-slope.y*.105));
         vec3 eye=normalize(cameraPosition-point);
-        float fresnel=pow(1.-clamp(dot(normal,eye),0.,1.),4.4);
-        float shimmer=pow(max(0.,dot(reflect(-eye,normal),normalize(vec3(-.32,.64,.71)))),25.);
-        float bed=.5+.5*sin(a*.29+sin(b*.45))*sin(b*.53+c*.095);
-        float foam=(1.-smoothstep(1.,10.,abs(point.x-326.5)))*pow(max(0.,.52*sin(a*.89+c*.11)+.48*sin(b+c*.17)),2.4);
-        vec3 deep=mix(vec3(.028,.116,.115),vec3(.010,.032,.050),night);
-        vec3 shallow=mix(vec3(.084,.23,.18),vec3(.022,.055,.072),night);
-        vec3 sky=mix(vec3(.43,.61,.65),vec3(.051,.083,.128),night);
-        vec3 color=mix(mix(deep,shallow,bed*.63),sky,.055+fresnel*.67);
-        color+=mix(vec3(.48,.64,.65),vec3(.11,.16,.22),night)*(shimmer*.43+foam*.60);
+        float facing=clamp(dot(normal,eye),0.,1.);
+        // Looking through the surface: the bed lies a little further along the line of sight.
+        float depth=mix(.10,.44,1.-edge*edge)*(.8+.4*noise(p*.21+5.));
+        vec2 bed=p-eye.xz/max(eye.y,.32)*depth*.72-normal.xz*depth*1.9;
+        vec3 pebble=cells(bed*4.4);
+        vec3 ground=mix(vec3(.17,.165,.125),vec3(.47,.43,.32),pebble.z*pebble.z);
+        ground*=.38+.62*smoothstep(.01,.20,pebble.y);
+        ground=mix(ground,vec3(.085,.15,.070),smoothstep(.30,.80,fbm(bed*.42+2.))*.66);
+        // Sunlight gathered by the ripples into a moving net on the bed.
+        vec2 warp=vec2(fbm(bed*.9+clock*.11),fbm(bed*.9+17.-clock*.13));
+        float net=cells(bed*1.35+warp*1.5+vec2(-clock*.21,clock*.05)).y;
+        float fine=cells(bed*2.9-warp*1.1+vec2(-clock*.33,-clock*.07)).y;
+        float caustic=pow(1.-smoothstep(0.,.26,net),3.6)*.8+pow(1.-smoothstep(0.,.22,fine),4.)*.35;
+        float day=1.-night;
+        vec3 lit=ground*(mix(.16,.62,day)+caustic*mix(.08,.95,day));
+        // Water takes the red out of the light first, so deeper water turns green.
+        float way=depth/max(.34,facing);
+        vec3 through=exp(-vec3(2.6,.80,1.75)*way);
+        vec3 body=lit*through+mix(vec3(.020,.085,.058),vec3(.006,.022,.030),night)*(1.-through.g);
+        vec3 mirror=reflect(-eye,normal);
+        vec3 sky=mix(mix(vec3(.72,.80,.80),vec3(.36,.56,.72),clamp(mirror.y*1.6,0.,1.)),
+          mix(vec3(.060,.090,.135),vec3(.030,.050,.090),clamp(mirror.y*1.6,0.,1.)),night);
+        float fresnel=.03+.97*pow(1.-facing,4.6);
+        vec3 color=mix(body,sky,fresnel*.82);
+        // Glints: only the ripple faces that throw the sun straight at the eye light up.
+        vec3 sun=normalize(vec3(-.32,.64,.71));
+        vec3 crisp=normalize(normal+vec3(noise(p*23.-clock*1.9)-.5,0.,noise(p*23.+41.-clock*1.7)-.5)*.16);
+        float glint=pow(max(0.,dot(reflect(-eye,crisp),sun)),170.)*2.4+pow(max(0.,dot(mirror,sun)),22.)*.22;
+        color+=mix(vec3(1.,.95,.80),vec3(.30,.36,.46),night)*glint*mix(1.,.35,night);
+        // Foam: a broken line lapping the banks, streaks below the stones, and white water under the falls.
+        float lap=smoothstep(.90,.995,edge+(fbm(vec2(p.x*1.7-clock*.35,flow.y*3.))-.5)*.10);
+        float streak=fbm(vec2(p.x*.55-clock*.9,p.y*4.2))*fbm(vec2(p.x*2.3-clock*1.5,p.y*9.)+9.);
+        float foam=lap*.55+stones*smoothstep(.20,.42,streak)*.5+churn*smoothstep(.12,.40,streak+churn*churn*.30);
+        color=mix(color,mix(vec3(.93,.96,.95),vec3(.30,.36,.42),night),clamp(foam,0.,1.)*.88);
         gl_FragColor=vec4(mix(color,mist,smoothstep(100.,480.,viewDepth)*.62),1.);
         #include <colorspace_fragment>
       }`
   });
+  // Falling water: a thin sheet with streaks running down it, white where it breaks.
+  const cascade=new T.ShaderMaterial({
+    uniforms:water.uniforms,side:T.DoubleSide,transparent:true,depthWrite:false,
+    vertexShader:`
+      attribute vec2 stream;
+      varying vec2 flow;
+      void main(){
+        flow=stream;
+        gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);
+      }`,
+    fragmentShader:`
+      uniform float clock,night;
+      varying vec2 flow;
+      ${waterNoise}
+      void main(){
+        // flow.x is metres travelled down the cascade, flow.y metres across it.
+        float run=flow.x-clock*2.6;
+        float veil=fbm(vec2(flow.y*9.5,run*.9))*.6+noise(vec2(flow.y*31.,run*2.4))*.4;
+        float burst=smoothstep(.45,.85,fbm(vec2(flow.y*2.2,run*1.7)+5.));
+        float white=clamp(veil*.75+burst*.45,0.,1.);
+        vec3 color=mix(vec3(.47,.66,.66),vec3(.97,.99,.98),white);
+        color=mix(color,color*vec3(.26,.32,.42),night);
+        gl_FragColor=vec4(color,.50+.46*white);
+        #include <colorspace_fragment>
+      }`
+  });
+  // A sheet of water laid over rows of points; each point carries its place in the flow.
+  function sheet(rows,material){
+    const model=grid(rows,material);
+    model.geometry.setAttribute("stream",new T.Float32BufferAttribute(rows.flatMap(row=>row.flatMap(({flow})=>flow)),2));
+    model.receiveShadow=false;
+    return model;
+  }
+  {
+    const xs=[];
+    for(let x=cheonggyeStations[0];x<cheonggyeStations.at(-1);x+=2)xs.push(x);
+    xs.push(cheonggyeStations.at(-1));
+    sheet(xs.map(x=>{
+      const north=bankAt(x,-1,-3.26),south=bankAt(x,1,-3.08);
+      return [0,1,2,3,4,5,6].map(j=>({x,y:north.y+(south.y-north.y)*j/6,level:waterLevel,flow:[x,j/3-1]}));
+    }),water);
+  }
+  {
+    // A stone kerb drops from each path into the water, and a dark bed lies under it all,
+    // so nothing shows through between the path and the stream.
+    const xs=[cheonggyeStations[0]];
+    for(let x=cheonggyeStations[0]+6;x<cheonggyeStations.at(-1);x+=6)xs.push(x);
+    xs.push(cheonggyeStations.at(-1));
+    const kerb=new T.MeshStandardMaterial({color:0x8f8d80,roughness:1,side:T.DoubleSide});
+    for(const [side,inset] of [[-1,-3.35],[1,-3.15]]){
+      grid(xs.map(x=>{const p=bankAt(x,side,inset);return [{...p,level:cheonggyeBedLevel},{...p,level:waterLevel-.42}];}),kerb);
+    }
+    grid(xs.map(x=>[bankAt(x,-1,.3),bankAt(x,1,.3)].map(p=>({...p,level:waterLevel-.44}))),
+      new T.MeshStandardMaterial({color:0x3f4338,roughness:1,side:T.DoubleSide}));
+  }
   for(const {kind,outline,points,width} of [...cheonggyeRoadLeads.map(lead=>({...lead,kind:"road"})),...cheonggyeSurfaces]){
     if(kind==="plaza")surface(outline,paving,.028);
     if(kind==="paving")surface(outline,paving,.039);
     if(kind==="road")surface(outline,asphalt,.01);
     if(kind==="lower")surface(outline,lower,cheonggyeBedLevel);
-    if(kind==="water")surface(outline,water,waterLevel);
     if(kind==="crossing"){
       const [a,,b]=points,dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
       for(let i=2;i<length-1;i+=1.1){
@@ -120,13 +234,55 @@ export function* buildCheonggye(T,root,kit,terrain){
     }
   }
   yield;
+  const head=cheonggyeStations[0],cascadePit=cheonggyeCascade;
+  // Solid ground at street level under all the paving, so no gap between two pavements
+  // shows the land far below. It stays open over the channel, the cascade, and the cuts
+  // where stairs and ramps go down.
+  {
+    // A cut is open a little inside its edge, so the ground laps over the retaining wall.
+    const open=(x,y)=>cheonggyeOpenAir(x,y)&&(!cheonggyeRailOpening(x,y)||
+      cheonggyeOpenAir(x,y,.15)&&cheonggyeLevel({x,y})<-.06);
+    const {minX,maxX,minY,maxY}=cheonggyeBounds,coarse=2,fine=.25,vertices=[],indices=[];
+    const quad=(x,y,size)=>{
+      const first=vertices.length/3;
+      for(const [dx,dy] of [[0,0],[size,0],[0,size],[size,size]])vertices.push(wx(x+dx),at(x+dx,y+dy)-.03,wz(y+dy));
+      indices.push(first,first+2,first+1,first+1,first+2,first+3);
+    };
+    for(let x=minX;x<maxX;x+=coarse){
+      for(let y=minY;y<maxY;y+=coarse){
+        let gaps=0;
+        for(let i=0;i<=4;i++)for(let j=0;j<=4;j++)if(open(x+i*coarse/4,y+j*coarse/4))gaps++;
+        if(!gaps)quad(x,y,coarse);
+        else if(gaps<25){
+          for(let fx=x;fx<x+coarse-1e-6;fx+=fine)for(let fy=y;fy<y+coarse-1e-6;fy+=fine){
+            if(!open(fx+fine/2,fy+fine/2))quad(fx,fy,fine);
+          }
+        }
+      }
+      if(x%60<coarse)yield;
+    }
+    const ground=mesh(vertices,indices,new T.MeshStandardMaterial({color:0x8b9087,roughness:1,side:T.DoubleSide}));
+    ground.name="Cheonggyecheon street-level ground";
+  }
+  yield;
+  // Walls close the head of the channel under the waterfall and the sides of its recess.
+  {
+    const wall=new T.MeshStandardMaterial({color:0x767a71,roughness:1,side:T.DoubleSide});
+    const face=(a,b,top)=>grid([a,b].map(p=>[{...p,level:waterLevel-.55},{...p,level:top}]),wall);
+    const north=bankAt(head,-1,.3).y,south=bankAt(head,1,.3).y,lip=-.96,cascade=cascadePit;
+    face({x:head,y:north},{x:head,y:cascade.north},.03);
+    face({x:head,y:cascade.north},{x:head,y:cascade.south},lip);
+    face({x:head,y:cascade.south},{x:head,y:south},.03);
+    for(const y of [cascade.north,cascade.south])face({x:cascade.west,y},{x:head+.02,y},.03);
+    face({x:cascade.west,y:cascade.north},{x:cascade.west,y:cascade.south},-.1);
+  }
   for(let i=0;i<6;i++){
     const x=616+i*1.27,y=-149.7+i*.21;
     block(i%2?cap:granite,x,y,1.28,10.1,.27,at(x,y)-i*.23-.08);
   }
   // True where a point lies in the bank behind the wall face, so a cut there needs retaining walls.
   function inBank({x,y}){
-    if(x<cheonggyeStations[0])return false;
+    if(x<cheonggyeStations[0])return true;
     const [centre,north,south]=riverAt(x);
     return y<centre?centre-north-y>.3:y-centre-south>.3;
   }
@@ -232,7 +388,8 @@ export function* buildCheonggye(T,root,kit,terrain){
       }
     }
     // The paved strip between the wall and the walk, left open over stairs and ramps.
-    for(const [from,to] of runs(x=>![.45,1.1,1.9,2.7,3.4].some(inset=>open(x,inset)))){
+    // East of the plaza the walk itself is laid right up to the wall.
+    for(const [from,to] of runs(x=>x<=cheonggyeWalkFrom&&![.45,1.1,1.9,2.7,3.4].some(inset=>open(x,inset)))){
       const stations=pieces(from,to);
       for(let i=1;i<stations.length;i++){
         const a=stations[i-1],b=stations[i];
@@ -298,11 +455,15 @@ export function* buildCheonggye(T,root,kit,terrain){
     }
     yield;
   }
+  // Stepping stones: rows of separate blocks, so the water runs between them.
   for(const [i,x] of stepStoneXs.entries()){
-    const [y,north,south]=riverAt(x);
-    block(stone[i%stone.length],x,y+(south-north)*.5,1.39,north+south-5.1,.37,at(x,y)+waterLevel-.10);
+    const [y,north,south]=riverAt(x),from=y-north+2.6,span=north+south-5.2,count=Math.round(span/1.42),pitch=span/count;
+    for(let j=0;j<count;j++){
+      const sy=from+(j+.5)*pitch;
+      block(stone[(i*3+j)%stone.length],x+((i+j)%2?.03:-.03),sy,1.34,pitch-.30,.39,at(x,sy)+waterLevel-.12);
+    }
   }
-  for(const {x,y,side} of cheonggyeSeats){
+  for(const {x,y,side} of cheonggyeSeats.filter(({ledge})=>ledge)){
     const base=at(x,y)+cheonggyeBedLevel;
     block(0x908d82,x,y-side*.070,2.53,.54,.18,base-.145);
     for(const offset of [-.61,.61]){
@@ -330,18 +491,26 @@ export function* buildCheonggye(T,root,kit,terrain){
   spiral.setAttribute("color",new T.BufferAttribute(colors,3));
   const sculpture=new T.Mesh(spiral,new T.MeshStandardMaterial({vertexColors:true,roughness:.47,metalness:.34}));
   root.add(sculpture);
-  const head=[{x:606,y:-154.4},{x:623.5,y:-152.8},{x:623.2,y:-148.35},{x:605.7,y:-150.3}];
-  surface(head,water,.133);
-  const falls=[];
-  for(const startY of [-154.15,-151.84]){
-    const rows=[];
-    for(let i=0;i<=12;i++){
-      const t=i/12,x=623.1+t*t*3.6;
-      rows.push([0,1.9].map(dy=>({x,y:startY+dy+t*.12,level:.13+(waterLevel-.12)*t})));
+  // The runnel crosses the plaza to the head of the stream, spills down the granite steps
+  // and drops over the last of them into the channel.
+  const runnel=[{x:606,y:-154.4,flow:[606,-1]},{x:616.2,y:-153.6,flow:[616.2,-1]}],reach=4.3;
+  sheet(runnel.map(({x,y,flow})=>[{x,y,level:.133,flow},{x,y:y+reach,level:.133,flow:[flow[0],1]}]),water);
+  {
+    const {west,north,south}=cheonggyeCascade,rows=[],across=[north+.12,(north+south)/2,south-.12];
+    let run=0,last=null;
+    const row=(x,level)=>{
+      if(last)run+=Math.hypot(x-last[0],level-last[1]);
+      last=[x,level];
+      rows.push(across.map(y=>({x,y,level,flow:[run,y]})));
+    };
+    for(let i=0;i<6;i++){
+      const film=.19-i*.23+.035;
+      row(west+i*1.27+.02,film);row(west+i*1.27+1.31,film);
     }
-    const mat=new T.MeshStandardMaterial({color:0xa5dada,emissive:0x286264,emissiveIntensity:.17,
-      opacity:.53,transparent:true,side:T.DoubleSide,roughness:.33,depthWrite:false});
-    grid(rows,mat);falls.push(mat);
+    // Over the lip, thrown clear of the wall, and down to the stream.
+    const lip=last[0],from=last[1];
+    for(let i=1;i<=10;i++){const t=i/10;row(lip+.12+t*1.25,from+(waterLevel+.03-from)*t*t);}
+    sheet(rows,cascade);
   }
   yield;
   const trees=makeTreeBuilder(T,root,{rand,clearance:{meshFits:()=>true,trim:()=>true}});
@@ -360,6 +529,32 @@ export function* buildCheonggye(T,root,kit,terrain){
     mesh.scale.set(.28+rand()*.4,.12+rand()*.21,.26+rand()*.39);mesh.rotation.y=rand()*Math.PI;
     mesh.userData.streamDetail=true;
     if(i%12===0)yield;
+  }
+  // Reeds and water plants stand in the shallows once the stream turns more natural, east of Gwangtonggyo.
+  {
+    const vertices=[],colors=[],indices=[],tone=new T.Color(),greens=[0x5f8a3c,0x79a046,0x8fae52,0x4f7a3a,0xa0a85a];
+    const clear=x=>!cheonggyeBridges.some(bridge=>Math.abs(x-bridge.x)<bridge.width/2+1.5);
+    for(let i=0;i<64;i++){
+      const x=i<12?700+rand()*120:852+rand()*190,side=i%2?1:-1,p=bankAt(x,side,-3.62-rand()*.55);
+      if(!clear(x))continue;
+      const foot=at(p.x,p.y)+waterLevel-.04,blades=6+Math.floor(rand()*6);
+      for(let j=0;j<blades;j++){
+        const angle=rand()*Math.PI*2,spread=.05+rand()*.26,height=.42+rand()*.62,lean=.08+rand()*.26,width=.022+rand()*.022;
+        const bx=p.x+Math.cos(angle)*spread,by=p.y+Math.sin(angle)*spread,first=vertices.length/3;
+        const tx=bx+Math.cos(angle)*lean,ty=by+Math.sin(angle)*lean,nx=-Math.sin(angle)*width,ny=Math.cos(angle)*width;
+        vertices.push(wx(bx-nx),foot,wz(by-ny),wx(bx+nx),foot,wz(by+ny),
+          wx((bx+tx)/2+Math.cos(angle)*width),foot+height*.55,wz((by+ty)/2+Math.sin(angle)*width),wx(tx),foot+height,wz(ty));
+        tone.setHex(greens[Math.floor(rand()*greens.length)]);
+        for(const shade of [.72,.72,.95,1.1])colors.push(tone.r*shade,tone.g*shade,tone.b*shade);
+        indices.push(first,first+1,first+2,first,first+2,first+3,first+1,first+3,first+2);
+      }
+    }
+    const geometry=new T.BufferGeometry();
+    geometry.setAttribute("position",new T.Float32BufferAttribute(vertices,3));
+    geometry.setAttribute("color",new T.Float32BufferAttribute(colors,3));
+    geometry.setIndex(indices);geometry.computeVertexNormals();
+    const reeds=new T.Mesh(geometry,new T.MeshStandardMaterial({vertexColors:true,roughness:.95,side:T.DoubleSide}));
+    reeds.userData.streamDetail=true;root.add(reeds);
   }
   // Major frontages keep the bends and spacing recognizable from street level.
   const blocks=[
@@ -391,6 +586,5 @@ export function* buildCheonggye(T,root,kit,terrain){
     water.uniforms.clock.value=seconds;
     water.uniforms.night.value=night;
     water.uniforms.mist.value.copy(haze);
-    for(const mat of falls)mat.opacity=.52+.08*Math.sin(seconds*8.5);
   };
 }

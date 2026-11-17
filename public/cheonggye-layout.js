@@ -49,18 +49,23 @@ const water=streamBand([[-1,-3.26],[1,-3.08]]);
 const flightWidth=2.6,flightTop={[-1]:6.9,1:7.6},flightLanding=2.35,flightFoot=-1.25;
 const flightSites=[["모전교 하류 북쪽 계단",751,-1],["모전교 남쪽 계단",756,1],["광통교 북쪽 계단",873,-1],
   ["광교 북쪽 계단",961,-1],["광교 동편 출입계단",1045,1]];
-function walkPieces(side,inner,outer){
-  const pieces=[];
-  let from=624;
+// Beside the plaza the old stairs and ramp run just behind the wall, so the pavement starts
+// further back there; east of walkFrom it reaches the railing.
+const walkFrom=641,railGap=.3,railReach=.62;
+function walkPieces(side,inner,outer,edge){
+  const pieces=[streamBand([[side,inner],[side,outer]],624,walkFrom)];
+  let from=walkFrom;
   for(const [,x] of flightSites.filter(site=>site[2]===side).sort((a,b)=>a[1]-b[1])){
-    pieces.push(streamBand([[side,inner],[side,outer]],from,x-flightWidth/2));
+    pieces.push(streamBand([[side,edge],[side,outer]],from,x-flightWidth/2));
     from=x+flightWidth/2;
   }
-  pieces.push(streamBand([[side,inner],[side,outer]],from,1056));
+  pieces.push(streamBand([[side,edge],[side,outer]],from,1056));
   return pieces;
 }
-const northWalk=walkPieces(-1,3.5,6.9);
-const southWalk=walkPieces(1,4,7.6);
+// Laid from the wall face; walked up to an arm's length from the railing.
+const northWalk=walkPieces(-1,3.5,6.9,railGap),southWalk=walkPieces(1,4,7.6,railGap);
+const northSteps=walkPieces(-1,3.5,6.9,railReach),southSteps=walkPieces(1,4,7.6,railReach);
+export const cheonggyeWalkFrom=walkFrom;
 const northRoad=streamBand([[-1,6.9],[-1,12.1]]);
 const southRoad=streamBand([[1,7.6],[1,12.3]]);
 const northFrontage=streamBand([[-1,12.05],[-1,16.7]]);
@@ -154,15 +159,19 @@ export const cheonggyeSurfaces=[
 const inside=(outline,x,y)=>insideCorridorPolygon(x,y,outline);
 const surfaceKinds=kinds=>cheonggyeSurfaces.filter(({kind})=>kinds.includes(kind)).map(({outline})=>outline);
 const accessWalks=cheonggyeAccess.map(({outline})=>outline);
-const upperWalks=surfaceKinds(["plaza","paving","crossing"]);
+const pavedWalks=[...northWalk,...southWalk];
+const upperWalks=[...surfaceKinds(["plaza","paving","crossing"]).filter(outline=>!pavedWalks.includes(outline)),
+  ...northSteps,...southSteps];
 const lowerWalks=[walkersNorth,walkersSouth,...surfaceKinds(["wood","stones"])];
-const walkPolygons=[...accessWalks,...upperWalks,...lowerWalks];
+// The riverside roads carry little traffic and may be walked on.
+const roadWalks=[...surfaceKinds(["road"]),...cheonggyeRoadLeads.map(({outline})=>outline)];
+const walkPolygons=[...accessWalks,...upperWalks,...roadWalks,...lowerWalks];
 const polygonTest=(outline=>{
   const xs=outline.map(p=>p.x),ys=outline.map(p=>p.y),lowX=Math.min(...xs),highX=Math.max(...xs),lowY=Math.min(...ys),highY=Math.max(...ys);
   return (x,y)=>x>=lowX&&x<=highX&&y>=lowY&&y<=highY&&inside(outline,x,y);
 });
 const onWalk=walkPolygons.map(polygonTest),onDeck=deckLanes.map(({outline})=>polygonTest(outline));
-const onLower=lowerWalks.map(polygonTest),onUpper=upperWalks.map(polygonTest);
+const onLower=lowerWalks.map(polygonTest),onUpper=upperWalks.map(polygonTest),onRoad=roadWalks.map(polygonTest);
 const underDeck=decks.map(({footprint})=>polygonTest(footprint));
 const nearDeck=decks.map(({x,north,south,width,skew})=>
   polygonTest(ribbon([point(x,north-1.8),point(x+skew,south+1.8)],width+5.1)));
@@ -204,7 +213,8 @@ export function cheonggyeLevel({x,y,up}){
     return -depth+.25+Math.sin(t*Math.PI)*.71;
   }
   if(onLower.some(contains=>contains(x,y)))return -depth;
-  return onUpper.some(contains=>contains(x,y))?.04:null;
+  if(onUpper.some(contains=>contains(x,y)))return .04;
+  return onRoad.some(contains=>contains(x,y))?.012:null;
 }
 // Height relative to street grade, for the camera when a player is on the lower path.
 export function cheonggyeCameraCeiling(x,y,approaching=false){
@@ -214,12 +224,26 @@ export function cheonggyeCameraCeiling(x,y,approaching=false){
   const level=cheonggyeLevel({x,y});
   return level!=null&&level<-.34?.035:null;
 }
+// The recess the waterfall drops through, west of the first bank station.
+export const cheonggyeCascade={west:615.36,north:-154.75,south:-144.62};
+// True where there is open air below street level: the channel between its walls, the
+// waterfall's recess, and the cuts where stairs and ramps go down. Elsewhere it is solid ground.
+export function cheonggyeOpenAir(x,y,margin=0){
+  if(x>=cheonggyeStations[0]){
+    const [centre,north,south]=riverAt(Math.min(x,cheonggyeStations.at(-1)));
+    if(y>centre-north-.3+margin&&y<centre+south+.3-margin)return true;
+  }else{
+    const {west,north,south}=cheonggyeCascade;
+    if(x>west+margin&&y>north+margin&&y<south-margin)return true;
+  }
+  return margin?[[-1,-1],[1,-1],[-1,1],[1,1]].every(([dx,dy])=>cheonggyeRailOpening(x+dx*margin,y+dy*margin)):
+    cheonggyeRailOpening(x,y);
+}
 export function cheonggyeCameraWall(x,y,height){
-  if(x<cheonggyeStations[0]||x>cheonggyeStations.at(-1)||height>.16||height<cheonggyeBedLevel-.9)return false;
-  const north=bankAt(x,-1,.12).y,south=bankAt(x,1,.12).y;
-  if(y>north&&y<south)return false;
+  if(!inCheonggye(x,y)||height>.16||height<cheonggyeBedLevel-.9)return false;
+  if(!cheonggyeOpenAir(x,y,.12))return true;
   // In a stairwell the camera stays clear above the steps and the landing, never under them.
-  return !cheonggyeRailOpening(x,y)||height<cheonggyeLevel({x,y})+.3;
+  return cheonggyeRailOpening(x,y)&&height<cheonggyeLevel({x,y})+.3;
 }
 export const cheonggyeBedLevel=-depth;
 export function cheonggyeDeckStep(from,x,y){

@@ -11,10 +11,16 @@ import {HAIR_STYLES,TALL_HAIR,makeHairGeometry} from "./avatar-hair.js";
 import {LOOK_OPTIONS,SKIN_TONES} from "./look-options.js";
 
 const TAU = Math.PI * 2;
-// Feet paddling in the stream: each foot flicks up and forward in turn. The splash drawn in
-// the world and its sound use the same clock, so they land together.
-export const FOOT_BATH_PERIOD = 1500;
-export const footBathSwing = (clock, foot) => Math.sin((clock/FOOT_BATH_PERIOD+foot*.5)*TAU);
+// Feet soaking in the stream rest still. A kick, started at position.kick on the room clock,
+// lasts FOOT_KICK_MS: each foot flicks up and forward in turn, once per FOOT_BATH_PERIOD. The
+// splash drawn in the world and its sound read the same age, so they land together.
+export const FOOT_BATH_PERIOD = 900, FOOT_KICK_MS = 3600;
+export const footKickAge = (position, clock) => {
+  const age = clock-(position?.kick ?? -Infinity);
+  return age >= 0 && age < FOOT_KICK_MS ? age : null;
+};
+export const footBathSwing = (age, foot) => age == null ? 0
+  : Math.sin((age/FOOT_BATH_PERIOD+foot*.5)*TAU)*Math.min(1,age/180,(FOOT_KICK_MS-age)/320);
 const HAIR = HAIR_STYLES;
 const EYES = LOOK_OPTIONS.eyes;
 const BROWS = LOOK_OPTIONS.brows, MOUTHS = LOOK_OPTIONS.mouth;
@@ -505,6 +511,12 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     shorts:shoe(0xf2efe8,0x4f8fb0,0xf7f4ee)
   };
   const footGeometry = footGeometries.coat;
+  // A bare foot for soaking in the stream: heel, arch and a row of toes, tinted by the skin tone.
+  const skinHex = 0xf0bc99;
+  const bareFootGeometry = modeledDetails(T,sphere,[
+    [skinHex,0,-.062,.036,.098,.056,.168],[skinHex,0,-.050,-.046,.086,.062,.080],
+    ...[-.064,-.032,0,.032,.064].map((x,i)=>[skinHex,x,-.076,.196-Math.abs(i-1.2)*.012,.026-i*.002,.026,.034])
+  ]);
   const scarfGeometry = new T.TorusGeometry(.150,.058,10,26);
   scarfGeometry.rotateX(Math.PI/2);
   const handGeometry = SIDE.map(side => modeledDetails(T,sphere,[
@@ -685,6 +697,9 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const legs = SIDE.map(side => {
       const leg = chain(pelvis,side*HIP,-.014,LEG,LIMB.leg,pants);
       leg.foot = part(leg.end,footGeometry,details,0,0,0,...FOOT);
+      // Trousers rolled to the knee while the feet are in the water.
+      leg.roll = part(leg.lower,sphere,pants,0,-.022,0,.128,.050,.124);
+      leg.roll.visible = false;
       return leg;
     });
     const arms = SIDE.map((side,i) => {
@@ -701,6 +716,13 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const tray=joint(chest,0,.112,.408);
     tray.name="Two-handed meal tray";tray.scale.setScalar(.91/BODY);tray.visible=false;
     const showTray=createItemProp(tray);
+    // The shoes wait on the paving beside a bather.
+    const shoesAside = joint(group,.21,.53+.128*FOOT[1]*BODY,-.43);
+    SIDE.forEach((side,i) => {
+      const shoe = part(shoesAside,footGeometry,details,side*.062,0,i*.012,FOOT[0]*BODY,FOOT[1]*BODY,FOOT[2]*BODY);
+      shoe.rotation.y = side*.16-.5;
+    });
+    shoesAside.visible = false;
     const label = nickname && labelSprite ? labelSprite(nickname,coat) : null;
     if (label) group.add(label);
     const emote = new T.Sprite(new T.SpriteMaterial({transparent:true,depthWrite:false,toneMapped:false}));
@@ -713,7 +735,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     group.add(shadow);
     group.visible = false;
     group.traverse(mesh => { if (mesh.isMesh && mesh !== shadow) mesh.castShadow = true; });
-    return {group,body,floorY:null,headwear,bag,varsity,tie,tieBlade,hoodie,knit,shirt,belt,dress,dressSkirt,overalls,skinParts:[collarbone,neck],skin:skinSet("light"),teeHem,pelvis,chest,torso,waist,face,garb,faceMesh,ears,headJoint,hairMesh,pin,overcoat,hem,pufferCollar,hanbokDetails,jacket,skirt,legs,arms,label,
+    return {group,body,floorY:null,headwear,bag,varsity,tie,tieBlade,hoodie,knit,shirt,belt,dress,dressSkirt,overalls,shoesAside,skinParts:[collarbone,neck],skin:skinSet("light"),teeHem,pelvis,chest,torso,waist,face,garb,faceMesh,ears,headJoint,hairMesh,pin,overcoat,hem,pufferCollar,hanbokDetails,jacket,skirt,legs,arms,label,
       accessories,shadow,emote,chatSprite:null,chatMessage:null,itemPivots,tray,showTray,utensil:null,palette,offset,phase:(offset%100)/100,
       stride:0,sprint:0,seatBlend:0,petBlend:0,appearance:"",lastX:null,lastY:null,bike:null,hat:null,charm:null,umbrella:null};
   }
@@ -740,7 +762,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     lower.quaternion.copy(upper.quaternion).invert().multiply(globalLower);
   }
 
-  function appearance(model, position, blink, blush, woozy, sick, mouthOverride) {
+  function appearance(model, position, blink, blush, woozy, sick, mouthOverride, bathing = false) {
     const look = position.look;
     const hair = HAIR.includes(look?.hair) ? look.hair : position.character === "woman" ? "long" : "short";
     const eyes = EYES.includes(look?.eyes) ? look.eyes : "round";
@@ -754,7 +776,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const headwear=Object.hasOwn(wearables.headwear,look?.headwear)?look.headwear:"none";
     const keepsake=Object.hasOwn(wearables.keepsakes,look?.keepsake)?look.keepsake:"none";
     const glasses=look?.glasses??"none", beard=look?.beard??"none";
-    const key = `${hair}/${eyes}/${outfit}/${chima}/${headwear}/${keepsake}/${woman}/${tone}/${hairColor}/${glasses}/${beard}`;
+    const key = `${hair}/${eyes}/${outfit}/${chima}/${headwear}/${keepsake}/${woman}/${tone}/${hairColor}/${glasses}/${beard}/${bathing}`;
     if (key !== model.appearance) {
       model.appearance = key;
       model.hairMesh.geometry = hairGeometry(hair);
@@ -806,14 +828,23 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
         const bareLegs = outfit === "dress" || pleats;
         leg.top.material = bareLegs ? model.skin.plain : model.waist.material;
         // Shorts leave the shins bare; a uniform skirt comes with knee socks.
-        leg.bottom.material = pleats ? navySock : bareLegs || outfit === "shorts" ? model.skin.plain : model.waist.material;
-        leg.foot.geometry = footGeometries[outfit];
-        const [thigh,calf] = roomy ? LIMB.roomy : outfit === "shorts" ? [LIMB.roomy[0],LIMB.leg[1]*.92] : LIMB.leg;
+        const bareShin = bareLegs && !pleats || outfit === "shorts";
+        leg.bottom.material = bathing || bareShin ? model.skin.plain : pleats ? navySock : model.waist.material;
+        // Soaking feet are bare: shoes and socks come off and long trousers are rolled to the knee.
+        leg.foot.geometry = bathing ? bareFootGeometry : footGeometries[outfit];
+        leg.foot.material = bathing ? model.skin.baked : details;
+        leg.roll.visible = bathing && !bareLegs && !chima && outfit !== "shorts";
+        leg.roll.material = model.waist.material;
+        const [thigh,trouser] = roomy ? LIMB.roomy : outfit === "shorts" ? [LIMB.roomy[0],LIMB.leg[1]*.92] : LIMB.leg;
+        const calf = bathing && !bareShin ? LIMB.leg[1]*.90 : trouser;
+        leg.roll.scale.set(trouser*1.27,.050,trouser*1.23);
         leg.top.scale.set(thigh,LEG[0],thigh*.97);
         leg.bottom.scale.set(calf,LEG[1],calf*.97);
         leg.top.visible = !chima;
         leg.bottom.visible = !chima;
       }
+      for (const shoe of model.shoesAside.children) shoe.geometry = footGeometries[outfit];
+      model.shoesAside.visible = bathing;
       for (const arm of model.arms) {
         const bare = outfit === "tee" || outfit === "dress" || outfit === "shorts", padded = outfit === "puffer";
         const roomy = padded || outfit === "hoodie" || outfit === "varsity";
@@ -983,18 +1014,20 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const snack=position[position.itemUse==="secondItem"?"secondItem":"item"];
     const biteAge=clock-snack?.started;
     const taste=biteAge>=410&&biteAge<1250?{bungeoppang:"grin",bungeoppangCustard:"grin",bungeoppangBurnt:"pout",bungeoppangTorn:"cat"}[snack.kind]:null;
-    appearance(model,position,blinkTick>3970&&blinkTick<4100,blushLevel,woozy,Boolean(sick?.weight>.38),smiling?"peace":taste);
+    const bathing = Boolean(seat?.footBath) && seated > .5, hemLift = bathing ? 1 : 0;
+    appearance(model,position,blinkTick>3970&&blinkTick<4100,blushLevel,woozy,Boolean(sick?.weight>.38),smiling?"peace":taste,bathing);
     if (model.hem.visible) {
       model.hem.scale.set(1+seated*.08,1-seated*.61,1+stride*.10);
       model.hem.rotation.set(-seated*.37-sprint*.12,pendulum*sway*.065,pendulum*sway*.044);
     }
     if (model.skirt.visible) {
-      model.skirt.scale.set(1+seated*.12,1-seated*.10-crouch*.24,1+stride*.18+seated*.16);
+      // At the water the hem is gathered up over the knees.
+      model.skirt.scale.set(1+seated*.12,1-seated*.10-crouch*.24-hemLift*.30,1+stride*.18+seated*.16);
       model.skirt.rotation.set(-seated*.72-sprint*.085,pendulum*sway*.065,pendulum*sway*.059);
       for (const leg of legs) leg.bottom.visible = seated > .64;
     }
     if (model.dressSkirt.visible) {
-      model.dressSkirt.scale.set(.92*(1+seated*.10),.50*(1-seated*.16),.92*(1+stride*.14+seated*.20));
+      model.dressSkirt.scale.set(.92*(1+seated*.10),.50*(1-seated*.16-hemLift*.20),.92*(1+stride*.14+seated*.20));
       model.dressSkirt.rotation.set(-seated*.80-sprint*.085,pendulum*sway*.065,pendulum*sway*.059);
     }
     for (let i=0;i<2;i++) {
@@ -1013,7 +1046,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       const lift = (.13+sprint*.12)*Math.sin(Math.PI*swing)*stride;
       const dance=acting?.kind==="dance"&&!walking?acting.weight*(1-seated):0;
       const danceStep=dance?Math.sin(acting.time*TAU*1.36+side*Math.PI*.5):0;
-      const paddle = seat?.footBath ? seated*footBathSwing(clock,i) : 0;
+      const paddle = seat?.footBath ? seated*footBathSwing(footKickAge(position,clock),i) : 0;
       const ankleY = SOLE+lift*(1-seated)+seated*(seat?.footBath?-.082:.10)+Math.max(0,paddle)*.085
         +airborne*(.17+i*.05)+Math.max(0,danceStep)*dance*.081;
       leg.target.set(side*(STANCE+crouch*.033+dance*.044)-pelvis.position.x,ankleY-pelvis.position.y,

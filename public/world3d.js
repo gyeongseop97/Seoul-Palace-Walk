@@ -26,7 +26,7 @@ import { registerDiningNavigation } from "./dining-layout.js";
 import { buildDiningFacade } from "./dining-world.js";
 import { PET_MS, FEED_MS, ITEMS, diningTray, jumpLift, renderedJumpLift } from "./activities.js";
 import { bikeFallAt } from "./avatar-gestures.js";
-import { FOOT_BATH_PERIOD,makeWalkerModels } from "./walker-model.js";
+import { FOOT_BATH_PERIOD,footKickAge,makeWalkerModels } from "./walker-model.js";
 import { addMinigameMarkers, registerMinigameProps } from "./minigame-markers.js";
 import { makeMinigameWorld } from "./minigame-world.js";
 import { makeInteractionMarkers } from "./interaction-markers.js";
@@ -831,9 +831,9 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   rippleGeometry.rotateX(-Math.PI/2);
   const dropGeometry=new T.SphereGeometry(.024,6,5);
   const dropMaterial=new T.MeshBasicMaterial({color:0xe6f6f7,transparent:true,opacity:.85,depthWrite:false});
-  // Droplets a paddling foot throws up. They follow the room clock, as the kick does.
+  // Droplets a kicking foot throws up. They follow the room clock, as the kick does.
   function drawSplash(rings,surface){
-    if(!surface?.seat){
+    if(surface?.kick==null){
       if(rings?.drops)for(const drop of rings.drops)drop.visible=false;
       return;
     }
@@ -843,7 +843,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     rings.drops.forEach((drop,index)=>{
       const foot=index%2,side=foot?1:-1;
       // The foot breaks the surface as its swing turns upward.
-      const age=((surface.clock/FOOT_BATH_PERIOD+foot*.5)%1+1)%1*FOOT_BATH_PERIOD/1000;
+      const age=(surface.kick/FOOT_BATH_PERIOD+foot*.5)%1*FOOT_BATH_PERIOD/1000;
       const spread=(index*2.399)%1.5-.75,speed=.45+(index*.618%1)*.55,rise=1.25+(index*.382%1)*.75;
       const height=rise*age-4.9*age*age;
       drop.visible=height>0;
@@ -1200,7 +1200,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       const tableSeat=seatAt(player,clock);
       const waterPoint=tableSeat?.waterPoint;
       drawRipples(player.id,player,now,Boolean(waterPoint)||waterDepth(player.x,player.y)>0&&jumpLift(player,clock)<.3,
-        waterPoint?{...waterPoint,level:outsideGroundOffset(waterPoint)+CHEONGGYE_WATER_LEVEL+.016,seat:tableSeat,clock}:null);
+        waterPoint?{...waterPoint,level:outsideGroundOffset(waterPoint)+CHEONGGYE_WATER_LEVEL+.016,seat:tableSeat,kick:footKickAge(player,clock)}:null);
       updateTableTray(player,tableSeat,clock);
       walkerModels.update(model,diningPose(player),{now,clock,delta,seat:tableSeat,floor,jump:renderedJumpLift(player,clock,floor),emojiTexture,chatTexture,
         turnEase:player===me?1-Math.exp(-delta*22):1});
