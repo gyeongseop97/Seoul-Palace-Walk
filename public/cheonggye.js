@@ -526,15 +526,18 @@ export function* buildCheonggye(T,root,kit,terrain){
     const pool=part(new T.CircleGeometry(3.42,56),springWater,.372);
     pool.rotation.x=-Math.PI/2;pool.castShadow=false;
     // Each turn of the shell is a skirt: tucked under the turn above, flaring to a lip below.
-    const height=18.2,foot=.86,whorls=9.5,turns=whorls*Math.PI*2,around=Math.round(whorls*46),across=6;
-    const radiusAt=s=>2.9*Math.pow(1-s,.86)+.05,riseAt=s=>foot+height*(1-Math.pow(1-s,1.42));
+    const foot=.74,height=20-foot,whorls=9.5,turns=whorls*Math.PI*2,around=Math.round(whorls*64);
+    const radiusAt=s=>2.75*Math.pow(1-s,.92),riseAt=s=>foot+height*(1-Math.pow(1-s,1.35));
+    const profile=[[0,0,0x901932],[.18,.06,0xc62740],[.29,.23,0xe44048],[.31,.25,0x233e91],
+      [.59,.57,0x174ba8],[.83,.94,0x2463ba],[.91,1,0x315eb3],[.93,1,0xc32942],[1,.92,0xb01d38]];
+    const across=profile.length-1;
     const positions=[],colors=[],indices=[],tone=new T.Color();
     for(let i=0;i<=around;i++){
       const s=i/around,angle=s*turns,above=Math.min(1,s+1/whorls),drop=riseAt(above)-riseAt(s);
       for(let j=0;j<=across;j++){
-        const u=j/across,tuck=radiusAt(above)*.80,radius=tuck+(radiusAt(s)*1.07-tuck)*Math.pow(u,.72);
-        positions.push(Math.cos(angle)*radius,riseAt(above)-drop*1.10*u,Math.sin(angle)*radius);
-        tone.setHSL(.628-.022*s,.80,(.235+.085*s)*(.66+.50*u));
+        const [u,flare,color]=profile[j],tuck=radiusAt(above)*.92,radius=tuck+(radiusAt(s)-tuck)*flare;
+        positions.push(Math.cos(angle)*radius,riseAt(above)-drop*u,Math.sin(angle)*radius);
+        tone.setHex(color);
         colors.push(tone.r,tone.g,tone.b);
       }
     }
@@ -551,7 +554,7 @@ export function* buildCheonggye(T,root,kit,terrain){
     if(normals[probe]*positions[probe]+normals[probe+2]*positions[probe+2]<0){
       shell.setIndex(indices.reverse());shell.computeVertexNormals();
     }
-    part(shell,new T.MeshStandardMaterial({vertexColors:true,roughness:.36,metalness:.18}),0).name="스프링";
+    part(shell,new T.MeshStandardMaterial({vertexColors:true,roughness:.32,metalness:.24}),0).name="스프링";
     part(shell,new T.MeshStandardMaterial({color:0xc7322d,roughness:.5,side:T.BackSide}),0).castShadow=false;
     for(const [turn,color] of [[0,0x2f62d4],[Math.PI,0xd93a30]]){
       const points=[];

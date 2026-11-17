@@ -46,7 +46,7 @@ export const uijeongbuConnections=[
   // The east pavement of Jongno 1-gil, bending round the widened mouth to the junction corner.
   [...points([[137.5,443.6],[144.4,442.1],[160.5,477],[173.9,495.9],[190.6,521]]),
     ...surveyed([[681,-830],[692.5,-838.8],[706.3,-849],[700.5,-851.5],[686.5,-843.2],[674,-833.6]]),
-    ...points([[182.4,524],[165.6,499],[152.3,479.6],[148.6,467.8]])],
+    ...points([[174,519],[157.3,495.2],[146.5,478],[137.5,453.5],[134.2,440.6]])],
   points([[47,434],[128,440],[135.7,442],[137.5,446.7],[125,446],[47,440]]),
   // The broad pavement under the palace wall, from the woldae to where Bukchon's survey takes over.
   surveyed([[514.5,-857.5],[530.6,-871],[552.1,-881.8],[556,-882.4],[556,-901.2],[514.5,-900.2]]),
@@ -69,6 +69,9 @@ export const uijeongbuCrossings=[
 ];
 export const uijeongbuPavedConnections=[0,3,5,6,7,8];
 
+export const arcadeForecourt=points([[146.5-9*10.2/24.5,467.8],[170.5,467.8],[170.5,470],[159.5,470],
+  [159.5,486],[170.5,486],[170.5,488.2],[146.5+10.8*10.2/17.2,488.2],[146.5,478]]);
+
 export const uijeongbuWalks=[
   {width:4.2,points:points([[40,450],[38,477],[38.5,494],[44.7,508.6],[45.1,512.7],[53.2,515.9],
     [63.4,526.4],[78.1,538.2],[95.1,542.8],[119.8,547.5]])},
@@ -88,5 +91,5 @@ export const uijeongbuRemains=[
 ];
 
 export function isUijeongbuWalkable(x,y){
-  return [uijeongbuOutline,uijeongbuBusPavement,crossingStrip,...uijeongbuConnections].some(outline=>insidePlazaPolygon(x,y,outline));
+  return [uijeongbuOutline,uijeongbuBusPavement,arcadeForecourt,crossingStrip,...uijeongbuConnections].some(outline=>insidePlazaPolygon(x,y,outline));
 }

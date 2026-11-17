@@ -586,6 +586,9 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       requireDistrict(cheonggye);requireDistrict(corridor);
     }
     if(!indoors&&area===songhyeon&&x<810)requireDistrict(bukchon);
+    if(!indoors&&Math.hypot(x-ARCADE_SITE.x,y-ARCADE_SITE.y)<32){
+      requireDistrict(palace);requireDistrict(plaza);
+    }
     // At the Sajik-ro crossing and the east gates, both sides belong in the
     // foreground. Load them together after a shortcut or a restored visit.
     if(!indoors&&y<gwanghwamun.y+102&&y>gwanghwamun.y-28&&Math.abs(x-gwanghwamun.x)<102){
