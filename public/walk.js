@@ -31,7 +31,7 @@ import {cheonggyeBounds,cheonggyeDeckExits,cheonggyeDeckStep,cheonggyeLandmarks,
 import {FOOT_BATH_PERIOD,footKickAge} from "./walker-model.js";
 import {inSonghyeon,songhyeonBounds,songhyeonOutline,songhyeonPaths,songhyeonLawns,songhyeonLandmarks} from "./songhyeon-layout.js";
 import {uijeongbuOutline,uijeongbuEntry,uijeongbuGarden,uijeongbuWalks,uijeongbuConnections,uijeongbuSideRoad,uijeongbuBusPavement,uijeongbuRemains,sajikEastRoad,uijeongbuPavedConnections,uijeongbuCrossings,gardenSidewalk,gardenVerge} from "./uijeongbu-layout.js";
-import {BUS_COUNT,BUS_SEATS,bukchonBusRoads,busAt,busSeatPose,busStopById,busStops,busStopTimes,nearBus} from "./sejong-bus.js";
+import {BUS_COUNT,BUS_SEATS,bukchonBusRoads,busAt,busSeatPose,busStopById,busStops,busStopTimes,nearBus,setBusYields} from "./sejong-bus.js";
 import {approachingTraffic,clearingLane,sidewalkRefuge} from "./crossing-traffic.js";
 import {bikeDocks,bikeMountReach,bikeParkDuration,bikePassengerBoardSpeed,bikePassengerOffset,bikePassengerPose,
   isBikeDriver,isBikePassenger,isCycling,nearBikeDock} from "./sejong-bike.js";
@@ -72,6 +72,8 @@ import {arcadeTitles,bindArcade} from "./arcade-client.js";
 import {isClassic} from "./arcade-classics.js";
 import {arcadeSnapshot,visibleArcade} from "./arcade-presence.js";
 import {ITEM_SLOTS,handLabel,itemAnimating,freeItemSlot,handsFree} from "./held-items.js";
+import {BAG_SIZE,belongings,validPacked} from "./walk-inventory.js";
+import {bindWalkBag} from "./walk-bag-client.js";
 import {BIKE_FALL_DURATION_MS,GESTURE_DURATIONS,SICK_DURATION_MS,bikeFallChance,finishAlcoholSip} from "./avatar-gestures.js";
 
 const $=id=>document.getElementById(id);
@@ -99,6 +101,36 @@ function initialAvatar(){
     running:false,blocked:false,up:false,character,look};
 }
 const me=initialAvatar(),people=new Map(),markers=new Map(),formations=new Map();
+let bagCommand=null,lastBagSave="";
+function bagSaveKey(name){return "palace-walk-bag/"+name;}
+function readBag(name){
+  let data={};
+  try{data=JSON.parse(localStorage.getItem(bagSaveKey(name)))??{};}catch{}
+  return {...belongings(data),...Object.fromEntries(ITEM_SLOTS.map(s=>[s,validPacked(data[s])?{...data[s],started:0}:null])),bagClaim:null};
+}
+function saveBag(){
+  if(!session||bagCommand)return;
+  const data=JSON.stringify({...belongings(me),...Object.fromEntries(ITEM_SLOTS.map(s=>[s,validPacked(me[s])?me[s]:null]))});
+  if(data!==lastBagSave)try{localStorage.setItem(bagSaveKey(session.nickname),data);lastBagSave=data;}catch{}
+}
+function bagLocked(){
+  return !!(bagCommand||picnicInventoryBusy()||bungeoInventoryPending()||feedingLocked(gameTime())||
+    clinkLocked(gameTime())||queuedDining||ITEM_SLOTS.some(s=>itemAnimating(me[s],gameTime())));
+}
+function bagRequest(cmd){
+  if(arcade.kind==="claw"&&cmd.action!=="prize"){toast("인형뽑기를 마친 뒤 가방을 정리해 주세요.");return;}
+  if(!session||bagLocked()&&cmd.action!=="prize"||bagCommand)return;
+  bagCommand={...cmd,id:token()};dirty=true;wakeSync();walkBag.render();
+}
+const walkBag=bindWalkBag({avatar:me,busy:bagLocked,command:bagRequest,
+  openGame:()=>{resetInput();closeActionMenus();mobileSettings.open=false;},
+  peers:giftPeers});
+function giftPeers(){
+  return [...people].filter(([,p])=>near(p.position,me.x,me.y)<=3.6&&!!me.up===!!p.avatar.up&&
+    !p.avatar.bus&&!isCycling(p.avatar)&&interiorAt(p.position.x,p.position.y)===interiorAt(me.x,me.y))
+    .map(([id,p])=>[id,p.nickname]);
+}
+$("give-held").onclick=()=>walkBag.open(ITEM_SLOTS.find(s=>validPacked(me[s])));
 let ownView=initialView(),trackedPersonId=null,world,worldLoading,worldFailed=false;
 let firstPerson=localStorage.getItem("jeongdong-first-person")==="true";
 let session=null,active=true,joining=false,lastPost=0,lastWishSynced=0,lastArcadePost="",dirty=true;
@@ -458,6 +490,11 @@ function moveBowler(direction,elapsed){
   return moved;
 }
 const arcade=bindArcade({root:sceneWrap,getAvatar:()=>me,getAim:()=>ownView,getClock:now=>gameTime(now),
+  onPrize:p=>bagRequest({action:"prize",kind:"plush-"+p.type+"-"+p.variant}),
+  canDropClaw:()=>{
+    if(!bagLocked()&&(me.bag?.length??0)<BAG_SIZE)return true;
+    toast(bagLocked()?"물건을 옮긴 뒤 다시 시도해 주세요.":"인형을 담을 가방 한 칸을 비워 주세요.");return false;
+  },
   getBowling:()=>bowlingMatch,getPlayerId:()=>session?.id,bowlingPending:()=>bowlingQueue.some(item=>item.action!=="leave"),
   commandBowling,onBowlMove:moveBowler,
   onBaseballStance(hand){
@@ -987,17 +1024,19 @@ async function sync(){
   const sincePost=Date.now()-lastPost;
   const arcadePacket=arcade.kind&&arcade.kind!=="bowling"?arcadeSnapshot(arcade.state(sent)):null;
   const arcadeKey=arcadePacket?JSON.stringify(arcadePacket):"";
-  const post=dirty||hand||claim||feed||chat||bus||bike||show||clink||photo||minigame||picnicCommand||dining||bungeo||bowling||
+  const inventory=bagCommand;
+  const post=inventory||dirty||hand||claim||feed||chat||bus||bike||show||clink||photo||minigame||picnicCommand||dining||bungeo||bowling||
     sincePost>=3800||sincePost>=125&&arcadeKey!==lastArcadePost;
   const base={room:visit.room,id:visit.id,key:visit.key,
     bikeOffers:isBikeDriver(me)||Boolean(tandemOffer),diningVenue:serviceVenue,...(bungeoWatch?{bungeoWatch}:null),
     ...(bowlingWatch?{bowlingWatch}:null)};
   const avatar=post?{...me,catFriends:passport.friendlyCatIds()}:null;
+  if(avatar){delete avatar.bag;delete avatar.plushHead;delete avatar.plushBack;}
   if(avatar&&arcadePacket)avatar.arcade=arcadePacket;
   if(avatar&&claim)Object.assign(avatar,{seat:claim.bench,seatSide:claim.side});
   if(avatar){if(chat)avatar.chat=chat;else delete avatar.chat;}
   if(avatar&&(avatar.wish===lastWishSynced||gameTime(sent)-avatar.wish>=WISH_FLIGHT_MS))delete avatar.wishArt;
-  const body=post?{...base,avatar,view:{...ownView},hand,feed,bus,bike,show,clink,photo,minigame,picnic:picnicCommand,dining,
+  const body=post?{...base,avatar,view:{...ownView},hand,feed,bus,bike,show,clink,photo,minigame,picnic:picnicCommand,dining,inventory,
     ...(bungeo?{bungeo}:null),...(bowling?{bowling}:null)}:base;
   if(post)dirty=false;
   try{
@@ -1007,6 +1046,7 @@ async function sync(){
     if(!response.ok)throw Error(data.error);
     const received=performance.now();
     updateClock(data.serverTime,sent,received);
+    setBusYields(data.busYields);
     if(data.weather)environment.liveWeather=data.weather;
     syncFailures=0;
     if(post){lastPost=Date.now();lastWishSynced=avatar.wish;lastArcadePost=arcadeKey;}
@@ -1044,6 +1084,20 @@ async function sync(){
       for(const slot of ITEM_SLOTS)me[slot]=confirmed[slot]??null;
     }
     receiveBungeo(data,confirmed,bungeo,bungeoWatch);
+    if(confirmed?.bagClaim&&confirmed.bagClaim!==me.bagClaim){
+      Object.assign(me,belongings(confirmed),{bagClaim:confirmed.bagClaim});
+      for(const s of ITEM_SLOTS)me[s]=confirmed[s]??null;
+      if(confirmed.bagClaim!==inventory?.id)toast("친구가 손에 선물을 건넸어요.");
+      dirty=true;
+    }
+    if(inventory&&bagCommand===inventory&&data.bagResult?.id===inventory.id&&!data.bagResult.retry){
+      bagCommand=null;
+      if(data.bagResult.error)toast(data.bagResult.error);
+      else if(inventory.action==="prize")toast(ITEMS[inventory.kind].name+"을 가방에 담았어요.");
+      else if(inventory.action==="give")toast("친구에게 건넸어요.");
+      else if(inventory.action==="collect")toast(ITEMS[inventory.kind].name+"을 가방에 담았어요.");
+    }
+    walkBag.render();saveBag();
     if(feed&&queuedFeed===feed){
       queuedFeed=null;
       if(confirmed?.feed?.claim!==feed.claim)toast("고양이에게 가까이 다가가 다시 간식을 주세요.");
@@ -1147,6 +1201,7 @@ function showProfile(){
   nickname.focus({preventScroll:true});
 }
 function returnToLobby(message=""){
+  saveBag();bagCommand=null;walkBag.close();
   const old=session;
   rememberWalkPosition();
   leaveBeacon();session=null;clearSyncTimer();resetInput();
@@ -1192,6 +1247,7 @@ async function enterRoom(action,code){
   joining=true;serverButtons.forEach(button=>{button.disabled=true;});
   $("lobby-status").textContent="산책방에 들어가는 중이에요.";
   const id=token(),key=token(),avatar=initialAvatar(),view=initialView();
+  Object.assign(avatar,readBag(name));lastBagSave="";
   const angle=parseInt(id.slice(0,8),16)/0x100000000*Math.PI*2;
   const offset=.38+parseInt(id.slice(8,12),16)/0x10000*.67;
   avatar.x+=Math.cos(angle)*offset;avatar.y+=Math.sin(angle)*offset;
@@ -1216,6 +1272,7 @@ async function enterRoom(action,code){
     }
     if(!response.ok)throw Error(data.error);
     clockOffset=null;roundTrip=65;
+    setBusYields(data.busYields);
     updateClock(data.serverTime,sent,performance.now());
     session={room:data.room,code:data.code,mode:data.mode??"private",id,key,...data.profile};
     world?.setVisitorRoom(session.room);
@@ -1333,6 +1390,7 @@ document.querySelectorAll("dialog").forEach(dialog=>dialog.addEventListener("clo
 }));
 $("model-credits").addEventListener("click",()=>$("credits-dialog").showModal());
 window.addEventListener("pagehide",()=>{
+  saveBag();
   rememberWalkPosition();
   active=false;pageVersion++;clearSyncTimer();sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);leaveBeacon();
 });
@@ -2283,7 +2341,11 @@ $("take-item").addEventListener("click",()=>{
   if(!session||riding||me.seat!=null||picnicInventoryBusy()||bungeoInventoryPending())return;
   const station=nearbyStation(),time=gameTime();
   const slot=freeItemSlot(me,time);
-  if(!station||!slot||feedingLocked(time)||clinkLocked(time)||sickLocked(time))return;
+  if(!station||feedingLocked(time)||clinkLocked(time)||sickLocked(time))return;
+  if(!slot){
+    if(!carryingDiningTray(time)&&(me.bag?.length??0)<BAG_SIZE)bagRequest({action:"collect",kind:station.kind});
+    return;
+  }
   const spec=ITEMS[station.kind];
   me[slot]={kind:station.kind,remaining:spec.uses,started:0};dirty=true;wakeSync();
   toast(station.kind==="churu"?"츄르를 샀어요. 고양이 가까이에서 잠시 기다려 보세요.":spec.name+" 받았어요.");
@@ -2295,6 +2357,7 @@ function disableHeldActions(){
 }
 function useHeldItem(slot){
   if(!session)return;
+  if(ITEMS[me[slot]?.kind]?.plush){walkBag.open(slot);return;}
   const time=gameTime();
   if(ITEMS[me[slot]?.kind]?.meal&&!atDiningTable()){toast("식탁에 앉아야 먹을 수 있어요.");return;}
   if(!canUseItem(time,slot))return;
@@ -2781,7 +2844,7 @@ for(const action of ["accept","decline"])$("clink-"+action).addEventListener("cl
   queuedClink={action,id:clink.id};wakeSync();focusGame();
 });
 function picnicInventoryBusy(){
-  return queuedPicnic?.action==="place"||queuedPicnic?.action==="take";
+  return !!bagCommand||queuedPicnic?.action==="place"||queuedPicnic?.action==="take";
 }
 function canPicnic(time){
   return Boolean(session&&world&&!riding&&!me.bus&&!isCycling(me)&&!queuedBus&&!queuedBike&&
@@ -2843,8 +2906,10 @@ function updateActivities(time,guideNearby){
   const station=eligible&&me.seat==null&&nearbyStation();
   const busy=Boolean(riding||picnicInventoryBusy()||bungeoInventoryPending()||feeding||clinkLocked(time)||sickLocked(time));
   const free=!carryingDiningTray(time)&&freeItemSlot(me,time);
-  const pickup=station&&(free?(station.kind==="churu"?"츄르 사기":ITEMS[station.kind].name+" 받기"):"두 손이 가득 찼어요");
-  setActivity("take-item",pickup,busy||!free);
+  const packAtCounter=!carryingDiningTray(time)&&(me.bag?.length??0)<BAG_SIZE;
+  const pickup=station&&(free?(station.kind==="churu"?"츄르 사기":ITEMS[station.kind].name+" 받기"):
+    packAtCounter?ITEMS[station.kind].name+" 가방에 담기":"손이나 가방을 비워 주세요");
+  setActivity("take-item",pickup,busy||!free&&!packAtCounter);
   setActivity("photo",eligible&&nearPhotoZone()?"사진 찍기":null,photoBusy);
   const feedSlot=queuedFeed?.slot??me.feed?.slot??"item";
   const nearbyFeedCat=eligible&&feedCatNearby();
@@ -2858,7 +2923,7 @@ function updateActivities(time,guideNearby){
     const carrying=spec?.meal&&item?.remaining&&!atDiningTable();
     button.disabled=(!carrying&&!canUseItem(time,slot))||churu&&(!nearbyFeedCat||time-(me.pet?.at??0)<PET_MS);
     if(spec){
-      const itemLabel=spec.name+(item.remaining&&!feedingHere?` · ${item.remaining}회`:"");
+      const itemLabel=spec.name+(item.remaining&&!feedingHere&&!spec.plush?` · ${item.remaining}회`:"");
       setText(button.firstElementChild,itemLabel);
       setText(button.lastElementChild,action);
       attr(button,"aria-label",`${hand} · ${itemLabel} · ${action}`);
@@ -3115,6 +3180,8 @@ function frame(now){
     setText($("game-place"),$("location").textContent);
     refreshShortcuts();
     updateHandControls();
+    const heldGift=!me.bus&&!isCycling(me)&&ITEM_SLOTS.some(s=>validPacked(me[s]));
+    setActivity("give-held",heldGift&&giftPeers().length?"물건 건네기":null,bagLocked());
     nearbyControls.refresh(preferredNearbyAction(time));peerControls.refresh(preferredPeerAction(time));
     leaveWater();
     updateLocationGuides();updateMaps(self,others);

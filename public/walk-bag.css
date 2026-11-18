@@ -1,0 +1,18 @@
+#bag-open{display:inline-grid;place-items:center;min-width:34px;padding:6px 8px}
+#walk-bag{box-sizing:border-box;width:min(440px,94vw);max-height:85dvh;overflow:auto;color:#fff4dc;background:#21362e;border:1px solid #8b805a;border-radius:16px;padding:18px}
+#walk-bag::backdrop{background:#101b16ad}
+#walk-bag .dialog-head,#walk-bag .bag-heading{display:flex;align-items:center;justify-content:space-between}
+#walk-bag h2,#walk-bag h3{margin:0}
+#walk-bag h3{font-size:.89rem;margin:14px 0 7px}
+#bag-count{color:#dec592;font-size:.83rem}
+.bag-grid,.bag-equipped{display:grid;gap:5px;grid-template-columns:repeat(5,minmax(0,1fr))}
+.bag-equipped{grid-template-columns:repeat(4,minmax(0,1fr))}
+#walk-bag button,#walk-bag select{color:#fff5df;background:#324c40;border:1px solid #71806b;border-radius:8px;padding:6px;cursor:pointer}
+#walk-bag .bag-cell{min-height:46px;display:grid;place-content:center;gap:2px;font-size:.73rem;line-height:1.2;overflow-wrap:anywhere}
+#walk-bag .bag-cell span{color:#dccba5;font-size:.69rem}
+#walk-bag .bag-cell i{font-style:normal;font-size:1.2rem}
+#walk-bag .bag-cell:disabled{background:#192c25;border:1px dashed #536052;cursor:default}
+#walk-bag .bag-cell[aria-pressed=true]{border-color:#ebc277;background:#48523c;outline:1px solid #ebc277}
+#bag-detail{margin-top:16px;min-height:1.4em;color:#e9d6ae;font-size:.85rem}
+#bag-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+#bag-actions button:disabled{opacity:.5}

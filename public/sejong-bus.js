@@ -142,15 +142,20 @@ const route=itineraries.map(leg=>{
     const at=distance-BUS_LENGTH/2-crossing.width/2-.8;
     if(at>5&&at<length-6&&at-(holds.at(-1)?.at??-Infinity)>12)holds.push({at,crossing});
   }
-  const wait=holds.length?Math.min(4800,leg.travelMs*.20/holds.length):0;
-  const moving=leg.travelMs-wait*holds.length;
-  let last=0,start=0;
-  const segments=[...holds,{at:length}].map(({at,crossing})=>{
-    const duration=moving*(at-last)/length,end=start+duration+(crossing?wait:0);
-    const part={start,from:last,to:at,duration,end,crossing};
-    start=end;last=at;return part;
+  const lines=holds.map(({at})=>{
+    let lo=0,hi=leg.travelMs;
+    for(let i=0;i<24;i++){
+      const t=(lo+hi)/2;
+      if(length*traveled(t,leg.travelMs)<at)lo=t;else hi=t;
+    }
+    return (lo+hi)/2;
   });
-  return {...leg,offset,path,segments};
+  const crossings=holds.map(({crossing},i)=>{
+    const line=lines[i],start=Math.max(line-2400,((lines[i-1]??0)+line)/2);
+    const end=Math.min(line+7800,((lines[i+1]??leg.travelMs)+line)/2);
+    return {crossing,line,start,end};
+  });
+  return {...leg,offset,path,length,crossings};
 });
 const cyclePhase=(time,offset,period)=>((time-epoch-offset)%period+period)%period;
 const laneSegments=route.flatMap(leg=>leg.path.slice(1).map((b,i)=>[leg.path[i],b]));
@@ -189,7 +194,42 @@ function traveled(elapsed,duration){
   return (elapsed-ramp*.5)/cruise;
 }
 
-export function busAt(index,time){
+// Only the browser sets this map. Room requests pass their snapshot explicitly.
+let localYields=new Map();
+export function setBusYields(entries){localYields=new Map(entries);}
+const crossingKey=(index,time)=>index+"/"+Math.round(time);
+
+export function approachingCrosswalks(time){
+  const pending=[];
+  for(let index=0;index<BUS_COUNT;index++)for(const leg of route){
+    const offset=leg.offset+BUS_DWELL_MS-index*BUS_DEPARTURE_MS;
+    const phase=cyclePhase(time,offset-2000,BUS_CYCLE_MS)-2000;
+    if(phase>leg.travelMs)continue;
+    const departure=time-phase;
+    for(const c of leg.crossings){
+      if(phase<c.start-1500||phase>c.line-650)continue;
+      pending.push({crossing:c.crossing,key:crossingKey(index,departure+c.line),
+        brake:Math.round(departure+Math.max(c.start,phase+300)),ends:Math.ceil(departure+c.end)});
+    }
+  }
+  return pending;
+}
+
+// Map the shared trip clock to a smooth brake, brief hold and recovery.
+// Both ends meet the through-running trajectory at its original speed.
+function yieldClock(phase,c,start){
+  const approach=c.line-start,stop=c.line+Math.min(approach*.30,(c.end-c.line)*.15);
+  const release=stop+Math.min(2600,(c.end-stop)*.36);
+  if(phase<stop){
+    const t=(phase-start)/(stop-start);
+    return {at:start+approach*t*t*(3-2*t)+(stop-start)*t*(1-t)**2,left:0};
+  }
+  if(phase<release)return {at:c.line,left:release-phase};
+  const t=(phase-release)/(c.end-release);
+  return {at:c.line+(c.end-c.line)*t*t*(3-2*t)-(c.end-release)*t*t*(1-t),left:0};
+}
+
+export function busAt(index,time,yields=localYields){
   if(!Number.isInteger(index)||index<0||index>=BUS_COUNT||!Number.isFinite(time))return null;
   let phase=cyclePhase(time,-index*BUS_DEPARTURE_MS,BUS_CYCLE_MS);
   const id=`sejong-bus-${index+1}`;
@@ -201,14 +241,22 @@ export function busAt(index,time){
     }
     phase-=BUS_DWELL_MS;
     if(phase<leg.travelMs){
-      const length=leg.path.at(-1).distance,part=leg.segments.find(s=>phase<s.end)??leg.segments.at(-1);
-      const elapsed=phase-part.start,holding=elapsed>=part.duration&&part.crossing;
-      const metres=part.from+(part.to-part.from)*traveled(Math.min(elapsed,part.duration),part.duration);
+      const {length}=leg;
+      let travelClock=phase,yieldLeft=0;
+      const c=yields?.size&&leg.crossings.find(c=>phase>=c.start-.001&&phase<c.end);
+      if(c){
+        const departure=time-phase,brake=yields.get(crossingKey(index,departure+c.line));
+        if(brake!=null&&time>=brake){
+          const adjusted=yieldClock(phase,c,Math.max(c.start,brake-departure));
+          travelClock=adjusted.at;yieldLeft=adjusted.left;
+        }
+      }
+      const metres=length*traveled(travelClock,leg.travelMs);
       const p=pointAtDistance(leg.path,metres);
       const a=pointAtDistance(leg.path,Math.max(0,metres-.94));
       const b=pointAtDistance(leg.path,Math.min(length,metres+.94));
       return {id,index,...p,heading:heading(a,b),stopId:null,remaining:0,elapsed:phase,
-        traveling:true,yielding:Boolean(holding),yieldLeft:holding?part.end-phase:0,nextStopId,eta:leg.travelMs-phase};
+        traveling:true,yielding:yieldLeft>0,yieldLeft,nextStopId,eta:leg.travelMs-phase};
     }
     phase-=leg.travelMs;
   }

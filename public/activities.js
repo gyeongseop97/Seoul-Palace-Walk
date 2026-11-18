@@ -1,3 +1,4 @@
+import {plushItems} from "./plush-items.js";
 export const PET_MS=1450;
 export const FEED_MS=5000;
 export const JUMP_MS=740;
@@ -22,6 +23,7 @@ const bungeoppang={name:"붕어빵",verb:"먹기",uses:3,duration:1300,snack:tru
 const hotteok={name:"호떡",verb:"먹기",uses:3,duration:1300,snack:true};
 const meal=(name,utensil="spoon")=>({name,verb:"먹기",uses:3,duration:1800,meal:true,utensil});
 export const ITEMS={
+  ...plushItems,
   sparkler:{name:"스파클",verb:"사용하기",uses:1,duration:8000},
   coffee:{name:"커피",verb:"마시기",uses:3,duration:1150},
   crepe,parfait:crepe,

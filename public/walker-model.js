@@ -1,4 +1,6 @@
 import {FEED_MS, PET_MS, JUMP_HEIGHT, avatarHands} from "./activities.js";
+import {createPlush} from "./plush-model.js";
+import {plushItems} from "./plush-items.js";
 import {bikeFit,bikePedal,bikeRearFit,makeRidingBike} from "./sejong-bike-model.js";
 import {isBikeDriver,isBikePassenger,isCycling} from "./sejong-bike.js";
 import {CLINK_DURATION_MS} from "./social-events.js";
@@ -915,6 +917,18 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     group.visible = true;
     const smoothPose = wasVisible ? 1 - Math.exp(-delta*15) : 1;
     const riding = !seat && isCycling(position);
+    for(const slot of ["plushHead","plushBack"]){
+      const kind=position[slot]||null;
+      if((model[slot]?.name??null)===kind)continue;
+      model[slot]?.removeFromParent();model[slot]=null;
+      const spec=plushItems[kind];
+      if(spec){
+        const toy=createPlush(T,spec.type,spec.variant);
+        toy.name=kind;model[slot]=toy;
+        if(slot==="plushHead"){model.headwear.add(toy);toy.position.set(0,.32,-.025);toy.scale.setScalar(.88);}
+        else{model.chest.add(toy);toy.position.set(0,.03,-.26);toy.rotation.y=Math.PI;toy.scale.setScalar(1.2);}
+      }
+    }
     const driving = riding && isBikeDriver(position),passenger = riding && isBikePassenger(position);
     const lift = riding ? 0 : jump;
     const airborne = Math.min(1,lift/JUMP_HEIGHT);

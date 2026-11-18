@@ -1,4 +1,6 @@
 import {addObstacle,route,stoneFountain} from "./layout.js";
+import {createPlush} from "./plush-model.js";
+import {plushItems} from "./plush-items.js";
 import {sparklerStall} from "./gyeongbok-layout.js";
 import {addConvenienceStore,standBatcher,standSign} from "./regional-stands.js";
 import {makeRegionalItemProps} from "./regional-item-props.js";
@@ -28,6 +30,10 @@ const shopPlots=shops.map(shop=>{
   return {shop,x,y,sideX,sideY,angle:-Math.atan2(dy,dx),centerX:x+sideX*offset,centerY:y+sideY*offset};
 });
 const sparklerStand={x:stoneFountain.x+8.1,y:stoneFountain.y+9.8};
+export const streetCounters=[
+  ...shopPlots.map(({shop,x,y,sideX,sideY})=>({kind:shop.kind,name:shop.name,x:x+sideX*4.05,y:y+sideY*4.05})),
+  ...[sparklerStand,sparklerStall].map(({x,y},i)=>({kind:"sparkler",name:i?"경회루 스파클 좌판":"분수 스파클 좌판",x,y:y-1.85}))
+];
 export function underDoldamAwning(point){
   return shopPlots.some(({shop,centerX,centerY,angle})=>{
     if(shop.kind==="churu")return false;
@@ -71,7 +77,6 @@ function makeCrepeModel(T){
 }
 
 export function addStands(T,scene,{wx,wz,box,cylinder}){
-  const stations=[];
   const batchDetails=standBatcher(T);
   function glass(parent,shop,x,y,z,width,height){
     box(shop.frame,x,y,z,width+.16,height+.16,.10,parent);
@@ -151,14 +156,12 @@ export function addStands(T,scene,{wx,wz,box,cylinder}){
         centerY-localX*Math.sin(angle)+localZ*Math.cos(angle),.99,.71,angle,1.05);
     }
     // The threshold stays on the walkable sidewalk, in front of the facade collision.
-    const approach=4.05;
-    stations.push({kind:shop.kind,name:shop.name,x:x+sideX*approach,y:y+sideY*approach});
   }
 
   sparklerStandAt(sparklerStand,"분수 스파클","분수 스파클 좌판");
   // A second stall beside the Gyeonghoeru pond in Gyeongbokgung.
   sparklerStandAt(sparklerStall,"경회루 스파클","경회루 스파클 좌판");
-  return stations;
+  return streetCounters;
 
   function sparklerStandAt({x,y},title,name){
   const stand=new T.Group();stand.position.set(wx(x),0,wz(y));stand.rotation.y=Math.PI;scene.add(stand);
@@ -187,7 +190,6 @@ export function addStands(T,scene,{wx,wz,box,cylinder}){
   }
   batchDetails(stand);
   addObstacle(x,y,3.08,1.45,Math.PI,2.62);
-  stations.push({kind:"sparkler",name,x,y:y-1.85});
   }
 }
 
@@ -305,6 +307,9 @@ export function makeItemProps(T,{box,cylinder,shape}){
   }
   const models={coffee,crepe,parfait:crepe,beer,sparkler,churu,...makeRegionalItemProps(T,{box,cylinder,shape}),
     ...makeDiningDishes(T,{box,cylinder,shape})};
+  for(const [kind,{type,variant}] of Object.entries(plushItems)){
+    models[kind]=group=>{const toy=createPlush(T,type,variant);toy.position.y=-.08;group.add(toy);};
+  }
   return parent=>{
     const instances=new Map();
     let previous=null;

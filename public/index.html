@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="./minigames.css">
   <link rel="stylesheet" href="./photo-mode.css">
   <link rel="stylesheet" href="./picnic.css">
+  <link rel="stylesheet" href="./walk-bag.css">
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"}}</script>
   <script type="module" src="./walk.js"></script>
 </head>
@@ -89,6 +90,9 @@
   <header class="top">
     <h1 class="brand"><img src="./seoul-palace-wordmark.png" alt="서울 궁 한바퀴" width="576" height="190" decoding="async"></h1>
     <div class="top-game-actions">
+      <button id="bag-open" class="quiet" type="button" data-native-touch aria-haspopup="dialog" aria-label="가방 열기" title="가방">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M9 6V5a3 3 0 0 1 6 0v1M5 11a6 6 0 0 1 6-6h2a6 6 0 0 1 6 6v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><rect x="8" y="13" width="8" height="5" rx="1.5"/></svg>
+      </button>
       <button id="fullscreen-toggle" class="quiet" type="button" data-native-touch title="전체화면" aria-label="전체화면" aria-pressed="false">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path class="fullscreen-enter-icon" d="M3 7V3h4m6 0h4v4m0 6v4h-4m-6 0H3v-4"/>
@@ -217,6 +221,7 @@
             <button id="peer-toggle" type="button" class="quiet" aria-expanded="false" aria-controls="peer-actions" hidden>동행 행동</button>
             <div id="peer-actions" class="nearby-actions" role="group" aria-label="동행 행동" tabindex="-1" data-scroll-actions hidden>
               <button id="hand" type="button" class="quiet" hidden>손잡기</button>
+              <button id="give-held" type="button" class="quiet" aria-haspopup="dialog" hidden>물건 건네기</button>
               <button id="share-umbrella" type="button" class="quiet" hidden>우산 같이 쓰기</button>
               <button id="bike-tandem" type="button" class="quiet" hidden>자전거 동승 요청</button>
               <button id="clink" type="button" class="quiet" hidden>건배하기</button>
@@ -377,6 +382,13 @@
   </main>
   </div>
   <div id="passport-mount"></div>
+  <dialog id="walk-bag" aria-labelledby="bag-title">
+    <div class="dialog-head"><h2 id="bag-title">내 가방</h2><button id="bag-close" type="button" class="quiet" aria-label="가방 닫기">닫기</button></div>
+    <div class="bag-heading"><h3>보관함</h3><span id="bag-count"></span></div>
+    <div id="bag-grid" class="bag-grid"></div>
+    <h3>손과 착용 중인 인형</h3><div id="bag-equipped" class="bag-equipped"></div>
+    <div id="bag-detail" aria-live="polite"></div><div id="bag-actions"></div>
+  </dialog>
   <dialog id="environment-dialog" aria-labelledby="environment-title">
     <div class="dialog-top"><h2 id="environment-title">시간과 날씨</h2><button type="button" class="quiet close" aria-label="닫기">×</button></div>
     <p id="environment-status" role="status">서울 날씨를 확인하고 있어요.</p>
@@ -526,6 +538,7 @@
       <section><h3>지하철과 따릉이</h3><p>지도의 보라색 표시가 지하철 출입구예요. 출입구 앞에서 <strong>지하철 타기</strong>를 누르고 역과 출구 번호를 고르면 그곳으로 이동해요. 따릉이는 대여소에서 빌리거나 반납할 수 있어요. 운전자가 멈추면 같은 방 친구 한 명이 가까이에서 <strong>따릉이 뒷자리 타기</strong>를 누를 수 있어요. 도중에 세워 두면 10분 안에 다시 탈 수 있어요.</p></section>
       <section><h3>공연과 기념사진</h3><p>광화문광장 명량분수 서쪽에서 <strong>분수쇼 시작</strong>을 누르면 같은 방에서 음악분수 공연을 함께 볼 수 있어요. 경복궁 광화문에서는 수문장 교대식이 열리고, 근정전 포토존에서는 <strong>사진 찍기</strong>를 할 수 있어요.</p></section>
       <section><h3>도장과 산책 기록</h3><p>전각과 동상, 유적 터에 가까이 가면 여권에 도장이 찍혀요. 덕수궁·광화문광장·경복궁에서 각각 9곳을 방문하면 꾸미기 보상을 받을 수 있어요. <strong>산책 기록</strong>에서 여권, 앨범, 이어하기 코드를 열 수 있어요.</p></section>
+      <section><h3>가방과 선물</h3><p>상단의 가방에는 간식과 인형을 15개까지 담을 수 있어요. 산책 중 모아 둔 간식은 돗자리 앞에서 손으로 꺼내 나눠 보세요. 오락실에서 뽑은 인형은 머리나 등에 착용할 수도 있어요. 친구 곁에서 <strong>동행 행동 → 물건 건네기</strong>를 누르면 손에 든 물건을 선물해요.</p></section>
       <section><h3>한복과 전통놀이</h3><p>경복궁 앞 한복 대여소에서 한복과 갓 또는 족두리를 골라 입어 보세요. 근정전 마당에서 투호와 제기차기를, 광화문광장 육조마당에서 연날리기를 혼자 또는 같은 방 친구와 즐길 수 있어요.</p></section>
       <section><h3>돌담길 연주와 사진 모드</h3><p>정동 분수로 가는 길에 버스킹이 열려요. 설정에서 <strong>사진 모드</strong>를 열면 풍경만 남아 원하는 순간을 직접 캡처할 수 있어요. 풍경을 한 번 누르면 사진 도구가 열려요. 가까운 친구와 단체 사진을 찍거나 날짜와 장소가 담긴 카드를 앨범에 저장해 보세요.</p></section>
       <section><h3>소원등과 스파클</h3><p>정동 분수대와 경복궁 향원정에서 <strong>소원등</strong>을 눌러 네 면을 꾸미고 지금 서 있는 곳에서 띄워 보세요. 석조전 분수와 경회루 옆 좌판에서는 스파클을 받아 <strong>사용하기</strong>를 누르면 손에 든 폭죽이 반짝여요.</p></section>

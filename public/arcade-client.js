@@ -21,11 +21,11 @@ const keyDirection={ArrowLeft:"left",ArrowUp:"up",ArrowDown:"down",ArrowRight:"r
 const text=(node,value)=>{if(node.textContent!==value)node.textContent=value;};
 
 export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerId,bowlingPending,commandBowling,
-  onBowlMove,onBaseballStance,onAim,onStart,onStop,playBeat,playBasketImpact}){
+  onBowlMove,onBaseballStance,onAim,onStart,onStop,playBeat,playBasketImpact,onPrize,canDropClaw}){
   const $=id=>root.ownerDocument.getElementById(id);
   const panel=$("arcade-panel"),title=$("arcade-title"),status=$("arcade-status"),track=$("arcade-pump-track"),moves=$("arcade-move"),act=$("arcade-act");
   const trackContext=track.getContext("2d",{alpha:false});
-  const games=makeArcadeGames({playBasketImpact}),rhythm=makeArcadeRhythm(playBeat);
+  const games=makeArcadeGames({playBasketImpact,onPrize}),rhythm=makeArcadeRhythm(playBeat);
   const moles=makeArcadeMoles();
   const targets=makeArcadeTargets({shootingClock:getClock}),baseball=makeArcadeBaseball();
   const classics=makeArcadeClassics(action=>playBeat(action==="launch"?1:2,action==="launch"));
@@ -109,7 +109,7 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
     const now=performance.now();
     if(isClassic(kind)){classics.action();return;}
     if(kind==="pump"&&rhythm.state(now)?.finished)rhythm.start(now,getAvatar());
-    else if(kind==="claw")games.act(now);
+    else if(kind==="claw"){if(canDropClaw?.()!==false)games.act(now);}
     else if(kind==="mole"){
       const clock=getClock(now);
       if(moles.state(clock).finished)moles.start(clock);

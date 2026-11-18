@@ -10,7 +10,7 @@ export const PICNIC_SLOTS=[
 ];
 
 export const picnicKinds=["coffee","crepe","parfait","beer","yakgwa","cake","bingsu","bungeoppang","riceCake",
-  "makgeolli","wine","fruitWine","highball"];
+  "makgeolli","wine","fruitWine","highball","bungeoppangCustard","bungeoppangBurnt","bungeoppangTorn","hotteok","hotteokBurnt","hotteokTorn"];
 export const isPicnicItem=kind=>picnicKinds.includes(kind);
 export const picnicGap=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 

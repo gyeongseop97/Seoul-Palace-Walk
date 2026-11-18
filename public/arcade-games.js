@@ -3,10 +3,7 @@ export {BASKET_BALL, BASKET_HOOP, basketTrajectory} from "./arcade-basket-physic
 
 export const CLAW_LIMITS=Object.freeze({x:.985,z:.695,low:.25,high:1.74});
 export const CLAW_CHUTE=Object.freeze({x:-.874,z:.604,width:.52,depth:.51});
-const prizeTypes=[
-  ["bear","곰 인형"],["rabbit","토끼 인형"],["cat","고양이 인형"],["duck","오리 인형"],
-  ["panda","판다 인형"],["star","별 인형"],["frog","개구리 인형"],["penguin","펭귄 인형"]
-];
+import {prizeTypes} from "./plush-items.js";
 export const CLAW_PRIZES=Object.freeze([
   ...[-.68,-.36,-.03,.30,.64].flatMap((z,row)=>
     [-.94,-.56,-.18,.19,.55,.91].flatMap((x,column)=>
@@ -130,7 +127,7 @@ function fallingPrizePose(drop,seconds){
     rotZ:pose.rotZ+rotationTime*(.54-vx*1.5)};
 }
 
-export function makeArcadeGames({random=Math.random,playBasketImpact=()=>{}}={}){
+export function makeArcadeGames({random=Math.random,playBasketImpact=()=>{},onPrize=()=>{}}={}){
   let kind=null,phase="idle",attempts=0,score=0,lastResult=null,lastPrize=null,active=null;
   const claw={...clawRest,prizes:resetPrizes(),won:[]};
   const basket={...BASKET_BALL};
@@ -198,7 +195,7 @@ export function makeArcadeGames({random=Math.random,playBasketImpact=()=>{}}={})
       if(drop.won&&(age-release)/1000>=drop.duration)prize.available=false;
     }
     if(age<Math.max(finished,contact?contact.release+drop.duration*1000:0))return;
-    if(drop?.won){score++;claw.won.push(contact.prize.type);lastPrize=contact.prize.label;}
+    if(drop?.won){score++;claw.won.push(contact.prize.type);lastPrize=contact.prize.label;onPrize(contact.prize);}
     lastResult=drop?.won?"success":"miss";
     phase="aim";active=null;
   }

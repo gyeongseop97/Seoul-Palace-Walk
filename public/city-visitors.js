@@ -3,8 +3,8 @@ import {stops,createVisitorWalks,streetLine,onLine} from "./visitor-walks.js";
 import {diningVenues} from "./dining-data.js";
 import {buskingSpot} from "./street-people.js";
 import {PET_MS} from "./activities.js";
-import {BUS_SEATS,busAt,busLaneIntersections,busLocalPose,busSeatPose,busStopById} from "./sejong-bus.js";
-import {approachingTraffic} from "./crossing-traffic.js";
+import {BUS_SEATS,busAt,busLocalPose,busSeatPose,busStopById} from "./sejong-bus.js";
+import {visitorEdgePose} from "./visitor-crossings.js";
 import {bikePassengerPose} from "./sejong-bike.js";
 
 const coats=[0x95664e,0x527669,0x7a607e,0x58768e,0xae7447,0xa3666a,0x6b7351];
@@ -26,23 +26,6 @@ function companionLane(line){
     pts.push(right);
   }
   const lane=streetLine(pts);laneCache.set(line,lane);return lane;
-}
-const laneCrossings=new WeakMap();
-function crossingPace(line,start,span){
-  if(!laneCrossings.has(line))laneCrossings.set(line,busLaneIntersections(line.points));
-  const keys=[[0,0]],speed=line.length/span;
-  for(const at of laneCrossings.get(line)){
-    const before=at-3.4,after=at+3.4,last=keys.at(-1);
-    if(before<=last[1]||after>=line.length)continue;
-    const arrive=last[0]+(before-last[1])/((line.length-last[1])/(span-last[0]));
-    const cross=(after-before)/speed;
-    const latest=span-cross-(line.length-after)/(speed*1.65);
-    let delay=0;
-    while(arrive+delay<latest&&[0,.25,.5,.75,1].some(f=>
-      approachingTraffic(onLine(line,before+(after-before)*f),start+(arrive+delay+cross*f)*1000)))delay+=.5;
-    if(delay>0&&arrive+delay<=latest)keys.push([arrive,before],[arrive+delay,before],[arrive+delay+cross,after]);
-  }
-  keys.push([span,line.length]);return keys;
 }
 
 // Each stop belongs to a room (null outdoors). Doorways switch rooms only at
@@ -167,16 +150,13 @@ export function addCityVisitors(T,kit,models,{benches,stations,parkLife,floorHei
         const line=p.edge.line,span=p.until-p.start,nominal=onLine(line,ageSec/span*line.length);
         if(gap(nominal,anchor)>range+25){hide(v,now);continue;}
         const began=Math.round(clock-ageSec*1000);
-        if(v.edgeStart!==began||v.line!==line){v.edgeStart=began;v.line=line;v.pace=crossingPace(line,began,span);}
-        const found=v.pace.findIndex(([t])=>t>=ageSec);
-        const next=found<0?v.pace.length-1:Math.max(1,found),[a,x]=v.pace[next-1],[b,y]=v.pace[next];
-        const progress=(x+(y-x)*Math.max(0,Math.min(1,(ageSec-a)/(b-a||1))))/line.length,centre=onLine(line,progress*line.length);
+        const {progress,centre,stepping}=visitorEdgePose(line,began,span,ageSec);
         if(gap(centre,anchor)>range+2){hide(v,now);continue;}
         if(p.action==="cycle"){
           pose={...(side?bikePassengerPose(centre):centre),age:ageSec};
         }else{
           const lane=side?companionLane(line):line;
-          pose={...onLine(lane,progress*lane.length),age:ageSec,stepping:y>x};
+          pose={...onLine(lane,progress*lane.length),age:ageSec,stepping};
         }
       }else if(cabinPlaces?.has(v.index)){
         const place=cabinPlaces.get(v.index),bus=place.bus,boarding=p.action==="boardBus";

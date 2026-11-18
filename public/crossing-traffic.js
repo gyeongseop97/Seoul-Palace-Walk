@@ -1,19 +1,20 @@
 import {BUS_COUNT,BUS_LENGTH,BUS_WIDTH,busAt} from "./sejong-bus.js";
 import {streetCrossings} from "./bus-crossings.js";
 
-let sampled=-Infinity,vehicles=[];
-export function approachingTraffic(point,time){
-  if(time<sampled||time-sampled>=100){
-    sampled=time;vehicles=[];
+const live={at:null,vehicles:[]},planned={at:null,vehicles:[]};
+export function approachingTraffic(point,time,planning=false){
+  const cache=planning?planned:live,at=Math.floor(time/100)*100;
+  if(at!==cache.at){
+    cache.at=at;cache.vehicles=[];
     for(let i=0;i<BUS_COUNT;i++){
-      const bus=busAt(i,time);
+      const bus=busAt(i,at,planning?null:undefined);
       if(!bus?.traveling)continue;
-      const next=busAt(i,time+1000),angle=bus.heading*Math.PI/180;
-      vehicles.push({bus,fx:Math.sin(angle),fy:-Math.cos(angle),speed:Math.hypot(next.x-bus.x,next.y-bus.y)});
+      const next=busAt(i,at+1000,planning?null:undefined),angle=bus.heading*Math.PI/180;
+      cache.vehicles.push({bus,fx:Math.sin(angle),fy:-Math.cos(angle),speed:Math.hypot(next.x-bus.x,next.y-bus.y)});
     }
   }
   let closest=null;
-  for(const {bus,fx,fy,speed} of vehicles){
+  for(const {bus,fx,fy,speed} of cache.vehicles){
     const dx=point.x-bus.x,dy=point.y-bus.y,side=dx*fy-dy*fx,front=dx*fx+dy*fy-BUS_LENGTH/2;
     if(Math.abs(side)>BUS_WIDTH/2+.55||front< -BUS_LENGTH-.4||front>Math.max(8,speed*2.8))continue;
     if(bus.yielding&&bus.yieldLeft>850&&front>.1)continue;

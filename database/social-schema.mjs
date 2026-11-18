@@ -1,4 +1,11 @@
 export const socialSchema=[
+  "CREATE TABLE IF NOT EXISTS bag_receipts(room TEXT,player TEXT,request TEXT,at INTEGER NOT NULL,PRIMARY KEY(room,player,request))",
+  "CREATE INDEX IF NOT EXISTS bag_receipts_at ON bag_receipts(at)",
+  `CREATE TABLE IF NOT EXISTS bus_crossing_yields (
+    room TEXT NOT NULL, passage TEXT NOT NULL, brake INTEGER NOT NULL, ends INTEGER NOT NULL,
+    PRIMARY KEY(room,passage)
+  )`,
+  "CREATE INDEX IF NOT EXISTS bus_crossing_yields_ends ON bus_crossing_yields(ends)",
   `CREATE TABLE IF NOT EXISTS fountain_shows (
     room TEXT NOT NULL,
     id TEXT NOT NULL,

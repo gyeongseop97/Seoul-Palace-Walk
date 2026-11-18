@@ -12,6 +12,9 @@ import {HEADWEAR,KEEPSAKES} from "./public/wearable-options.js";
 import {LOOK_OPTIONS} from "./public/look-options.js";
 import {GITHUB_PAGES_ORIGIN} from "./public/hosting.js";
 import {ensureSocialTables} from "./database/social-schema.mjs";
+import {roomYields,selectYields,yieldEntries} from "./server/room-crossings.mjs";
+import {belongings} from "./public/walk-inventory.js";
+import {applyInventory,validInventory} from "./server/walk-inventory.mjs";
 import {ensureRoomPhotos,roomPhotoPayload,selectRoomPhoto,validPhoto,writeRoomPhoto} from "./server/room-photo.mjs";
 import {getRoomWeather} from "./server/room-weather.mjs";
 import {arcadeSnapshotLifetime,cleanArcadeActivity} from "./server/room-arcade.mjs";
@@ -46,6 +49,7 @@ const validItem=item=>item==null||typeof item.kind==="string"&&Object.hasOwn(ITE
 // Benches, dining chairs and the places along the Cheonggyecheon water's edge.
 const lastBenchIndex=1023;
 const validAvatar = (a) => validPoint(a) &&
+  (a.bagClaim==null||validId(a.bagClaim)) &&
   (a.character===undefined || a.character==="man" || a.character==="woman") &&
   validLook(a.look) &&
   (a.wave===undefined || finite(a.wave,0,9999999999999)) &&
@@ -165,7 +169,7 @@ async function enterRoom(db,body){
     return json({error:"서버에 들어가는 방법을 선택해 주세요."},400);
   }
   const fallback=0x445544+(crypto.getRandomValues(new Uint32Array(1))[0]%0x888888);
-  const initialAvatar={...avatar,seat:null,seatSide:null,feed:null};
+  const initialAvatar={...avatar,...belongings(avatar),seat:null,seatSide:null,feed:null,bagClaim:null};
   delete initialAvatar.chat;
   delete initialAvatar.bus;
   delete initialAvatar.bike;
@@ -197,12 +201,14 @@ async function enterRoom(db,body){
   `).bind(target.id,id,now,JSON.stringify(initialAvatar),JSON.stringify(view),key,nickname,
     JSON.stringify(clothes),target.id,active,target.id,active,fallback,active,now-bikeParkDuration).all();
   if(!results[0])return json({error:"산책방에 다시 입장해 주세요."},409);
-  return json({room:target.id,code:target.code,mode:action==="open"?"open":"private",profile:results[0],
+  await ensureSocialTables(db);
+  const entryYields=yieldEntries((await selectYields(db,target.id,now).all()).results);
+  return json({room:target.id,code:target.code,mode:action==="open"?"open":"private",profile:results[0],busYields:entryYields,
     serverTime:now,weather:await getRoomWeather(db,now)});
 }
 
 function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeAction,pendingPicnic,pendingBungeo){
-  const {feed,chat,bus,bike,bikeRide,bikeFallAt,picnicClaim,bungeoClaim,arcade,...snapshotData}=avatar;
+  const {feed,chat,bus,bike,bikeRide,bikeFallAt,picnicClaim,bungeoClaim,arcade,bag,plushHead,plushBack,bagClaim,...snapshotData}=avatar;
   const activity=key&&cleanArcadeActivity(avatar);
   if(activity)snapshotData.arcade=activity;
   const snapshot=JSON.stringify(snapshotData);
@@ -226,12 +232,16 @@ function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeA
       THEN json_object('bungeoClaim',json_extract(avatar,'$.bungeoClaim'))
       ELSE '{}' END)`;
   const inventoryPatch=`CASE WHEN
+      (json_type(avatar,'$.bagClaim')='text' AND json_extract(avatar,'$.bagClaim') IS NOT ?)
+      OR
       (json_type(avatar,'$.feed')='object' AND json_extract(avatar,'$.feed.claim') IS NOT ?)
       OR (json_type(avatar,'$.picnicClaim')='text' AND json_extract(avatar,'$.picnicClaim') IS NOT ?)
       OR (json_type(avatar,'$.bungeoClaim')='text' AND json_extract(avatar,'$.bungeoClaim') IS NOT ?)
     THEN json_object('item',json_extract(avatar,'$.item'),'secondItem',json_extract(avatar,'$.secondItem'))
     ELSE '{}' END`;
-  const applySnapshot=base=>`json_patch(json_patch(json_patch(${base},${snapshotPatch}),${inventoryPatch}),${transportPatch})`;
+  const applySnapshot=base=>`json_set(json_patch(json_patch(json_patch(${base},${snapshotPatch}),${inventoryPatch}),${transportPatch}),
+    '$.bag',coalesce(json_extract(avatar,'$.bag'),json('[]')),'$.bagClaim',json_extract(avatar,'$.bagClaim'),
+    '$.plushHead',json_extract(avatar,'$.plushHead'),'$.plushBack',json_extract(avatar,'$.plushBack'))`;
   // A regular avatar packet cannot reserve or release a vehicle. A lease that
   // expired while the player was disconnected must not reclaim its old seat.
   const vehiclePose=`'x',json_extract(avatar,'$.x'),'y',json_extract(avatar,'$.y'),
@@ -262,7 +272,7 @@ function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeA
       UPDATE walkers SET updated=MAX(updated,?), avatar=${applySnapshot("?")}, view=?
       WHERE room=? AND id=? AND player_key IS ?
         AND json_extract(avatar,'$.feed.claim') IS NOT ? ${picnicGuard} ${bungeoGuard}
-    `).bind(now,snapshot,inheritWish,now-chatLifetime,acknowledgedFeed,picnicClaim??null,bungeoClaim??null,
+    `).bind(now,snapshot,inheritWish,now-chatLifetime,bagClaim??null,acknowledgedFeed,picnicClaim??null,bungeoClaim??null,
       bikeCutoff,active,JSON.stringify(view),room,id,key,pendingFeed,...picnicArgs,...bungeoArgs);
   }
   const preferred=avatar.seatSide??0;
@@ -281,7 +291,7 @@ function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeA
     WHERE room=? AND id=? AND player_key IS ?
       AND json_extract(avatar,'$.feed.claim') IS NOT ? ${picnicGuard} ${bungeoGuard}
   `).bind(now,snapshot,preferred,1-preferred,room,id,active,avatar.seat,preferred,snapshot,inheritWish,now-chatLifetime,
-    acknowledgedFeed,picnicClaim??null,bungeoClaim??null,bikeCutoff,active,JSON.stringify(view),room,id,key,pendingFeed,...picnicArgs,...bungeoArgs);
+    bagClaim??null,acknowledgedFeed,picnicClaim??null,bungeoClaim??null,bikeCutoff,active,JSON.stringify(view),room,id,key,pendingFeed,...picnicArgs,...bungeoArgs);
 }
 
 function chatUpdate(db,room,id,key,chat,now,active){
@@ -406,12 +416,12 @@ function releaseTransportHands(db,room,id,key){
   `).bind(room,id,id,room,id,key);
 }
 
-function transportAvatar(row,now){
+function transportAvatar(row,now,yields){
   const avatar=JSON.parse(row.avatar);
   if(busIndex(avatar.bus?.index)&&busSeat(avatar.bus.seat)){
     const {index,seat}=avatar.bus;
     avatar.bus={index,seat};
-    Object.assign(avatar,busSeatPose(busAt(index,now),seat));
+    Object.assign(avatar,busSeatPose(busAt(index,now,yields),seat));
   }else{
     if(validPoint(avatar.bus?.resume))Object.assign(avatar,avatar.bus.resume);
     delete avatar.bus;
@@ -512,6 +522,8 @@ export async function api(request,env){
   }
   const {room,id,key=null,avatar,view,hand,feed,bus,bike,show,clink,leave}=body;
   const {minigame,picnic,dining,bungeo,bowling}=body;
+  const inventory=body.inventory;
+  if(inventory&&(!key||!validInventory(inventory,id)))return json({error:"가방 요청을 확인해 주세요."},400);
   const diningVenue=dining?.venue??body.diningVenue;
   if(body.guestbook!==undefined){
     const now=Date.now();
@@ -580,6 +592,8 @@ export async function api(request,env){
     if(chat)operations.push(chatUpdate(db,room,id,key,chat,now,active));
     if(Math.random()<.004){
       operations.push(db.prepare("DELETE FROM walkers WHERE updated < ?").bind(now-86400000));
+      operations.push(db.prepare("DELETE FROM bus_crossing_yields WHERE ends<?").bind(now));
+      operations.push(db.prepare("DELETE FROM bag_receipts WHERE at<?").bind(now-86400000));
       operations.push(...cleanupSocial(db,room,now-86400000));
       operations.push(...cleanupMinigames(db,room,now-600000));
       operations.push(...cleanupPicnics(db,room,now));
@@ -630,6 +644,7 @@ export async function api(request,env){
   const socialContext={room,id,key,now,online,show,clink};
   if(show)operations.push(startFountainShow(db,socialContext));
   if(clink)operations.push(clinkStatement(db,socialContext));
+  const yieldsSelection=operations.push(selectYields(db,room,now))-1;
   operations.push(selectSocial(db,socialContext));
   operations.push(db.prepare(`
     SELECT id,updated,avatar,view,player_key,nickname,coat FROM walkers
@@ -648,7 +663,11 @@ export async function api(request,env){
   const rows=results.at(-2).results;
   const ownRow=rows.find(row=>row.id===id&&row.player_key===key&&row.updated>=active);
   if(!ownRow)return json({error:"산책방에 다시 입장해 주세요."},409);
-  const avatars=new Map(rows.map(row=>[row.id,transportAvatar(row,now)]));
+  const bagResult=inventory?await applyInventory(db,{room,id,key,now,cmd:inventory,rows}):undefined;
+  const busYields=await roomYields(db,room,now,results[yieldsSelection].results,
+    rows.filter(row=>row.updated>=online).map(row=>JSON.parse(row.avatar)));
+  const yields=new Map(busYields);
+  const avatars=new Map(rows.map(row=>[row.id,transportAvatar(row,now,yields)]));
   const onlineRows=new Set(rows.filter(row=>row.updated>=online).map(row=>row.id));
   for(const [passenger,avatar] of avatars){
     const driverId=avatar.bikeRide?.driver;
@@ -673,6 +692,7 @@ export async function api(request,env){
   const walkers=[],parkedBikes=[];
   for(const row of rows){
     const avatar=avatars.get(row.id);
+    if(row!==ownRow)delete avatar.bag;
     if(avatar.bike?.parked)parkedBikes.push({id:row.id,...avatar.bike.parked});
     if(row.updated<active)continue;
     if(avatar.catFriends&&(row===ownRow||receiverIndoors||
@@ -696,7 +716,7 @@ export async function api(request,env){
     if(umbrella)umbrellas.push({...link,kind:"umbrella"});else handholds.push(link);
   }
   return json({
-    serverTime:now,
+    serverTime:now,busYields,bagResult,
     weather,
     ...socialPayload(results.at(-3).results[0],{...socialContext,avatar:receiver.avatar}),
     photoSession:roomPhotoPayload(results[photoSelection],receiver.avatar),
