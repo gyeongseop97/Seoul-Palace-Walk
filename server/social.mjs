@@ -32,9 +32,12 @@ const readyDrink=field=>`(${ITEM_SLOTS.map(slot=>drinkSlot(field,slot)).join(" O
   AND ${onFoot(field)}`;
 const inMuseum=field=>`(${coordinate(field,"x")}>${museumBounds.minX} AND ${coordinate(field,"x")}<${museumBounds.maxX}
   AND ${coordinate(field,"y")}>${museumBounds.minY} AND ${coordinate(field,"y")}<${museumBounds.maxY})`;
-const readyClinkPair=`
+const readyKiss=field=>`COALESCE(json_extract(${field},'$.kissReady'),0)=1 AND json_extract(${field},'$.seat') IS NULL
+  AND COALESCE(json_extract(${field},'$.groundSit'),0)=0 AND json_extract(${field},'$.arcade') IS NULL
+  AND COALESCE(json_extract(${field},'$.jump'),0)<=? - ${JUMP_MS} AND ${onFoot(field)}`;
+const readyClinkPair=ready=>`
   a.player_key IS NOT NULL AND b.player_key IS NOT NULL AND a.updated>=? AND b.updated>=?
-  AND ${readyDrink("a.avatar")} AND ${readyDrink("b.avatar")}
+  AND ${ready("a.avatar")} AND ${ready("b.avatar")}
   AND ${squared(`${coordinate("a.avatar","x")}-${coordinate("b.avatar","x")}`)} +
       ${squared(`${coordinate("a.avatar","y")}-${coordinate("b.avatar","y")}`)} <= ${CLINK_REACH**2}
   AND ${inMuseum("a.avatar")}=${inMuseum("b.avatar")}
@@ -48,11 +51,13 @@ const readyClinkPair=`
 
 export function clinkStatement(db,{room,id,key,now,online,clink}){
   const drinkArguments=[...ITEM_SLOTS.flatMap(()=>[now,drinkDurations]),now];
-  const pairArguments=[online,online,...drinkArguments,...drinkArguments,online,online];
+  const kiss=clink.id.startsWith("kiss-"),requirements=kiss?[now]:drinkArguments;
+  const pairArguments=[online,online,...requirements,...requirements,online,online];
+  const ready=readyClinkPair(kiss?readyKiss:readyDrink);
   if(clink.action==="invite")return db.prepare(`
     INSERT INTO clink_requests (room,id,sender,recipient,state,created,expires)
     SELECT ?,?,?,?,'pending',?,? FROM walkers a JOIN walkers b ON b.room=a.room
-    WHERE a.room=? AND a.id=? AND a.player_key=? AND b.id=? AND a.id<>b.id AND ${readyClinkPair}
+    WHERE a.room=? AND a.id=? AND a.player_key=? AND b.id=? AND a.id<>b.id AND ${ready}
       AND NOT EXISTS (
         SELECT 1 FROM clink_requests c WHERE c.room=a.room AND c.expires>?
           AND c.state IN ('pending','active') AND (c.sender IN (a.id,b.id) OR c.recipient IN (a.id,b.id))
@@ -67,7 +72,7 @@ export function clinkStatement(db,{room,id,key,now,online,clink}){
         AND EXISTS (
           SELECT 1 FROM walkers a JOIN walkers b ON b.room=a.room
           WHERE a.room=clink_requests.room AND a.id=clink_requests.sender AND b.id=clink_requests.recipient
-            AND b.player_key=? AND ${readyClinkPair}
+            AND b.player_key=? AND ${ready}
         )
     `).bind(started,started+CLINK_DURATION_MS,room,clink.id,id,now,key,...pairArguments);
   }
@@ -90,6 +95,7 @@ export function leaveClinks(db,{room,id,key,now}){
 
 export function cleanupSocial(db,room,before){
   return [
+    db.prepare("DELETE FROM motion_frames WHERE updated<?").bind(before),
     db.prepare("DELETE FROM fountain_shows WHERE room=? AND ends<?").bind(room,before),
     db.prepare("DELETE FROM clink_requests WHERE room=? AND expires<?").bind(room,before)
   ];
@@ -131,6 +137,7 @@ function clinkOutcome(request,event,id,now){
 
 export function socialPayload(row,{id,now,show,clink,avatar}){
   const fountainShow=JSON.parse(row.fountainShow),clinks=JSON.parse(row.clinks);
+  if(!avatar?.kissReady)for(let i=clinks.length-1;i>=0;i--)if(clinks[i].id.startsWith("kiss-"))clinks.splice(i,1);
   const social=show||clink?{}:undefined;
   if(show){
     const atFountain=Math.hypot(avatar.x-plazaShowSpot.x,avatar.y-plazaShowSpot.y)<=PLAZA_SHOW_REACH;

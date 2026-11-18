@@ -49,7 +49,8 @@ import {interiorAt,interiorBounds} from "./interior-layout.js";
 import {bindDiningMenu} from "./dining-menu.js";
 import {bindGuestbook} from "./guestbook.js";
 import {plazaShowSpot,PLAZA_SHOW_REACH,PLAZA_SHOW_HEARING_METRES} from "./plaza-show.js";
-import {canClink,clinkItemSlot,CLINK_REACH,CLINK_LEAD_MS} from "./social-events.js";
+import {createMotionStream,currentArcade} from "./motion-stream.js";
+import {canKiss,isKiss,canClink,clinkItemSlot,CLINK_REACH,CLINK_LEAD_MS} from "./social-events.js";
 import {gameApiUrl,isGitHubPages} from "./hosting.js";
 import {resolveSeoulEnvironment} from "./seoul-environment.js";
 import {HEADWEAR,KEEPSAKES} from "./wearable-options.js";
@@ -99,7 +100,7 @@ function initialAvatar(){
     }
   }catch{}
   return {x:ticketApproach.x+1,y:ticketApproach.y-2.4,heading:entranceHeading,vx:0,vy:0,wish:0,wishOrigin:null,wishHeading:0,wishArt:null,wave:0,kick:0,jump:0,vaultBase:null,emote:null,chat:null,
-    seat:null,seatSide:null,bus:null,bike:null,bikeRide:null,item:null,secondItem:null,itemUse:null,picnicClaim:null,bungeoReady:true,bungeoClaim:null,umbrella:false,umbrellaReady:false,
+    groundSit:false,kissReady:true,seat:null,seatSide:null,bus:null,bike:null,bikeRide:null,item:null,secondItem:null,itemUse:null,picnicClaim:null,bungeoReady:true,bungeoClaim:null,umbrella:false,umbrellaReady:false,
     blushUntil:0,blushLevel:0,alcoholGlasses:0,sickAt:0,bikeFallAt:0,gesture:null,pet:null,feed:null,
     running:false,blocked:false,up:false,character,look};
 }
@@ -138,6 +139,7 @@ let ownView=initialView(),trackedPersonId=null,world,worldLoading,worldFailed=fa
 let firstPerson=localStorage.getItem("jeongdong-first-person")==="true";
 let session=null,active=true,joining=false,lastPost=0,lastWishSynced=0,lastArcadePost="",dirty=true;
 let pageVersion=0,walkPositionAt=0,lastWalkPosition=null;
+const motionStream=createMotionStream(request);
 let syncTimer,syncDue=Infinity,syncInFlight=null,syncStarted=-Infinity,syncFailures=0;
 let links=[],queuedHand=null,queuedFeed=null,queuedChat=null,toastTimer;
 let queuedBus=null,queuedBike=null,lastBusHeading=null,lastBikeHeading=null;
@@ -502,8 +504,10 @@ const arcade=bindArcade({root:sceneWrap,getAvatar:()=>me,getAim:()=>ownView,getC
   getHockeyPeers:now=>{
     const peers=[];
     for(const p of people.values()){
-      if(p.arcade?.next.kind!=="airHockey")continue;
-      const state=visibleArcade(p.arcade,now);
+      const track=currentArcade(p,now);
+      if(track?.next.kind!=="airHockey"||now-track.next.at>4000)continue;
+      const view=visibleArcade(track,now);
+      const state=view&&{...view,hockey:track.next.hockey};
       if(state?.kind==="airHockey"&&state.hockey)peers.push({id:p.id,name:p.nickname,joined:state.hockey.joined,state});
     }
     return peers;
@@ -746,6 +750,12 @@ $("gesture-open").addEventListener("click",event=>{
   const open=$("gesture-menu").hidden;
   setGestures(open);
   if(open&&event.detail===0)gestureButtons.find(button=>!button.disabled)?.focus();
+});
+$("ground-sit").addEventListener("click",()=>{
+  if(!gestureReady(gameTime())||arcade.kind||bungeoMode||me.seat!=null||seatClaim)return;
+  resetInput();pendingSeat=null;
+  Object.assign(me,{groundSit:!me.groundSit,vx:0,vy:0,running:false,blocked:false});
+  dirty=true;wakeSync();setGestures(false);focusGame();
 });
 for(const button of gestureButtons)button.addEventListener("click",()=>{
   const time=gameTime(),kind=button.dataset.gesture;
@@ -1010,6 +1020,7 @@ function scheduleSync(delay){
   syncTimer=setTimeout(()=>{clearSyncTimer();sync();},delay);
 }
 function movingCadence(){
+  if(motionStream.healthy(performance.now()))return 300;
   // Keep busy public rooms from multiplying database traffic as people join.
   // Other walkers predict my motion between reports, so ten updates a second is plenty.
   return session.mode==="open"?110+Math.min(60,Math.max(0,people.size-5)*6):
@@ -1017,9 +1028,11 @@ function movingCadence(){
 }
 function wakeSync(){
   if(!session||document.hidden||syncFailures)return;
-  scheduleSync(Math.max(0,syncStarted+movingCadence()-performance.now()));
+  const command=queuedHand||queuedClink||queuedBus||queuedBike||queuedDining||queuedMinigame||queuedChat||bungeoQueue.length||bowlingQueue.length;
+  scheduleSync(Math.max(0,syncStarted+(command?45:movingCadence())-performance.now()));
 }
 function syncCadence(){
+  if(motionStream.healthy(performance.now()))return movingCadence();
   const fast=dirty||myLink()||queuedHand||queuedFeed||queuedChat||queuedBus||queuedBike||seatClaim||moving(me)||me.blocked||
     queuedShow||queuedClink||queuedPhoto||queuedMinigame||queuedPicnic||queuedDining||bungeoQueue.length||arcade.kind||bowlingQueue.length;
   if(fast)return movingCadence();
@@ -1443,7 +1456,7 @@ function jump(){
   me.jump=time;dirty=true;wakeSync();focusGame();
 }
 $("jump").addEventListener("click",jump);
-function stand(){if(me.seat!=null){me.seat=me.seatSide=null;dirty=true;}}
+function stand(){if(me.seat!=null||me.groundSit){me.groundSit=false;me.seat=me.seatSide=null;dirty=true;}}
 function benchNearby(){
   let choice=null,nearby=false,gap=3.8;
   world?.benches.forEach((bench,index)=>{
@@ -2188,7 +2201,7 @@ function confirmTransport(avatar,result,bus,bike){
   if(!avatar)return;
   const ridingBus=me.bus;
   const previousBikeDriver=me.bikeRide?.driver;
-  if((avatar.bus&&!ridingBus)||(isCycling(avatar)&&!isCycling(me)))rememberWalkPosition();
+  if((avatar.bus&&!ridingBus)||(isCycling(avatar)&&!isCycling(me))){stand();rememberWalkPosition();}
   me.bus=avatar.bus??null;me.bike=avatar.bike??null;me.bikeRide=avatar.bikeRide??null;
   me.bikeFallAt=avatar.bikeFallAt??0;
   if(ridingBus?.index!==me.bus?.index||ridingBus?.seat!==me.bus?.seat){
@@ -2758,15 +2771,16 @@ function clinkLocked(time){
   const clink=myClink();
   return Boolean(clink?.startedAt&&clink.endsAt>time);
 }
-function clinkCandidate(time){
-  if(!canClink(me,time)||myLink()||queuedHand||picnicInventoryBusy()||feedingLocked(time)||sickLocked(time)||riding||jumpLift(me,time)>0)return null;
+function clinkCandidate(time,kind="clink"){
+  const ready=kind==="kiss"?canKiss:canClink;
+  if(!ready(me,time)||myLink()||queuedHand||picnicInventoryBusy()||feedingLocked(time)||sickLocked(time)||riding||jumpLift(me,time)>0)return null;
   let best=null,closest=CLINK_REACH;
   const inside=interiorAt(me.x,me.y);
   for(const person of people.values()){
-    if(!canClink(person.avatar,time)||links.some(link=>link.leader===person.id||link.follower===person.id))continue;
+    if(!ready(person.avatar,time)||links.some(link=>link.leader===person.id||link.follower===person.id))continue;
     if(interiorAt(person.position.x,person.position.y)!==inside||Boolean(person.avatar.up)!==Boolean(me.up))continue;
     const distance=near(person.position,me.x,me.y);
-    if(distance<=closest){best=person;closest=distance;}
+    if(distance<=closest&&(kind!=="kiss"||clearSegment(me,person.position))){best=person;closest=distance;}
   }
   return best;
 }
@@ -2791,8 +2805,8 @@ function confirmSocial(data,show,clink){
   }
   if(clink&&queuedClink===clink){
     queuedClink=null;
-    if(data.social?.clink==="unavailable")toast("서로 음료를 들고 가까이에서 다시 건배를 요청해 주세요.");
-    else if(!data.social?.clink)toast("건배 요청을 보내지 못했어요. 잠시 뒤 다시 시도해 주세요.");
+    if(data.social?.clink==="unavailable")toast(isKiss(clink.id)?"서로 가까이 서서 다시 요청해 주세요.":"서로 음료를 들고 가까이에서 다시 건배를 요청해 주세요.");
+    else if(!data.social?.clink)toast("요청을 보내지 못했어요. 잠시 뒤 다시 시도해 주세요.");
   }
 }
 function updateSocial(time,eligible){
@@ -2804,13 +2818,23 @@ function updateSocial(time,eligible){
   const clink=myClink(),clinking=clink?.startedAt&&clink.endsAt>time;
   const waiting=clink&&!clink.startedAt;
   const incoming=waiting&&clink.to===session.id;
-  const candidate=eligible&&!clink?clinkCandidate(time):null;
-  setActivity("clink",clinking?"건배 중":candidate?"건배하기 · "+candidate.nickname:waiting&&!incoming?"건배 요청 취소":null,Boolean(clinking||queuedClink));
+  const kiss=isKiss(clink?.id);
+  for(const [kind,label] of [["clink","건배"],["kiss","뽀뽀"]]){
+    const candidate=eligible&&!clink?clinkCandidate(time,kind):null;
+    const mine=clink&&kiss===(kind==="kiss");
+    setActivity(kind,mine&&clinking?label+" 중":candidate?label+"하기 · "+candidate.nickname:
+      mine&&waiting&&!incoming?label+" 요청 취소":null,Boolean(clinking||queuedClink));
+  }
   $("clink-offer").hidden=!incoming;
   $("clink-accept").disabled=$("clink-decline").disabled=Boolean(queuedClink);
-  if(incoming)setText($("clink-message"),(people.get(clink.from)?.nickname??"친구")+" 님이 건배를 제안했어요.");
+  if(incoming){
+    const label=kiss?"뽀뽀":"건배";
+    attr($("clink-offer"),"aria-label",label+" 요청");
+    setText($("clink-accept"),label+"하기");
+    setText($("clink-message"),(people.get(clink.from)?.nickname??"친구")+" 님이 "+label+"를 제안했어요.");
+  }
   for(const event of clinks){
-    if(!event.startedAt||heardClinks.has(event.id)||time<event.startedAt+790||time>event.startedAt+1100)continue;
+    if(isKiss(event.id)||!event.startedAt||heardClinks.has(event.id)||time<event.startedAt+790||time>event.startedAt+1100)continue;
     const actor=event.from===session.id||event.to===session.id?me:people.get(event.from)?.position;
     if(!actor||near(actor,me.x,me.y)>7)continue;
     heardClinks.add(event.id);sound.clink();
@@ -2820,14 +2844,14 @@ $("fountain-show").addEventListener("click",()=>{
   if(!session||!world||!atShowControls()||queuedShow||fountainShow?.endsAt>gameTime())return;
   sound.wake();queuedShow={id:token(),fountain:"myeongnyang"};wakeSync();focusGame();
 });
-$("clink").addEventListener("click",()=>{
+for(const kind of ["clink","kiss"])$(kind).addEventListener("click",()=>{
   if(!session||queuedClink)return;
   const clink=myClink();
   if(clink?.startedAt)return;
   if(clink?.from===session.id)queuedClink={action:"cancel",id:clink.id};
   else if(!clink){
-    const peer=clinkCandidate(gameTime());
-    if(peer)queuedClink={action:"invite",id:token(),target:peer.id};
+    const peer=clinkCandidate(gameTime(),kind);
+    if(peer)queuedClink={action:"invite",id:(kind==="kiss"?"kiss-":"")+token(),target:peer.id};
   }
   if(queuedClink){wakeSync();focusGame();}
 });
@@ -2871,6 +2895,8 @@ function updateActivities(time,guideNearby){
     me[slot]=null;dirty=true;
   }
   $("gesture-open").disabled=!gestureReady(time);
+  $("ground-sit").disabled=$("gesture-open").disabled||Boolean(arcade.kind||bungeoMode||me.seat!=null||seatClaim);
+  setText($("ground-sit"),me.groundSit?"일어나기":"제자리에 앉기");
   if(!$("gesture-menu").hidden)for(const button of gestureButtons)button.disabled=!gestureReady(time,button.dataset.gesture);
   const eligible=world&&session&&!me.bus&&!isCycling(me)&&!queuedBus&&!queuedBike;
   updateSocial(time,eligible);
@@ -3040,7 +3066,7 @@ function actors(now,stepping){
   for(const person of people.values()){
     others.set(person.id,{...person.avatar,...person.position,id:person.id,nickname:person.nickname,
       coat:person.coat,stepping:person.stepping,running:person.running,sharedUmbrella:0,umbrellaShelter:null,
-      arcade:inArcade?visibleArcade(person.arcade,time):null});
+      arcade:inArcade?visibleArcade(currentArcade(person,time),time):null});
   }
   function actor(id){return id===self.id?self:others.get(id);}
   function alignBikePassenger(passenger){
@@ -3070,6 +3096,17 @@ function actors(now,stepping){
     if(!clink.startedAt||time<clink.startedAt||time>=clink.endsAt)continue;
     const first=actor(clink.from),second=actor(clink.to);
     if(!first||!second)continue;
+    if(isKiss(clink.id)){
+      const dx=second.x-first.x,dy=second.y-first.y,span=Math.hypot(dx,dy);
+      const t=Math.max(0,Math.min(1,(time-clink.startedAt)/650,(clink.endsAt-time)/650));
+      const weight=t*t*(3-2*t),heading=normalize(Math.atan2(dx,-dy)*180/Math.PI);
+      for(const [person,sign] of [[first,1],[second,-1]]){
+        const travel=(span-.50)*.5*weight*sign;
+        if(span>.001){person.x+=dx/span*travel;person.y+=dy/span*travel;}
+        Object.assign(person,{heading:normalize(heading+(sign<0?180:0)),kiss:weight,stepping:false,running:false});
+      }
+      continue;
+    }
     for(const [person,peer] of [[first,second],[second,first]]){
       const heading=normalize(Math.atan2(peer.x-person.x,person.y-peer.y)*180/Math.PI);
       person.clink={startedAt:clink.startedAt,heading,slot:clinkItemSlot(person,clink.startedAt-CLINK_LEAD_MS)??"item"};
@@ -3137,6 +3174,8 @@ function frame(now){
   if(arcade.kind==="pump"&&near(ARCADE_PUMP,me.x,me.y)>3.3)arcade.stop();
   if(arcade.kind==="mole"&&near(ARCADE_MOLE,me.x,me.y)>2.8)arcade.stop();
   const arcadeStepping=arcade.update(now,elapsed);
+  if(!document.hidden)motionStream.tick({visit:session,people,me,now,clock:time,active:stepping||moving(me),
+    arcadePacket:()=>arcade.kind&&arcade.kind!=="bowling"?arcadeSnapshot(arcade.state(now)):null});
   if(now>=walkPositionAt){
     walkPositionAt=now+1000;
     rememberWalkPosition();

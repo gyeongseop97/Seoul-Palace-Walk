@@ -3,7 +3,7 @@ import {createPlush} from "./plush-model.js";
 import {plushItems} from "./plush-items.js";
 import {bikeFit,bikePedal,bikeRearFit,makeRidingBike} from "./sejong-bike-model.js";
 import {isBikeDriver,isBikePassenger,isCycling} from "./sejong-bike.js";
-import {CLINK_DURATION_MS} from "./social-events.js";
+import {CLINK_DURATION_MS,HAND_SPACING} from "./social-events.js";
 import {makeUmbrella,makeWearables} from "./wearables-models.js";
 import {alcoholGlasses,alcoholLevel,gestureBody,gestureHands,MAX_ALCOHOL_LEVEL,peaceHandParts} from "./avatar-gestures.js";
 import {DINING_TRAY_WIDTH,diningGesture,makeDiningUtensil} from "./dining-dishes.js";
@@ -967,7 +967,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       ? mix(model.floorY,floor,1-Math.exp(-delta*17)) : floor;
     model.seatBlend = mix(model.seatBlend,Number(Boolean(seat)),smoothPose);
     const standingY=model.floorY+lift, seatBase=seat?.base??0;
-    const bodyBase=seat?.footBath?mix(standingY,seatBase,model.seatBlend):seat?seatBase:standingY;
+    const bodyBase=(seat?.ground||seat?.footBath)?mix(standingY,seatBase,model.seatBlend):seat?seatBase:standingY;
     group.position.set(wx(seat?.x ?? position.x),bodyBase,wz(seat?.y ?? position.y));
     const travel = model.lastX === null ? 0 : Math.hypot(position.x-model.lastX,position.y-model.lastY);
     model.lastX = position.x;
@@ -1017,10 +1017,10 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       const wobble=woozy?Math.sin(clock*.0048+model.offset)*.062:0;
       pelvis.position.set(.020*pendulum*sway+(bodyPose?.x??0)*(1-seated),
         .691-HIP_DROP+bob-strideDip+idleRise+breath*.004-seated*.145-crouch*.225+(bodyPose?.y??0)*idleGesture,0);
-      chest.rotation.set(.020+sprint*.13+crouch*.34+seated*.03+clink*.22+(eatingMeal?.dip??0)*.13+(bodyPose?.pitch??0)*idleGesture,
+      chest.rotation.set(.020+sprint*.13+crouch*.34+seated*.03+clink*.22+(position.kiss||0)*.20+(eatingMeal?.dip??0)*.13+(bodyPose?.pitch??0)*idleGesture,
         pendulum*sway*.10+(bodyPose?.yaw??0)*idleGesture,pendulum*sway*.065+(bodyPose?.roll??0)*idleGesture+wobble*.41);
       headJoint.rotation.set(-.030-sprint*.070+crouch*.16+(eatingMeal?.dip??0)*.18+(eatingMeal?.lift??0)*.078+(bodyPose?.headPitch??0)*idleGesture,
-        -pendulum*sway*.05+wobble*.65,breath*.020-pendulum*sway*.045+(bodyPose?.headRoll??0)*idleGesture+wobble);
+        -pendulum*sway*.05+wobble*.65,(position.kiss||0)*.16+breath*.020-pendulum*sway*.045+(bodyPose?.headRoll??0)*idleGesture+wobble);
     }
     body.rotation.z=-(fall?.weight??0)*1.48;
     model.shadow.visible = !seat;
@@ -1029,7 +1029,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     model.shadow.scale.set(1+sprint*.05-airborne*.18,1+crouch*.13-airborne*.18,1);
 
     const blinkTick = (now + model.offset%4100) % 4120;
-    const smiling = acting?.kind==="peace"&&acting.weight>.26;
+    const smiling = position.kiss>.2||acting?.kind==="peace"&&acting.weight>.26;
     const snack=position[position.itemUse==="secondItem"?"secondItem":"item"];
     const biteAge=clock-snack?.started;
     const taste=biteAge>=410&&biteAge<1250?{bungeoppang:"grin",bungeoppangCustard:"grin",bungeoppangBurnt:"pout",bungeoppangTorn:"cat"}[snack.kind]:null;
@@ -1067,10 +1067,10 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       const dance=acting?.kind==="dance"&&!walking?acting.weight*(1-seated):0;
       const danceStep=dance?Math.sin(acting.time*TAU*1.36+side*Math.PI*.5):0;
       const paddle = seat?.footBath ? seated*footBathSwing(footKickAge(position,clock),i) : 0;
-      const ankleY = SOLE+lift*(1-seated)+seated*(seat?.footBath?-.174:.10)+Math.max(0,paddle)*.085
+      const ankleY = SOLE+lift*(1-seated)+seated*(seat?.ground?(FOOT_BATH_ROOT_DEPTH-SEAT_LIFT)/BODY:seat?.footBath?-.174:.10)+Math.max(0,paddle)*.085
         +airborne*(.17+i*.05)+Math.max(0,danceStep)*dance*.081;
-      leg.target.set(side*(STANCE+crouch*.033+dance*.044)-pelvis.position.x,ankleY-pelvis.position.y,
-        mix(step+crouch*.09,seat?.footBath?.22:.42,seated)+paddle*.085+airborne*(.10+i*.05)+danceStep*dance*.10);
+      leg.target.set(side*(STANCE+(seat?.ground?.14*seated:0)+crouch*.033+dance*.044)-pelvis.position.x,ankleY-pelvis.position.y,
+        mix(step+crouch*.09,seat?.ground?.50:seat?.footBath?.22:.42,seated)+paddle*.085+airborne*(.10+i*.05)+danceStep*dance*.10);
       solve(leg,leg.target,forward);
       const roll = (footPhase < stance ? 0 : Math.sin(swing*TAU)*.24*stride) * (1-seated);
       pitch.setFromAxisAngle(xAxis,roll+seated*.06-Math.max(0,paddle)*.35);
@@ -1137,7 +1137,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
         pole.set(side*.70,-.74,-.28);
       } else if (clasping) {
         inverseChest.copy(chest.quaternion).invert();
-        clasp.set(side*.45/BODY-pelvis.position.x,.75/BODY-pelvis.position.y-chest.position.y,.078).applyQuaternion(inverseChest);
+        clasp.set(side*HAND_SPACING*.5/BODY-pelvis.position.x,.535/BODY-pelvis.position.y-chest.position.y,.078).applyQuaternion(inverseChest);
         x = clasp.x; y = clasp.y; z = clasp.z;
       } else if (side === umbrellaSide) {
         x=side*.288*REACH;y=.385+seated*.075;z=.205;

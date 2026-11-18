@@ -63,7 +63,7 @@ function decode(packet,at){
 
 export function receiveArcade(previous,packet,at){
   if(!packet)return null;
-  if(previous?.next.at===at)return previous;
+  if(previous&&previous.next.at>=at)return previous;
   const next=decode(packet,at),prior=previous?.next;
   return {next,prior:prior?.kind===next.kind&&at-prior.at<650?prior:null};
 }
@@ -84,7 +84,8 @@ export function visibleArcade(samples,now){
       notes:pump.notes.map(([lane,progress])=>({lane,progress:progress+delay/1450})).filter(note=>note.progress<1.16)}};
   }
   if(!prior)return next;
-  const portion=clamp((now-155-prior.at)/(next.at-prior.at)),display=portion<.5?prior:next;
+  const buffer=Math.max(45,Math.min(155,(next.at-prior.at)*.9));
+  const portion=clamp((now-buffer-prior.at)/(next.at-prior.at)),display=portion<.5?prior:next;
   if(portion===1)return next;
   if(isClassic(next.kind)){
     if(prior.phase!==next.phase)return next;

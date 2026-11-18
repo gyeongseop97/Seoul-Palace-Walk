@@ -11,6 +11,7 @@ import {acceptBikeRide,bikePassenger,closeBikeOffer,dismountBikePassenger,dropBi
 import {HEADWEAR,KEEPSAKES} from "./public/wearable-options.js";
 import {LOOK_OPTIONS} from "./public/look-options.js";
 import {GITHUB_PAGES_ORIGIN} from "./public/hosting.js";
+import {exchangeMotion} from "./server/motion.mjs";
 import {ensureSocialTables} from "./database/social-schema.mjs";
 import {roomYields,selectYields,yieldEntries} from "./server/room-crossings.mjs";
 import {belongings} from "./public/walk-inventory.js";
@@ -48,7 +49,7 @@ const validItem=item=>item==null||typeof item.kind==="string"&&Object.hasOwn(ITE
   Number.isInteger(item.remaining)&&finite(item.remaining,0,ITEMS[item.kind].uses)&&validTime(item.started);
 // Benches, dining chairs and the places along the Cheonggyecheon water's edge.
 const lastBenchIndex=1023;
-const validAvatar = (a) => validPoint(a) &&
+const validAvatar = (a) => validPoint(a) && [a.groundSit,a.kissReady].every(v=>v===undefined||typeof v==="boolean") &&
   (a.bagClaim==null||validId(a.bagClaim)) &&
   (a.character===undefined || a.character==="man" || a.character==="woman") &&
   validLook(a.look) &&
@@ -87,7 +88,7 @@ const validView = (v) => v && finite(v.pan,-720,720) && finite(v.tilt,-90,90) &&
 const validHand = (h) => h && validId(h.id) && (h.kind===undefined||h.kind==="umbrella") && (h.action==="release" ||
   (h.side===-1 || h.side===1) && (h.action==="accept" || h.action==="offer" && validId(h.peer)));
 const validShow=show=>validId(show?.id)&&show.fountain==="myeongnyang";
-const validClink=(clink,id)=>validId(clink?.id)&&(clink.action==="invite"?
+const validClink=(clink,id)=>validId(typeof clink?.id==="string"?clink.id.replace(/^kiss-/,""):null)&&(clink.action==="invite"?
   validId(clink.target)&&clink.target!==id:clink.action==="accept"||clink.action==="decline"||clink.action==="cancel");
 const validFeed = (feed) => feed && validId(feed.claim) && validTime(feed.at) &&
   (feed.slot===undefined||validItemSlot(feed.slot)) &&
@@ -521,6 +522,10 @@ export async function api(request,env){
     return json({error:"잘못된 산책방 정보예요."},400);
   }
   const {room,id,key=null,avatar,view,hand,feed,bus,bike,show,clink,leave}=body;
+  if(body.motion!==undefined){
+    const reply=await exchangeMotion(db,body,Date.now());
+    return reply?json(reply):json({error:"움직임을 읽을 수 없어요."},400);
+  }
   const {minigame,picnic,dining,bungeo,bowling}=body;
   const inventory=body.inventory;
   if(inventory&&(!key||!validInventory(inventory,id)))return json({error:"가방 요청을 확인해 주세요."},400);

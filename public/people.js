@@ -3,6 +3,8 @@ import {JUMP_HEIGHT,jumpDuration,jumpLift} from "./activities.js";
 import {busAt,busSeatPose} from "./sejong-bus.js";
 import {canRideBikeSegment} from "./bike-movement.js";
 import {isBikeDriver,isCycling} from "./sejong-bike.js";
+import {drawLiveMotion} from "./motion-stream.js";
+import {HAND_SPACING} from "./social-events.js";
 import {receiveArcade} from "./arcade-presence.js";
 
 export const normalize = angle => ((angle % 360) + 360) % 360;
@@ -74,7 +76,8 @@ export function smoothPeople(people,seconds,serverTime,roundTrip=65){
       person.fresh=person.stepping=person.running=false;
       continue;
     }
-    const a=sample.avatar,seated=avatar.seat!=null;
+    if(drawLiveMotion(person,serverTime,seconds))continue;
+    const a=sample.avatar,seated=avatar.groundSit||avatar.seat!=null;
     const age=Math.max(0,(serverTime-sample.at)/1000);
     const travelling=!seated&&!a.blocked&&moving(a);
     const airborne=serverTime-(avatar.jump||0)<jumpDuration(avatar)+250;
@@ -123,11 +126,11 @@ export function smoothPeople(people,seconds,serverTime,roundTrip=65){
 
 export function handPosition(leader,side){
   const angle=(leader.heading??252)*Math.PI/180;
-  return {x:leader.x+Math.cos(angle)*side*.90,y:leader.y+Math.sin(angle)*side*.90,heading:leader.heading??252};
+  return {x:leader.x+Math.cos(angle)*side*HAND_SPACING,y:leader.y+Math.sin(angle)*side*HAND_SPACING,heading:leader.heading??252};
 }
 
 export function handSide(leader,follower){
-  if(leader.seat!=null||follower.seat!=null||leader.bus||follower.bus||isCycling(leader)||isCycling(follower)||distance(leader,follower.x,follower.y)>2.4||
+  if(leader.groundSit||follower.groundSit||leader.seat!=null||follower.seat!=null||leader.bus||follower.bus||isCycling(leader)||isCycling(follower)||distance(leader,follower.x,follower.y)>2.4||
      !clearSegment(leader,follower))return 0;
   const options=[-1,1].map(side=>({side,point:handPosition(leader,side)}))
     .filter(({point})=>clearSegment(leader,point)&&clearSegment(follower,point))

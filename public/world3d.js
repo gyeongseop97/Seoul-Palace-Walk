@@ -847,6 +847,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     const bus=position.bus&&busAt(position.bus.index,clock),pose=bus&&busSeatPose(bus,position.bus.seat);
     if(pose)return {...pose,base:BUS_FLOOR+.015+busGround(bus)};
     const seat=benches[position.seat]?.slots[position.seatSide??0];
+    if(!seat&&position.groundSit&&!isCycling(position))return {x:position.x,y:position.y,heading:position.heading,
+      base:footBathSeatBase(floorHeight(position)),ground:true};
     if(seat?.footBath)return {...seat,base:footBathSeatBase(outsideGroundOffset(seat)+seat.base)};
     return seat?{...seat,base:(seat.base??0)+(interiorAt(seat.x,seat.y)?0:
       songhyeonGroundHeight(seat.x,seat.y)??outsideGroundOffset(seat))}:null;

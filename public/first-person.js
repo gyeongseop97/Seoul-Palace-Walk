@@ -141,7 +141,7 @@ export function makeFirstPersonView(T,createItemProp){
       let x=side*(seated?.48:.70),y=seated?-.80:-.73,z=seated?.74:.72;
       if(driving){x=side*.62;y=-.63+Math.sin(now*.010)*.014;z=.83;}
       else if(passenger){x=side*.47;y=-.81+Math.sin(now*.008)*.009;z=.70;}
-      else if(avatarSide===claspSide){x=side*.83;y=-.68;z=.83;}
+      else if(avatarSide===claspSide){x=side*.68;y=-.86;z=.72;}
       else if(holding){
         const lift=Math.max(use,toasting);
         x=side*mix(.54,.28,lift)+.14*toasting*toastDirection;
