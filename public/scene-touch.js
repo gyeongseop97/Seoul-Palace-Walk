@@ -5,7 +5,7 @@ const surfaceControl="button,a,input,textarea,[contenteditable],#joystick,.emote
 const editable="input,textarea,[contenteditable]";
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 
-export function bindSceneTouch(scene,shell,{canTap,onBegin,onTap,onDrag,onPinch}){
+export function bindSceneTouch(scene,shell,{canTap,allowHeldTap,onBegin,onTap,onDrag,onPinch,onTwoFingerPan}){
   const pointers=new Map(),buttons=new Map(),handledClicks=new WeakMap();
   let pinch=null,recentButtonTap=null;
 
@@ -34,6 +34,7 @@ export function bindSceneTouch(scene,shell,{canTap,onBegin,onTap,onDrag,onPinch}
     if(pinch){
       const gap=Math.max(12,distance(...pinch.pair));
       onPinch(Math.log(gap/pinch.gap)*7);
+      onTwoFingerPan?.((pointer.x-previousX)/2,(pointer.y-previousY)/2);
       pinch.gap=gap;
       return;
     }
@@ -54,7 +55,7 @@ export function bindSceneTouch(scene,shell,{canTap,onBegin,onTap,onDrag,onPinch}
       remaining.startX=remaining.x;remaining.startY=remaining.y;remaining.dragged=false;
     }
     if(activate&&pointer.tap&&!pointer.pinched&&!pointer.dragged&&canTap(pointer.began)&&
-      (!pointer.touch||event.timeStamp-pointer.began<tapDuration)&&
+      (!pointer.touch||event.timeStamp-pointer.began<tapDuration||allowHeldTap?.())&&
       Math.hypot(event.clientX-pointer.startX,event.clientY-pointer.startY)<dragSlop)onTap(event.clientX,event.clientY);
   }
   scene.addEventListener("pointerup",event=>finishScenePointer(event,true));

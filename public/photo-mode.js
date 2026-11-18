@@ -25,7 +25,7 @@ export function bindPhotoMode(panel,{getAvatar,getView,getClock,getRoster,canMov
     if(camera)return;
     const self=getAvatar(),view=getView();
     camera=viewFrom(self,view.pan,4.3);mode="solo";waiting=false;shot=null;
-    panel.hidden=false;status();onOpen();
+    panel.hidden=true;status();onOpen();
   }
   function close(){
     if(!camera)return;
@@ -104,5 +104,8 @@ export function bindPhotoMode(panel,{getAvatar,getView,getClock,getRoster,canMov
   controls["photo-shoot"].addEventListener("click",shoot);
   controls["photo-raise"].addEventListener("click",()=>height(.45));
   controls["photo-lower"].addEventListener("click",()=>height(-.45));
-  return {open,close,zoom,drag,move,join,shareFailed,update,status,get camera(){return camera;}};
+  function toggleTools(){
+    if(camera)panel.hidden=!panel.hidden;
+  }
+  return {open,close,zoom,drag,move,join,shareFailed,update,status,toggleTools,get camera(){return camera;}};
 }

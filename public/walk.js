@@ -286,9 +286,14 @@ fullscreenToggle.addEventListener("click",async()=>{
   if(gameShell.classList.contains("game-fullscreen"))await leaveFullscreen();
   else{
     if(document.fullscreenEnabled&&document.documentElement.requestFullscreen){
-      try{await document.documentElement.requestFullscreen();}catch{fullscreenFallback=true;}
+      try{await document.documentElement.requestFullscreen({navigationUI:"hide"});}catch{fullscreenFallback=true;}
     }else fullscreenFallback=true;
     refreshFullscreen();
+    if(fullscreenFallback&&mobileHeader.matches&&!navigator.standalone&&
+      !matchMedia("(display-mode: standalone), (display-mode: fullscreen)").matches){
+      const ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1;
+      toast(ios?"주소창 없이 즐기려면 Safari의 공유 → 홈 화면에 추가 → 웹 앱으로 열기를 선택하세요.":"주소창이 남으면 브라우저 메뉴에서 게임을 홈 화면에 추가해 여세요.");
+    }
   }
   if(session)focusGame();
 });
@@ -1587,6 +1592,14 @@ window.addEventListener("keydown",event=>{
     setMap(false);setEmotes(false);
   }
   if(!session||riding||nearbyControls.ownsFocus()||peerControls.ownsFocus()||event.target.closest("input,select,#mobile-settings"))return;
+  if(photoMode.camera&&event.key==="Enter"&&event.target===$("game")){
+    event.preventDefault();
+    if(!event.repeat){
+      photoMode.toggleTools();
+      if(!$("photo-controls").hidden)$("photo-exit").focus({preventScroll:true});
+    }
+    return;
+  }
   if(bungeoMode){
     if(!event.repeat&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&useCookingShortcut(event.code))event.preventDefault();
     return;
@@ -1600,7 +1613,7 @@ window.addEventListener("keydown",event=>{
   if(!photoMode.camera&&key==="e"&&!event.repeat&&!$("wish").disabled){openWish();return;}
   if(!vectors[key]||event.ctrlKey||event.metaKey||event.altKey)return;
   event.preventDefault();
-  if(amFollowingHands()||isBikePassenger(me)&&!photoMode.camera)return;
+  if(!photoMode.camera&&(amFollowingHands()||isBikePassenger(me)))return;
   beginManualMove();keys.add(key);
 });
 window.addEventListener("keyup",event=>{
@@ -1625,9 +1638,11 @@ $("world").addEventListener("keydown",event=>{
   event.preventDefault();event.stopPropagation();walkFromMap(event);
 });
 const clearSceneTouch=bindSceneTouch($("game"),gameShell,{
-  canTap:started=>Boolean(session&&!photoMode.camera&&thumbId===undefined&&!keys.size&&started>manualInputAt),
+  allowHeldTap:()=>Boolean(photoMode.camera),
+  canTap:started=>Boolean(session&&(photoMode.camera||thumbId===undefined&&!keys.size&&started>manualInputAt)),
   onBegin:()=>{setEmotes(false);focusGame();},
   onTap:(x,y)=>{
+    if(photoMode.camera){photoMode.toggleTools();return;}
     if(arcade.kind==="mole"){arcade.strikeMole(world?.pickMole(x,y));return;}
     if(bungeoMode){
       useCookingTarget(world?.pickBungeo(x,y,bungeoMode.stall));
@@ -1650,7 +1665,10 @@ const clearSceneTouch=bindSceneTouch($("game"),gameShell,{
       tilt:Math.max(-87,Math.min(firstPerson?65:48,ownView.tilt+dy*.26))};
     dirty=true;
   },
-  onPinch:delta=>{if(!bungeoMode&&(!arcade.frozen||arcade.kind==="claw"))adjustZoom(delta);}
+  onPinch:delta=>{if(!bungeoMode&&(!arcade.frozen||arcade.kind==="claw"))adjustZoom(delta);},
+  onTwoFingerPan:(dx,dy)=>{
+    if(photoMode.camera)photoMode.move(-dx,-dy,Math.hypot(dx,dy)*.005);
+  }
 });
 
 // Absolute height of my feet while airborne or perched on a low structure. On plain ground it
@@ -3015,7 +3033,7 @@ function frame(now){
   }
   lastScene={me:self,peers:[...others.values()],parkedBikes,view:ownView,
     firstPerson:Boolean(bungeoMode||arcade.kind==="mole"||firstPerson&&!arcade.kind)&&!photoMode.camera,
-    photoCamera:photoMode.camera,environment,guideNearby,destination:course.at(-1),clock:time,fountainShow,galleryLight,
+    photoCamera:photoMode.camera,photoCapture:Boolean(photoMode.camera),environment,guideNearby,destination:course.at(-1),clock:time,fountainShow,galleryLight,
     diningService:diningService?.venue===currentDining()?.id?diningService?.tickets??[]:[],
     minigames:minigames.states(),minigameAction:minigames.localAction(),picnics:picnic.states(),bungeoMolds,bungeoOrder,bungeoStock,bungeoMode,
     bungeoStall:bungeoWatchedStall,

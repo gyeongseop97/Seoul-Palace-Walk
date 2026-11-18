@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="description" content="덕수궁에서 광화문광장을 지나 경복궁까지 친구와 함께 걷는 3D 서울 산책.">
   <meta name="application-name" content="Seoul Palace Walk">
+  <meta name="theme-color" content="#01281c">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="./palace.webmanifest">
+  <link rel="apple-touch-icon" href="./palace-icon-192.png">
   <title>서울 궁 한바퀴 | Seoul Palace Walk</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='10' fill='%231b271f'/%3E%3Cpath d='M24 8 28 20 40 24 28 28 24 40 20 28 8 24 20 20Z' fill='%23e1c687'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./style.css">
@@ -100,7 +106,7 @@
           <button id="sound" class="quiet" type="button" aria-pressed="true" title="소리 켜기와 끄기">소리</button>
           <button id="night" class="quiet" type="button" aria-haspopup="dialog" aria-controls="environment-dialog">시간·날씨</button>
           <button id="character" class="quiet" type="button" aria-haspopup="dialog" aria-controls="character-dialog">캐릭터</button>
-          <button id="photo-mode-open" class="quiet" type="button" aria-controls="photo-controls">사진 모드</button>
+          <button id="photo-mode-open" class="quiet" type="button" aria-controls="photo-controls">사진 모드<small>화면을 톡 누르면 도구 열기</small></button>
           <button id="invite" class="invite" type="button" data-native-touch aria-haspopup="dialog" aria-controls="invite-dialog" disabled>초대코드</button>
           <button id="settings-leave" class="quiet" type="button" data-native-touch aria-haspopup="dialog" aria-controls="leave-save-dialog">방 나가기</button>
           <div id="desktop-map-settings" role="group" aria-label="지도와 장소 이동"></div>
@@ -246,7 +252,7 @@
               <strong>사진 모드</strong>
               <button id="photo-album-open" type="button" class="quiet" aria-haspopup="dialog">앨범</button>
             </div>
-            <p>조이스틱이나 방향키로 카메라 이동 · 화면을 밀어 시야 회전</p>
+            <p>방향키나 두 손가락 드래그로 이동 · 드래그로 회전 · 휠이나 핀치로 확대·축소<br>풍경을 누르면 도구 숨기기 · Esc로 사진 모드 닫기</p>
             <div class="photo-buttons">
               <button id="photo-lower" type="button" class="quiet" aria-label="카메라 높이 낮추기">↓</button>
               <button id="photo-raise" type="button" class="quiet" aria-label="카메라 높이 높이기">↑</button>
@@ -522,7 +528,7 @@
       <section><h3>공연과 기념사진</h3><p>광화문광장 명량분수 서쪽에서 <strong>분수쇼 시작</strong>을 누르면 같은 방에서 음악분수 공연을 함께 볼 수 있어요. 경복궁 광화문에서는 수문장 교대식이 열리고, 근정전 포토존에서는 <strong>사진 찍기</strong>를 할 수 있어요.</p></section>
       <section><h3>도장과 산책 기록</h3><p>전각과 동상, 유적 터에 가까이 가면 여권에 도장이 찍혀요. 덕수궁·광화문광장·경복궁에서 각각 9곳을 방문하면 꾸미기 보상을 받을 수 있어요. <strong>산책 기록</strong>에서 여권, 앨범, 이어하기 코드를 열 수 있어요.</p></section>
       <section><h3>한복과 전통놀이</h3><p>경복궁 앞 한복 대여소에서 한복과 갓 또는 족두리를 골라 입어 보세요. 근정전 마당에서 투호와 제기차기를, 광화문광장 육조마당에서 연날리기를 혼자 또는 같은 방 친구와 즐길 수 있어요.</p></section>
-      <section><h3>돌담길 연주와 사진 모드</h3><p>정동 분수로 가는 길에 버스킹이 열려요. <strong>사진 모드</strong>는 어디서나 열 수 있고, 친구가 가까이에 있으면 단체 사진도 찍을 수 있어요. 사진 카드에는 날짜와 장소가 들어가요.</p></section>
+      <section><h3>돌담길 연주와 사진 모드</h3><p>정동 분수로 가는 길에 버스킹이 열려요. 설정에서 <strong>사진 모드</strong>를 열면 풍경만 남아 원하는 순간을 직접 캡처할 수 있어요. 풍경을 한 번 누르면 사진 도구가 열려요. 가까운 친구와 단체 사진을 찍거나 날짜와 장소가 담긴 카드를 앨범에 저장해 보세요.</p></section>
       <section><h3>소원등과 스파클</h3><p>정동 분수대와 경복궁 향원정에서 <strong>소원등</strong>을 눌러 네 면을 꾸미고 지금 서 있는 곳에서 띄워 보세요. 석조전 분수와 경회루 옆 좌판에서는 스파클을 받아 <strong>사용하기</strong>를 누르면 손에 든 폭죽이 반짝여요.</p></section>
       <section><h3>석조전 서관 전시관</h3><p>계단을 올라 문 앞에서 <strong>입장하기</strong>를 누르세요. 삼국·통일신라부터 근대까지 한국 그림과 공예품을 시대별로 볼 수 있어요. 전시품 가까이에서 <strong>작품 설명</strong>을 열어 보세요.</p></section>
       <section><h3>미술관과 동네 식당</h3><p>북촌의 국립현대미술관 서울에서 서도호, 데이미언 허스트, 론 뮤익 등 역대 전시를 바탕으로 만든 작품을 만나 보세요. 지도에서 한식집과 정동 비스트로, 세종 우동집, 삼청 중화식당을 찾을 수 있어요. 직원이 있는 곳에서는 앉아서 <strong>벨 누르기</strong>를, 키오스크가 있는 곳에서는 주문한 뒤 빈 식탁에 앉아 보세요. 음식이 도착하면 <strong>먹기</strong>를 누르세요. 미술관과 식당에는 같은 방 친구와 함께 쓰는 <strong>방명록</strong>도 있어요.</p></section>

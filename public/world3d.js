@@ -1263,6 +1263,10 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       }else if(model.moleHammer)model.moleHammer.visible=false;
       if(insideId!==ARCADE_UPPER_SITE.id&&model.arcadeGear)model.arcadeGear.group.visible=false;
       if(model.label)model.label.visible=!state.photoCapture;
+      if(state.photoCapture){
+        model.emote.visible=false;
+        if(model.chatSprite)model.chatSprite.visible=false;
+      }
     });
     minigameWorld.live(models,indoors||state.photoCapture?null:state.minigameAimPreview);
     const seat=seatAt(anchor,clock),bus=anchor.bus&&busAt(anchor.bus.index,clock);
