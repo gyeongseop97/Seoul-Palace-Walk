@@ -1,5 +1,5 @@
 import {bukchonPaths,bukchonGroundHeight,bukchonSurfaceGrade,bukchonTerrain,bukchonShopPlots,bukchonLawns,bukchonStreetTrees,dongsipjagak,
-  dongsipjagakIsland,folkMuseumEastDoor} from "./bukchon-layout.js";
+  dongsipjagakIsland,folkMuseumEastDoor,bukchonStairCheeks} from "./bukchon-layout.js";
 import {gbEastWallX,insideGbWall} from "./gyeongbok-perimeter.js";
 import {bikeDocks} from "./sejong-bike.js";
 import {bukchonBusRoads,busStopById} from "./sejong-bus.js";
@@ -101,6 +101,7 @@ export function* buildBukchon(T,root,kit){
   }
   const grid=8,patch=grid*8;
   const stairs=bukchonPaths.find(path=>path.kind==="stairs");
+  const stairFootprint=coverRibbon(stairs);
   const avenue=bukchonPaths[0],eastWalk=bukchonPaths[2],northWestWalk=bukchonPaths[8];
   const footprint=kind=>bukchonPaths.filter(path=>kind.includes(path.kind)).flatMap(coverRibbon);
   const footway=footprint(["pavement","alley","lane"]),roadway=[...footprint(["road"]),...footway];
@@ -119,16 +120,21 @@ export function* buildBukchon(T,root,kit){
       const node=(x,y)=>{
         const wall=gbEastWallX(y);
         if(wall!=null&&y< -908)x=Math.max(x,wall+.12);
-        const stairGap=Math.hypot(Math.max(936-x,0,x-958),Math.max(-1843-y,0,y+1830));
-        const recess=Math.max(0,1-stairGap/14)*2.85;
-        return {x,y,level:sampleMeshHeight(bukchonSurfaceGrade,{x,y})-.6-recess};
+        return {x,y,level:sampleMeshHeight(bukchonSurfaceGrade,{x,y})-.095};
       };
       const vertexRows=Array.from({length:9},(_,i)=>Array.from({length:9},(_,j)=>node(left+j*grid,top+i*grid)));
       for(let i=0;i<8;i++)for(let j=0;j<8;j++){
         const a=vertexRows[i][j],b=vertexRows[i][j+1],c=vertexRows[i+1][j+1],d=vertexRows[i+1][j];
         if(b.x-a.x+c.x-d.x<.02||insideGbWall((a.x+b.x+c.x+d.x)/4,(a.y+b.y+c.y+d.y)/4))continue;
         // Use the same diagonal as the draped road in each cell.
-        quad(random()<.16?plants:earth,b,c,d,a,0,false);
+        const patch=random()<.16?plants:earth;
+        if(b.x>=stairs.minX-4&&a.x<=stairs.maxX+4&&c.y>=stairs.minY-4&&a.y<=stairs.maxY+4){
+          for(const face of [[b,c,d],[b,d,a]])for(const ring of exposedSurface(face,stairFootprint)){
+            for(let k=1;k<ring.length-1;k++)for(const p of [ring[0],ring[k+1],ring[k]]){
+              vertex(patch,{...p,level:sampleMeshHeight(bukchonSurfaceGrade,p)-.095},0);
+            }
+          }
+        }else quad(patch,b,c,d,a,0,false);
       }
       meshFromTriangles(streetGrass,earth,{follow:false});meshFromTriangles(park,plants,{follow:false});
       if((top+2079)%(patch*4)===patch*3)yield;
@@ -149,7 +155,7 @@ export function* buildBukchon(T,root,kit){
     quad(joints,avenue.right[i-1],eastWalk.left[i-1],eastWalk.left[i],avenue.right[i],-.002);
     meshFromTriangles(0x9b9287,joints);
   }
-  const coveredRoads=[],coveredFootways=[];
+  const coveredRoads=[...stairFootprint],coveredFootways=[...stairFootprint];
   for(const path of bukchonPaths){
     if(path.kind==="stairs")continue;
     const layer={road:0,pavement:.055,alley:.035,lane:.028,crosswalk:.002,entrance:.082}[path.kind];
@@ -221,7 +227,7 @@ export function* buildBukchon(T,root,kit){
   }
   yield* gradePalaceMeshes(T,graded,bukchonSurfaceGrade);
   for(const [index,{a,b}] of stairs.segments.entries()){
-    const treads=[],skirting=[],underpinning=[];
+    const treads=[],skirting=[],underpinning=[],shoulders=[];
     const left=stairs.left[index],right=stairs.right[index],nextLeft=stairs.left[index+1],nextRight=stairs.right[index+1];
     const run=distance(a,b);
     const count=Math.max(1,Math.ceil(Math.abs(a.level-b.level)/.16));
@@ -239,7 +245,16 @@ export function* buildBukchon(T,root,kit){
         for(const p of [one,two,bottom(two),one,bottom(two),bottom(one)])vertex(underpinning,p,0);
       }
     }
-    meshFromTriangles(index%2?0xb1a999:0xa9a191,treads,{follow:false});
+    for(const corners of bukchonStairCheeks()[index]){
+      quad(shoulders,...corners,0,false);
+      for(let i=0;i<corners.length;i++){
+        const p=corners[i],q=corners[(i+1)%corners.length];
+        const below=r=>({...r,level:Math.min(r.level-.24,bukchonTerrain(r.x,r.y)-.22)});
+        for(const v of [p,q,below(q),p,below(q),below(p)])vertex(underpinning,v,0);
+      }
+    }
+    meshFromTriangles(index%2?0xb1a999:0xa9a191,treads,{follow:false,surface:alleyPaving});
+    meshFromTriangles(0x9b9383,shoulders,{follow:false,twoSided:true});
     meshFromTriangles(0x81776b,skirting,{terrain:false,follow:false,twoSided:true});
     meshFromTriangles(0x8c8272,underpinning,{terrain:false,follow:false,twoSided:true});
     if(index===0||index===stairs.segments.length-1)continue;

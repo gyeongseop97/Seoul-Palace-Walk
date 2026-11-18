@@ -3,6 +3,9 @@ import {stops,createVisitorWalks,streetLine,onLine} from "./visitor-walks.js";
 import {diningVenues} from "./dining-data.js";
 import {buskingSpot} from "./street-people.js";
 import {PET_MS} from "./activities.js";
+import {BUS_SEATS,busAt,busLaneIntersections,busLocalPose,busSeatPose,busStopById} from "./sejong-bus.js";
+import {approachingTraffic} from "./crossing-traffic.js";
+import {bikePassengerPose} from "./sejong-bike.js";
 
 const coats=[0x95664e,0x527669,0x7a607e,0x58768e,0xae7447,0xa3666a,0x6b7351];
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -24,6 +27,23 @@ function companionLane(line){
   }
   const lane=streetLine(pts);laneCache.set(line,lane);return lane;
 }
+const laneCrossings=new WeakMap();
+function crossingPace(line,start,span){
+  if(!laneCrossings.has(line))laneCrossings.set(line,busLaneIntersections(line.points));
+  const keys=[[0,0]],speed=line.length/span;
+  for(const at of laneCrossings.get(line)){
+    const before=at-3.4,after=at+3.4,last=keys.at(-1);
+    if(before<=last[1]||after>=line.length)continue;
+    const arrive=last[0]+(before-last[1])/((line.length-last[1])/(span-last[0]));
+    const cross=(after-before)/speed;
+    const latest=span-cross-(line.length-after)/(speed*1.65);
+    let delay=0;
+    while(arrive+delay<latest&&[0,.25,.5,.75,1].some(f=>
+      approachingTraffic(onLine(line,before+(after-before)*f),start+(arrive+delay+cross*f)*1000)))delay+=.5;
+    if(delay>0&&arrive+delay<=latest)keys.push([arrive,before],[arrive+delay,before],[arrive+delay+cross,after]);
+  }
+  keys.push([span,line.length]);return keys;
+}
 
 // Each stop belongs to a room (null outdoors). Doorways switch rooms only at
 // the instant the walker reaches the door, the same way a player enters.
@@ -44,6 +64,36 @@ function sample(tour,seconds){
   const age=phase-leg.start,walking=leg.a!==leg.b;
   return {...mix(leg.a,leg.b,walking?age/leg.span:0),room:leg.a.room,action:leg.action,age,
     heading:walking?facing(leg.a,leg.b):leg.a.heading??0,stepping:walking,carried:leg.a.carried};
+}
+
+function busPlaces(parties,players,clock){
+  const buses=new Map(),places=new Map();
+  for(const p of parties){
+    if(!["boardBus","bus","leaveBus"].includes(p.action))continue;
+    const index=p.trip.ride.index;
+    if(!buses.has(index)){
+      const occupied=new Set(players.filter(player=>player.bus?.index===index).map(player=>player.bus.seat));
+      buses.set(index,{bus:busAt(index,clock),occupied,passengers:[]});
+    }
+    const cabin=buses.get(index);
+    for(let side=0;side<(p.pair?2:1);side++){
+      const seat=p.trip.ride.seats[side],free=!cabin.occupied.has(seat);
+      if(free)cabin.occupied.add(seat);
+      cabin.passengers.push({id:p.id*2+side,seat:free?seat:-1});
+    }
+  }
+  for(const [index,{bus,occupied,passengers}] of buses){
+    let standing=0;
+    for(let {id,seat} of passengers){
+      if(seat<0){
+        seat=BUS_SEATS-1;while(seat>=0&&occupied.has(seat))seat--;
+        if(seat>=0)occupied.add(seat);
+      }
+      const point=seat>=0?busSeatPose(bus,seat):busLocalPose(bus,0,1.3-standing++*.95);
+      places.set(id,{bus,index,seat,point});
+    }
+  }
+  return places;
 }
 
 export function addCityVisitors(T,kit,models,{benches,stations,parkLife,floorHeight,seatAt,showMeal,water,room}){
@@ -106,17 +156,53 @@ export function addCityVisitors(T,kit,models,{benches,stations,parkLife,floorHei
     if(now-v.lastSeen>9000){models.dispose(v.model);v.model=null;v.camera=null;v.cat=null;}
   }
   function update(clock,now,delta,anchor,inside,players,sparse){
-    const range=sparse?30:55,{parties,t}=walks.at(clock),claimed=new Set();
+    const range=sparse?62:90,{parties,t}=walks.at(clock),claimed=new Set();
+    const cabinPlaces=inside?null:busPlaces(parties,players,clock);
     for(const p of parties)for(let side=0;side<(p.pair?2:1);side++){
       const v=actor(p,side),site=stops[p.node],venue=p.action==="meal"?restaurants.get(site.ref):null;
       if(inside&&venue?.id!==inside){hide(v,now);continue;}
       const ageSec=t-p.start;
-      let pose,visitInfo=null;
+      let pose,visitInfo=null,seat=null,vehicleFloor;
       if(p.edge){
-        const line=p.edge.line,centre=onLine(line,ageSec*p.speed);
+        const line=p.edge.line,span=p.until-p.start,nominal=onLine(line,ageSec/span*line.length);
+        if(gap(nominal,anchor)>range+25){hide(v,now);continue;}
+        const began=Math.round(clock-ageSec*1000);
+        if(v.edgeStart!==began||v.line!==line){v.edgeStart=began;v.line=line;v.pace=crossingPace(line,began,span);}
+        const found=v.pace.findIndex(([t])=>t>=ageSec);
+        const next=found<0?v.pace.length-1:Math.max(1,found),[a,x]=v.pace[next-1],[b,y]=v.pace[next];
+        const progress=(x+(y-x)*Math.max(0,Math.min(1,(ageSec-a)/(b-a||1))))/line.length,centre=onLine(line,progress*line.length);
         if(gap(centre,anchor)>range+2){hide(v,now);continue;}
-        const lane=side?companionLane(line):line;
-        pose={...onLine(lane,ageSec*p.speed*lane.length/line.length),age:ageSec,stepping:true};
+        if(p.action==="cycle"){
+          pose={...(side?bikePassengerPose(centre):centre),age:ageSec};
+        }else{
+          const lane=side?companionLane(line):line;
+          pose={...onLine(lane,progress*lane.length),age:ageSec,stepping:y>x};
+        }
+      }else if(cabinPlaces?.has(v.index)){
+        const place=cabinPlaces.get(v.index),bus=place.bus,boarding=p.action==="boardBus";
+        if(gap(bus,anchor)>range+9){hide(v,now);continue;}
+        const base=seatAt({bus:{index:place.index,seat:Math.max(0,place.seat)}},clock).base;
+        if(p.action==="bus"){
+          pose={...place.point,age:ageSec};vehicleFloor=base;
+          if(place.seat>=0)seat={...pose,base};
+        }else{
+          const stop=stops[boarding?p.trip.from:p.trip.to],pavement=side?beside(stop):stop;
+          const progress=Math.max(0,Math.min(1,ageSec/3)),u=boarding?progress:1-progress;
+          const door=busLocalPose(bus,-1.15,3.15);
+          const path=u<.5?[pavement,door]:[door,place.point];
+          const fraction=u<.5?u*2:u*2-1;
+          pose={...mix(...path,fraction),heading:boarding?facing(...path):facing(path[1],path[0]),stepping:true,age:ageSec};
+          const ground=floorHeight(pavement);
+          vehicleFloor=ground+(base-ground)*Math.min(1,u*2);
+        }
+      }else if(p.action==="waitBus"){
+        const point=side?beside(site):site;
+        pose={...point,heading:facing(point,busStopById(site.ref).berth),age:ageSec};
+      }else if(p.action==="rentBike"||p.action==="returnBike"){
+        const driver={...site,heading:p.trip.heading};
+        const mounted=p.action==="rentBike"?ageSec>=1:ageSec<1;
+        pose={...(side?(mounted?bikePassengerPose(driver):beside(site)):driver),heading:driver.heading,age:ageSec};
+        pose.mounting=mounted;
       }else{
         if(!inside&&gap(site,anchor)>range+12){hide(v,now);continue;}
         const key=clock-ageSec*1000;
@@ -131,7 +217,7 @@ export function addCityVisitors(T,kit,models,{benches,stations,parkLife,floorHei
       const distance=gap(pose,anchor);
       if((pose.room??null)!==(inside??null)||distance>range){hide(v,now);continue;}
       // The route stays on room time even when distant walkers animate less often.
-      if(v.visible&&p.edge&&distance>22&&now-v.lastSeen<65)continue;
+      if(v.visible&&p.edge&&distance>22&&now-v.lastSeen<(distance>50?140:65))continue;
       const poseDelta=v.visible?Math.max(delta,Math.min(.15,(now-v.lastSeen)/1000)):delta;
       if(!v.model){
         v.model=models.create(coats[v.index%coats.length],null,null,v.id);
@@ -140,12 +226,15 @@ export function addCityVisitors(T,kit,models,{benches,stations,parkLife,floorHei
       v.lastSeen=now;v.visible=true;
       const age=pose.age*1000,part=age%5000;
       Object.assign(pose,{id:v.id,character:v.character,look:v.look});
+      if(p.action==="cycle"||pose.mounting){
+        if(side)pose.bikeRide={driver:"city-visitor-"+(v.index-1)};
+        else pose.bike={dock:stops[p.trip.from].ref};
+      }
       if(pose.action==="look"&&now>=(v.greetCheck??0)){
         v.greetCheck=now+550;
         if(clock-(v.wave??0)>24000&&players.some(player=>gap(player,pose)<2.6))v.wave=clock;
       }
       if(pose.action==="look")pose.wave=v.wave;
-      let seat=null;
       if(visitInfo?.seat&&["seat","water","meal"].includes(pose.action)){
         const index=visitInfo.seatIndex,slot=visitInfo.seat.slots[v.side],seatKey=index*2+v.side;
         const occupied=claimed.has(seatKey)||players.some(p=>p.seat===index&&(p.seatSide??0)===v.side||gap(p,slot)<.72);
@@ -190,7 +279,7 @@ export function addCityVisitors(T,kit,models,{benches,stations,parkLife,floorHei
           }
         }
       }
-      models.update(v.model,pose,{now,clock,delta:poseDelta,seat,floor:floorHeight(pose),turnEase:1-Math.exp(-poseDelta*8)});
+      models.update(v.model,pose,{now,clock,delta:poseDelta,seat,floor:vehicleFloor??floorHeight(pose),turnEase:1-Math.exp(-poseDelta*8)});
       if(seat?.tray||v.hadMeal)showMeal(pose,seat,clock);
       if(seat?.footBath||v.wasBathing)water(v.id,now,seat,pose,clock);
       v.hadMeal=Boolean(seat?.tray);v.wasBathing=Boolean(seat?.footBath);

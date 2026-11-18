@@ -339,14 +339,42 @@ export function bukchonSurfaceGrade({x,y}){
   }
   return level;
 }
+let stairCheeks;
+export function bukchonStairCheeks(){
+  if(stairCheeks)return stairCheeks;
+  const outside=(p,opposite)=>{
+    const span=Math.hypot(p.x-opposite.x,p.y-opposite.y);
+    const x=p.x+.86*(p.x-opposite.x)/span,y=p.y+.86*(p.y-opposite.y)/span;
+    return {x,y,level:bukchonTerrain(x,y)+.035};
+  };
+  stairCheeks=stairs.segments.map((_,i)=>[stairs.left,stairs.right].map((edge,side)=>{
+    const opposite=side?stairs.left:stairs.right;
+    return [{...edge[i],level:edge[i].level+.09},{...edge[i+1],level:edge[i+1].level+.09},
+      outside(edge[i+1],opposite[i+1]),outside(edge[i],opposite[i])];
+  }));
+  return stairCheeks;
+}
+function cheekHeight(x,y){
+  if(x<stairs.minX||x>stairs.maxX||y<stairs.minY||y>stairs.maxY)return null;
+  for(const pair of bukchonStairCheeks())for(const [a,b,c,d] of pair){
+    for(const [p,q] of [[b,c],[c,d]]){
+      const dx=p.x-a.x,dy=p.y-a.y,ex=q.x-a.x,ey=q.y-a.y,det=dx*ey-dy*ex;
+      const u=((x-a.x)*ey-(y-a.y)*ex)/det,v=(dx*(y-a.y)-dy*(x-a.x))/det;
+      if(u>=0&&v>=0&&u+v<=1)return a.level+u*(p.level-a.level)+v*(q.level-a.level);
+    }
+  }
+  return null;
+}
 export function bukchonGroundHeight({x,y}){
   if(!inBukchon(x,y))return null;
   const step=inPath(x,y,stairs)?stairLevel(x,y,stairs):null;
+  if(step!=null)return step;
   const path=bukchonPaths.find(path=>path!==stairs&&inPath(x,y,path));
   const campus=mmcaGroundHeight(x,y),lawn=lawnAt(x,y);
-  if(!path)return step??campus??lawn?.height(y);
+  const cheek=cheekHeight(x,y);
+  if(!path)return cheek??campus??lawn?.height(y);
   const height=sampleMeshHeight(bukchonSurfaceGrade,{x,y});
-  return Math.max(height,step??-Infinity,campus??-Infinity,lawn?.height(y)??-Infinity);
+  return Math.max(height,cheek??-Infinity,campus??-Infinity,lawn?.height(y)??-Infinity);
 }
 // The two edges turn together at landings. Sampling the same quadrilateral as the
 // renderer keeps the player's feet on its individual stone treads, even on a bend.

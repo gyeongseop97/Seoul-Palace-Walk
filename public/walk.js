@@ -32,6 +32,7 @@ import {FOOT_BATH_PERIOD,footKickAge} from "./walker-model.js";
 import {inSonghyeon,songhyeonBounds,songhyeonOutline,songhyeonPaths,songhyeonLawns,songhyeonLandmarks} from "./songhyeon-layout.js";
 import {uijeongbuOutline,uijeongbuEntry,uijeongbuGarden,uijeongbuWalks,uijeongbuConnections,uijeongbuSideRoad,uijeongbuBusPavement,uijeongbuRemains,sajikEastRoad,uijeongbuPavedConnections,uijeongbuCrossings,gardenSidewalk,gardenVerge} from "./uijeongbu-layout.js";
 import {BUS_COUNT,BUS_SEATS,bukchonBusRoads,busAt,busSeatPose,busStopById,busStops,busStopTimes,nearBus} from "./sejong-bus.js";
+import {approachingTraffic,clearingLane,sidewalkRefuge} from "./crossing-traffic.js";
 import {bikeDocks,bikeMountReach,bikeParkDuration,bikePassengerBoardSpeed,bikePassengerOffset,bikePassengerPose,
   isBikeDriver,isBikePassenger,isCycling,nearBikeDock} from "./sejong-bike.js";
 import {canRideBikeSegment} from "./bike-movement.js";
@@ -119,6 +120,7 @@ const heardClinks=new Set();
 let parkedBikes=[];
 let lastChatAt=0;
 let course=[],pendingSeat=null,seatClaim=null,thumb=[0,0],thumbId,manualInputAt=-Infinity;
+let backgroundTrip=null;
 let exitPress=null;
 let mapRoute=null;
 let clockOffset=null,roundTrip=65;
@@ -972,6 +974,8 @@ function syncCadence(){
 async function sync(){
   const visit=session;
   if(!active||!visit||syncInFlight===visit)return;
+  advanceBackgroundTrip();
+  if(document.hidden)keepCrossingClear(gameTime());
   syncInFlight=visit;
   const sent=performance.now(),hand=queuedHand,claim=seatClaim,feed=queuedFeed,chat=queuedChat;
   const bus=queuedBus,bike=queuedBike;
@@ -1333,7 +1337,8 @@ window.addEventListener("pagehide",()=>{
   active=false;pageVersion++;clearSyncTimer();sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);leaveBeacon();
 });
 document.addEventListener("visibilitychange",()=>{
-  if(document.hidden){rememberWalkPosition();clearManualInput();exitPress=null;sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);}
+  if(document.hidden){beginBackgroundTrip();rememberWalkPosition();clearManualInput();exitPress=null;sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);}
+  else finishBackgroundTrip();
   clearSyncTimer();scheduleSync(document.hidden?1150:0);
 });
 window.addEventListener("online",()=>{if(!document.hidden)scheduleSync(0);});
@@ -1581,8 +1586,57 @@ const finishThumb=event=>{if(event.pointerId===thumbId)releaseThumb();};
 for(const type of ["pointerup","pointercancel"])window.addEventListener(type,finishThumb,true);
 joystick.addEventListener("lostpointercapture",finishThumb);
 function clearManualInput(){keys.clear();shiftHeld=false;releaseThumb();clearSceneTouch();}
-function resetInput(){clearManualInput();course=[];pendingSeat=seatClaim=null;}
-window.addEventListener("blur",clearManualInput);
+function resetInput(){backgroundTrip=null;clearManualInput();course=[];pendingSeat=seatClaim=null;}
+function beginBackgroundTrip(){
+  if(backgroundTrip||!session||!world||riding||photoMode.camera||me.bus||me.seat!=null||isBikePassenger(me)||amFollowingHands()||
+    arcade.frozen||bungeoMode||(!keys.size&&thumbId===undefined&&!course.length))return;
+  let [x,y]=Array.from(keys,key=>vectors[key]).reduce(([x,y],[vx,vy])=>[x+vx,y+vy],thumb);
+  if(x||y){
+    const angle=document.activeElement===$("world")&&thumbId===undefined?0:ownView.pan*Math.PI/180;
+    [x,y]=[x*Math.cos(angle)-y*Math.sin(angle),x*Math.sin(angle)+y*Math.cos(angle)];
+  }
+  backgroundTrip={x,y,run:shiftHeld||runToggled,at:Date.now()};
+}
+function advanceBackgroundTrip(){
+  const trip=backgroundTrip;
+  if(!trip)return false;
+  const now=Date.now(),seconds=Math.max(0,(now-trip.at)/1000);trip.at=now;
+  const clock=gameTime(),link=myLink();
+  if(!session||!active||me.bus||me.seat!=null||isBikePassenger(me)||riding||queuedBike||queuedBus||
+    amFollowingHands()||feedingLocked(clock)||clinkLocked(clock)||sickLocked(clock)||mealBiteLocked(clock)){
+    backgroundTrip=null;return false;
+  }
+  const speed=isBikeDriver(me)?9.4:trip.run&&!isUmbrellaLink(link)?6.675:2.58;
+  // A straight walk must hit the edge of this world within its diagonal.
+  // A tapped route has a finite list of destinations, even after a long suspension.
+  let remaining=Math.min(seconds*speed,course.length?Infinity:3000),moved=false;
+  while(remaining>.0001){
+    const step=Math.min(.42,remaining),x=me.x,y=me.y;
+    if(trip.x||trip.y)moveWithInput(trip.x,trip.y,step,link,false);
+    else if(course.length)walkCourse(step);
+    else{backgroundTrip=null;break;}
+    const distance=near(me,x,y);
+    if(distance<.00001){
+      if(!(trip.x||trip.y)&&course.length){remaining-=step;continue;}
+      backgroundTrip=null;break;
+    }
+    moved=true;remaining-=distance;
+    if(isBikeDriver(me)&&me.blushUntil>clock&&Math.random()<bikeFallChance(me,clock,distance)){
+      queuedBike={action:"fall"};resetInput();break;
+    }
+  }
+  if(moved||!backgroundTrip){
+    const movingNow=Boolean(backgroundTrip&&(trip.x||trip.y||course.length)),angle=me.heading*Math.PI/180;
+    Object.assign(me,{vx:movingNow?speed*Math.sin(angle):0,vy:movingNow?-speed*Math.cos(angle):0,running:movingNow&&trip.run&&!isBikeDriver(me)});
+    dirty=true;
+  }
+  return moved;
+}
+function finishBackgroundTrip(){
+  if(backgroundTrip){advanceBackgroundTrip();backgroundTrip=null;dirty=true;wakeSync();}
+}
+window.addEventListener("blur",()=>{beginBackgroundTrip();clearManualInput();});
+window.addEventListener("focus",finishBackgroundTrip);
 window.addEventListener("blur",arcade.clear);
 window.addEventListener("keydown",event=>{
   if(event.target.closest("dialog"))return;
@@ -1692,8 +1746,33 @@ function feetHeight(time){
   // On foot a walker still climbs anything a step high, which is what makes stone stairs work.
   return lift?Math.max(jumpBase+lift,platform):platform+stepUp;
 }
+let lastCrossingNotice=-Infinity,trafficCheck=0;
+function crossingNotice(now,message){
+  if(now-lastCrossingNotice>4500){toast(message);lastCrossingNotice=now;}
+}
+function trafficAtPlayer(p,time){
+  if(!world||me.up||me.bus||me.seat!=null||isBikePassenger(me)||interiorAt(p.x,p.y))return null;
+  const hit=approachingTraffic(p,time);
+  return hit&&Math.abs(world.groundHeight(p)-world.groundHeight(hit.bus))<1.8?hit:null;
+}
+function keepCrossingClear(time){
+  if(time<trafficCheck||!world||amFollowingHands())return;
+  trafficCheck=time+100;
+  const hit=trafficAtPlayer(me,time);
+  if(!hit)return;
+  if(clearingLane(hit,me.vx||0,me.vy||0))return;
+  if(!hit.imminent){crossingNotice(time,"버스가 다가와요. 건너던 방향으로 계속 이동해 주세요.");return;}
+  const safe=sidewalkRefuge(me,hit.bus,q=>walkable(q.x,q.y)&&clearSegment(me,q,.32,.19)&&!approachingTraffic(q,time));
+  if(!safe)return;
+  resetInput();Object.assign(me,safe,{vx:0,vy:0,blocked:false,running:false});dirty=true;wakeSync();
+  toast("버스 통과를 위해 차로 밖으로 이동했어요.");
+}
 function move(x,y){
   if(!session||me.bus||isBikePassenger(me)||queuedBus||queuedBike||(x===me.x&&y===me.y))return false;
+  const time=gameTime(),traffic=trafficAtPlayer({x,y},time);
+  if(traffic&&!trafficAtPlayer(me,time)){
+    crossingNotice(time,"버스가 지나간 뒤 건너 주세요.");return false;
+  }
   // Stairs and upper floors follow their own rules; everywhere else the ground decides.
   const bridge=cheonggyeDeckStep(me,x,y);
   const loft=bridge===undefined?loftStep(me,x,y):bridge;
@@ -2996,7 +3075,8 @@ function frame(now){
   }
   if(me.blushLevel&&time>=me.blushUntil){me.blushLevel=0;me.blushUntil=0;me.alcoholGlasses=0;me.sickAt=0;dirty=true;}
   smoothPeople(people,elapsed,time,roundTrip);
-  const stepping=motion(now,elapsed);
+  const stepping=backgroundTrip?advanceBackgroundTrip():motion(now,elapsed);
+  keepCrossingClear(time);
   if(arcade.kind==="pump"&&near(ARCADE_PUMP,me.x,me.y)>3.3)arcade.stop();
   if(arcade.kind==="mole"&&near(ARCADE_MOLE,me.x,me.y)>2.8)arcade.stop();
   const arcadeStepping=arcade.update(now,elapsed);

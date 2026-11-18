@@ -1,6 +1,6 @@
 // Bake from a fully initialized game's pedestrian collision map. The resulting
 // junctions and checked polylines let all clients plan the same trips offline.
-export function bakeVisitorPaths({walkable,clearSegment,benches,stations,venues,busker}){
+export function bakeVisitorPaths({walkable,clearSegment,benches,stations,venues,busker,busStops,bikeDocks}){
   const step=2,cols=583,rows=1158,top=-1890,count=cols*rows;
   const cell=(x,y)=>Math.round((y-top)/step)*cols+Math.round(x/step);
   const xy=n=>({x:(n%cols)*step,y:top+Math.floor(n/cols)*step});
@@ -23,6 +23,8 @@ export function bakeVisitorPaths({walkable,clearSegment,benches,stations,venues,
   for(const [i,s] of stations.entries())if(edible.has(s.kind))seed(s,["shop",i],3);
   for(const v of venues)seed(v.outsideDoor,["meal",v.id],4);
   seed({x:busker.x,y:busker.y+2.8},["music"],3);
+  for(const stop of busStops)seed(stop.board,["busStop",stop.id],2);
+  for(const dock of bikeDocks)seed(dock.access,["bikeDock",dock.id],2);
   let lastWater=-Infinity;
   for(const [i,b] of benches.entries()){
     if(b.table||!b.slots?.[0]?.approach)continue;

@@ -6,6 +6,7 @@ import {createCatSocial} from "./cat-social.js";
 import {createCatHunts} from "./cat-hunt.js";
 import {createCatRecognition} from "./cat-recognition.js";
 import {expansionWildlife} from "./expansion-wildlife.js";
+import {BUS_COUNT,busAt} from "./sejong-bus.js";
 
 const cats=[
   {id:"cheese",name:"치즈태비",size:1.04,coat:0xd5914b,mark:0x98521f,paw:0xf0d5aa,eyes:[0xa8a953,0xa8a953],pattern:"tabby"},
@@ -189,6 +190,11 @@ function approachingRunner(point,runners,tracked){
   for(const runner of runners){
     const dx=point.x-runner.x,dy=point.y-runner.y;
     const gap=Math.hypot(dx,dy);
+    if(runner.vehicle){
+      const along=dx*runner.fx+dy*runner.fy,side=dx*runner.fy-dy*runner.fx;
+      if(along< -3||along>runner.reach||Math.abs(side)>2.7||Math.abs(runner.level-runner.floor(point))>1.5)continue;
+      return runner;
+    }
     const pursuing=tracked===runner.id;
     if(runner.blocked&&!pursuing)continue;
     if(gap>(runner.blocked?4.3:pursuing?10.2:5.2))continue;
@@ -222,13 +228,18 @@ function segmentGap(point,a,b){
 const forwardTurns=[0,.38,-.38,.79,-.79];
 const cornerTurns=[0,.39,-.39,.79,-.79,1.18,-1.18,1.57,-1.57,1.96,-1.96,2.36,-2.36,2.75,-2.75,Math.PI];
 function dashTarget(from,runner,corner=false){
-  const before=gap(from,runner),away=before>.05?Math.atan2(from.x-runner.x,from.y-runner.y):Math.atan2(runner.vx,runner.vy);
+  const before=gap(from,runner);
+  let away=before>.05?Math.atan2(from.x-runner.x,from.y-runner.y):Math.atan2(runner.vx,runner.vy);
+  if(runner.vehicle){
+    const side=(from.x-runner.x)*runner.fy-(from.y-runner.y)*runner.fx>=0?1:-1;
+    away=Math.atan2(side*runner.fy,-side*runner.fx);
+  }
   const ahead={x:runner.x+runner.vx*.24,y:runner.y+runner.vy*.24};
   for(const metres of corner?[3.2,1.7,.8,.35]:[5.8,3.8,2.4]){
     let best=null,score=-Infinity;
     for(const offset of corner?cornerTurns:forwardTurns){
       const angle=away+offset,to={x:from.x+Math.sin(angle)*metres,y:from.y+Math.cos(angle)*metres};
-      if(!corner&&gap(to,runner)<before+metres*.42)continue;
+      if(!runner.vehicle&&!corner&&gap(to,runner)<before+metres*.42)continue;
       const margin=segmentGap(runner,from,to),lookAhead=segmentGap(ahead,from,to);
       if(margin<Math.min(.71,before-.012)||lookAhead<Math.min(.60,gap(from,ahead)-.015)||!clearSegment(from,to,.23))continue;
       const benefit=gap(to,ahead)+Math.min(2,lookAhead)*.42-Math.abs(offset)*.16;
@@ -711,9 +722,22 @@ export function addParkLife(T,scene,kit){
   const leaves=fallingLeaves(T,scene,kit);
   const heightAt=point=>point.height==null?(kit.floorHeight?.(point)??0):
     point.height+(point.surface==="bench"||point.surface==="wall"?(kit.terrainHeight?.(point)??0):0);
+  let trafficAt=-Infinity,traffic=[];
   function update(now,anchor,walkers=[],autumn=true){
     const runners=walkers.filter(actor=>actor.running&&actor.stepping&&actor.seat==null&&
       (actor.blocked||Math.hypot(actor.vx,actor.vy)>2.65));
+    if(anchor&&(now<trafficAt||now-trafficAt>=150)){
+      trafficAt=now;traffic=[];
+      for(let i=0;i<BUS_COUNT;i++){
+        const bus=busAt(i,now);
+        if(!bus.traveling||gap(bus,anchor)>sight+65)continue;
+        const ahead=busAt(i,now+400),vx=(ahead.x-bus.x)*2.5,vy=(ahead.y-bus.y)*2.5,speed=Math.hypot(vx,vy);
+        if(speed<.5)continue;
+        const floor=kit.floorHeight??(()=>0);
+        traffic.push({...bus,vehicle:true,vx,vy,fx:vx/speed,fy:vy/speed,reach:7+speed*1.9,level:floor(bus),floor});
+      }
+    }
+    if(anchor)runners.unshift(...traffic);
     const holders=walkers.filter(actor=>!actor.running&&actor.seat==null&&
       (holdsChuru(actor.item)||holdsChuru(actor.secondItem)));
     // Faraway groups pick their shared routes up from the clock when a walker approaches.
@@ -731,7 +755,7 @@ export function addParkLife(T,scene,kit){
     audible=anchor?active:[];
     for(const cat of active){
       const previousTime=cat.updatedAt??now,time=Math.max(now,previousTime);
-      const feeding=cat.feeding&&time>=cat.feeding.at&&time<cat.feeding.until?cat.feeding:null;
+      let feeding=cat.feeding&&time>=cat.feeding.at&&time<cat.feeding.until?cat.feeding:null;
       if(cat.feeding?.resume&&!feeding&&time>=cat.feeding.until){
         if(!cat.lure&&!cat.escape)cat.rejoin={from:cat.feeding.pose,at:time};
         cat.feeding.resume=false;
@@ -743,7 +767,7 @@ export function addParkLife(T,scene,kit){
         cat.routeAt=Math.min(time,(cat.routeAt??time)+elapsed*1.28);
       cat.routeAt??=time;
       cat.updatedAt=time;
-      const paused=time>=cat.petFrom&&time<cat.petUntil;
+      let paused=time>=cat.petFrom&&time<cat.petUntil;
       const seconds=(cat.routeAt/1000+cat.offset)%cat.duration;
       const found=cat.legs.findIndex(leg=>seconds<leg.end),index=found<0?cat.legs.length-1:found;
       const current=cat.legs[index];
@@ -768,14 +792,15 @@ export function addParkLife(T,scene,kit){
       };
       const reachable=!jumping&&surface.surface!=="wall";
       const reaction=cat.social||cat.hunt||cat.recognition||cat.rejoin?cat.pose??patrol:patrol;
-      if(!cat.escape&&reachable&&!reaction.jump&&!feeding&&!paused&&runners.length&&time>=cat.checkAt){
+      if(!cat.escape&&reachable&&!reaction.jump&&runners.length&&time>=cat.checkAt){
         cat.checkAt=time+110;
-        const point=cat.lure?.point??reaction;
-        const runner=approachingRunner(point,runners);
+        const point=feeding?.pose??cat.petPose??cat.lure?.point??reaction;
+        const runner=approachingRunner(point,feeding||paused?traffic:runners);
         if(runner){
+          if(runner.vehicle){feeding=cat.feeding=null;paused=false;cat.petUntil=time;cat.petPose=null;}
           cat.escape=scareFrom(point,runner,time);
           cat.lure=null;cat.rejoin=null;
-          kit.onCatFlee?.(runner.id);
+          if(!runner.vehicle)kit.onCatFlee?.(runner.id);
         }
       }
       const retreat=cat.escape?retreatPose(cat.escape,time,runners,kit.catWalls??[],walkers):null;

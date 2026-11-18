@@ -1,5 +1,6 @@
 import {eastCurb, eastRoadWidth, plazaAt} from "./plaza-layout.js";
 import {uijeongbuBusBerth} from "./uijeongbu-layout.js";
+import {routeCrossings} from "./bus-crossings.js";
 
 export const BUS_COUNT=11;
 export const BUS_SEATS=8;
@@ -76,7 +77,7 @@ const itineraries=[
     point(843.1,-1511),point(874.3,-1554),point(894.2,-1590.63),point(914.9,-1626.15),point(914.3,-1679.43),
     point(920.5,-1731.6),point(933.5,-1831.5),bukchonTerminal.berth]},
   {travelMs:91_000,points:[bukchonTerminal.berth,point(939.2,-1872),point(938.5,-1876.7),point(936.4,-1880.5),
-    point(932.8,-1883),point(928.1,-1882.6),point(925.3,-1879),point(925.1,-1874),point(928.1,-1866),point(928.7,-1855),
+    point(934.2,-1882.2),point(932.7,-1880.4),point(932.3,-1877.8),point(932.1,-1874),point(931.3,-1866),point(929.7,-1855),
     point(927.1,-1831.5),point(914.3,-1731.6),point(908.1,-1679.43),point(908.6,-1626.15),
     point(887.9,-1590.63),point(868.1,-1554),point(836.9,-1511),point(805.5,-1490.5),point(769,-1468),
     point(765.1,-1453),point(743,-1382),point(734.8,-1350),point(722.8,-1306),point(712.7,-1270),
@@ -136,9 +137,38 @@ let stopOffset=0;
 const route=itineraries.map(leg=>{
   const offset=stopOffset;
   stopOffset+=BUS_DWELL_MS+leg.travelMs;
-  return {...leg,offset,path:buildPath(leg.points)};
+  const path=buildPath(leg.points),length=path.at(-1).distance,holds=[];
+  for(const {distance,crossing} of routeCrossings(path)){
+    const at=distance-BUS_LENGTH/2-crossing.width/2-.8;
+    if(at>5&&at<length-6&&at-(holds.at(-1)?.at??-Infinity)>12)holds.push({at,crossing});
+  }
+  const wait=holds.length?Math.min(4800,leg.travelMs*.20/holds.length):0;
+  const moving=leg.travelMs-wait*holds.length;
+  let last=0,start=0;
+  const segments=[...holds,{at:length}].map(({at,crossing})=>{
+    const duration=moving*(at-last)/length,end=start+duration+(crossing?wait:0);
+    const part={start,from:last,to:at,duration,end,crossing};
+    start=end;last=at;return part;
+  });
+  return {...leg,offset,path,segments};
 });
 const cyclePhase=(time,offset,period)=>((time-epoch-offset)%period+period)%period;
+const laneSegments=route.flatMap(leg=>leg.path.slice(1).map((b,i)=>[leg.path[i],b]));
+export function busLaneIntersections(points){
+  const result=[];let walked=0;
+  for(let i=1;i<points.length;i++){
+    const a=points[i-1],b=points[i],dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
+    for(const [p,q] of laneSegments){
+      if(Math.max(a.x,b.x)<Math.min(p.x,q.x)||Math.min(a.x,b.x)>Math.max(p.x,q.x)||
+        Math.max(a.y,b.y)<Math.min(p.y,q.y)||Math.min(a.y,b.y)>Math.max(p.y,q.y))continue;
+      const sx=q.x-p.x,sy=q.y-p.y,det=dx*sy-dy*sx;if(Math.abs(det)<.001)continue;
+      const x=p.x-a.x,y=p.y-a.y,t=(x*sy-y*sx)/det,u=(x*dy-y*dx)/det;
+      if(t>=0&&t<=1&&u>=0&&u<=1)result.push(walked+t*length);
+    }
+    walked+=length;
+  }
+  return result.sort((a,b)=>a-b).filter((d,i,arr)=>!i||d-arr[i-1]>2);
+}
 function pointAtDistance(path,target){
   if(target<=0)return path[0];
   if(target>=path.at(-1).distance)return path.at(-1);
@@ -171,12 +201,14 @@ export function busAt(index,time){
     }
     phase-=BUS_DWELL_MS;
     if(phase<leg.travelMs){
-      const length=leg.path.at(-1).distance,metres=length*traveled(phase,leg.travelMs);
+      const length=leg.path.at(-1).distance,part=leg.segments.find(s=>phase<s.end)??leg.segments.at(-1);
+      const elapsed=phase-part.start,holding=elapsed>=part.duration&&part.crossing;
+      const metres=part.from+(part.to-part.from)*traveled(Math.min(elapsed,part.duration),part.duration);
       const p=pointAtDistance(leg.path,metres);
       const a=pointAtDistance(leg.path,Math.max(0,metres-.94));
       const b=pointAtDistance(leg.path,Math.min(length,metres+.94));
       return {id,index,...p,heading:heading(a,b),stopId:null,remaining:0,elapsed:phase,
-        traveling:true,nextStopId,eta:leg.travelMs-phase};
+        traveling:true,yielding:Boolean(holding),yieldLeft:holding?part.end-phase:0,nextStopId,eta:leg.travelMs-phase};
     }
     phase-=leg.travelMs;
   }
@@ -197,6 +229,22 @@ export function busWait(stopId,time){
   const schedule=busStopTimes(stopId,time);
   if(!schedule)return null;
   return schedule.departureMs===null?schedule.arrivalMs:0;
+}
+
+// Times refer to the same vehicle and direction as busAt(), including the
+// northern turnaround. Leave enough dwell time for the whole party to board.
+export function nextBusRide(fromId,toId,time,available=()=>true){
+  const from=busStops.findIndex(stop=>stop.id===fromId),to=busStops.findIndex(stop=>stop.id===toId);
+  if(from<0||to<0||from===to)return null;
+  const travel=(route[to].offset-route[from].offset+BUS_CYCLE_MS)%BUS_CYCLE_MS;
+  let best=null;
+  for(let index=0;index<BUS_COUNT;index++){
+    const phase=cyclePhase(time,route[from].offset-index*BUS_DEPARTURE_MS,BUS_CYCLE_MS);
+    const arrival=phase+4200<BUS_DWELL_MS?time-phase:time+BUS_CYCLE_MS-phase;
+    const board=Math.max(time+400,arrival+750),exit=arrival+travel+600;
+    if((!best||board<best.board)&&available(index,board,exit+3000))best={index,board,exit};
+  }
+  return best;
 }
 
 // +Z faces forward in the bus model; negative local X is the curb side in right-hand traffic.
