@@ -1,11 +1,19 @@
-export function bindNearbyControls(root,focusGame,prefix="nearby"){
+export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>null){
   const primary=root.querySelector("#"+prefix+"-primary");
   const label=primary.firstElementChild;
   const toggle=root.querySelector("#"+prefix+"-toggle");
   const panel=root.querySelector("#"+prefix+"-actions");
   const buttons=[...panel.querySelectorAll("button")];
   const doc=root.ownerDocument;
-  let action=null,press=null,lastPanelFocus=null;
+  let action=null,press=null,lastPanelFocus=null,pinned=null;
+  // Remember deliberate selections, including a primary press forwarded into the menu.
+  panel.addEventListener("click",event=>{
+    const button=event.target.closest("button");
+    if(button&&!button.hidden&&!button.disabled){
+      const here=position();
+      pinned={button,target:button.dataset.actionTarget,x:here?.x,y:here?.y};
+    }
+  },true);
 
   doc.addEventListener("focusin",event=>{
     if(panel.contains(event.target))lastPanelFocus=event.target;
@@ -39,7 +47,7 @@ export function bindNearbyControls(root,focusGame,prefix="nearby"){
     if(event.target.closest("button"))close(true);
   });
   primary.addEventListener("pointerdown",event=>{
-    press={pointerId:event.pointerId,action,label:label.textContent};
+    press={pointerId:event.pointerId,action,label:label.textContent,target:action?.dataset.actionTarget};
   });
   function endPress(event){
     if(press?.pointerId!==event.pointerId)return;
@@ -53,14 +61,17 @@ export function bindNearbyControls(root,focusGame,prefix="nearby"){
     const pressed=press;
     press=null;
     if(!action||action.hidden||action.disabled)return;
-    if(pressed&&(pressed.action!==action||pressed.label!==label.textContent))return;
+    if(pressed&&(pressed.action!==action||pressed.label!==label.textContent||pressed.target!==action.dataset.actionTarget))return;
     close();
     action.click();
   });
 
   function refresh(preferredId){
     const available=buttons.filter(button=>!button.hidden);
-    action=available.find(button=>button.id===preferredId)
+    const here=position();
+    if(pinned&&(pinned.button.hidden||pinned.button.dataset.actionTarget!==pinned.target||
+      (here&&Math.hypot(here.x-pinned.x,here.y-pinned.y)>3)))pinned=null;
+    action=pinned?.button??available.find(button=>button.id===preferredId)
       ??available.find(button=>!button.disabled)??available[0]??null;
     const focused=doc.activeElement;
     const text=action?.firstChild?.textContent.trim()??"";
@@ -87,5 +98,5 @@ export function bindNearbyControls(root,focusGame,prefix="nearby"){
     }
     if(focused===primary&&(primary.hidden||primary.disabled))focusControls();
   }
-  return {refresh,close,isPrimary:button=>action===button,ownsFocus:()=>!panel.hidden&&panel.contains(doc.activeElement)};
+  return {refresh,close,reset(){pinned=press=null;close();},isPrimary:button=>action===button,ownsFocus:()=>!panel.hidden&&panel.contains(doc.activeElement)};
 }

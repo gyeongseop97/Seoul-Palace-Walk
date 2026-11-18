@@ -1205,7 +1205,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     bungeoCustomer.update(cookingId===BUNGEO_STALL.id?state.bungeoOrder:null,
       !indoors&&plazaRoot.parent===outdoors?anchor:null,now,clock,delta);
     if(hwangudan.root.parent===outdoors)updateHwangudan?.(night);
-    if(!indoors&&cheonggye.root.parent===outdoors)updateCheonggye?.(now*.001,night,scene.fog.color,anchor);
+    if(!indoors&&cheonggye.root.parent===outdoors)updateCheonggye?.(now*.001,night,scene.fog.color,anchor,state.paperBoats,clock);
     const roster=[me,...peers],present=new Set(roster.map(player=>player.id));
     minigameWorld.begin(clock,indoors?null:anchor,state.minigames,state.minigameAction,state.minigameFree);
     if(!indoors){
@@ -1401,6 +1401,21 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
       const machine=ARCADE_GAMES.mole.machine,{distance,fov,eye}=moleView(camera.aspect);
       camera.position.set(wx(machine.x+distance),eye,wz(machine.y));
       camera.lookAt(wx(machine.x+.05),MOLE_BOARD.top+.14,wz(machine.y));
+      if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix();}
+      cameraDistance=0;
+    }else if(state.arcade?.kind==="pinball"){
+      const {machine}=ARCADE_GAMES.pinball,field=CLASSIC_FIELDS.pinball;
+      // Keep the lens below the ceiling and fit the near lip as well as the upper bumpers.
+      const eye=3.79,offset=.95,target=.28,rise=eye-field.top,run=offset-target;
+      const distance=Math.hypot(rise,run),cos=rise/distance,sin=run/distance;
+      let slope=0;
+      for(const z of [field.z+.17,-field.z-.17]){
+        const depth=distance-(z-target)*sin;
+        slope=Math.max(slope,Math.abs((z-target)*cos)/depth,(field.x+.18)/(depth*camera.aspect));
+      }
+      const fov=2*Math.atan(slope*1.115)*180/Math.PI;
+      camera.position.set(wx(machine.x+offset),eye,wz(machine.y));
+      camera.lookAt(wx(machine.x+target),field.top,wz(machine.y));
       if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix();}
       cameraDistance=0;
     }else if(isClassic(state.arcade?.kind)){

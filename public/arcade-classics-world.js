@@ -1,5 +1,5 @@
 import {ARCADE_GAMES} from "./arcade-layout.js";
-import {raceBend,raceTraffic,BRICK_MASK,BRICK_PADDLE,CLASSIC_BRICKS,CLASSIC_FIELDS,CLASSIC_RADII,HOCKEY_GOAL,HOCKEY_MALLET,PIN_BUMPERS,PIN_DRAIN,PIN_FLIPPERS} from "./arcade-classics.js";
+import {raceBend,raceTraffic,BRICK_MASK,BRICK_PADDLE,CLASSIC_BRICKS,CLASSIC_FIELDS,CLASSIC_RADII,HOCKEY_GOAL,HOCKEY_MALLET,PIN_BUMPERS,PIN_DRAIN,PIN_FLIPPERS,PIN_START,PIN_GUIDES,PIN_FLIP_LENGTH,pinFlipperAngle} from "./arcade-classics.js";
 import {standSign} from "./regional-stands.js";
 
 const looks={
@@ -45,10 +45,14 @@ export function* buildClassics(T,room,{box,cylinder,shape}){
     for(const ledX of [-width*.36,width*.36])block(look.accent,ledX,.85,depth/2+.014,.38,.035,.018);
     let parts;
     if(kind==="pinball"){
-      for(const center of [-.67,0,.67])block(look.line,center,top+.003,-.18,.055,.006,2.66);
-      for(const side of [-1,1]){
-        const guide=block(look.accent,side*.69,top+.066,1.47,.28,.13,.78);
-        guide.rotation.y=side*.25;
+      for(const center of [-.82,0,.82])block(look.line,center,top+.003,-.33,.037,.006,4.31);
+      for(const [ax,az,bx,bz] of PIN_GUIDES){
+        const guide=block(look.accent,(ax+bx)/2,top+.066,(az+bz)/2,.088,.13,Math.hypot(bx-ax,bz-az));
+        guide.rotation.y=Math.atan2(bx-ax,bz-az);
+      }
+      for(const [bx,bz] of PIN_BUMPERS){
+        const ring=new T.RingGeometry(.234,.255,24).rotateX(-Math.PI/2);
+        shape(ring,look.accent,bx,top+.008,bz,stage);
       }
       const bumpers=PIN_BUMPERS.map(([bx,bz],i)=>{
         disc(i%2?0xdfad52:0xb54b5b,bx,top+.044,bz,.198,.085);
@@ -58,7 +62,7 @@ export function* buildClassics(T,room,{box,cylinder,shape}){
       });
       const flippers=PIN_FLIPPERS.map(([px,pz],i)=>{
         const hinge=new T.Group();hinge.position.set(px,top+.066,pz);hinge.userData.dynamic=true;stage.add(hinge);
-        const bar=box(0xffcf79,(i?-1:1)*.23,0,0,.47,.092,.131,hinge);
+        const bar=box(0xffcf79,(i?-1:1)*PIN_FLIP_LENGTH/2,0,0,PIN_FLIP_LENGTH,.092,.131,hinge);
         bar.userData.dynamic=true;return hinge;
       });
       parts={bumpers,flippers};
@@ -115,11 +119,11 @@ export function* buildClassics(T,room,{box,cylinder,shape}){
   }
   function draw(kind,state){
     const {field,ball,parts}=games.get(kind),{top}=field;
-    const location=state?.ball??(kind==="pinball"?[.965,1.61]:kind==="airHockey"?[0,0]:[0,1.35]);
+    const location=state?.ball??(kind==="pinball"?PIN_START:kind==="airHockey"?[0,0]:[0,1.35]);
     ball.position.x=location[0];ball.position.z=location[1];
     ball.visible=state?.phase!=="finished";
     if(kind==="pinball"){
-      parts.flippers.forEach((joint,i)=>{joint.rotation.y=(i?1:-1)*(.31-(state?.flippers[i]??0)*.97);});
+      parts.flippers.forEach((joint,i)=>{joint.rotation.y=pinFlipperAngle(i,state?.flippers[i]??0);});
       parts.bumpers.forEach((bumper,i)=>{
         const flash=state?.hit===i?state.flash:0;
         bumper.material.emissive.setHex(0xff792d);bumper.material.emissiveIntensity=.11+flash*1.25;

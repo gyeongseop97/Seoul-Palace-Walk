@@ -1,12 +1,15 @@
 export const CLASSIC_FIELDS={
-  pinball:{x:1.06,z:1.99,top:1.03},
+  pinball:{x:1.23,z:2.83,top:1.03},
   racing:{x:1.10,z:1.90,top:1.03},
   airHockey:{x:1.46,z:2.15,top:1.03},
   brickBreaker:{x:1.12,z:1.91,top:1.03}
 };
 export const isClassic=kind=>Object.hasOwn(CLASSIC_FIELDS,kind);
-export const PIN_BUMPERS=[[-.52,-.94],[.52,-.94],[0,-.27],[-.67,.37],[.67,.37]];
-export const PIN_FLIPPERS=[[-.47,1.54],[.47,1.54]];
+export const PIN_BUMPERS=[[-.48,-2.10],[.48,-2.10],[0,-1.50],[-.67,-.88],[.67,-.88],[0,-.13],[-.73,.59],[.73,.59]];
+export const PIN_FLIPPERS=[[-.58,2.22],[.58,2.22]],PIN_FLIP_LENGTH=.55;
+export const PIN_START=[1.12,2.42];
+export const PIN_GUIDES=[[-.92,1.10,-.79,1.84],[.92,1.10,.79,1.84],[-.86,-2.35,-.70,-2.56],[.86,-2.35,.70,-2.56]];
+export function pinFlipperAngle(i,amount){return (i?1:-1)*(.31-amount*.97);}
 export const PIN_DRAIN=.33;
 export const HOCKEY_GOAL=.54,HOCKEY_MALLET=.22,BRICK_PADDLE=.34;
 export const CLASSIC_RADII={pinball:.079,airHockey:.108,brickBreaker:.075,racing:.075};
@@ -47,7 +50,7 @@ export function cleanClassicSnapshot(state){
   const int=(n,a,b)=>Number.isInteger(n)&&range(n,a,b);
   const pair=(v,a,b)=>Array.isArray(v)&&v.length===2&&range(v[0],-a,a)&&range(v[1],-b,b);
   if(!isClassic(kind)||!phases.has(phase)||!int(score,0,1000000)||!int(other,0,5)||!int(lives,0,kind==="brickBreaker"?5:3)||kind==="brickBreaker"&&!int(state.level??1,1,1000000)||
-    !int(mask,0,BRICK_MASK)||!pair(ball,1.55,2.42)||!pair(paddle,1.55,2.42)||!pair(rival,1.55,2.42)||
+    !int(mask,0,BRICK_MASK)||!pair(ball,1.55,kind==="pinball"?CLASSIC_FIELDS.pinball.z+.30:2.42)||!pair(paddle,1.55,2.42)||!pair(rival,1.55,2.42)||
     !Array.isArray(flippers)||flippers.length!==2||!flippers.every(value=>range(value,0,1))||
     !int(hit,-1,23)||!range(flash,0,1))return null;
   return classicSnapshot(state);
@@ -63,6 +66,11 @@ function bounceCircle(ball,x,z,radius,vx=0,vz=0,force=0){
   const impulse=force-Math.min(0,inward)*1.92;
   ball.vx+=nx*impulse;ball.vz+=nz*impulse;
   return true;
+}
+
+function pinRail(ball,ax,az,bx,bz,radius){
+  const dx=bx-ax,dz=bz-az,t=clamp(((ball.x-ax)*dx+(ball.z-az)*dz)/(dx*dx+dz*dz),0,1);
+  return bounceCircle(ball,ax+t*dx,az+t*dz,radius);
 }
 
 function reflectSides(ball,edge){
@@ -85,7 +93,7 @@ export function makeArcadeClassics(play=()=>{}){
     cornerTime=0;retreatTime=0;
     const {kind,ball,paddle,rival}=game;
     game.phase="ready";game.serve++;
-    Object.assign(ball,{x:kind==="pinball"?.965:0,z:kind==="pinball"?1.61:kind==="brickBreaker"?1.35:0,vx:0,vz:0});
+    Object.assign(ball,{x:kind==="pinball"?PIN_START[0]:0,z:kind==="pinball"?PIN_START[1]:kind==="brickBreaker"?1.35:0,vx:0,vz:0});
     Object.assign(paddle,{x:0,z:kind==="airHockey"?1.51:1.68,vx:0,vz:0});
     Object.assign(rival,{x:0,z:-1.51,vx:0,vz:0});aim=null;
   }
@@ -140,11 +148,15 @@ export function makeArcadeClassics(play=()=>{}){
         game.score+=100;hit(i);
       }
     }
+    for(const [ax,az,bx,bz] of PIN_GUIDES)pinRail(ball,ax,az,bx,bz,r+.044);
     for(const [i,[px,pz]] of PIN_FLIPPERS.entries()){
-      if(flips[i]<=0||ball.vz<-.8||Math.abs(ball.x-px)>.47||ball.z<pz-.31||ball.z>pz+.20)continue;
-      ball.z=Math.min(ball.z,pz-.085);ball.vz=-6.6;
-      ball.vx=(i===0?1:-1)*(1.18+Math.abs(ball.x-px)*2.4);
-      game.score+=10;hit(-1);
+      const angle=pinFlipperAngle(i,Math.min(1,flips[i]/.075)),length=(i?-1:1)*PIN_FLIP_LENGTH;
+      const descending=ball.vz>-.8;
+      if(!pinRail(ball,px,pz,px+Math.cos(angle)*length,pz-Math.sin(angle)*length,r+.067))continue;
+      if(flips[i]>0&&descending){
+        ball.vz=-7.15;ball.vx=(i?-1:1)*(1.20+Math.abs(ball.x-px)*2.9);
+        game.score+=10;hit(-1);
+      }
     }
     if(ball.z>z-.31&&Math.abs(ball.x)>PIN_DRAIN&&ball.vz>0){
       ball.vx=ball.x<0?1.65:-1.65;ball.vz=-Math.max(.46,ball.vz*.32);ball.z=z-.31;
@@ -245,7 +257,7 @@ export function makeArcadeClassics(play=()=>{}){
     }
     if(game.kind==="racing"){stepRacing(dt);return;}
     const ball=game.ball,previous=ball.z;
-    const ballStep=game.kind==="brickBreaker"?dt*.82:dt;
+    const ballStep=game.kind==="brickBreaker"?dt*.91:dt;
     ball.x+=ball.vx*ballStep;ball.z+=ball.vz*ballStep;
     if(game.kind==="pinball")stepPinball(dt);
     else if(game.kind==="airHockey")stepHockey(dt);

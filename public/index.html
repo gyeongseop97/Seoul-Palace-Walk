@@ -127,7 +127,6 @@
         <div class="scene-wrap">
           <div id="game" tabindex="0" role="group" aria-label="3D 산책. 조이스틱이나 방향키로 이동, 드래그로 시야 회전, 마우스 휠이나 두 손가락으로 확대 및 축소">
             <p id="loading-game">산책길을 열고 있어요.</p>
-            <div class="game-info"><strong class="game-place" id="game-place">매표소 앞</strong></div>
             <div id="bungeo-hint" class="cooking-hint" hidden>
               <span id="bungeo-instruction" role="status"></span>
               <small id="bungeo-keyboard"></small>
@@ -151,9 +150,30 @@
             </button>
           </div>
           <div id="joystick" class="joystick" role="group" aria-label="이동 조이스틱"><span aria-hidden="true"></span></div>
-          <button id="perspective" type="button" aria-label="1인칭으로 전환" title="1인칭으로 전환">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5h4l1.7-3h6.6l1.7 3h4a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.8"/></svg>
-          </button>
+
+          <div class="game-info">
+            <div class="place-row">
+              <strong class="game-place" id="game-place">매표소 앞</strong>
+              <button id="perspective" type="button" aria-label="1인칭으로 전환" title="1인칭으로 전환">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5h4l1.7-3h6.6l1.7 3h4a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.8"/></svg>
+              </button>
+            </div>
+            <div class="scene-status">
+              <small id="game-notice" role="status" hidden></small>
+              <small id="travel-status" hidden></small>
+              <small id="dining-status" role="status" hidden></small>
+              <small id="bungeo-order-status" role="status" hidden></small>
+              <small id="bungeo-status" role="status" hidden></small>
+              <section id="bus-status" class="bus-status" aria-labelledby="bus-status-stop" hidden>
+                <h3 id="bus-status-stop"></h3>
+                <p id="bus-status-direction"></p>
+                <dl class="bus-status-times">
+                  <div id="bus-status-arrival"><dt id="bus-status-arrival-label">다음 버스 도착</dt><dd></dd></div>
+                  <div id="bus-status-departure"><dt>정차 버스 출발</dt><dd></dd></div>
+                </dl>
+              </section>
+            </div>
+          </div>
           <div class="game-hud">
             <div class="game-command">
               <div class="social-actions" role="group" aria-label="교류">
@@ -202,6 +222,8 @@
                   <button id="take-item" type="button" class="quiet activity-button" hidden>받기</button>
                   <button id="pet-cat" type="button" class="quiet activity-button" hidden>쓰다듬기</button>
                   <button id="sit" type="button" class="quiet" hidden>앉기</button>
+                  <button id="boat-fold" type="button" class="quiet" aria-haspopup="dialog" aria-controls="boat-dialog" hidden>종이배 접기</button>
+                  <button id="boat-catch" type="button" class="quiet" hidden>종이배 건지기</button>
                   <button id="foot-kick" type="button" class="quiet activity-button" hidden>발장구치기</button>
                   <button id="wish" type="button" class="quiet" aria-haspopup="dialog" aria-controls="wish-drawing" hidden disabled>소원등 <kbd>E</kbd></button>
                   <button id="museum-exhibit" type="button" class="quiet activity-button" aria-haspopup="dialog" aria-controls="exhibit-dialog" hidden>작품 설명</button>
@@ -309,20 +331,6 @@
             </div>
           </div>
         </div>
-        <div class="scene-status">
-          <small id="travel-status" hidden></small>
-          <small id="dining-status" role="status" hidden></small>
-          <small id="bungeo-order-status" role="status" hidden></small>
-          <small id="bungeo-status" role="status" hidden></small>
-          <section id="bus-status" class="bus-status" aria-labelledby="bus-status-stop" hidden>
-            <h3 id="bus-status-stop"></h3>
-            <p id="bus-status-direction"></p>
-            <dl class="bus-status-times">
-              <div id="bus-status-arrival"><dt id="bus-status-arrival-label">다음 버스 도착</dt><dd></dd></div>
-              <div id="bus-status-departure"><dt>정차 버스 출발</dt><dd></dd></div>
-            </dl>
-          </section>
-        </div>
         <div class="scene-controls">
           <form class="chat-composer" id="chat-form" aria-label="산책방 채팅">
             <input id="chat-input" type="text" maxlength="160" enterkeyhint="send" autocomplete="off" aria-label="채팅 메시지" placeholder="같은 방에 채팅 보내기">
@@ -419,6 +427,22 @@
     </div>
   </div>
   <div id="toast" role="status" hidden></div>
+  <dialog id="boat-dialog" aria-labelledby="boat-title">
+    <div class="dialog-top"><h2 id="boat-title">종이배 접기</h2><button type="button" class="quiet close" aria-label="닫기">×</button></div>
+    <form id="boat-form">
+      <fieldset class="boat-colors"><legend>종이 색</legend>
+        <label style="--paper:#f2b2a5"><input type="radio" name="paper" value="coral" checked>살구</label>
+        <label style="--paper:#9bbdd1"><input type="radio" name="paper" value="sky">하늘</label>
+        <label style="--paper:#ebcb70"><input type="radio" name="paper" value="gold">노랑</label>
+        <label style="--paper:#b8c994"><input type="radio" name="paper" value="leaf">연두</label>
+      </fieldset>
+      <label for="boat-note">배에 담을 쪽지 <small>(선택 · 80자)</small></label>
+      <textarea id="boat-note" rows="2" maxlength="80" placeholder="건져 올릴 사람에게 한마디"></textarea>
+      <p id="boat-feedback" role="status"></p>
+      <button class="primary" id="boat-send" type="submit">물에 띄우기</button>
+    </form>
+    <div id="boat-letter" hidden><p id="boat-author"></p><blockquote id="boat-message"></blockquote></div>
+  </dialog>
   <dialog id="bus-seat-dialog" aria-labelledby="bus-seat-title" aria-describedby="bus-seat-time">
     <div class="dialog-top">
       <h2 id="bus-seat-title">버스 좌석 고르기</h2>
@@ -541,6 +565,7 @@
     <p class="guide-intro">대한문 매표소에서 출발해 광화문광장과 경복궁을 지나 북촌까지 걸어갈 수 있어요. 정동 분수대에서는 서·북쪽 돌담길로, 서울광장 동쪽에서는 횡단보도를 건너 환구단으로 이어져요. <strong>전체 지도</strong>에서 장소 이름을 누르면 그곳으로 걸어갑니다.</p>
     <button id="tutorial-replay" type="button" class="quiet">처음 조작 안내 다시 보기</button>
     <div class="visitor-guide-list">
+      <section><h3>청계천 종이배</h3><p>아래 산책로 물가에서 <strong>종이배 접기</strong>를 눌러 색과 쪽지를 골라 보세요. 물살을 따라가는 배 가까이에서 <strong>종이배 건지기</strong>를 누르면 안에 담긴 쪽지를 읽을 수 있어요.</p></section>
       <section><h3>걷고 둘러보기</h3><p>길을 터치하거나 조이스틱으로 걸어요. PC에서는 방향키나 WASD로 이동하고 오른쪽 위의 <strong>전체화면</strong>을 눌러 화면을 넓힐 수 있어요. 마우스 휠이나 두 손가락으로 시야와 지도를 확대·축소할 수 있어요. 걷거나 달리면서 오른쪽 아래의 <strong>행동</strong>에서 인사하거나 웃으며 브이할 수 있어요. 손에 든 물건도 오른쪽 아래에서 골라 쓸 수 있어요. 손잡기와 건배는 왼쪽의 <strong>동행 행동</strong>에 있어요.</p></section>
       <section><h3>광화문에서 갈 수 있는 산책길</h3><p>광화문광장에서 세종로공원과 의정부지 역사유적광장을 둘러보세요. 율곡로 횡단보도를 건너면 열린송현녹지광장으로 이어져요. 세종대로 남쪽 청계광장에서는 계단이나 경사로를 내려가 양쪽 수변길을 따라 광교까지 걸을 수 있어요.</p></section>
       <section><h3>세종대로·북촌 순환버스</h3><p>버스는 덕수궁에서 광화문과 경복궁을 거쳐 북촌 북쪽 <strong>삼청동 돌계단길 정류장</strong>까지 갔다가 돌아와요. 정류장마다 10초 정차해요. 정차 중 <strong>버스 타기</strong>로 좌석을 고르고, 도착하면 <strong>버스 내리기</strong>를 누르세요.</p></section>

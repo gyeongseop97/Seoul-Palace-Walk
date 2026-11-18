@@ -10,6 +10,7 @@ import {isInsideMuseum,museumBounds,museumGalleries,museumGalleryAt,museumHall,m
 import {museumArtUrl,museumExhibits} from "./museum-catalog.js";
 import {nearbyPalaceGuide} from "./palace-guide.js";
 import {bindSceneTouch} from "./scene-touch.js";
+import {bindPaperBoats} from "./paper-boat-client.js";
 import {bindNearbyControls} from "./nearby-controls.js";
 import {bindMapGestures} from "./map-gestures.js";
 import {bindMapLabels} from "./map-labels.js";
@@ -168,8 +169,9 @@ const vectors={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],
 const fragments=new URLSearchParams(location.hash.slice(1));
 const suppliedCode=(fragments.get("code")||"").toUpperCase();
 const entryFlow=$("entry-flow"),profileStep=$("profile-step"),serverStep=$("server-step"),gameShell=$("game-shell");
-const nearbyControls=bindNearbyControls($("nearby-controls"),focusGame);
-const peerControls=bindNearbyControls($("peer-controls"),focusGame,"peer");
+const paperBoats=bindPaperBoats({getSession:()=>session,getPlayer:()=>me,clock:gameTime,request,token,resetInput,toast,setActivity});
+const nearbyControls=bindNearbyControls($("nearby-controls"),focusGame,"nearby",()=>me);
+const peerControls=bindNearbyControls($("peer-controls"),focusGame,"peer",()=>me);
 function closeActionMenus(){
   nearbyControls.close();peerControls.close();setEmotes(false);setGestures(false);
 }
@@ -407,9 +409,11 @@ $("chat-form").addEventListener("submit",event=>{
 });
 
 function toast(message){
-  $("toast").textContent=message;$("toast").hidden=false;
+  const notice=$(session?"game-notice":"toast");
+  for(const id of ["toast","game-notice"])$(id).hidden=true;
+  notice.textContent=message;notice.hidden=false;
   clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>{$("toast").hidden=true;},3200);
+  toastTimer=setTimeout(()=>{notice.hidden=true;},3200);
 }
 function setPresence(text,count=0){
   $("presence").lastElementChild.textContent=text;
@@ -1238,6 +1242,7 @@ function returnToLobby(message=""){
   const old=session;
   rememberWalkPosition();
   leaveBeacon();session=null;clearSyncTimer();resetInput();
+  nearbyControls.reset();peerControls.reset();paperBoats.reset();
   queuedHand=queuedFeed=queuedChat=null;people.clear();changeLinks([]);resetLocationGuides();
   queuedBus=queuedBike=lastBusHeading=lastBikeHeading=selectedBus=null;
   tandemOffer=null;$("bike-offer").hidden=true;
@@ -2922,7 +2927,7 @@ function updateActivities(time,guideNearby){
   if($("wish").hidden===Boolean(atFountain))$("wish").hidden=$("wish").disabled=!atFountain;
   const cat=eligible&&me.seat==null&&!myLink()?.active&&world.parkLife.nearestCat(me.x,me.y);
   setActivity("pet-cat",cat?"쓰다듬기":null,feeding||!freeItemSlot(me,time)||time-(me.pet?.at??0)<PET_MS);
-  if(cat)attr($("pet-cat"),"title",cat.name+" 쓰다듬기");
+  if(cat){attr($("pet-cat"),"title",cat.name+" 쓰다듬기");attr($("pet-cat"),"data-action-target",cat.id);}
   const station=eligible&&me.seat==null&&nearbyStation();
   const busy=Boolean(riding||picnicInventoryBusy()||bungeoInventoryPending()||feeding||clinkLocked(time)||sickLocked(time));
   const free=!carryingDiningTray(time)&&freeItemSlot(me,time);
@@ -2930,6 +2935,7 @@ function updateActivities(time,guideNearby){
   const pickup=station&&(free?(station.kind==="churu"?"츄르 사기":ITEMS[station.kind].name+" 받기"):
     packAtCounter?ITEMS[station.kind].name+" 가방에 담기":"손이나 가방을 비워 주세요");
   setActivity("take-item",pickup,busy||!free&&!packAtCounter);
+  if(station)attr($("take-item"),"data-action-target",station.kind);
   const feedSlot=queuedFeed?.slot??me.feed?.slot??"item";
   const nearbyFeedCat=eligible&&feedCatNearby();
   ITEM_SLOTS.forEach((slot,index)=>{
@@ -3118,7 +3124,9 @@ function actors(now,stepping){
 let lastFrame=performance.now(),interfaceAt=0,guideNearby=false;
 function preferredNearbyAction(time){
   if(me.bus||queuedBus)return "bus-action";
-  // With feet in the stream the kick comes first; walking away or the menu stands up.
+  // Keep shoreline interactions within reach while the avatar is seated.
+  if(!$("boat-catch").hidden)return "boat-catch";
+  if(bathing()&&!$("boat-fold").hidden)return "boat-fold";
   if(bathing()&&!$("foot-kick").hidden)return "foot-kick";
   if(!$("sit").hidden&&!$("sit").disabled&&$("sit").dataset.footBath==="true")return "sit";
   if(!$("arcade-stairs").hidden)return "arcade-stairs";
@@ -3205,7 +3213,10 @@ function frame(now){
       (pendingSeat.footBath?"물가로 이동 중":diningById[interiorAt(me.x,me.y)]?"식탁으로 이동 중":"벤치로 이동 중"):
       bench?.choice?(bench.choice.footBath?"발 담그고 앉기":"앉기"):bench?.nearby?"빈자리 없음":null;
     setActivity("sit",seatEnabled?seatLabel:null,eating||me.seat==null&&!bench?.choice);
+    const seatTarget=me.seat!=null?"leave-"+me.seat:bench?.choice?"sit-"+bench.choice.bench:"pending";
+    attr($("sit"),"data-action-target",seatTarget);
     attr($("sit"),"data-foot-bath",Boolean(bench?.choice?.footBath));
+    paperBoats.update(Boolean(seatEnabled&&!riding&&!photoMode.camera));
     const kicking=footKickAge(me,time)!=null;
     setActivity("foot-kick",seatEnabled&&bathing()?(kicking?"발장구치는 중":"발장구치기"):null,kicking);
     attr($("sit"),"aria-pressed",me.seat!=null);
@@ -3218,7 +3229,7 @@ function frame(now){
     leaveWater();
     updateLocationGuides();updateMaps(self,others);
   }
-  lastScene={me:self,peers:[...others.values()],parkedBikes,view:ownView,
+  lastScene={paperBoats:paperBoats.states(),me:self,peers:[...others.values()],parkedBikes,view:ownView,
     firstPerson:Boolean(bungeoMode||arcade.kind==="mole"||firstPerson&&!arcade.kind)&&!photoMode.camera,
     photoCamera:photoMode.camera,photoCapture:Boolean(photoMode.camera),environment,guideNearby,destination:course.at(-1),clock:time,fountainShow,galleryLight,
     diningService:diningService?.venue===currentDining()?.id?diningService?.tickets??[]:[],

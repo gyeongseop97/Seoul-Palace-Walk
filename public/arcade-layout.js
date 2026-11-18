@@ -51,7 +51,7 @@ export const ARCADE_BASKET=game(1.73,-.72,1.43,1.65);
 export const ARCADE_BOWLING=game(6.55,0,4.90,1.65);
 export const ARCADE_MOLE=game(-4.45,-4.05,-2.78,1.45);
 const classic=(name,x,width,depth)=>({...game(x,-1.8,2.6,1.6,ARCADE_THIRD_SITE.id),name,width,depth});
-export const ARCADE_PINBALL=classic("핀볼",-6.3,2.5,4.6);
+export const ARCADE_PINBALL=classic("핀볼",-6.42,2.86,6.09);
 export const ARCADE_AIR_HOCKEY=classic("에어하키",0,3.3,4.9);
 export const hockeyFarEnd=thirdArcadeAt(0,ARCADE_AIR_HOCKEY.localZ-3.05);
 export const ARCADE_BRICK_BREAKER=classic("벽돌깨기",6.4,2.7,4.6);

@@ -1,3 +1,4 @@
+import {paperBoatFleet} from "./paper-boat-world.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {makeCrosswalkMarkings} from "./crosswalk-markings.js";
 import {bankAt,cheonggyeAccess,cheonggyeAccessDrop,cheonggyeBedLevel,cheonggyeBounds,cheonggyeBridges,cheonggyeCascade,
@@ -764,7 +765,9 @@ export function* buildCheonggye(T,root,kit,terrain){
     yield;
   }
   yield* gradePalaceMeshes(T,terrainSurfaces,terrain);
-  return (seconds,night,haze,anchor)=>{
+  const boats=paperBoatFleet(T,root,kit,at,waterLevel);
+  return (seconds,night,haze,anchor,fleet=[],clock=Date.now())=>{
+    boats(fleet,clock,anchor);
     water.uniforms.clock.value=seconds;
     water.uniforms.night.value=night;
     water.uniforms.mist.value.copy(haze);

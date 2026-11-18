@@ -523,6 +523,10 @@ export async function api(request,env){
     return json({error:"잘못된 산책방 정보예요."},400);
   }
   const {room,id,key=null,avatar,view,hand,feed,bus,bike,show,clink,leave}=body;
+  if(body.paperBoat!==undefined){
+    const {paperBoatRequest}=await import("./server/paper-boats.mjs");
+    return paperBoatRequest(db,body,Date.now());
+  }
   if(body.motion!==undefined){
     const reply=await exchangeMotion(db,body,Date.now());
     return reply?json(reply):json({error:"움직임을 읽을 수 없어요."},400);
