@@ -1,6 +1,6 @@
 const STEPS=[
   {title:"산책 시작",text:"왼쪽 조이스틱을 밀거나 방향키·WASD로 걸어요. 바닥을 터치해도 그쪽으로 갈 수 있어요.",target:"#joystick,.game-pad button"},
-  {title:"시점 바꾸기",text:"화면을 드래그해 주변을 둘러보고, 상단의 시점 버튼으로 1인칭과 3인칭을 오갈 수 있어요.",target:"#perspective"},
+  {title:"시점 바꾸기",text:"화면을 드래그해 주변을 둘러보세요. 왼쪽 위 장소명 아래의 카메라를 누르면 1인칭과 3인칭을 오갈 수 있어요.",target:"#perspective"},
   {title:"지도 열기",text:"미니맵을 누르면 큰 지도가 열려요. 마우스 휠이나 두 손가락으로 확대하고, 지도에서 목적지를 눌러 보세요.",target:"#map-toggle,#overview-map"},
   {title:"버스 타기",text:"정류장에 가면 다음 버스 시간을 볼 수 있어요. 버스가 오면 좌석을 고르고 원하는 정류장에서 내리세요.",target:"#plaza-bus-target,#map-toggle"},
   {title:"따릉이 빌리기",text:"지도에서 초록 점이 대여소예요. 대여소 가까이에서 따릉이를 빌리고 다른 대여소에 반납할 수 있어요.",target:"#map-toggle,#overview-map"}

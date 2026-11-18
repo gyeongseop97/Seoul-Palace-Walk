@@ -83,7 +83,13 @@
   <header class="top">
     <h1 class="brand"><img src="./seoul-palace-wordmark.png" alt="서울 궁 한바퀴" width="576" height="190" decoding="async"></h1>
     <div class="top-game-actions">
-      <div id="mobile-view-controls"></div>
+      <button id="fullscreen-toggle" class="quiet" type="button" data-native-touch title="전체화면" aria-label="전체화면" aria-pressed="false">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path class="fullscreen-enter-icon" d="M3 7V3h4m6 0h4v4m0 6v4h-4m-6 0H3v-4"/>
+          <path class="fullscreen-exit-icon" d="M3 7h4V3m6 0v4h4m0 6h-4v4m-6 0v-4H3"/>
+        </svg>
+        <span>전체화면</span>
+      </button>
       <div class="top-actions" id="mobile-room-controls">
         <button id="passport-open" class="quiet" type="button" data-native-touch aria-haspopup="dialog">산책 기록</button>
       </div>
@@ -123,7 +129,7 @@
               <button id="bike-fall-tip-dismiss" class="quiet" type="button">다시 보지 않기</button>
             </div>
             <button id="map-toggle" class="minimap" type="button" data-native-touch aria-label="미니맵, 큰 지도 열기" aria-controls="map-panel" aria-expanded="false">
-              <svg id="mini-world" viewBox="404 241.5 126 105" aria-hidden="true">
+              <svg id="mini-world" viewBox="404 231 126 126" aria-hidden="true">
                 <g id="mini-landscape"></g><g id="mini-people"></g>
                 <g id="mini-track-pin" class="track-map-pin" visibility="hidden"><circle/><circle/></g>
                 <path id="mini-my" d="M0 -4.8 3.4 3 0 1.6 -3.4 3Z" fill="#e5b672" stroke="#fff4da" stroke-width=".75"/>
@@ -132,19 +138,9 @@
             </button>
             <div id="joystick" class="joystick" role="group" aria-label="이동 조이스틱"><span aria-hidden="true"></span></div>
           </div>
-          <div class="fullscreen-tools">
-            <button id="fullscreen-map" class="quiet" type="button" aria-controls="game-sidebar" aria-expanded="false">지도</button>
-            <div class="desktop-view-controls" id="desktop-view-controls">
-              <button id="perspective" class="quiet" type="button" aria-label="1인칭으로 전환">1인칭</button>
-            </div>
-            <button id="fullscreen-toggle" class="quiet" type="button" aria-pressed="false">
-              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path class="fullscreen-enter-icon" d="M3 7V3h4m6 0h4v4m0 6v4h-4m-6 0H3v-4"/>
-                <path class="fullscreen-exit-icon" d="M3 7h4V3m6 0v4h4m0 6h-4v4m-6 0v-4H3"/>
-              </svg>
-              <span>전체화면</span>
-            </button>
-          </div>
+          <button id="perspective" type="button" aria-label="1인칭으로 전환" title="1인칭으로 전환">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5h4l1.7-3h6.6l1.7 3h4a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.8"/></svg>
+          </button>
           <div class="game-hud">
             <div class="game-command">
               <div class="social-actions" role="group" aria-label="교류">

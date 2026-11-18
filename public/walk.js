@@ -246,20 +246,18 @@ $("bike-fall-tip-dismiss").addEventListener("click",()=>{
 });
 
 const mobileHeader=matchMedia("(max-width:810px), (pointer:coarse)");
-const fullscreenToggle=$("fullscreen-toggle"),fullscreenMap=$("fullscreen-map"),gameSidebar=$("game-sidebar");
+const fullscreenToggle=$("fullscreen-toggle");
 let fullscreenFallback=false;
 function placeViewControls(){
   const menu=$("mobile-settings-actions"),filter=$("map-filter"),mapLinks=$("map-links"),mapKey=$("map-key");
   mobileSettings.open=false;
   if(mobileHeader.matches){
-    $("mobile-view-controls").append($("perspective"));
     $("mobile-room-controls").append($("passport-open"));
     menu.append($("sound"),$("night"),$("character"),$("photo-mode-open"),$("invite"),$("settings-leave"));
     $("map-toolbar").insertBefore($("presence"),$("close-map"));
     $("map-panel").querySelector(".panel-head").after(filter);
     $("map-footer").append(mapKey,mapLinks);
   }else{
-    $("desktop-view-controls").append($("perspective"));
     $("desktop-presence-controls").append($("presence"));
     menu.append($("sound"),$("night"),$("character"),$("photo-mode-open"),$("passport-open"),$("invite"),$("desktop-map-settings"));
     // The teleport buttons stay under the map; only the legend moves into the settings menu.
@@ -269,17 +267,14 @@ function placeViewControls(){
     $("map-toolbar").prepend(filter);
   }
 }
-function setFullscreenSidebar(open){
-  gameSidebar.classList.toggle("fullscreen-sidebar-open",open);
-  fullscreenMap.setAttribute("aria-expanded",String(open));
-  if(!open&&gameSidebar.contains(document.activeElement))focusGame();
-}
 function refreshFullscreen(){
   const active=fullscreenFallback||document.fullscreenElement===document.documentElement;
   gameShell.classList.toggle("game-fullscreen",active);
   fullscreenToggle.setAttribute("aria-pressed",String(active));
-  fullscreenToggle.querySelector("span").textContent=active?"전체화면 나가기":"전체화면";
-  if(!active)setFullscreenSidebar(false);
+  const label=active?"전체화면 나가기":"전체화면";
+  fullscreenToggle.querySelector("span").textContent=label;
+  fullscreenToggle.title=label;fullscreenToggle.setAttribute("aria-label",label);
+  if(!active&&!mobileHeader.matches&&$("map-panel").classList.contains("expanded"))setMap(false);
 }
 async function leaveFullscreen(){
   fullscreenFallback=false;
@@ -297,15 +292,10 @@ fullscreenToggle.addEventListener("click",async()=>{
   }
   if(session)focusGame();
 });
-fullscreenMap.addEventListener("click",()=>{
-  const open=fullscreenMap.getAttribute("aria-expanded")!=="true";
-  setFullscreenSidebar(open);
-  if(open)$("world").focus({preventScroll:true});
-});
 document.addEventListener("fullscreenchange",refreshFullscreen);
 mobileHeader.addEventListener("change",()=>{
   placeViewControls();
-  if(mobileHeader.matches&&gameShell.classList.contains("game-fullscreen"))void leaveFullscreen();
+  setMap(false);
 });
 placeViewControls();
 gameShell.addEventListener("pointerdown",event=>{
@@ -404,8 +394,8 @@ function sharingUmbrella(){const link=myLink();return Boolean(isUmbrellaLink(lin
 function amFollowingHands(){const link=myLink();return Boolean(link?.active&&link.follower===session.id);}
 function labelPerspective(){
   const button=$("perspective"),label=bungeoMode?"굽기 끝내기":firstPerson?"3인칭":"1인칭";
-  button.textContent=label;
-  button.setAttribute("aria-label",bungeoMode?label:label+"으로 전환");
+  button.title=bungeoMode?label:label+"으로 전환";
+  button.setAttribute("aria-label",button.title);
   button.toggleAttribute("data-active",firstPerson||Boolean(bungeoMode));
 }
 labelPerspective();
@@ -1402,13 +1392,15 @@ $("foot-kick").addEventListener("click",()=>{
   me.kick=time;dirty=true;wakeSync();focusGame();
 });
 function setMap(open){
-  if(gameShell.classList.contains("game-fullscreen"))setFullscreenSidebar(open);
+  const overlay=mobileHeader.matches||gameShell.classList.contains("game-fullscreen");
+  const restoreFocus=!open&&overlay&&$("map-panel").contains(document.activeElement);
   if(open){mobileSettings.open=false;closeActionMenus();}
   $("map-panel").classList.toggle("expanded",open);
   $("map-toggle").setAttribute("aria-expanded",String(open));
   if(!open){clearMapGestures();if(!mapRoute)setOverview(false);}
   else if(mapRoute&&!mapRoute.walking&&near(mapRoute.start,me.x,me.y)>5)refreshMapRoute();
-  if(!open&&mobileHeader.matches&&$("map-panel").contains(document.activeElement))$("map-toggle").focus({preventScroll:true});
+  if(open&&overlay)$("world").focus({preventScroll:true});
+  if(restoreFocus)$("map-toggle").focus({preventScroll:true});
 }
 $("map-toggle").addEventListener("click",()=>setMap($("map-toggle").getAttribute("aria-expanded")!=="true"));
 $("close-map").addEventListener("click",()=>setMap(false));
@@ -1590,7 +1582,7 @@ window.addEventListener("keydown",event=>{
     }
     if(!$("gesture-menu").hidden){setGestures(false);$("gesture-open").focus();return;}
     if(nearbyControls.close(true)||peerControls.close(true))return;
-    if(gameSidebar.classList.contains("fullscreen-sidebar-open")){setFullscreenSidebar(false);fullscreenMap.focus();return;}
+    if($("map-panel").classList.contains("expanded")){setMap(false);return;}
     if(fullscreenFallback){void leaveFullscreen();return;}
     setMap(false);setEmotes(false);
   }
@@ -3373,7 +3365,7 @@ const songhyeonViewBox=[songhyeonBounds.minX-24,songhyeonBounds.minY-18,
 const plazaApproachBox=[plazaBounds.minX-18,plazaBounds.minY+210,Math.max(plazaBounds.maxX,corridorBounds.maxX)-plazaBounds.minX+36,
   -58-(plazaBounds.minY+210)].join(" ");
 const fieldViewBox=[0,bukchonBounds.minY-26,bukchonBounds.maxX+25,479-bukchonBounds.minY].join(" ");
-const miniMapWidth=126,miniMapHeight=105;
+const miniMapWidth=126,miniMapHeight=126;
 function attr(node,key,value){if(node.getAttribute(key)!==String(value))node.setAttribute(key,value);}
 function setMapView(view){
   const {base}=mapViewport;
@@ -3574,8 +3566,7 @@ function updateMaps(self,others){
   const area=outdoorMap(self);
   const inside=interiorAt(self.x,self.y),indoors=Boolean(inside),palace=area==="경복궁",plaza=area==="광화문광장";
   const corridor=area==="세종대로",overview=overviewOpen&&!indoors;
-  const fullMap=mobileHeader.matches?$("map-panel").classList.contains("expanded"):
-    !gameShell.classList.contains("game-fullscreen")||gameSidebar.classList.contains("fullscreen-sidebar-open");
+  const fullMap=$("map-panel").classList.contains("expanded")||!mobileHeader.matches&&!gameShell.classList.contains("game-fullscreen");
   const coat=hexCoat(self.coat??0xe5b672);
   if(fullMap){
     const mapArea=["북촌","환구단","청계천","열린송현녹지광장"].includes(area)?area:
