@@ -996,3 +996,27 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   .game-place{background-color:var(--deep-lacquer)}
   #game-shell{--hud-overlay:var(--deep-lacquer);--hud-menu:var(--deep-lacquer);--hud-button:var(--deep-lacquer);--hud-primary:var(--gold-3)}
 }
+
+/* The landscape extends beneath chat and the home indicator. HUD hit targets
+   share the first row, above the live status and the text composer. */
+@supports (grid-template-rows:subgrid){
+  @media(max-width:810px),(pointer:coarse){
+    #game-shell>main{padding-bottom:0}
+    .scene-panel{
+      display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto auto;
+      min-height:0;border-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0;
+    }
+    .scene-wrap:not(.photo-active){
+      grid-area:1 / 1 / -1 / -1;display:grid;grid-template-rows:subgrid;
+      grid-template-columns:minmax(0,1fr);border-bottom:0;
+    }
+    .scene-wrap:not(.photo-active)>:not(#game){grid-area:1 / 1 / 2 / 2}
+    .scene-status{position:relative;grid-area:2 / 1;background:var(--hud-overlay)}
+    .scene-controls{
+      position:relative;grid-area:3 / 1;margin:0;min-height:0;
+      padding:2px 8px max(2px,env(safe-area-inset-bottom,0px));
+      background:transparent;pointer-events:none;
+    }
+    .chat-composer :is(input,button){pointer-events:auto}
+  }
+}
