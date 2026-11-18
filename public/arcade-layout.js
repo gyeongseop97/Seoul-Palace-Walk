@@ -31,7 +31,7 @@ export const ARCADE_STAIRS={
     {...upperAt(-8.56,5.16),localX:-8.56,localZ:6.16,name:"1층 내려가기",up:false,
       badge:"1층 ↓",activities:"볼링 · 농구 · 출구",to:{...at(-8.52,4.88),heading:90},place:ARCADE_SITE.name},
     {...upperAt(8.55,5.94),localX:8.55,localZ:4.25,name:"3층 올라가기",up:true,
-      badge:"3층 ↑",activities:"핀볼 · 에어하키 · 벽돌깨기",to:{...thirdArcadeAt(8.55,4.65),heading:233},place:ARCADE_THIRD_SITE.name}],
+      badge:"3층 ↑",activities:"핀볼 · 에어하키 · 벽돌깨기 · 서울 랠리",to:{...thirdArcadeAt(8.55,4.65),heading:233},place:ARCADE_THIRD_SITE.name}],
   [ARCADE_THIRD_SITE.id]:[{...thirdArcadeAt(8.55,5.30),localX:8.55,localZ:6.16,name:"2층 내려가기",up:false,
     badge:"2층 ↓",activities:"사격 · 양궁 · 스크린 야구",to:{...upperAt(8.55,6.17),heading:180},place:ARCADE_UPPER_SITE.name}]
 };
@@ -60,7 +60,8 @@ export const ARCADE_PADS=[[-.68,0,"←"],[0,-.68,"↑"],[0,.68,"↓"],[.68,0,"�
 }));
 export const ARCADE_GAMES={claw:ARCADE_CLAW,pump:ARCADE_PUMP,basket:ARCADE_BASKET,bowling:ARCADE_BOWLING,mole:ARCADE_MOLE,
   shooting:game(-6.3,0,3.7,1.75,ARCADE_UPPER_SITE.id),archery:game(0,0,3.7,1.75,ARCADE_UPPER_SITE.id),
-  baseball:game(6.4,0,3.7,1.75,ARCADE_UPPER_SITE.id),pinball:ARCADE_PINBALL,airHockey:ARCADE_AIR_HOCKEY,brickBreaker:ARCADE_BRICK_BREAKER};
+  baseball:game(6.4,0,3.7,1.75,ARCADE_UPPER_SITE.id),pinball:ARCADE_PINBALL,airHockey:ARCADE_AIR_HOCKEY,brickBreaker:ARCADE_BRICK_BREAKER,
+  racing:{...game(-3.22,-1.8,1.56,1.18,ARCADE_THIRD_SITE.id),name:"서울 랠리",width:2.48,depth:4.2}};
 
 export function registerArcade(){
   const apron=(x,y)=>x>=ARCADE_SITE.x-1.7&&x<=ARCADE_SITE.body.x-ARCADE_SITE.depth/2+.03&&Math.abs(y-ARCADE_SITE.y)<=6.2;
@@ -106,7 +107,7 @@ export function registerArcade(){
     const target=upperAt(station.localX,-4.4);
     addObstacle(target.x,target.y,4.25,.42,insideAngle,2.90);
   }
-  for(const station of [ARCADE_PINBALL,ARCADE_AIR_HOCKEY,ARCADE_BRICK_BREAKER]){
+  for(const station of [ARCADE_PINBALL,ARCADE_AIR_HOCKEY,ARCADE_BRICK_BREAKER,ARCADE_GAMES.racing]){
     addObstacle(station.machine.x,station.machine.y,station.width,station.depth,insideAngle);
   }
 }

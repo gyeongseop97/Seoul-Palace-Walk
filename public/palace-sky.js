@@ -94,7 +94,7 @@ function cityBackdrop(T,parent,sky,{origin,exclusions}={}){
     city.position.set(origin.x,0,origin.z);
     // The distant towers meet a low, fogged terrain skirt below the playable
     // map. It closes the view under their foundations without adding collision.
-    const ground=new T.Mesh(new T.PlaneGeometry(1120,1120),new T.MeshBasicMaterial({color:0x899384}));
+    const ground=new T.Mesh(new T.PlaneGeometry(7600,7600),new T.MeshBasicMaterial({color:0x899384}));
     ground.rotation.x=-Math.PI/2;ground.position.set(centre.x,-9,centre.z);
     city.add(ground);
   }

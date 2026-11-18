@@ -2,7 +2,7 @@ import {eastCurb, eastRoadWidth, plazaAt} from "./plaza-layout.js";
 import {uijeongbuBusBerth} from "./uijeongbu-layout.js";
 import {routeCrossings} from "./bus-crossings.js";
 
-export const BUS_COUNT=11;
+export const BUS_COUNT=14;
 export const BUS_SEATS=8;
 export const BUS_DWELL_MS=10_000;
 export const BUS_BOARD_REACH=4.2;
@@ -45,14 +45,18 @@ export const busStops=[
     exit:pose(944.2,-1862.8,98),shelter:pose(946.3,-1855.3,278)},
   {id:"songhyeon-south",name:"열린송현·국립현대미술관 건너편",direction:"광화문광장 · 덕수궁 방면",
     berth:pose(704.9,-1144.5,181),board:pose(698.5,-1141.25,90),exit:pose(699.35,-1139.2,270),shelter:pose(695.8,-1145.1,90)},
-  {id:"plaza-south",name:"세종문화회관·세종로공원 정류장",direction:"청계광장 · 덕수궁 방면",
+  {id:"plaza-south",name:"세종문화회관·세종로공원 정류장",direction:"서울역사박물관 · 경희궁 방면",
     berth:pose(south.x,south.y,180),board:pose(south.x-3.5,south.y+3.25,90),
     exit:pose(south.x-5.6,south.y+3.7,270),shelter:pose(south.x-6.1,south.y-.7,90)},
+  {id:"history-west",name:"서울역사박물관 정류장",direction:"경희궁 흥화문 방면",
+    berth:pose(95,-268.1,269),board:pose(91.8,-273.5,180),exit:pose(90,-275,180),shelter:pose(94,-277,180)},
+  {id:"heunghwa-west",name:"경희궁 흥화문 정류장",direction:"청계광장 · 덕수궁 방면",
+    berth:pose(-119.5,-145.8,231),board:pose(-123,-152.7,140),exit:pose(-123,-154,140),shelter:pose(-126,-156,140)},
   {id:"cheonggye-south",name:"청계광장 정류장 건너편",direction:"시청 · 덕수궁 방면",
     berth:pose(481.35,-158,180),board:pose(476.8,-153.9,90),exit:pose(476.55,-151.65,270),shelter:pose(472.8,-158.6,90)}
 ];
 const [deoksugung,seoulPlaza,cheonggyeNorth,plazaNorth,gyeongbokgung,songhyeonNorth,bukchon,bukchonTerminal,
-  songhyeonSouth,plazaSouth,cheonggyeSouth]=busStops;
+  songhyeonSouth,plazaSouth,historyWest,heunghwaWest,cheonggyeSouth]=busStops;
 const stopIndex=new Map(busStops.map(stop=>[stop.id,stop]));
 export const busStopById=id=>stopIndex.get(id)??null;
 
@@ -87,8 +91,12 @@ const itineraries=[
     plazaAt(201,585),plazaAt(171,581),plazaAt(109,574),plazaAt(77,565.8),plazaAt(44,551.1),plazaAt(23,542),
     plazaAt(13,534),plazaAt(12,526),
     plazaWest(513),plazaWest(481),plazaWest(441),plazaWest(397),point(south.x,south.y-11),plazaSouth.berth]},
-  {travelMs:45_000,points:[plazaSouth.berth,point(south.x,south.y+11),plazaWest(329),plazaWest(285),plazaWest(238),
-    plazaWest(125),plazaWest(22),point(493.2,-286),point(486.9,-247),point(484.1,-187),point(481.35,-170),cheonggyeSouth.berth]},
+  {travelMs:65_000,points:[plazaSouth.berth,point(south.x,south.y+11),plazaWest(329),plazaWest(285),plazaWest(238),
+    plazaWest(125),plazaWest(22),point(491,-288),point(482,-282),point(452,-280),point(359,-275),point(308,-269.22),point(208,-266.11),historyWest.berth]},
+  {travelMs:23_000,points:[historyWest.berth,point(41,-265),point(12,-251),point(-30,-224),point(-74,-186),heunghwaWest.berth]},
+  {travelMs:65_000,points:[heunghwaWest.berth,point(-133,-127),point(-138,-120),point(-138,-115),point(-135,-112),point(-130,-112),
+    point(-110,-126),point(-80,-152),point(-59,-170),point(4.6,-223.5),point(38,-244),point(92.6,-249.9),point(261,-252.7),
+    point(325,-255.3),point(452,-260.5),point(477,-257),point(486.9,-247),point(484.1,-187),point(481.35,-170),cheonggyeSouth.berth]},
   {travelMs:32_000,points:[cheonggyeSouth.berth,point(481.35,-146),point(484.4,-124),point(484.4,-110),
     point(485.9,-34),point(488.7,61),point(489.6,113),point(488.3,150),point(484.8,180),point(484,194),deoksugung.berth]}
 ];

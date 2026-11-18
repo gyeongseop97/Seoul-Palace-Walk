@@ -105,21 +105,18 @@ export function addBungeoStall(T,parent,kit,groundHeight,stall=BUNGEO_STALL){
     box(0xf3dba8,0,height+.028,depth,trayWidth-.059,.012,trayDepth-.050,tray);
     for(const x of [-1,1])box(0xa27849,x*(trayWidth/2-.009),height+.035,depth,.027,.048,trayDepth-.007,tray);
     for(const z of [-1,1])box(0xa27849,0,height+.035,depth+z*(trayDepth/2-.012),trayWidth-.044,.048,.023,tray);
-    if(hotteok||stall.customer)hit(tray,{tray:true},0,height+.066,depth,trayWidth,.13,trayDepth);
+    hit(tray,{tray:true},0,height+.066,depth,trayWidth,.13,trayDepth);
   }
   if(hotteok){
     for(const x of [-.203,.203])for(const z of [-.169,.169])box(0x876340,x,-.022,z,.061,.047,.061,tray);
     counterLabel("매대",tray.position.x,.517,"#765536",1.040);
   }else{
     for(const x of [-.28,.28])for(const z of [-.369,-.110])box(0x9c7246,x,.096,z,.041,.191,.041,tray);
-    if(stall.customer){
-      counterLabel("판매대",tray.position.x,.408,"#765536",1.041);
-      highlight("tray",tray.position.x,.422);
-    }
+    counterLabel("매대",tray.position.x,.408,"#765536",1.041);
   }
   // Batch each pastry part so twelve display items take only a few draw calls.
   const stockPrototype=new T.Group(),stockParts=new Map(),stockPose=new T.Object3D(),stockMatrix=new T.Matrix4();
-  if(hotteok||stall.customer)pastryProps(stockPrototype,"good");
+  pastryProps(stockPrototype,"good");
   stockPrototype.updateMatrixWorld(true);
   stockPrototype.traverse(mesh=>{
     if(!mesh.isMesh)return;

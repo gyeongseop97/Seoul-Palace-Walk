@@ -776,6 +776,12 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
     }
     roof(roofGroup,w+(spec.open?3.2:2.5),d+2.36,raised+h+.54,spec.rise??(spec.mainHall?3.05:spec.open?2.35:2.04),spec.gate||spec.mainHall||Boolean(spec.hip));
     if(spec.sign||spec.name)nameplate(spec.sign||spec.name,g,0,raised+h-.24,d*.61,Math.min(3.5,w*.25),.79);
+    if(spec.surveyRoof!=null){
+      const shell=new T.Group();
+      // The first child is the walkable foundation. The furnishings are a separate group.
+      for(const piece of g.children.slice(1))shell.add(piece);
+      g.add(shell);g.userData.surveyShell=shell;
+    }
     return g;
   }
 

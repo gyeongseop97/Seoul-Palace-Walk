@@ -182,10 +182,12 @@ export function makeFirstPersonView(T,createItemProp){
         if(strike&&mole.point){
           malletPoint.copy(mole.point).project(worldCamera);
           frame(malletPoint,malletPoint.x,malletPoint.y,.99);
+          // Aim with the striking cap on the forward end of the head.
           wrist.lerp(malletPoint.addScaledVector(malletDirection,-.220*size),strike);
         }
         mallet.position.copy(wrist);mallet.scale.setScalar(size);
         mallet.quaternion.setFromUnitVectors(up,malletDirection);
+        mallet.rotateY(Math.PI/2);
       }
       const short=outfit==="tee",padded=outfit==="puffer";
       lower.material=short?skin:fabric;cuff.material=outfit==="hanbok"?ivory:trim;cuff.visible=!short;

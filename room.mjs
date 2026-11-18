@@ -586,7 +586,7 @@ export async function api(request,env){
   if(avatar!==undefined){
     if(key)operations.push(dismountBikePassenger(db,room,id,key,{online,expired:true}));
     const pendingPicnic=picnic?.action==="place"||picnic?.action==="take"?picnic.id:undefined;
-    const pendingBungeo=bungeo?.action==="take"||bungeo?.action==="gift"?bungeo.id:undefined;
+    const pendingBungeo=["take","gift","putTray","takeTray"].includes(bungeo?.action)?bungeo.id:undefined;
     if(!feed||currentFeed)operations.push(avatarUpdate(db,room,id,key,avatar,view,now,active,feed?.claim,bike?.action,pendingPicnic,pendingBungeo));
     if(key&&avatar.bikeRide?.driver)operations.push(refreshBikePassenger(db,room,id,key,online));
     if(chat)operations.push(chatUpdate(db,room,id,key,chat,now,active));

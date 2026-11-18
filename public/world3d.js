@@ -23,6 +23,7 @@ import { hanbokRental,registerHanbokRental } from "./passport-data.js";
 import { addHanbokRental } from "./wearables-models.js";
 import { assembleMuseum, registerMuseumNavigation, isInsideMuseum, museumOutsideDoor, museumInsideDoor, museumInsideSpawn, stairHeight } from "./museum.js";
 import { interiorAt } from "./interior-layout.js";
+import {semaVenue} from "./sema-layout.js";
 import { mmcaVenue,mmcaExhibits,mmcaWalls } from "./mmca-gallery-layout.js";
 import { diningTrayPose,diningVenues } from "./dining-data.js";
 import { registerDiningNavigation } from "./dining-layout.js";
@@ -38,7 +39,7 @@ import { makeFirstPersonView } from "./first-person.js";
 import {MOLE_BOARD,MOLE_HOLES,moleView} from "./arcade-mole.js";
 import { plazaShowSpot } from "./plaza-show.js";
 import { gbSurveyModels, gbNightGlow } from "./gyeongbok.js";
-import { gbSite, gwanghwamun, gbBounds, inGyeongbok, gbLightSpots, gbPhotoZone,wishPond } from "./gyeongbok-layout.js";
+import { gbSite, gwanghwamun, gbBounds, inGyeongbok, gbLightSpots, wishPond } from "./gyeongbok-layout.js";
 import { gbEastOpenings } from "./gyeongbok-perimeter.js";
 import { nearMarketStreet } from "./uijeongbu-layout.js";
 import { outsideGroundOffset,palaceGroundOffset,sampleMeshHeight,southWorldSurfaceHeight } from "./gyeongbok-terrain.js";
@@ -210,8 +211,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   const deoksExtras=new T.Group();
   registerBikeDocks();
   const addDocks=(root,where,height)=>buildBikeDocks(T,root,makeKit(root),{docks:bikeDocks.filter(where),register:false,height});
-  addDocks(deoksExtras,dock=>dock.y>=28,southWorldSurfaceHeight);
-  addDocks(corridorRoot,dock=>dock.y<28&&dock.y>-280&&dock.area!=="cheonggye",southWorldSurfaceHeight);
+  addDocks(deoksExtras,dock=>dock.y>=28&&dock.area!=="west",southWorldSurfaceHeight);
+  addDocks(corridorRoot,dock=>dock.y<28&&dock.y>-280&&dock.area!=="cheonggye"&&dock.area!=="west",southWorldSurfaceHeight);
   const createItemProp=makeItemProps(T,kit);
   const walkerModels=makeWalkerModels(T,scene,kit,createItemProp);
   const outdoorWalkers={...walkerModels,create(...args){
@@ -315,6 +316,9 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   showMarker.visible=false;
   outdoors.add(guideMarker,showMarker);
   registerMuseumNavigation();
+  const bounds=semaVenue.bounds;
+  for(const x of [bounds.minX,bounds.maxX])addObstacle(x,511,.3,18);
+  for(const y of [bounds.minY,bounds.maxY])addObstacle(440,y,24,.3);
   const {minX,maxX,minY,maxY}=mmcaVenue.bounds;
   const perimeter=[[minX,minY,maxX,minY],[minX,maxY,maxX,maxY],[minX,minY,minX,maxY],[maxX,minY,maxX,maxY]];
   for(const [x1,y1,x2,y2] of [...perimeter,...mmcaWalls]){
@@ -332,7 +336,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   const interactionMarkers=makeInteractionMarkers(T,scene,{wx,wz,floorHeight},[
     ...COOKING_STALLS.map(stall=>amenity(stall,stall.kind==="hotteok"?"호떡 굽기":"붕어빵 굽기")),
     ...stations.map(station=>({...station,kind:"food",label:station.kind==="churu"?"츄르 사기":ITEMS[station.kind].name+" 받기"})),
-    ...[museum,mmcaVenue,ARCADE_SITE,...diningVenues].flatMap(venue=>[
+    ...[museum,mmcaVenue,semaVenue,ARCADE_SITE,...diningVenues].flatMap(venue=>[
       {...venue.outsideDoor,kind:"enter",label:venue===ARCADE_SITE?"오락실 입장":diningById[venue.id]?"식당 입장":"전시관 입장"},
       {...venue.insideDoor,kind:"exit",label:"나가기"}
     ]),
@@ -347,7 +351,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
       const {x,y}=minigamePickup(game);
       return amenity({x:x+.87,y},"투호 화살 받기");
     }),
-    amenity(hanbokRental,"한복 대여"),amenity(gbPhotoZone,"사진 찍기"),
+    amenity(hanbokRental,"한복 대여"),
     amenity({x:fountain.x+4.8,y:fountain.y+5.3},"소원등 날리기"),
     amenity({x:wishPond.x,y:wishPond.y-wishPond.reach+5},"소원등 날리기"),
     amenity(mmcaVenue.guestbookPoint,"방명록"),...diningVenues.map(venue=>amenity(venue.guestbookPoint,"방명록"))
@@ -412,17 +416,29 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
       const replaced=prepareSurveyTerrain(T,asset.scene,name,groups);
       asset.scene.position.set(wx(point.x),outsideGroundOffset(point),wz(point.y));
       asset.scene.rotation.y=angle;
+      const northSurvey=gbSurveyModels.includes(name);
+      const bay=groups[0]?.userData.door;
+      const entrance=surveyDoors[name]??(northSurvey&&bay?{
+        x:0,z:point.d*.5,width:(bay.b-bay.a+1)*point.w/point.bays-.6,
+        depth:Math.max(3.2,point.d*.52),floor:.48,height:3.18
+      }:null);
+      if(northSurvey){
+        const span=name==="gyeonghoeru"?40:point.w+2.6;
+        asset.scene.scale.setScalar(span);
+        if(name==="gyeonghoeru")asset.scene.rotation.y+=Math.PI/2;
+      }
       const anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
       asset.scene.traverse(mesh=>{
         if(!mesh.isMesh)return;
+        if(northSurvey&&!mesh.geometry.attributes.normal)mesh.geometry.computeVertexNormals();
         if(!mesh.geometry.attributes.normal){
           const smoothed=smoothSurveyNormals(mesh.geometry);
           if(smoothed!==mesh.geometry){mesh.geometry.dispose();mesh.geometry=smoothed;}
         }
         const material=mesh.material;
         material.flatShading=false;material.metalness=0;material.roughness=.92;
-        if(surveyDoors[name]){
-          material.clippingPlanes=doorPlanes(surveyDoors[name],point,angle);
+        if(entrance){
+          material.clippingPlanes=doorPlanes(entrance,point,angle);
           material.clipIntersection=true;material.clipShadows=true;
           renderer.localClippingEnabled=true;
         }
@@ -431,7 +447,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
         mesh.castShadow=mesh.receiveShadow=true;
       });
       root.add(asset.scene);
-      scannedGrounds.push(surveyGroundField(T,asset.scene,asset.scene.position.y));
+      if(!northSurvey)scannedGrounds.push(surveyGroundField(T,asset.scene,asset.scene.position.y));
       for(const group of replaced)group.visible=false;
       shadowDirty=true;
       container.dataset[name]="survey";
@@ -464,7 +480,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     deoksRoot.add(deoksExtras);
     addCookingStalls("jeongdong",deoksRoot);
     const models=[classical,middleModel,hallModel,...surveyedPavilions.flatMap(pavilion=>pavilion.groups)];
-    const replaceable=new Set(models.flatMap(model=>[model,...(model.userData.surveyRoofs??[])]));
+    const replaceable=new Set(models.flatMap(model=>[model,model.userData.surveyShell].filter(Boolean)));
     return yield* consolidate(deoksRoot,replaceable,foliage.register);
   }};
   const corridor={root:corridorRoot,bounds:corridorBounds,*build(){
@@ -486,7 +502,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
       birdPerches,terrainHeight:southWorldSurfaceHeight,onMonuments:built=>{monuments=built;}
     });
     addRegionalStands(T,plazaRoot,makeKit(plazaRoot),"gwanghwamun");
-    addDocks(plazaRoot,dock=>dock.y<=-280&&dock.y>-790);
+    addDocks(plazaRoot,dock=>dock.y<=-280&&dock.y>-790&&dock.area!=="west");
     yield* gradeAvenueMeshes(T,plazaRoot.children,southWorldSurfaceHeight);
     yield* addDiningFronts(plazaRoot,"gwanghwamun");
     addCookingStalls("gwanghwamun",plazaRoot);
@@ -531,6 +547,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   }
   const indoorsById={
     museum:gallery,
+    [semaVenue.id]:indoorDistrict(semaVenue,()=>import("./sema-gallery.js"),"buildSemaGallery"),
     [mmcaVenue.id]:indoorDistrict(mmcaVenue,()=>import("./mmca-gallery.js"),"buildMmcaGallery"),
     [ARCADE_SITE.id]:indoorDistrict(ARCADE_SITE,()=>import("./arcade-world.js"),"buildArcadeInterior"),
     [ARCADE_UPPER_SITE.id]:indoorDistrict(ARCADE_UPPER_SITE,()=>import("./arcade-upper-world.js"),"buildArcadeUpper"),
@@ -568,6 +585,10 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   });
   const west=expansionDistrict(westBounds,westWalkable,function*(root,localKit,{buildWestDistrict}){
     yield* buildWestDistrict(T,root,localKit,Math.min(4,renderer.capabilities?.getMaxAnisotropy?.()??1));
+    const stores=addRegionalStands(T,root,localKit,"west");
+    for(const building of stores.children)building.position.y+=southWorldSurfaceHeight({x:building.position.x+300,y:building.position.z+225});
+    addDocks(root,dock=>dock.area==="west",southWorldSurfaceHeight);
+    yield* addDiningFronts(root,"west");
   },()=>import("./west-district.js"));
   const expansions=[songhyeon,cheonggye,bukchon,hwangudan,west,stationsDistrict];
   const districts=[deoks,corridor,plaza,palace,...expansions],loading=container.querySelector("#loading-game");
@@ -1250,7 +1271,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
         poseArcade(activity,model,clock);
         if(activity?.kind==="mole"&&!model.moleHammer){
           const hand=model.arms[0].end,hammer=model.moleHammer=new T.Group();
-          hammer.name="두더지 게임 망치";hammer.position.set(0,-.04,.04);hand.add(hammer);
+          hammer.name="두더지 게임 망치";hammer.rotation.y=Math.PI/2;hammer.position.set(0,-.04,.04);hand.add(hammer);
           cylinder(0xd1a26b,0,.088,0,.026,.265,10,hammer);
           cylinder(0x458384,0,.228,0,.066,.178,12,hammer).rotation.z=Math.PI/2;
           for(const side of [-1,1])cylinder(0xc28e56,side*.087,.228,0,.068,.025,12,hammer).rotation.z=Math.PI/2;
@@ -1396,7 +1417,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     }else if(state.arcade?.kind==="baseball"){
       const machine=ARCADE_GAMES.baseball.machine;
       const portrait=camera.aspect<.8,fov=portrait?76:59;
-      camera.position.set(wx(machine.x+(portrait?6.13:5.87)),1.56,wz(machine.y));
+      camera.position.set(wx(machine.x+(portrait?6.13:5.87)),BASEBALL_CENTER.y,wz(machine.y));
       camera.lookAt(wx(machine.x+BASEBALL_PLATE_Z),BASEBALL_CENTER.y,wz(machine.y));
       if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix();}
       cameraDistance=2.0;
@@ -1570,21 +1591,6 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     for(const model of models.values())walkerModels.clearChat(model);
     selfChat.hidden=true;selfChat.textContent="";
   }
-  // A souvenir photograph: one frame from a fixed camera, returned as a JPEG data URL.
-  function snapshot(state,{from,to,fov=50}){
-    render(state,performance.now());
-    const previous=camera.fov,marker=guideMarker.visible,musicMarker=showMarker.visible;
-    camera.fov=fov;camera.updateProjectionMatrix();
-    camera.position.set(wx(from.x),groundHeight(from)+from.height,wz(from.y));
-    camera.lookAt(wx(to.x),groundHeight(to)+to.height,wz(to.y));
-    guideMarker.visible=false;
-    showMarker.visible=false;
-    interactionMarkers.update(null,performance.now());
-    renderer.render(scene,camera);
-    const picture=renderer.domElement.toDataURL("image/jpeg",.92);
-    guideMarker.visible=marker;showMarker.visible=musicMarker;camera.fov=previous;camera.updateProjectionMatrix();
-    return picture;
-  }
   function capturePhoto(state){
     render({...state,firstPerson:false,photoCapture:true},performance.now());
     return renderer.domElement.toDataURL("image/jpeg",.92);
@@ -1592,7 +1598,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   const renderStats=()=>({...renderer.info.render,quality:quality.mode,pixelRatio:quality.ratio,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,
     areas:{west:Boolean(west.chunks),plaza:Boolean(plaza.chunks),palace:Boolean(palace.chunks),cheonggye:Boolean(cheonggye.chunks),songhyeon:Boolean(songhyeon.chunks),
       ...Object.fromEntries(Object.entries(indoorsById).map(([id,district])=>[id,Boolean(district.chunks)]))}});
-  return {render,setQuality,setVisitorRoom:cityVisitors.setRoom,pick,pickBungeo,pickMole,pickBaseballAim,pickClassicTap,previewWalker,clearChat,floorHeight,groundHeight,renderStats,snapshot,capturePhoto,
+  return {render,setQuality,setVisitorRoom:cityVisitors.setRoom,pick,pickBungeo,pickMole,pickBaseballAim,pickClassicTap,previewWalker,clearChat,floorHeight,groundHeight,renderStats,capturePhoto,
     benches,stations,parkLife,birds,palacePeople,museum,underDoldamAwning};
 }
 

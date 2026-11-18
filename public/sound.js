@@ -1,12 +1,26 @@
 import {PLAZA_SHOW_BEAT_MS,PLAZA_SHOW_BEATS,PLAZA_SHOW_DURATION_MS,PLAZA_SHOW_HEARING_METRES,plazaShowNotes} from "./plaza-show.js";
 
-// A small synthesized soundscape: footsteps, birdsong, crickets, a cat's meow, the
-// transit chimes, passing buses and the guard drum. Everything is generated with Web Audio, so there are no
-// audio files to load. Sound starts on the first tap or key press, as browsers require.
+// Recordings and procedural ambience share the user's sound control and master volume.
 export function makeSound(){
   let context=null,master=null,noise=null,engine=null,engineStop=null,show=null,rainfall=null,rainStop=null,brook=null,brookStop=null;
   let enabled=localStorage.getItem("jeongdong-sound")!=="off";
   const fraction=value=>Math.max(0,Math.min(1,Number.isFinite(value)?value:0));
+  const recordings=new Map();
+  async function loadRecording(ctx,name){
+    try{
+      const response=await fetch(new URL("./audio/"+name+".wav",import.meta.url));
+      if(response.ok)recordings.set(name,await ctx.decodeAudioData(await response.arrayBuffer()));
+    }catch{/* The synthesized cue stays available when offline. */}
+  }
+  function recorded(name,gain,rate=1,delay=0){
+    const ctx=playing(),buffer=recordings.get(name);
+    if(!ctx||!buffer)return false;
+    const voice=ctx.createBufferSource(),volume=ctx.createGain();
+    voice.buffer=buffer;voice.playbackRate.value=rate;volume.gain.value=gain;
+    voice.connect(volume);volume.connect(master);
+    voice.onended=()=>{voice.disconnect();volume.disconnect();};
+    voice.start(ctx.currentTime+delay);return true;
+  }
   function ready(){
     if(!enabled)return null;
     if(!context){
@@ -14,6 +28,7 @@ export function makeSound(){
       if(!Audio)return null;
       try{context=new Audio();}catch{return null;}
       master=context.createGain();master.gain.value=.55;master.connect(context.destination);
+      for(const name of ["bird-1","bird-2","cat-short","cat-long","mallet","board"])void loadRecording(context,name);
       const length=Math.floor(context.sampleRate*.5);
       noise=context.createBuffer(1,length,context.sampleRate);
       const data=noise.getChannelData(0);
@@ -241,6 +256,11 @@ export function makeSound(){
       tone(pitch,pitch,{gain:.075,attack:.006,decay:.21,type:"triangle"});
       tone(strong?139:95,53,{gain:strong?.16:.085,attack:.003,decay:.20});
     },
+    moleImpact(hit){
+      if(!recorded(hit?"mallet":"board",hit?.56:.16,hit?1.1:.84,.09)){
+        tone(hit?205:135,65,{gain:hit?.14:.045,attack:.003,decay:.105,delay:.09});
+      }
+    },
     basketImpact(kind,strength){
       const gain=fraction(strength);
       if(kind==="score"){
@@ -251,6 +271,7 @@ export function makeSound(){
         tone(967,952,{gain:.020*gain,attack:.002,decay:.10});
       }else{
         const board=kind==="backboard";
+        if(board&&recorded("board",gain*.34,.8))return;
         tone(board?196:103,board?129:59,{gain:.17*gain,attack:.003,decay:board?.115:.083});
         burst({type:"bandpass",frequency:board?710:420,q:.72,gain:.10*gain,decay:.066});
       }
@@ -262,6 +283,7 @@ export function makeSound(){
     chirp(relativeGain=1){
       const gain=.03*fraction(relativeGain);
       if(!gain)return;
+      if(recorded(Math.random()<.5?"bird-1":"bird-2",gain*9,.97+Math.random()*.06))return;
       const base=2400+Math.random()*1400,notes=2+Math.floor(Math.random()*3);
       for(let i=0;i<notes;i++)tone(base,base*(1.2+Math.random()*.3),{gain,attack:.008,decay:.07,delay:i*.11});
     },
@@ -269,6 +291,7 @@ export function makeSound(){
     meow(relativeGain=1){
       const gain=.07*fraction(relativeGain);
       if(!gain)return;
+      if(recorded(Math.random()<.5?"cat-short":"cat-long",gain*6.3,.95+Math.random()*.1))return;
       tone(620,880,{gain,attack:.05,decay:.12,type:"triangle"});
       tone(880,520,{gain,attack:.02,decay:.32,type:"triangle",delay:.16});
     },

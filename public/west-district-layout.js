@@ -36,7 +36,7 @@ export function westGround(x,y){
 }
 export function westWalkable(x,y){
   const kind=westGround(x,y);
-  return Boolean(kind&&kind!=="road"&&kind!=="verge");
+  return Boolean(kind&&kind!=="road"&&kind!=="verge"&&kind!=="backdrop");
 }
 export function westRegion(x,y){
   return y>296&&x>115?"서울시립미술관":y< -174&&x< -145?"경희궁":"정동길";

@@ -21,6 +21,13 @@ const levelPads=[
   // Daehanmun stands level, so the ground under its stone base must be level too.
   [{x:daehanmun.x+3.8,y:daehanmun.y+.5},10,9.2,-2.83]
 ];
+// Level the full footprint, veranda and stair foot of each western hall; allow
+// one sampling cell around the pad before blending back into the hillside.
+const westHallPads=[
+  {x:-360.486,y:-405.931,w:16,d:14,level:16},
+  {x:-319.473,y:-415.285,w:11,d:8,level:16.5},
+  {x:-324.162,y:-437.288,w:12,d:10,level:20}
+];
 const clamp=value=>Math.max(0,Math.min(1,value));
 const pavilion=name=>pavilions.find(site=>site.name===name);
 const terracePads=[
@@ -61,6 +68,11 @@ export function southWorldTerrainHeight({x,y}){
       const across=dx*.84565-dy*.53371,along=dx*.53371+dy*.84565;
       const gap=Math.max(Math.abs(across)-45,along-68,-17-along,0);
       level+=(16-level)*clamp(1-gap/22);
+      for(const pad of westHallPads){
+        const u=(x-pad.x)*.84565-(y-pad.y)*.53371,v=(x-pad.x)*.53371+(y-pad.y)*.84565;
+        const margin=Math.max(Math.abs(u)-pad.w,Math.abs(v)-pad.d,0);
+        level+=(pad.level-level)*clamp(1-margin/9);
+      }
     }
   }
   const museumRise=clamp((y-296)/74)*clamp((y-296)/74)*clamp((280-x)/44)*clamp((x-128)/38);

@@ -44,8 +44,19 @@ function tile(T,color,kind){
 
 export function* buildWestDistrict(T,root,kit,anisotropy){
   const {wx,wz,box,cylinder,shape,matte}=kit;
-  const colors={grove:"#73815c",grass:"#8c9e67",verge:"#a59e8d",road:"#666969",crossing:"#666969",street:"#a49683",path:"#b6aa95",stone:"#b7b0a0"};
+  const colors={backdrop:"#878973",grove:"#73815c",grass:"#8c9e67",verge:"#a59e8d",road:"#666969",crossing:"#666969",street:"#a49683",path:"#b6aa95",stone:"#b7b0a0"};
   const materials=Object.fromEntries(Object.entries(colors).map(([k,c])=>[k,tile(T,c,k)]));
+  // Keep a continuous terrain surface behind the surveyed plots and their foundations.
+  const underlay=new T.PlaneGeometry(810,740,102,93);
+  underlay.rotateX(-Math.PI/2);
+  underlay.translate(wx(-270),0,wz(-330));
+  const terrainPoints=underlay.attributes.position;
+  for(let i=0;i<terrainPoints.count;i++){
+    terrainPoints.setY(i,elevation({x:terrainPoints.getX(i)+300,y:terrainPoints.getZ(i)+225})-1.45);
+  }
+  underlay.computeVertexNormals();
+  const groundSupport=new T.Mesh(underlay,materials.backdrop);
+  groundSupport.receiveShadow=true;root.add(groundSupport);
   const ground=[];
   for(const item of westSurfaces){
     const geometry=new T.ShapeGeometry(surfaceShape(T,item.rings)),pos=geometry.attributes.position,uv=geometry.attributes.uv;
@@ -53,11 +64,11 @@ export function* buildWestDistrict(T,root,kit,anisotropy){
     const repeat=item.kind==="crossing"?1.32:pavingRepeat(finish);
     if(!materials[finish]){materials[finish]=makePavingMaterial(T,finish,anisotropy);yield;}
     for(let i=0;i<pos.count;i++){
-      const east=pos.getX(i),south=-pos.getY(i);
-      uv.setXY(i,(east*c+south*s)/repeat,(-east*s+south*c)/repeat);
+      const east=pos.getX(i)+(finish==="royal"?603.445:0),south=-pos.getY(i)+(finish==="royal"?628.16:0);
+      uv.setXY(i,finish==="royal"?(east*c+south*s)/4+.5:(east*c+south*s)/repeat,(-east*s+south*c)/repeat);
     }
     geometry.rotateX(-Math.PI/2);
-    const mesh=new T.Mesh(geometry,materials[finish]);mesh.position.y=.062;
+    const mesh=new T.Mesh(geometry,materials[finish]);mesh.position.y=item.kind==="backdrop"?-.34:.062;
     mesh.receiveShadow=true;mesh.userData.followTerrain=true;ground.push(mesh);root.add(mesh);
   }
   yield* gradePalaceMeshes(T,ground,southWorldTerrainHeight);
@@ -66,11 +77,15 @@ export function* buildWestDistrict(T,root,kit,anisotropy){
   function shell(b,top,wall,cap){
     const coords=[],uv=[];
     for(const ring of b.rings)for(const [i,[x,y]] of ring.entries()){
-      const [xx,yy]=ring[(i+1)%ring.length],a=elevation({x,y})-.8,c=elevation({x:xx,y:yy})-.8;
-      const length=Math.hypot(xx-x,yy-y);
-      for(const [px,py,h,u,v] of [[x,y,a,0,0],[xx,yy,c,length,0],[xx,yy,top,length,top-c],
-        [x,y,a,0,0],[xx,yy,top,length,top-c],[x,y,top,0,top-a]]){
-        coords.push(wx(px),h,wz(py));uv.push(u/3.1,v/3.45);
+      const [xx,yy]=ring[(i+1)%ring.length],dx=xx-x,dy=yy-y;
+      const length=Math.hypot(dx,dy),sections=Math.max(1,Math.ceil(length/4));
+      for(let j=0;j<sections;j++){
+        const t=j/sections,next=(j+1)/sections;
+        const a={x:x+t*dx,y:y+t*dy},b={x:x+next*dx,y:y+next*dy};
+        const lowA=elevation(a)-1.0,lowB=elevation(b)-1.0;
+        for(const [point,h,u] of [[a,lowA,t],[b,lowB,next],[b,top,next],[a,lowA,t],[b,top,next],[a,top,t]]){
+          coords.push(wx(point.x),h,wz(point.y));uv.push(u*length/3.1,(h-top)/3.45);
+        }
       }
     }
     const geom=new T.BufferGeometry();

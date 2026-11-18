@@ -1,6 +1,6 @@
 import {
   gwanghwamun,gbSites,gbSite,gbCourts,gbLake,gbPond,gbPaths,gbLawns,gbStation,subwayStops,
-  gbFrontApron,gbWoldae,gbHaetae,gbPhotoZone,gbRoyalPavilion,gyeongbokWater,at
+  gbFrontApron,gbWoldae,gbHaetae,gbRoyalPavilion,gyeongbokWater,at
 } from "./gyeongbok-layout.js";
 import {solidAt} from "./layout.js";
 import {plazaAt} from "./plaza-layout.js";
@@ -13,7 +13,7 @@ import {buildGyeongbokCompounds,inGyeongbokCompound} from "./gyeongbok-compounds
 
 // Survey models can replace these hand-built halls later: drop "<id>.glb" into public/ and
 // add the id here. world3d loads each file and hides the modeled group when it arrives.
-export const gbSurveyModels=[];
+export const gbSurveyModels=["sajeongjeon","gangnyeongjeon","bihyeongak","manchunjeon","cheonchujeon","jaseondang","hamwonjeon","taewonjeon","geonchunmun","sajeongmun","sojubang","gyeonghoeru"];
 // Materials that glow after dark; world3d fades them in with the night.
 export const gbNightGlow=[];
 
@@ -762,28 +762,6 @@ export function* buildGyeongbok(T,scene,kit,tools){
   for(let i=0;i<16;i++){
     const angle=i*Math.PI/8+.2;
     chorong(gbPond.east+Math.cos(angle)*(gbPond.radius+3.4),gbPond.north+Math.sin(angle)*(gbPond.radius+3.4));
-  }
-
-  // ---- Photo spot in the throne-hall court -------------------------------------------------
-  {
-    const spot={x:wx(gbPhotoZone.x),z:wz(gbPhotoZone.y)},lens=gbPhotoZone.tripod;
-    cylinder(0xe2c36a,spot.x,.045,spot.z,1.15,.02,28);
-    cylinder(0xb7ab95,spot.x,.05,spot.z,.92,.022,28);
-    const x=wx(lens.x),z=wz(lens.y);
-    for(let leg=0;leg<3;leg++){
-      const stick=cylinder(0x2e3336,x+Math.cos(leg*2.094+.5)*.2,.56,z+Math.sin(leg*2.094+.5)*.2,.022,1.16,6);
-      stick.rotation.set(Math.sin(leg*2.094+.5)*.33,0,-Math.cos(leg*2.094+.5)*.33);
-    }
-    box(0x25292c,x,1.2,z,.26,.18,.16);
-    cylinder(0x15181a,x,1.2,z-.13,.07,.12,12).rotation.x=Math.PI/2;
-    box(0xc9a64a,x+.08,1.31,z,.06,.04,.06);
-    block(x,z,.5,.5,0,1.4);
-    const board=world(3.4,262.4);
-    box(0x5a4334,board.x,.55,board.z,.07,1.1,.07);
-    box(0x2f4b3f,board.x,1.25,board.z,1.2,.5,.06);
-    nameplate("포토존",scene,board.x,1.25,board.z-.04,1.1,.42,"#2f4b3f","#f0dca8").rotation.y=Math.PI;
-    nameplate("포토존",scene,board.x,1.25,board.z+.04,1.1,.42,"#2f4b3f","#f0dca8");
-    block(board.x,board.z,.3,.3,0,1.5);
   }
 
   buildSubwayExit(T,scene,kit,tools,gbStation,"경복궁 Gyeongbokgung",0xef7c1c);

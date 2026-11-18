@@ -9,9 +9,9 @@ import {BASEBALL_PITCH_COUNT,makeArcadeBaseball} from "./arcade-baseball.js";
 import {isClassic,makeArcadeClassics} from "./arcade-classics.js";
 
 export const arcadeTitles={claw:"인형뽑기",pump:"펌프",basket:"농구 슛",bowling:"볼링",mole:"두더지 잡기",shooting:"사격",archery:"양궁",baseball:"스크린 야구",
-  pinball:"핀볼",airHockey:"에어하키",brickBreaker:"벽돌 깨기"};
+  pinball:"핀볼",airHockey:"에어하키",brickBreaker:"벽돌 깨기",racing:"서울 랠리"};
 const classicHint={pinball:"왼쪽·오른쪽 터치 또는 A·D로 플리퍼를 움직여요.",
-  airHockey:"화면을 밀거나 방향키로 밀대를 움직여요.",brickBreaker:"화면을 밀거나 ←·→로 막대를 움직여요."};
+  racing:"자동으로 달려요. 좌우 키나 터치로 차를 몰아 앞차를 피하고 900m를 완주하세요.",airHockey:"화면을 밀거나 방향키로 밀대를 움직여요.",brickBreaker:"화면을 밀거나 ←·→로 막대를 움직여요."};
 const hints={...classicHint,airHockey:"밀대를 드래그하거나 방향키로 움직여요. 같은 방 친구가 테이블에서 시작하면 2인 경기예요. 먼저 5점을 내면 이겨요.",
   pump:"내려오는 화살표가 선에 닿을 때 아바타로 같은 발판을 밟아요.",mole:"올라온 두더지를 직접 눌러 망치로 잡아요.",
   claw:"방향 버튼이나 키로 집게를 옮기고 내려요. 화면을 돌리면 옆에서도 볼 수 있어요.",
@@ -29,7 +29,7 @@ const keyDirection={ArrowLeft:"left",ArrowUp:"up",ArrowDown:"down",ArrowRight:"r
 const text=(node,value)=>{if(node.textContent!==value)node.textContent=value;};
 
 export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerId,bowlingPending,commandBowling,
-  getHockeyPeers,onHockeySeat,onTableFull,onBowlMove,onBaseballStance,onAim,onStart,onStop,playBeat,playBasketImpact,onPrize,canDropClaw}){
+  getHockeyPeers,onHockeySeat,onTableFull,onBowlMove,onBaseballStance,onAim,onStart,onStop,playBeat,playMoleImpact,playBasketImpact,onPrize,canDropClaw}){
   const $=id=>root.ownerDocument.getElementById(id);
   const panel=$("arcade-panel"),title=$("arcade-title"),status=$("arcade-status"),track=$("arcade-pump-track"),moves=$("arcade-move"),act=$("arcade-act");
   const info=$("arcade-info"),help=$("arcade-help"),helpButton=$("arcade-help-toggle");
@@ -269,10 +269,11 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
       }
       const state=kind==="airHockey"?hockeyState():classics.state(),ready=state.phase==="ready",finished=state.phase==="finished";
       act.hidden=!ready&&!finished;act.disabled=false;
-      text(act,finished?"다시 하기":kind==="airHockey"?"서브":"공 발사");
+      text(act,finished?"다시 하기":kind==="airHockey"?"서브":kind==="racing"?"출발":"공 발사");
       const score=kind==="airHockey"?`나 ${seat===1?state.other:state.score} · ${opponentName} ${seat===1?state.score:state.other}`:
-        `${state.score}점 · 공 ${state.lives}개`;
-      const result=kind==="airHockey"?((state.score>state.other)===(seat===0)?"승리":"경기 종료"):kind==="brickBreaker"&&!state.mask?"모두 깼어요":"게임 종료";
+        kind==="racing"?`${state.score}/900 m · 내구도 ${state.lives}`:
+        `${kind==="brickBreaker"?state.level+"단계 · ":""}${state.score}점 · 공 ${state.lives}개`;
+      const result=kind==="airHockey"?((state.score>state.other)===(seat===0)?"승리":"경기 종료"):kind==="racing"&&state.score>=900?"완주!":"게임 종료";
       text(status,finished?`${result} · ${score}`:score);
       return;
     }
@@ -336,7 +337,7 @@ export function bindArcade({root,getAvatar,getAim,getClock,getBowling,getPlayerI
     strikeMole(index){
       if(kind!=="mole"||index==null)return;
       const now=performance.now(),hit=moles.strike(getClock(now),index);
-      if(hit!=null){playBeat(index%4,hit);update(now,0);}
+      if(hit!=null){playMoleImpact?.(hit);update(now,0);}
     },
     aimBaseball:point=>kind==="baseball"&&point&&baseball.aim(point.x,point.y),
     tapClassic(point,drag=false){

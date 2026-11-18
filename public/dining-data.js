@@ -23,6 +23,16 @@ export const diningVenue=venue({id:"bukchon-dining",name:"북촌 작은 식탁",
   source:"https://english.visitseoul.net/attractions/Samcheong-dongSujebi/ENPqgbap0"
 }, {kind:"bibimbap",name:"나물 비빔밥",description:"나물, 달걀, 고추장을 올린 비빔밥이에요."}]);
 export const diningVenues=[diningVenue,
+  venue({id:"saemunan-table",name:"새문안 국수집",area:"west",street:"새문안로",
+    centerX:1130,plotX:107,plotY:-231,angle:Math.PI},[
+    {kind:"sujebi",name:"감자 손수제비",description:"멸치 육수에 감자와 손으로 뜬 수제비를 넣었어요."},
+    {kind:"buckwheatNoodles",name:"비빔 메밀국수",description:"시원한 메밀면에 오이와 매콤한 양념을 곁들였어요."}
+  ]),
+  venue({id:"west-bistro",name:"경희궁 골목 양식당",area:"west",street:"경희궁길",
+    centerX:1094,plotX:-101,plotY:-111,angle:Math.PI,cuisine:"western"},[
+    {kind:"mushroomPasta",name:"들버섯 크림 파스타",description:"노릇하게 구운 버섯에 크림 소스를 더했어요."},
+    {kind:"chickenSandwich",name:"그릴 치킨 샌드위치",description:"구운 닭고기와 신선한 채소를 빵 사이에 담았어요."}
+  ]),
   venue({id:"jeongdong-dining",name:"정동 메밀집",area:"jeongdong",street:"덕수궁 돌담길",
     centerX:250,plotX:348.5,plotY:339.6,angle:Math.PI},[{
     kind:"buckwheatNoodles",name:"정동 메밀국수",description:"메밀면에 오이와 달걀을 올리고 매콤한 양념을 곁들인 한 그릇",

@@ -280,14 +280,27 @@ export function* buildArcadeInterior(T,parent,kit){
     const head=group(x,tableTop,z,mole);head.visible=false;
     oval(0x916850,0,.060,0,.088,.104,.092,head);
     oval(0xcda384,0,.079,.070,.062,.052,.034,head);
+    const eyes=group(0,0,0,head),crosses=group(0,0,0,head);
+    crosses.visible=false;
     for(const side of [-1,1]){
       oval(0x5b3e36,side*.060,.132,-.013,.025,.035,.025,head);
-      oval(0x261f2b,side*.034,.095,.081,.010,.014,.008,head);
+      oval(0x261f2b,side*.034,.095,.081,.010,.014,.008,eyes);
+      for(const turn of [-1,1]){
+        const stroke=block(0x301f25,side*.034,.099,.089,.009,.034,.009,crosses);
+        stroke.rotation.z=turn*Math.PI/4;
+      }
     }
     oval(0xd19087,0,.068,.104,.023,.017,.012,head);
     dynamic(head);dynamic(ring);
-    return {head,ring,defaultMaterial,litMaterial,hitMaterial};
+    return {head,eyes,crosses,ring,defaultMaterial,litMaterial,hitMaterial};
   });
+  const burst=group(0,0,0,mole);burst.userData.dynamic=true;
+  for(let i=0;i<7;i++){
+    const ray=block(i%2?0xffbe4e:0xffedac,0,0,0,.013,.067,.013,burst);
+    const a=i*Math.PI*2/7;ray.position.set(Math.sin(a)*.14,.11+Math.cos(a)*.05,Math.cos(a)*.12);
+    ray.rotation.set(Math.cos(a)*.8,0,-Math.sin(a)*.85);
+  }
+  dynamic(burst);
   const molePlane=new T.Plane(new T.Vector3(0,1,0),-MOLE_BOARD.top);
   const moleTap=new T.Vector3();
   function pickMole(ray){
@@ -357,11 +370,22 @@ export function* buildArcadeInterior(T,parent,kit){
     bowling.update(bowlingMatch?bowlingMatch.roll:game("bowling")?.bowling?.roll??null,
       serverClock,local?.kind==="bowling"&&local.canAim?view?.pan:undefined,bowlingMatch,local?.aimOffset);
     const moleGame=game("mole");
-    wells.forEach(({head,ring,defaultMaterial,litMaterial,hitMaterial},index)=>{
+    const age=serverClock-(moleGame?.swingAt??0),impact=moleGame?.hit&&age>=MOLE_WHACK_MS*.30&&age<MOLE_WHACK_MS;
+    const struck=impact&&MOLE_HOLES[moleGame.swingHole];
+    burst.visible=Boolean(struck);
+    if(struck){
+      const t=(age/MOLE_WHACK_MS-.30)/.70;
+      burst.position.set(struck.x,tableTop+.13+t*.12,struck.z);
+      burst.scale.setScalar(1.45*Math.sin(Math.PI*Math.max(.07,t))+.02);
+    }
+    wells.forEach(({head,eyes,crosses,ring,defaultMaterial,litMaterial,hitMaterial},index)=>{
       const rise=index===moleGame?.target?moleGame.height:0;
       head.visible=rise>.015;
       if(head.visible)head.position.y=tableTop-.167*(1-rise);
-      const age=serverClock-(moleGame?.swingAt??0);
+      const squash=impact&&index===moleGame.swingHole;
+      eyes.visible=!squash;crosses.visible=Boolean(squash);
+      const compression=squash?.30*Math.exp(-(age-100)/125):0;
+      head.scale.set(1+compression*.55,1-compression,1+compression*.35);
       ring.material=moleGame?.hit&&index===moleGame.swingHole&&age>=0&&age<MOLE_WHACK_MS?hitMaterial:
         head.visible?litMaterial:defaultMaterial;
     });

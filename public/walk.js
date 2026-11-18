@@ -15,7 +15,7 @@ import {bindMapGestures} from "./map-gestures.js";
 import {bindMapLabels} from "./map-labels.js";
 import {makeSound} from "./sound.js";
 import {ceremonyAt} from "./palace-people.js";
-import {cityHallStation,gbSites,gbBounds,gbLake,gbPond,gbPaths,gbCourts,gbLawns,gbShortcuts,wishPond,gbPhotoZone,inGyeongbok,gbWoldae,onWoldaeApproach,nearWoldaeRailing,at as palaceAt,gyeongbokWater} from "./gyeongbok-layout.js";
+import {cityHallStation,gbSites,gbBounds,gbLake,gbPond,gbPaths,gbCourts,gbLawns,gbShortcuts,wishPond,inGyeongbok,gbWoldae,onWoldaeApproach,nearWoldaeRailing,at as palaceAt,gyeongbokWater} from "./gyeongbok-layout.js";
 import {inGwanghwamunPlaza,plazaAt,plazaBounds,plazaSites,plazaOutline,plazaPaths,plazaShortcuts,plazaBeds,plazaAvenueOutline,plazaEastSidewalks,plazaSideForecourts,plazaUijeongbuApproach,plazaCrossingLandings,eastCurb,plazaEastWalkSpine,eastRoadWidth,sajikRoad,sejongParkOutline} from "./plaza-layout.js";
 import {corridorBounds,corridorLandmarks,corridorSidewalks,corridorBranches,corridorCrossings,corridorWalkSpine,corridorEastWalkSpine,corridorMainRoad,corridorAvenueJoin,inSejongCorridor,seoulPlazaApproach} from "./sejong-corridor-layout.js";
 import {plazaWestPavement} from "./gwanghwamun-plaza.js";
@@ -41,6 +41,7 @@ import {canRideBikeSegment} from "./bike-movement.js";
 import {gbWallOutline,clipGbGround} from "./gyeongbok-perimeter.js";
 import {outsideGroundOffset} from "./gyeongbok-terrain.js";
 import {mmcaCourtyards,mmcaBuildings,mmcaLawns} from "./mmca-layout.js";
+import {semaVenue,semaExhibits} from "./sema-layout.js";
 import {mmcaVenue,mmcaGalleryAt,mmcaGalleryRooms,mmcaExhibits} from "./mmca-gallery-layout.js";
 import {diningTables} from "./dining-layout.js";
 import {diningVenues} from "./dining-data.js";
@@ -179,8 +180,8 @@ joinCode.value=suppliedCode;
 profileChoices.find(option=>option.value===me.character).checked=true;
 const photoAlbum=bindPhotoAlbum($("photo-album")),tutorial=bindTutorial($("tutorial-card"));
 const diningById=Object.fromEntries(diningVenues.map(venue=>[venue.id,venue]));
-const diningRegion={jeongdong:"덕수궁",gwanghwamun:"광화문광장",bukchon:"북촌"};
-const venueById={ [mmcaVenue.id]:mmcaVenue,[ARCADE_SITE.id]:ARCADE_SITE,[ARCADE_UPPER_SITE.id]:ARCADE_UPPER_SITE,
+const diningRegion={west:"경희궁",jeongdong:"덕수궁",gwanghwamun:"광화문광장",bukchon:"북촌"};
+const venueById={ [semaVenue.id]:semaVenue,[mmcaVenue.id]:mmcaVenue,[ARCADE_SITE.id]:ARCADE_SITE,[ARCADE_UPPER_SITE.id]:ARCADE_UPPER_SITE,
   [ARCADE_THIRD_SITE.id]:ARCADE_THIRD_SITE,...diningById };
 const guestbook=bindGuestbook({getSession:()=>session,onClose:focusGame,request});
 const diningMenu=bindDiningMenu({onSelectDish:takeMeal});
@@ -518,7 +519,7 @@ const arcade=bindArcade({root:sceneWrap,getAvatar:()=>me,getAim:()=>ownView,getC
     Object.assign(me,{x:point.x,y:point.y-side*BASEBALL_BATTER_OFFSET,heading:side<0?322:218});
     dirty=true;wakeSync();
   },
-  onAim:adjustArcadeAim,playBeat:(lane,strong)=>sound.arcadeBeat(lane,strong),
+  onAim:adjustArcadeAim,playMoleImpact:hit=>sound.moleImpact(hit),playBeat:(lane,strong)=>sound.arcadeBeat(lane,strong),
   playBasketImpact:(kind,strength)=>sound.basketImpact(kind,strength),
   onStart(kind,point){
     if(!canStartArcade(point))return false;
@@ -767,7 +768,7 @@ function outdoorMap(position){
   const {x,y}=position;
   const indoors=venueById[interiorAt(x,y)];
   if(indoors)return indoors===mmcaVenue?"북촌":diningRegion[indoors.area]??"북촌";
-  if(westWalkable(x,y))return westRegion(x,y);
+  if(westWalkable(x,y)){const region=westRegion(x,y);return region==="서울시립미술관"?"덕수궁":region;}
   if(inSonghyeon(x,y))return "열린송현녹지광장";
   if(cheonggyeWalkable(x,y)||position.up&&cheonggyeLevel(position)!=null)return "청계천";
   if(bukchonWalkable(x,y))return "북촌";
@@ -1541,8 +1542,8 @@ function busShortcut(id,label){
 }
 const jeongdongFountainApproach={x:fountain.x+4.8,y:fountain.y+5.3};
 const mapDestinations=[
-  {label:"매표소",aria:"매표소로 순간이동",...ticketApproach,x:ticketApproach.x+1,y:ticketApproach.y-2.4,heading:entranceHeading},
-  {label:"분수대",aria:"정동 분수대로 순간이동",name:"정동 분수대",...jeongdongFountainApproach,heading:318},
+  {...westSites[0],...semaVenue.outsideDoor,label:"시립미술관",aria:"서울시립미술관 입구로 순간이동"},
+
   {label:"중화전",aria:"중화전으로 순간이동",...court,heading:normalize(Math.atan2(hall.x-court.x,court.y-hall.y)*180/Math.PI)},
   {label:"교통편",aria:"시청역 2번 출구로 순간이동",...cityHallStation.arrive,name:cityHallStation.name},
   busShortcut("deoksugung","정류장")
@@ -1572,7 +1573,7 @@ const localDestinations={"덕수궁":mapDestinations,"광화문광장":plazaDest
     {...angukExit.arrive,label:"안국역",name:angukExit.name,aria:"안국역 1번 출구로 순간이동"},
     {...mmcaVenue.outsideDoor,label:"국현미",name:mmcaVenue.name,aria:"국립현대미술관 입구로 순간이동"}],"환구단":hwangudanDestinations,
   "청계천":cheonggyeDestinations,"열린송현녹지광장":songhyeonDestinations,
-  "서울시립미술관":[westSites[0],westSites[1]],"정동길":westSites.slice(0,3),"경희궁":westSites.slice(2)};
+  "정동길":[...westSites.slice(1,3),busShortcut("history-west","박물관 정류장")],"경희궁":[...westSites.slice(2),busShortcut("heunghwa-west","흥화문 정류장")]};
 const shortcutRegion=document.createElement("select");
 shortcutRegion.id="shortcut-region";
 shortcutRegion.className="quiet";
@@ -1580,7 +1581,7 @@ shortcutRegion.setAttribute("aria-label","순간이동 구역");
 shortcutRegion.add(new Option("현재 구역",""));
 for(const region of Object.keys(localDestinations))shortcutRegion.add(new Option(region==="열린송현녹지광장"?"열린송현":region,region));
 $("model-credits").after(shortcutRegion);
-const shortcutButtons=["entrance-target","fountain-target","palace-target","stop-target","plaza-bus-target"].map($);
+const shortcutButtons=Array.from(document.querySelectorAll('#map-links [data-shortcut]'));
 const extraShortcut=document.createElement("button");
 extraShortcut.type="button";
 extraShortcut.className="quiet";
@@ -1880,12 +1881,8 @@ const wishDrawing=makeWishDrawing(art=>{
   me.wishArt=art?.some(Boolean)?art:null;
   dirty=true;toast("소원등을 띄웠어요.");
 });
-// Souvenir photo in the throne-hall court: face the camera, wave, and save the picture.
-let photoBusy=false,lastScene=null;
+let lastScene=null;
 const photoWrites=new Set();
-function nearPhotoZone(){
-  return Boolean(world&&session&&me.seat==null&&near(gbPhotoZone,me.x,me.y)<gbPhotoZone.reach);
-}
 function canMovePhoto(point){
   const inside=interiorAt(me.x,me.y);
   return interiorAt(point.x,point.y)===inside&&(!inside||point.height<=4.4)&&
@@ -1917,12 +1914,11 @@ function savePhoto(picture,options){
   write.then(done,done);
   return write;
 }
-async function writePhoto(picture,{date=gameTime(),place=shownPlace(me),mode="solo",download=false}={}){
+async function writePhoto(picture,{date=gameTime(),place=shownPlace(me),mode="solo"}={}){
   let record;
   try{
     record=await makePhotoCard(picture,{date,place,mode,nickname:session?.nickname??nickname.value});
     await importPhotos([record]);
-    if(download)downloadPhoto(record);
     toast("산책 사진 앨범에 저장했어요.");
     if(photoMode.camera)photoMode.status("앨범에 저장했어요.");
   }catch(error){
@@ -1937,16 +1933,6 @@ function takePhoto(shot){
   const picture=world.capturePhoto({...lastScene,clock:shot.shootAt,photoCamera:photoMode.camera});
   void savePhoto(picture,{date:shot.shootAt,place:shownPlace(shot.camera??me),mode:shot.mode});
 }
-$("photo").addEventListener("click",()=>{
-  if(photoBusy||!nearPhotoZone()||!lastScene)return;
-  photoBusy=true;resetInput();
-  Object.assign(me,{x:gbPhotoZone.x,y:gbPhotoZone.y,heading:gbPhotoZone.heading,vx:0,vy:0,up:false,wave:gameTime()});
-  dirty=true;toast("하나, 둘, 셋!");
-  setTimeout(()=>{
-    photoBusy=false;
-    if(world&&lastScene&&nearPhotoZone())void savePhoto(world.snapshot(lastScene,gbPhotoZone.shot),{place:"경복궁 근정전",download:true});
-  },1100);
-});
 function openWish(){
   if(!nearWishFountain())return;
   resetInput();$("wish-status").hidden=true;wishDrawing.open();
@@ -2003,7 +1989,7 @@ function atIndoorStation(point,reach=2.8){return near(point,me.x,me.y)<reach&&cl
 function portalNearby(){
   if(!world||me.bus||isCycling(me)||queuedBus||queuedBike)return null;
   const inside=interiorAt(me.x,me.y);
-  const venues=inside?[venueAt(inside)]:[world.museum,mmcaVenue,ARCADE_SITE,...diningVenues];
+  const venues=inside?[venueAt(inside)]:[world.museum,mmcaVenue,semaVenue,ARCADE_SITE,...diningVenues];
   for(const venue of venues){
     const door=inside?venue?.insideDoor:venue?.outsideDoor;
     if(door&&atIndoorStation(door,2.5))return {inside:Boolean(inside),venue};
@@ -2316,7 +2302,9 @@ $("subway").addEventListener("click",()=>{
   transitDialog.showModal();
 });
 function nearbyExhibit(){
-  const modern=interiorAt(me.x,me.y)===mmcaVenue.id;
+  const inside=interiorAt(me.x,me.y);
+  if(inside===semaVenue.id)return semaExhibits.find(exhibit=>near(exhibit,me.x,me.y)<exhibit.radius)??null;
+  const modern=inside===mmcaVenue.id;
   const gallery=modern?mmcaGalleryAt(me.x,me.y):museumGalleryAt(me.x,me.y);
   if(!gallery||!world)return null;
   let closest=null,gap=Infinity;
@@ -2560,14 +2548,13 @@ const hotteokInstructions={
   place:"오므린 반죽과 같은 번호의 철판을 누르세요.",
   press:"누르개를 집고 철판의 반죽을 눌러 납작하게 만드세요.",
   flip:"아랫면이 노릇해지면 철판의 호떡을 눌러 뒤집으세요.",
-  take:"뒷면도 노릇해지면 호떡을 눌러 꺼내세요."
+  plate:"호떡을 눌러 매대에 올리세요."
 };
 const bungeoInstructions={
   pour:"반죽통을 집고 빈 틀을 누르세요.",
   fill:"팥이나 슈크림 그릇을 집고 반죽을 부은 틀을 누르세요.",
   flip:"아랫면이 노릇해지면 틀을 눌러 뒤집으세요.",
-  take:"뒷면도 노릇해지면 틀을 눌러 꺼내세요.",
-  plate:"판매대를 선택했어요. 노릇한 붕어빵 틀을 누르세요."
+  plate:"틀을 눌러 붕어빵을 매대에 올리세요."
 };
 const bungeoKinds=new Set([...Object.values(BUNGEO_ITEMS),BUNGEO_CUSTARD_ITEM,...Object.values(HOTTEOK_ITEMS)]);
 function bungeoInventoryPending(){
@@ -2582,19 +2569,17 @@ function bungeoActions(time){
     me.seat!=null||myLink()?.active||photoMode.camera||minigames.active()||!clearSegment(me,stall))return null;
   const loaded=bungeoWatchedStall===stall.id&&Array.isArray(bungeoMolds);
   const busy=Boolean(picnicInventoryBusy()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||time-me.jump<jumpDuration(me));
-  const slot=freeItemSlot(me,time),inventoryPending=bungeoInventoryPending();
-  const traySlot=stall.kind==="hotteok"?ITEM_SLOTS.find(hand=>me[hand]?.kind===HOTTEOK_ITEMS.good&&
-    me[hand].remaining===ITEMS.hotteok.uses&&!itemAnimating(me[hand],time)):null;
+  const slot=freeItemSlot(me,time);
   const order=stall.customer&&loaded?bungeoOrder:null,accepted=order?.phase==="accepted",outstanding=accepted?order.quantity-order.served:0;
-  const acceptOrder=order?.phase==="waiting",serveOrder=accepted&&outstanding>0&&bungeoStock>=outstanding;
+  const acceptOrder=order?.phase==="waiting",serveOrder=accepted&&outstanding>0&&order.stock>=outstanding;
   const queuedPlates=bungeoQueue.filter(command=>command.action==="plate").length;
-  const canPlate=stall.customer&&bungeoMode?.tool==="tray"&&bungeoStock+queuedPlates<BUNGEO_STOCK_CAPACITY;
+  const canPlate=bungeoStock+queuedPlates<BUNGEO_STOCK_CAPACITY;
   const molds=Array.from({length:BUNGEO_MOLD_COUNT},(_,cavity)=>{
     const mold=loaded?bungeoMolds[cavity]:null,step=bungeoStep(mold,time);
     const pending=bungeoQueue.some(command=>command.cavity===cavity);
-    const action=canPlate&&step.action==="take"&&step.quality==="good"?"plate":step.action;
+    const action=step.action==="take"?"plate":step.action;
     const available=loaded&&!busy&&!pending&&step.ready;
-    const ready=available&&(action==="plate"||Boolean(slot))&&(action!=="take"||!inventoryPending);
+    const ready=available&&(action!=="plate"||canPlate);
     return {mold,step,action,pending,ready};
   });
   const giftSlot=ITEM_SLOTS.find(hand=>bungeoKinds.has(me[hand]?.kind)&&me[hand].remaining>0&&!itemAnimating(me[hand],time));
@@ -2606,7 +2591,7 @@ function bungeoActions(time){
     const distance=near(position,me.x,me.y);
     if(distance<=closest){closest=distance;target=person;}
   }
-  return {stall,loaded,busy:busy||bungeoQueue.length>0,molds,slot,traySlot,giftSlot,target,order,accepted,acceptOrder,serveOrder};
+  return {stall,loaded,busy:busy||bungeoQueue.length>0,molds,slot,canPlate,giftSlot,target,order,accepted,acceptOrder,serveOrder};
 }
 function receiveBungeo(data,confirmed,command,watching){
   const current=nearbyCookingStall(me)?.id;
@@ -2625,8 +2610,8 @@ function receiveBungeo(data,confirmed,command,watching){
   if(!command||bungeoQueue[0]!==command)return;
   bungeoQueue.shift();
   if(result?.id!==command.id||!result.accepted){
-    const message=command.action==="plate"?"붕어빵이 노릇한지, 판매대에 자리가 있는지 확인해 주세요.":
-      command.action.endsWith("Tray")?"매대에 자리나 호떡이 있는지 확인해 주세요.":
+    const message=command.action==="plate"?"매대의 빈자리와 굽는 상태를 확인해 주세요.":
+      command.action.endsWith("Tray")?"매대의 간식과 빈손을 확인해 주세요.":
       command.order?"주문과 판매대 상태를 확인해 주세요.":"굽는 상태와 빈손을 확인한 뒤 다시 해 주세요.";
     if(bungeoMode)feedbackCooking(message);
     else toast(message);
@@ -2634,19 +2619,18 @@ function receiveBungeo(data,confirmed,command,watching){
   }
   const kind=confirmed?.[command.slot]?.kind,item=ITEMS[kind];
   if((command.action==="take"||command.action==="takeTray")&&item){
-    const message=command.action==="take"&&kind===HOTTEOK_ITEMS.good?
-      "호떡을 꺼냈어요. 오른쪽 매대를 눌러 올려둘 수 있어요.":item.name+"을 손에 들었어요.";
+    const message=item.name+"을 손에 들었어요.";
     if(bungeoMode)feedbackCooking(message);
     else toast(message);
   }
-  if(command.action==="putTray"&&bungeoMode)feedbackCooking("호떡을 매대에 올렸어요.");
+  if(command.action==="plate"&&bungeoMode)feedbackCooking("매대에 올렸어요. 매대를 누르면 하나 집을 수 있어요.");
   if(command.action==="gift")toast("친구에게 간식을 건넸어요.");
 }
 function bungeoOrderMessage(order){
   switch(order?.phase){
     case "approaching":return "손님이 오고 있어요.";
     case "waiting":return `“붕어빵 ${order.quantity}개 주세요!”`;
-    case "accepted":return bungeoStock>=order.quantity?`주문 ${order.quantity}개 · 건넬 수 있어요`:`주문 ${order.quantity}개 · ${order.quantity-bungeoStock}개 더 필요해요`;
+    case "accepted":return order.stock>=order.quantity?`주문 ${order.quantity}개 · 건넬 수 있어요`:`주문 ${order.quantity}개 · ${order.quantity-order.stock}개 더 필요해요`;
     case "complete":return `${order.quantity}개 판매 완료 · 이 방에서 총 ${order.totalSold}개`;
     default:return "";
   }
@@ -2654,13 +2638,11 @@ function bungeoOrderMessage(order){
 function cookingPrompt(actions,hotteok){
   if(!actions?.loaded)return "작업대 상태를 불러오는 중이에요.";
   if(bungeoMode.feedbackUntil>performance.now())return bungeoMode.feedback;
-  if(actions.traySlot)return "꺼낸 호떡은 오른쪽 매대를 눌러 올려둘 수 있어요.";
   const cell=actions.molds[bungeoMode.cavity]??actions.molds.find(mold=>mold.action!=="pour")??actions.molds[0];
   if(cell.pending)return "굽기 상태를 확인하고 있어요.";
-  if(!actions.slot&&cell.action!=="plate")return "손에 들려면 한 손을 비워 주세요.";
+  if(cell.action==="plate"&&!actions.canPlate)return "매대가 가득 찼어요. 매대에서 하나 집어 주세요.";
   if(cell.step.quality==="burnt")return "탔어요. 구운 자리를 눌러 꺼내세요.";
   if(cell.step.waitMs>0)return `굽는 중 · ${Math.ceil(cell.step.waitMs/1000)}초`;
-  if(bungeoMode.tool==="tray"&&cell.action==="pour")return bungeoInstructions.plate;
   return (hotteok?hotteokInstructions:bungeoInstructions)[cell.action]??"작업대의 도구나 자리를 누르세요.";
 }
 function updateBungeoControls(time){
@@ -2670,11 +2652,11 @@ function updateBungeoControls(time){
   const orderStatus=$("bungeo-order-status"),orderMessage=bungeoOrderMessage(actions?.order);
   orderStatus.hidden=!orderMessage;setText(orderStatus,orderMessage);
   const stockLabel=`${customer?"판매대":"매대"} ${bungeoStock}/${BUNGEO_STOCK_CAPACITY}개`;
-  const prompt=!actions?"":!actions.slot?"굽거나 손에 들려면 한 손을 비워 주세요.":customer||hotteok&&bungeoStock?stockLabel:"";
+  const prompt=actions&&bungeoStock?stockLabel:"";
   status.hidden=!prompt;setText(status,prompt);
   if(bungeoMode){
     const step=cookingPrompt(actions,hotteok);
-    setText($("bungeo-instruction"),customer||hotteok&&bungeoStock?`${step} · ${stockLabel}`:step);
+    setText($("bungeo-instruction"),`${step} · ${stockLabel}`);
   }
   setActivity("bungeo-accept",actions?.acceptOrder?"주문 받기":null,Boolean(actions?.busy));
   setActivity("bungeo-open",actions&&!bungeoMode?food+" 굽기":null,Boolean(actions?.busy||!actions?.loaded));
@@ -2702,7 +2684,7 @@ function setBungeoCooking(active){
   $("bungeo-hint").hidden=!active;
   if(active){
     setText($("bungeo-keyboard"),hotteok?"Q 반죽 · W 설탕소 · E 누르개 · 1–3 자리 · R 매대 · Esc 끝내기":
-      `Q 반죽통 · W 팥 · E 슈크림 · 1–3 틀${actions.stall.customer?" · R 판매대":""} · Esc 끝내기`);
+      `Q 반죽통 · W 팥 · E 슈크림 · 1–3 틀 · R 매대 · Esc 끝내기`);
     attr($("game"),"aria-describedby","bungeo-instruction bungeo-keyboard");
     updateBungeoControls(gameTime());
   }else $("game").removeAttribute("aria-describedby");
@@ -2717,6 +2699,7 @@ function useBungeoMold(cavity,surface){
   bungeoMode.cavity=cavity;
   bungeoMode.feedbackUntil=0;
   const actions=bungeoActions(gameTime()),cell=actions?.molds[cavity];
+  if(cell?.action==="plate"&&!actions.canPlate){feedbackCooking("매대가 가득 찼어요. 자리를 비운 뒤 꺼내세요.");return;}
   if(!cell?.ready)return;
   const {action}=cell;
   const tool=bungeoMode.tool;
@@ -2729,25 +2712,15 @@ function useBungeoMold(cavity,surface){
     feedbackCooking(bungeoInstructions[action]);return;
   }
   queueBungeo(actions.stall,{action,cavity,...(action==="pour"?{prepare:actions.stall.kind==="bungeo"}:{batch:cell.mold.id}),
-    ...(action==="fill"?{filling:tool}:null),...(action==="take"?{slot:actions.slot}:null)});
+    ...(action==="fill"?{filling:tool}:null)});
 }
 function useCookingTray(){
   const actions=bungeoActions(gameTime());
   if(!actions?.loaded||!bungeoMode)return;
-  if(actions.stall.customer){
-    if(bungeoStock>=BUNGEO_STOCK_CAPACITY){feedbackCooking("판매대가 가득 찼어요.");return;}
-    chooseBungeoTool("tray");
-    feedbackCooking(bungeoMode.tool==="tray"?bungeoInstructions.plate:"노릇한 틀을 누르면 붕어빵을 손에 들어요.");
-    return;
-  }
-  if(actions.stall.kind!=="hotteok"||actions.busy)return;
-  if(actions.traySlot){
-    if(bungeoStock>=BUNGEO_STOCK_CAPACITY){feedbackCooking("매대가 가득 찼어요.");return;}
-    queueBungeo(actions.stall,{action:"putTray",slot:actions.traySlot});
-  }else if(bungeoStock>0){
-    if(!actions.slot){feedbackCooking("호떡을 들려면 한 손을 비워 주세요.");return;}
-    queueBungeo(actions.stall,{action:"takeTray",slot:actions.slot});
-  }else feedbackCooking("노릇하게 구운 호떡을 꺼낸 뒤 매대를 누르세요.");
+  if(actions.busy)return;
+  if(!bungeoStock){feedbackCooking("구운 간식을 꺼내면 이 매대에 놓여요.");return;}
+  if(!actions.slot){feedbackCooking("간식을 집으려면 한 손을 비워 주세요.");return;}
+  queueBungeo(actions.stall,{action:"takeTray",slot:actions.slot});
 }
 function useCookingTarget(target){
   if(target?.tool)chooseBungeoTool(target.tool);
@@ -2759,7 +2732,7 @@ function useCookingShortcut(code){
     useBungeoMold(Number(code.at(-1))-1);return true;
   }
   const stall=cookingStallById(bungeoMode.stall);
-  if(code==="KeyR"&&(stall?.kind==="hotteok"||stall?.customer)){useCookingTray();return true;}
+  if(code==="KeyR"){useCookingTray();return true;}
   const tools=stall?.kind==="hotteok"?{KeyQ:"batter",KeyW:"sugar",KeyE:"press"}:{KeyQ:"batter",KeyW:"redBean",KeyE:"custard"};
   if(!Object.hasOwn(tools,code))return false;
   chooseBungeoTool(tools[code]);return true;
@@ -2930,7 +2903,6 @@ function updateActivities(time,guideNearby){
   const pickup=station&&(free?(station.kind==="churu"?"츄르 사기":ITEMS[station.kind].name+" 받기"):
     packAtCounter?ITEMS[station.kind].name+" 가방에 담기":"손이나 가방을 비워 주세요");
   setActivity("take-item",pickup,busy||!free&&!packAtCounter);
-  setActivity("photo",eligible&&nearPhotoZone()?"사진 찍기":null,photoBusy);
   const feedSlot=queuedFeed?.slot??me.feed?.slot??"item";
   const nearbyFeedCat=eligible&&feedCatNearby();
   ITEM_SLOTS.forEach((slot,index)=>{
@@ -2952,7 +2924,7 @@ function updateActivities(time,guideNearby){
   const stop=eligible&&nearbyTransit();
   setActivity("subway",stop?"지하철 타기":null,riding||feeding||Boolean(myLink()?.active));
   const portal=eligible&&portalNearby();
-  const entrance=portal?.venue===ARCADE_SITE?"오락실 입장":portal?.venue===mmcaVenue?"미술관 입장":diningById[portal?.venue?.id]?"식당 입장":"입장하기";
+  const entrance=portal?.venue===ARCADE_SITE?"오락실 입장":[mmcaVenue,semaVenue].includes(portal?.venue)?"미술관 입장":diningById[portal?.venue?.id]?"식당 입장":"입장하기";
   setActivity("museum-door",portal?(portal.inside?"나가기":entrance):null,feeding||(!portal?.inside&&Boolean(myLink()?.active)));
   setActivity("venue-guestbook",eligible&&guestbookVenue()?"방명록":null);
   updateDiningControls(eligible,busy,time);
@@ -3273,6 +3245,7 @@ function drawIndoorMap(base,venue,galleries,mini){
       width:2.3,height:1.38,rx:.25,fill:"#d0ab79"});
   }
   const points=[[venue.insideDoor,"출구"]];
+  if(venue===semaVenue)for(const work of semaExhibits)drawMapPoint(layer,{...work,name:work.title},"heritage",mini,true);
   if(venue.guestbookPoint)points.push([venue.guestbookPoint,"방명록"]);
   if(venue.menuPoint)points.push(venue.service==="robot"?[venue.kioskPoint,"키오스크"]:[venue.menuPoint,"카운터"]);
   if(ARCADE_STAIRS[venue.id]){
@@ -3303,6 +3276,7 @@ function drawMap(base,mini=false){
   base=outdoors;
   const westColors={grove:"#465a43",grass:"#607553",verge:"#77796b",crossing:"#ece4c9",stone:"#a39780",road:"#58605b",street:"#847e6f",path:"#b6a687"};
   for(const feature of [...westSurfaces,...westBuildings]){
+    if(feature.kind==="backdrop")continue;
     const d=feature.rings.map(ring=>"M"+ring.map(p=>p.join(",")).join("L")+"Z").join("");
     svg(base,"path",{d,fill:westColors[feature.kind]??(feature.kind==="block"?"#706e61":"#675d50"),"fill-rule":"evenodd"});
   }
@@ -3375,6 +3349,7 @@ function drawMap(base,mini=false){
       fill:"#fff1d9","font-size":mini?5.1:3.1,"text-anchor":"middle"},mini?gallery.shortName:gallery.name);
   }
   svg(interior,"line",{x1:78.4,x2:81.6,y1:maxY,y2:maxY,stroke:"#d4b985","stroke-width":1.6});
+  drawIndoorMap(base,semaVenue,[],mini);
   drawIndoorMap(base,mmcaVenue,mmcaGalleryRooms,mini);
   drawIndoorMap(base,ARCADE_SITE,[],mini);
   drawIndoorMap(base,ARCADE_UPPER_SITE,[],mini);
@@ -3553,7 +3528,7 @@ function drawPlaza(base){
 }
 const gyeongbokViewBox=[42,gbBounds.minY-24,gbBounds.maxX-20,1098].join(" ");
 const plazaViewBox=[285,plazaBounds.minY,plazaBounds.maxX-268,plazaBounds.maxY-plazaBounds.minY].join(" ");
-const southViewBox="0 4 590 424",southApproachBox="0 -60 590 485";
+const southViewBox="0 4 590 462",southApproachBox="0 -60 590 485";
 const bukchonViewBox=[bukchonBounds.minX+12,bukchonBounds.minY-14,606,1076].join(" ");
 const hwangudanViewBox=[hwangudanBounds.minX-55,hwangudanBounds.minY-35,433,303].join(" ");
 const cheonggyeViewBox=[cheonggyeBounds.minX-55,cheonggyeBounds.minY-65,
@@ -3643,7 +3618,7 @@ function mapRegionAt(point,inside,overview){
   const area=outdoorMap(point);
   if(area==="경희궁")return "-462 -550 450 430";
   if(area==="정동길")return "-265 -260 490 585";
-  if(area==="서울시립미술관")return "75 254 270 210";
+
   if(area==="북촌")return bukchonViewBox;
   if(area==="환구단")return hwangudanViewBox;
   if(area==="청계천")return cheonggyeViewBox;
@@ -3756,7 +3731,7 @@ mapRouteWalk.addEventListener("click",()=>{
 });
 function drawDestinations(world){
   const shops=[...world.stations,...diningVenues.map(venue=>({...venue.outsideDoor,name:venue.name}))];
-  const doors=[{...world.museum.outsideDoor,name:"덕수궁 전시관 입구"},{...mmcaVenue.outsideDoor,name:"국립현대미술관 입구"}];
+  const doors=[{...world.museum.outsideDoor,name:"덕수궁 전시관 입구"},{...mmcaVenue.outsideDoor,name:"국립현대미술관 입구"},{...semaVenue.outsideDoor,name:"서울시립미술관 입구"}];
   for(const [layer,mini] of [[$("map-points"),false],[$("mini-landscape").querySelector(".outdoor-map-ground"),true]]){
     for(const point of shops)drawMapPoint(layer,point,"shop",mini);
     for(const point of [...COOKING_STALLS,ARCADE_SITE])drawMapPoint(layer,point,"activity",mini);
@@ -3770,7 +3745,7 @@ function updateMaps(self,others){
   const fullMap=$("map-panel").classList.contains("expanded")||!mobileHeader.matches&&!gameShell.classList.contains("game-fullscreen");
   const coat=hexCoat(self.coat??0xe5b672);
   if(fullMap){
-    const mapArea=["북촌","환구단","청계천","열린송현녹지광장","서울시립미술관","경희궁","정동길"].includes(area)?area:
+    const mapArea=["북촌","환구단","청계천","열린송현녹지광장","경희궁","정동길"].includes(area)?area:
       palace?"경복궁":plaza||corridor&&self.y<-58?"광화문광장":"덕수궁";
     setText($("map-panel").querySelector("h2"),indoors?`${inside==="museum"?"전시관":venueById[inside].name} 지도`:overview?"전체 지도":mapArea+" 지도");
     $("world").classList.toggle("overview-map",overview);

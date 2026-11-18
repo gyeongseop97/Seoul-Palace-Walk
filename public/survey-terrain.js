@@ -1,13 +1,12 @@
-// Vertex-colour scans of these halls contain distorted porches and windows.
-// Keep the measured roofs and build walkable surfaces and joinery in the game.
-const roofCutoff={junghwajeon:7.72,hamnyeongjeon:4.98,seogeodang:4.08};
+// Keep the walkable terrace and floors underneath the measured timber facade.
+const shellCutoff={junghwajeon:1.79,hamnyeongjeon:1.32,seogeodang:.90};
 // The pavilion's stair and railing scans are intact above the base.
 const groundCutoff={jeonggwanheon:-.08};
 
 export function prepareSurveyTerrain(T,asset,name,models){
-  const minHeight=roofCutoff[name]??groundCutoff[name];
+  const minHeight=name==="gyeonghoeru"?.24:shellCutoff[name]??groundCutoff[name];
   if(minHeight==null)return models;
-  const replaced=roofCutoff[name]!=null?models.flatMap(model=>model.userData.surveyRoofs??[]):models;
+  const replaced=shellCutoff[name]!=null?models.flatMap(model=>model.userData.surveyShell??[]):models;
   if(!replaced.length)throw Error("Missing modeled survey components");
 
   asset.updateMatrixWorld(true);

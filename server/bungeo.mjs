@@ -26,6 +26,7 @@ const schema=[
     stock INTEGER NOT NULL DEFAULT 0, sold INTEGER NOT NULL DEFAULT 0
   )`,
   "CREATE TABLE IF NOT EXISTS bungeo_trays (room TEXT PRIMARY KEY, stock INTEGER NOT NULL)",
+  "CREATE TABLE IF NOT EXISTS bungeo_rack (room TEXT NOT NULL, batch TEXT NOT NULL, kind TEXT NOT NULL, PRIMARY KEY(room,batch))",
   "CREATE INDEX IF NOT EXISTS bungeo_requests_recent ON bungeo_requests(at)"
 ];
 const readyDatabases=new WeakMap();
@@ -52,7 +53,15 @@ export function ensureBungeoTables(db){
       INSERT OR IGNORE INTO bungeo_cavities (room,cavity,batch,poured,flipped)
       SELECT room,0,batch,poured,flipped FROM bungeo_molds WHERE COALESCE(flipped,poured)>?
     `).bind(Date.now()-BUNGEO_EXPIRE_MS);
-    ready=db.batch([...schema.map(sql=>db.prepare(sql).bind()),migrate,db.prepare("DELETE FROM bungeo_molds").bind()])
+    // Older stands stored counts only. Expand them once, in the same transaction that clears the counts.
+    const racks=[];
+    for(const [table,kind] of [["bungeo_trays",HOTTEOK_ITEMS.good],["bungeo_orders",BUNGEO_ITEMS.good]]){
+      racks.push(db.prepare(`WITH RECURSIVE slots(n) AS (VALUES(1) UNION ALL SELECT n+1 FROM slots WHERE n<${BUNGEO_STOCK_CAPACITY})
+        INSERT INTO bungeo_rack(room,batch,kind)
+        SELECT room,'legacy-'||n,? FROM ${table} JOIN slots ON n<=stock`).bind(kind),
+        db.prepare(`UPDATE ${table} SET stock=0 WHERE stock>0`).bind());
+    }
+    ready=db.batch([...schema.map(sql=>db.prepare(sql).bind()),...racks,migrate,db.prepare("DELETE FROM bungeo_molds").bind()])
       .then(()=>ensureCavityColumn(db,"filling",fillingColumn))
       .then(()=>ensureCavityColumn(db,"hotteok_stage",hotteokColumn))
       .catch(error=>{readyDatabases.delete(db);throw error;});
@@ -73,11 +82,11 @@ export function validBungeo(command,player){
     case "flip":return token(command.batch);
     case "take":return token(command.batch)&&validItemSlot(command.slot);
     case "gift":return token(command.to)&&command.to!==player&&validItemSlot(command.slot);
-    case "putTray":
-    case "takeTray":return stall.kind==="hotteok"&&validItemSlot(command.slot);
+    case "putTray":return stall.kind==="hotteok"&&validItemSlot(command.slot);
+    case "takeTray":return validItemSlot(command.slot);
     case "acceptOrder":
     case "serveOrder":return stall.customer&&token(command.order);
-    case "plate":return stall.customer&&token(command.batch)&&(command.order===undefined||token(command.order));
+    case "plate":return token(command.batch)&&(command.order===undefined||token(command.order));
     default:return false;
   }
 }
@@ -167,11 +176,24 @@ const bakedQuality=`CASE WHEN flipped-poured>${BUNGEO_BURN_MS} OR ?-flipped>${BU
   WHEN flipped-poured<${BUNGEO_GOOD_MS} OR ?-flipped<${BUNGEO_GOOD_MS} THEN 'torn' ELSE 'good' END`;
 const clearedMold=(db,context)=>db.prepare("DELETE FROM bungeo_cavities WHERE room=? AND cavity=? AND batch=? AND changes()=1")
   .bind(...moldArgs(context));
+function bakedItem(stall){
+  const items=stall.kind==="hotteok"?HOTTEOK_ITEMS:BUNGEO_ITEMS;
+  const base=`CASE quality ${Object.entries(items).map(([quality,kind])=>`WHEN '${quality}' THEN '${kind}'`).join(" ")} END`;
+  return stall.kind==="bungeo"?`CASE WHEN quality='good' AND filling='custard' THEN '${BUNGEO_CUSTARD_ITEM}' ELSE ${base} END`:base;
+}
+const rackSpace=`(SELECT COUNT(*) FROM bungeo_rack WHERE room=?)<${BUNGEO_STOCK_CAPACITY}`;
+const sellable=`kind IN ('${BUNGEO_ITEMS.good}','${BUNGEO_CUSTARD_ITEM}')`;
+function moldReceipt(db,context,slot=null){
+  const {now}=context;
+  return db.prepare(`
+    INSERT INTO bungeo_requests (room,player,request,at,quality,slot)
+    SELECT ?,?,?,?,${bakedQuality},? FROM bungeo_cavities WHERE room=? AND cavity=? AND batch=? AND changes()=1
+    ON CONFLICT(room,player,request) DO NOTHING
+  `).bind(...actionArgs(context),now,now,now,slot,...moldArgs(context));
+}
 function take(db,context){
   const {now,bungeo,stall}=context,path=itemPath(bungeo.slot);
-  const items=stall.kind==="hotteok"?HOTTEOK_ITEMS:BUNGEO_ITEMS;
-  const qualityItem=`CASE quality ${Object.entries(items).map(([quality,kind])=>`WHEN '${quality}' THEN '${kind}'`).join(" ")} END`;
-  const pickup=stall.kind==="bungeo"?`CASE WHEN quality='good' AND filling='custard' THEN '${BUNGEO_CUSTARD_ITEM}' ELSE ${qualityItem} END`:qualityItem;
+  const items=stall.kind==="hotteok"?HOTTEOK_ITEMS:BUNGEO_ITEMS,pickup=bakedItem(stall);
   const grant=db.prepare(`
     WITH bake AS MATERIALIZED (
       SELECT ${bakedQuality} AS quality,filling FROM bungeo_cavities
@@ -182,12 +204,7 @@ function take(db,context){
       'remaining',${ITEMS[items.good].uses},'started',0),'$.bungeoClaim',?)
     WHERE ${nearCook(stall)} AND ${freeSlot("w",path)} AND ${noMeal("w")} AND ${unseen} AND EXISTS (SELECT 1 FROM bake)
   `).bind(now,now,...moldArgs(context),now-BUNGEO_TOUCH_MS,now-BUNGEO_EXPIRE_MS,bungeo.id,...readyArgs(context),now,...actionArgs(context));
-  const remember=db.prepare(`
-    INSERT INTO bungeo_requests (room,player,request,at,quality,slot)
-    SELECT ?,?,?,?,${bakedQuality},? FROM bungeo_cavities WHERE room=? AND cavity=? AND batch=? AND changes()=1
-    ON CONFLICT(room,player,request) DO NOTHING
-  `).bind(...actionArgs(context),now,now,now,bungeo.slot,...moldArgs(context));
-  return [grant,remember,clearedMold(db,context)];
+  return [grant,moldReceipt(db,context,bungeo.slot),clearedMold(db,context)];
 }
 
 function putHotteokOnTray(db,context){
@@ -195,10 +212,9 @@ function putHotteokOnTray(db,context){
   const hold=`${nearCook(stall)} AND ${itemKind("w",path)}='${HOTTEOK_ITEMS.good}'
     AND ${itemRemaining("w",path)}=${ITEMS.hotteok.uses} AND ${availableAt("w",path)}<=?`;
   const add=db.prepare(`
-    INSERT INTO bungeo_trays (room,stock)
-    SELECT ?,1 FROM walkers w WHERE ${hold} AND ${unseen}
-    ON CONFLICT(room) DO UPDATE SET stock=stock+1 WHERE stock<${BUNGEO_STOCK_CAPACITY}
-  `).bind(cookingRoom,...readyArgs(context),now,...actionArgs(context));
+    INSERT INTO bungeo_rack(room,batch,kind)
+    SELECT ?,?,? FROM walkers w WHERE ${hold} AND ${unseen} AND ${rackSpace}
+  `).bind(cookingRoom,bungeo.id,HOTTEOK_ITEMS.good,...readyArgs(context),now,...actionArgs(context),cookingRoom);
   const release=db.prepare(`
     UPDATE walkers AS w SET avatar=json_set(json_remove(w.avatar,'${path}'),'$.bungeoClaim',?)
     WHERE changes()=1 AND ${hold}
@@ -206,17 +222,24 @@ function putHotteokOnTray(db,context){
   return [add,release,receipt(db,context,{slot:bungeo.slot})];
 }
 
-function takeHotteokFromTray(db,context){
+function takeFromTray(db,context){
   const {now,bungeo,stall}=context,path=itemPath(bungeo.slot),cookingRoom=stateRoom(context);
+  const first="SELECT rowid FROM bungeo_rack WHERE room=? ORDER BY rowid LIMIT 1";
   const pickup=db.prepare(`
     UPDATE walkers AS w SET avatar=json_set(w.avatar,'${path}',json_object(
-      'kind','${HOTTEOK_ITEMS.good}','remaining',${ITEMS.hotteok.uses},'started',0),'$.bungeoClaim',?)
+      'kind',(SELECT kind FROM bungeo_rack WHERE rowid=(${first})),'remaining',${ITEMS[stall.kind==="hotteok"?HOTTEOK_ITEMS.good:BUNGEO_ITEMS.good].uses},'started',0),'$.bungeoClaim',?)
     WHERE ${nearCook(stall)} AND ${freeSlot("w",path)} AND ${noMeal("w")} AND ${unseen}
-      AND EXISTS (SELECT 1 FROM bungeo_trays WHERE room=? AND stock>0)
-  `).bind(bungeo.id,...readyArgs(context),now,...actionArgs(context),cookingRoom);
-  const remove=db.prepare("UPDATE bungeo_trays SET stock=stock-1 WHERE room=? AND stock>0 AND changes()=1")
-    .bind(cookingRoom);
-  return [pickup,remove,receipt(db,context,{quality:"good",slot:bungeo.slot})];
+      AND EXISTS (SELECT 1 FROM bungeo_rack WHERE room=?)
+  `).bind(cookingRoom,bungeo.id,...readyArgs(context),now,...actionArgs(context),cookingRoom);
+  const remove=db.prepare(`DELETE FROM bungeo_rack WHERE rowid=(${first}) AND changes()=1`).bind(cookingRoom);
+  const items=stall.kind==="hotteok"?HOTTEOK_ITEMS:BUNGEO_ITEMS;
+  const remember=db.prepare(`
+    INSERT INTO bungeo_requests(room,player,request,at,quality,slot)
+    SELECT ?,?,?,?,CASE kind WHEN ? THEN 'burnt' WHEN ? THEN 'torn' ELSE 'good' END,?
+    FROM bungeo_rack WHERE rowid=(${first}) AND changes()=1
+    ON CONFLICT(room,player,request) DO NOTHING
+  `).bind(...actionArgs(context),now,items.burnt,items.torn,bungeo.slot,cookingRoom);
+  return [pickup,remember,remove];
 }
 
 function gift(db,context){
@@ -255,26 +278,29 @@ function acceptOrder(db,context){
 
 const acceptedOrder="room=? AND id=? AND accepted>? AND completed IS NULL";
 function plate(db,context){
-  const {room,now,bungeo}=context;
-  const plateFish=db.prepare(`
-    UPDATE bungeo_orders SET stock=stock+1
-    WHERE room=? AND stock<${BUNGEO_STOCK_CAPACITY} AND ${unseen}
-      AND EXISTS (SELECT 1 FROM walkers w WHERE ${nearCook(context.stall)})
-      AND EXISTS (SELECT 1 FROM bungeo_cavities m WHERE m.room=bungeo_orders.room AND cavity=? AND batch=?
-        AND flipped<=? AND flipped>? AND filling IS NOT NULL AND (${bakedQuality})='good')
-  `).bind(room,...actionArgs(context),...readyArgs(context),
-    bungeo.cavity??0,bungeo.batch,now-BUNGEO_TOUCH_MS,now-BUNGEO_EXPIRE_MS,now,now);
-  return [plateFish,receipt(db,context,{quality:"good"}),clearedMold(db,context)];
+  const {now,stall}=context,cookingRoom=stateRoom(context);
+  const add=db.prepare(`
+    INSERT INTO bungeo_rack(room,batch,kind)
+    SELECT ?,batch,${bakedItem(stall)} FROM
+      (SELECT batch,filling,${bakedQuality} AS quality FROM bungeo_cavities
+       WHERE room=? AND cavity=? AND batch=? AND flipped<=? AND flipped>? AND ${cookable(stall)})
+    WHERE ${rackSpace} AND ${unseen} AND EXISTS (SELECT 1 FROM walkers w WHERE ${nearCook(stall)})
+  `).bind(cookingRoom,now,now,...moldArgs(context),now-BUNGEO_TOUCH_MS,now-BUNGEO_EXPIRE_MS,
+    cookingRoom,...actionArgs(context),...readyArgs(context));
+  return [add,moldReceipt(db,context),clearedMold(db,context)];
 }
 
 function serveOrder(db,context){
   const {room,now,bungeo}=context;
   const serve=db.prepare(`
-    UPDATE bungeo_orders SET completed=?,sold=sold+quantity,stock=stock-quantity
-    WHERE ${acceptedOrder} AND stock>=quantity AND ${unseen}
+    UPDATE bungeo_orders SET completed=?,sold=sold+quantity
+    WHERE ${acceptedOrder} AND (SELECT COUNT(*) FROM bungeo_rack WHERE room=? AND ${sellable})>=quantity AND ${unseen}
       AND EXISTS (SELECT 1 FROM walkers w WHERE ${nearCook(context.stall)})
-  `).bind(now,room,bungeo.order,now-BUNGEO_CUSTOMER_PATIENCE_MS,...actionArgs(context),...readyArgs(context));
-  return [serve,receipt(db,context)];
+  `).bind(now,room,bungeo.order,now-BUNGEO_CUSTOMER_PATIENCE_MS,room,...actionArgs(context),...readyArgs(context));
+  const remove=db.prepare(`DELETE FROM bungeo_rack WHERE changes()=1 AND rowid IN (
+    SELECT rowid FROM bungeo_rack WHERE room=? AND ${sellable} ORDER BY rowid
+    LIMIT (SELECT quantity FROM bungeo_orders WHERE room=?))`).bind(room,room);
+  return [serve,receipt(db,context),remove];
 }
 
 export function bungeoStatements(db,context){
@@ -285,7 +311,7 @@ export function bungeoStatements(db,context){
     case "flip":return flip(db,context);
     case "take":return take(db,context);
     case "putTray":return putHotteokOnTray(db,context);
-    case "takeTray":return takeHotteokFromTray(db,context);
+    case "takeTray":return takeFromTray(db,context);
     case "gift":return gift(db,context);
     case "acceptOrder":return acceptOrder(db,context);
     case "plate":return plate(db,context);
@@ -302,13 +328,13 @@ export function selectBungeo(db,context){
       'pouredAt',m.poured,'flippedAt',m.flipped,'filling',m.filling))
       FROM bungeo_cavities m JOIN walkers w ON w.room=? AND w.id=? AND w.player_key=? AND w.updated>=?
       WHERE m.room=? AND COALESCE(m.flipped,m.poured)>? AND ${reach("w",stall,stall.watchRadius)}) AS molds,
-      (SELECT json_object('id',o.id,'customer',o.customer,'quantity',o.quantity,'stock',o.stock,
+      (SELECT json_object('id',o.id,'customer',o.customer,'quantity',o.quantity,'stock',(SELECT COUNT(*) FROM bungeo_rack WHERE room=o.room AND ${sellable}),
         'spawnedAt',o.spawned,'arrivesAt',o.spawned+${BUNGEO_CUSTOMER_WALK_MS},'acceptedAt',o.accepted,
         'completedAt',o.completed,'nextAt',o.completed+${BUNGEO_CUSTOMER_NEXT_MS},
         'expiresAt',COALESCE(o.accepted,o.spawned)+${BUNGEO_CUSTOMER_PATIENCE_MS},'totalSold',o.sold)
       FROM bungeo_orders o JOIN walkers w ON w.room=o.room AND w.id=? AND w.player_key=? AND w.updated>=?
       WHERE o.room=? AND ${reach("w",stall,stall.watchRadius)}) AS customerOrder,
-      (SELECT t.stock FROM bungeo_trays t JOIN walkers w ON w.room=? AND w.id=? AND w.player_key=? AND w.updated>=?
+      (SELECT COUNT(*) FROM bungeo_rack t JOIN walkers w ON w.room=? AND w.id=? AND w.player_key=? AND w.updated>=?
       WHERE t.room=? AND ${reach("w",stall,stall.watchRadius)}) AS trayStock,
       (SELECT json_object('quality',quality,'slot',slot) FROM bungeo_requests WHERE room=? AND player=? AND request=?) AS receipt
   `).bind(room,id,key,online,cookingRoom,now-BUNGEO_EXPIRE_MS,id,key,online,cookingRoom,
@@ -351,7 +377,7 @@ export function bungeoPayload(row,{bungeo,now,stall}){
   const order=JSON.parse(row?.customerOrder??"null");
   const bungeoOrder=activeOrder(order,now);
   const state={bungeoStall:stall.id,bungeo:bungeoMolds[0]?.stage==="filling"?null:bungeoMolds[0],bungeoMolds,bungeoOrder,
-    bungeoStock:stall.kind==="hotteok"?row?.trayStock??0:order?.stock??0};
+    bungeoStock:row?.trayStock??0};
   if(!bungeo)return state;
   const result=row?.receipt?JSON.parse(row.receipt):null;
   return {...state,bungeoResult:{id:bungeo.id,accepted:Boolean(result),

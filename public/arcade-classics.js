@@ -1,5 +1,6 @@
 export const CLASSIC_FIELDS={
   pinball:{x:1.06,z:1.99,top:1.03},
+  racing:{x:1.10,z:1.90,top:1.03},
   airHockey:{x:1.46,z:2.15,top:1.03},
   brickBreaker:{x:1.12,z:1.91,top:1.03}
 };
@@ -8,10 +9,23 @@ export const PIN_BUMPERS=[[-.52,-.94],[.52,-.94],[0,-.27],[-.67,.37],[.67,.37]];
 export const PIN_FLIPPERS=[[-.47,1.54],[.47,1.54]];
 export const PIN_DRAIN=.33;
 export const HOCKEY_GOAL=.54,HOCKEY_MALLET=.22,BRICK_PADDLE=.34;
-export const CLASSIC_RADII={pinball:.079,airHockey:.108,brickBreaker:.075};
+export const CLASSIC_RADII={pinball:.079,airHockey:.108,brickBreaker:.075,racing:.075};
 export const CLASSIC_BRICKS=Array.from({length:24},(_,i)=>({
   x:(i%6-2.5)*.338,z:-1.48+Math.floor(i/6)*.25,row:Math.floor(i/6)
 }));
+export const RACE_FINISH=900;
+export const raceBend=meters=>.23*Math.sin(meters/31)+.12*Math.sin(meters/17);
+export function raceTraffic(index){
+  return {meters:25+index*23,lane:[-.49,.46,0,-.02,.53,-.48,.22][index%7]};
+}
+function brickPattern(level){
+  if(level===1)return BRICK_MASK;
+  return CLASSIC_BRICKS.reduce((mask,{row},i)=>{
+    const col=i%6,pattern=(level-2)%3;
+    const filled=pattern===0?(row===0||col===0||col===5||row===3):(pattern===1?(col+row)%3!==1:Math.abs(col-2.5)<row+1);
+    return filled?mask|(1<<i):mask;
+  },0);
+}
 export const BRICK_MASK=(1<<CLASSIC_BRICKS.length)-1;
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 const fixedStep=1/150, maxFrame=.09, float=value=>Math.round(value*1000)/1000;
@@ -22,7 +36,7 @@ export function classicSnapshot(state){
   const hockey=state.kind==="airHockey"&&seat&&Number.isSafeInteger(seat.joined)&&seat.joined>0&&
     Array.isArray(seat.aim)&&seat.aim.length===2&&seat.aim.every(Number.isFinite)&&Number.isSafeInteger(seat.serve)&&seat.serve>=0?
     {joined:seat.joined,aim:[float(clamp(seat.aim[0],-1.2,1.2)),float(clamp(seat.aim[1],-1.89,-.23))],serve:seat.serve}:null;
-  return {...(hockey?{hockey}:{}),kind:state.kind,phase:state.phase,score:state.score,other:state.other,lives:state.lives,mask:state.mask,
+  return {...(hockey?{hockey}:{}),kind:state.kind,...(state.kind==="brickBreaker"?{level:state.level??1}:{}),phase:state.phase,score:state.score,other:state.other,lives:state.lives,mask:state.mask,
     ball:state.ball.map(float),paddle:state.paddle.map(float),rival:state.rival.map(float),
     flippers:state.flippers.map(float),hit:state.hit,flash:float(state.flash)};
 }
@@ -32,7 +46,7 @@ export function cleanClassicSnapshot(state){
   const range=(n,a,b)=>Number.isFinite(n)&&n>=a&&n<=b;
   const int=(n,a,b)=>Number.isInteger(n)&&range(n,a,b);
   const pair=(v,a,b)=>Array.isArray(v)&&v.length===2&&range(v[0],-a,a)&&range(v[1],-b,b);
-  if(!isClassic(kind)||!phases.has(phase)||!int(score,0,1000000)||!int(other,0,5)||!int(lives,0,3)||
+  if(!isClassic(kind)||!phases.has(phase)||!int(score,0,1000000)||!int(other,0,5)||!int(lives,0,kind==="brickBreaker"?5:3)||kind==="brickBreaker"&&!int(state.level??1,1,1000000)||
     !int(mask,0,BRICK_MASK)||!pair(ball,1.55,2.42)||!pair(paddle,1.55,2.42)||!pair(rival,1.55,2.42)||
     !Array.isArray(flippers)||flippers.length!==2||!flippers.every(value=>range(value,0,1))||
     !int(hit,-1,23)||!range(flash,0,1))return null;
@@ -58,16 +72,17 @@ function reflectSides(ball,edge){
 }
 
 export function makeArcadeClassics(play=()=>{}){
-  let game=null,accumulator=0,aim=null,held=[0,0],flips=[0,0],opponent=null;
+  let cornerTime=0,retreatTime=0,raceMeters=0,lastTraffic=-1,accumulator=0,game=null,aim=null,held=[0,0],flips=[0,0],opponent=null;
   function start(kind){
     if(!isClassic(kind))return false;
-    game={kind,phase:"ready",score:0,other:0,lives:3,mask:BRICK_MASK,hit:-1,flash:0,
+    game={kind,phase:"ready",score:0,other:0,lives:kind==="brickBreaker"?5:3,level:1,mask:BRICK_MASK,hit:-1,flash:0,
       ball:{x:0,z:0,vx:0,vz:0},paddle:{x:0,z:0,vx:0,vz:0},rival:{x:0,z:0,vx:0,vz:0},serve:0};
-    accumulator=0;aim=null;held=[0,0];flips=[0,0];
+    cornerTime=0;raceMeters=0;lastTraffic=-1;accumulator=0;aim=null;held=[0,0];flips=[0,0];
     resetRound();
     return true;
   }
   function resetRound(){
+    cornerTime=0;retreatTime=0;
     const {kind,ball,paddle,rival}=game;
     game.phase="ready";game.serve++;
     Object.assign(ball,{x:kind==="pinball"?.965:0,z:kind==="pinball"?1.61:kind==="brickBreaker"?1.35:0,vx:0,vz:0});
@@ -79,8 +94,9 @@ export function makeArcadeClassics(play=()=>{}){
     if(game.phase!=="ready")return;
     game.phase="playing";
     const {ball,kind,serve}=game;
+    if(kind==="racing")Object.assign(ball,{x:0,z:1.18});
     if(kind==="pinball")Object.assign(ball,{vx:-.08,vz:-7.4});
-    if(kind==="brickBreaker")Object.assign(ball,{x:game.paddle.x,vx:serve%2?1.55:-1.50,vz:-3.8});
+    if(kind==="brickBreaker")Object.assign(ball,{x:game.paddle.x,vx:serve%2?1.12:-1.12,vz:-3.06});
     if(kind==="airHockey")Object.assign(ball,{vx:serve%2?.55:-.51,vz:serve%2?1.65:-1.72});
     play("launch");
   }
@@ -146,7 +162,17 @@ export function makeArcadeClassics(play=()=>{}){
     follow(paddle,clamp(playerX,-x+.26,x-.26),clamp(playerZ,.23,z-.26),5.9,dt);
     const intercept=ball.z<.1?ball.x+ball.vx*.13:paddle.x*.19;
     const attack=ball.z<-.23&&ball.vz<1.15;
-    if(opponent)follow(rival,opponent[0],opponent[1],5.9,dt);
+    const againstRail=Math.abs(ball.x)>HOCKEY_GOAL-r*.35&&ball.z< -z+.39;
+    retreatTime=Math.max(0,retreatTime-dt);
+    cornerTime=!opponent&&!retreatTime&&againstRail?cornerTime+dt:0;
+    if(cornerTime>.18){
+      // Send the puck out along the rail and give it room before the next stroke.
+      ball.vx=-Math.sign(ball.x)*Math.max(1.9,Math.min(2.6,Math.abs(ball.vx)));
+      ball.vz=Math.max(1.35,Math.min(2.1,Math.abs(ball.vz)));
+      retreatTime=.78;cornerTime=0;
+    }
+    if(!opponent&&retreatTime)follow(rival,0,-z+.25,4.6,dt);
+    else if(opponent)follow(rival,opponent[0],opponent[1],5.9,dt);
     else follow(rival,clamp(intercept,-x+.26,x-.26),attack?clamp(ball.z-.26,-z+.24,-.37):-1.58,2.45+game.score*.22,dt);
     for(const mallet of [paddle,rival]){
       if(bounceCircle(ball,mallet.x,mallet.z,r+HOCKEY_MALLET,mallet.vx*.76,mallet.vz*.76))hit(-1);
@@ -176,17 +202,32 @@ export function makeArcadeClassics(play=()=>{}){
     if(ball.z< -z+r){ball.z=-z+r;ball.vz=Math.abs(ball.vz);}
     if(ball.vz>0&&previous>=0&&previous<1.56&&ball.z>=1.56&&Math.abs(ball.x-paddle.x)<BRICK_PADDLE+r){
       const offset=clamp((ball.x-paddle.x)/BRICK_PADDLE,-1,1);
-      ball.z=1.556;ball.vx=offset*4.1+paddle.vx*.15;
-      ball.vz=-Math.max(2.9,4.48-Math.abs(offset)*1.10);hit(-1);
+      const angle=clamp(offset*.96+paddle.vx*.024,-1,1);
+      const speed=Math.min(3.76,Math.hypot(ball.vx,ball.vz)+.024);
+      ball.z=1.556;ball.vx=Math.sin(angle)*speed;ball.vz=-Math.cos(angle)*speed;hit(-1);
     }
     for(const [i,brick] of CLASSIC_BRICKS.entries()){
       if(!(game.mask&(1<<i))||Math.abs(ball.x-brick.x)>.151+r||Math.abs(ball.z-brick.z)>.10+r)continue;
       if(Math.abs(previous-brick.z)>.10+r-1e-4)ball.vz*=-1;else ball.vx*=-1;
       game.mask&=~(1<<i);game.score+=10*(brick.row+1);hit(i);
-      if(!game.mask)game.phase="finished";
+      if(!game.mask){game.level++;game.mask=brickPattern(game.level);resetRound();}
       break;
     }
     if(ball.z>z+.13)downBall();
+  }
+  function stepRacing(dt){
+    const {ball}=game;
+    const steering=aim?clamp((aim.x-ball.x)*5,-1,1):held[0];
+    ball.x=clamp(ball.x+steering*dt*1.85,-1,1);
+    const onRoad=Math.abs(ball.x-raceBend(raceMeters))<.72;
+    const speed=game.flash>.02?8:onRoad?27:13;
+    raceMeters=Math.min(RACE_FINISH,raceMeters+speed*dt);
+    game.score=Math.floor(raceMeters);
+    const i=Math.max(0,Math.round((raceMeters-25)/23)),car=raceTraffic(i);
+    if(i!==lastTraffic&&Math.abs(raceMeters-car.meters)<1.6&&Math.abs(ball.x-(car.lane+raceBend(car.meters)))<.22){
+      lastTraffic=i;game.lives--;hit(-1);
+    }
+    if(!game.lives||raceMeters>=RACE_FINISH)game.phase="finished";
   }
   function advance(dt){
     game.flash=Math.max(0,game.flash-dt*3);
@@ -202,13 +243,14 @@ export function makeArcadeClassics(play=()=>{}){
       }
       return;
     }
+    if(game.kind==="racing"){stepRacing(dt);return;}
     const ball=game.ball,previous=ball.z;
     const ballStep=game.kind==="brickBreaker"?dt*.82:dt;
     ball.x+=ball.vx*ballStep;ball.z+=ball.vz*ballStep;
     if(game.kind==="pinball")stepPinball(dt);
     else if(game.kind==="airHockey")stepHockey(dt);
     else stepBricks(dt,previous);
-    const speed=Math.hypot(ball.vx,ball.vz),max=game.kind==="pinball"?8.2:7.1;
+    const speed=Math.hypot(ball.vx,ball.vz),max=game.kind==="brickBreaker"?3.76:game.kind==="pinball"?8.2:7.1;
     if(speed>max){ball.vx*=max/speed;ball.vz*=max/speed;}
   }
   function update(elapsed){
@@ -219,7 +261,7 @@ export function makeArcadeClassics(play=()=>{}){
   function state(){
     if(!game)return null;
     const {kind,phase,score,other,lives,mask,hit,flash,ball,paddle,rival}=game;
-    return {kind,phase,score,other,lives,mask,hit,flash,ball:[ball.x,ball.z],paddle:[paddle.x,paddle.z],
+    return {kind,phase,score,other,lives,level:game.level,mask,hit,flash,ball:[ball.x,ball.z],paddle:[paddle.x,paddle.z],
       rival:[rival.x,rival.z],flippers:flips.map(time=>Math.min(1,time/.075))};
   }
   return {start,stop(){game=null;opponent=null;},setOpponent(target){opponent=target;},clear(){held=[0,0];aim=null;},tap,action,move,update,state};

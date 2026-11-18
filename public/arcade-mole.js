@@ -16,9 +16,11 @@ export function moleView(aspect){
 export function moleSwing(clock,swingAt){
   const t=(clock-swingAt)/MOLE_WHACK_MS;
   if(!swingAt||t<0||t>=1)return 0;
-  if(t<.22)return -.26*Math.sin(t/.22*Math.PI);
-  const strike=(t-.22)/.78;
-  return Math.sin(Math.PI*strike**.54);
+  if(t<.14)return -.18*Math.sin(Math.PI*t/.14);
+  if(t<.31)return Math.sin((t-.14)/.17*Math.PI/2);
+  if(t<.42)return 1;
+  const release=(t-.42)/.58;
+  return (1-release)**2-.14*Math.sin(Math.PI*release);
 }
 
 export function makeArcadeMoles(random=Math.random){
@@ -39,7 +41,7 @@ export function makeArcadeMoles(random=Math.random){
     const elapsed=now-startAt,beat=Math.floor(elapsed/beatMs),progress=elapsed/beatMs-beat;
     const finished=beat>=pattern.length;
     const target=beat<0||finished?-1:pattern[beat];
-    const drop=beat===hitBeat?Math.min(1,Math.max(0,(now-hitAt-107)/74)):0;
+    const drop=beat===hitBeat?Math.min(1,Math.max(0,(now-hitAt-190)/135)):0;
     const height=target<0?0:Math.max(0,Math.min(1,progress*6,(.88-progress)*7))*(1-drop);
     return {kind:"mole",score,target,height,swingAt,swingHole,hit,finished,
       remaining:Math.max(0,Math.ceil((pattern.length*beatMs-Math.max(0,elapsed))/1000))};

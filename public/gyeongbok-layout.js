@@ -236,9 +236,6 @@ export function nearWoldaeRailing({x,y}){
   return along>south&&along<north&&Math.abs(Math.abs(x-gwanghwamun.x)-(half-.2))<2;
 }
 export const gbHaetae=[-1,1].map(side=>({side,east:side*19.6,north:-48}));
-// Standing here offers a souvenir photograph in front of the throne hall.
-export const gbPhotoZone={...at(0,263,"근정전 포토존"),heading:180,reach:3.4,
-  tripod:at(1.7,255.7),shot:{from:{...at(1.7,256.5),height:1.3},to:{...at(-.5,300),height:4.6},fov:52}};
 // Night floodlights: the nearest three are lit while a walker is in the palace.
 export const gbLightSpots=[
   [0,-12,5,620,60],[0,128,4.5,520,55],[0,226,4.5,520,55],[0,281,5.5,900,75],[0,360,4,420,50],[0,404,4,420,50],

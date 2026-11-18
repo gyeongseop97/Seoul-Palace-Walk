@@ -3,6 +3,7 @@ Extract bbox: 126.9655,37.5625,126.9765,37.5735. Coordinates match public/layout
 """
 import json
 import math
+from shapely import set_precision
 from shapely.ops import triangulate
 from shapely.geometry import MultiPoint
 import sys
@@ -52,6 +53,9 @@ kinds["path"].append(jeongdong.buffer(8.6))
 kinds["path"] += [Polygon([(328,-285),(338,-288),(449,-288),(453,-290),(453,-296),(338,-294),(328,-286)]),
                   Polygon([(327,-251),(338,-252),(421,-252),(472,-250),(472,-243),(421,-246),(338,-246),(327,-244)])]
 area = area.union(unary_union(kinds["path"][-2:]))
+junction = Polygon([(338,-286),(454,-287),(479,-281),(485,-254),(471,-250),(421,-252),(338,-252)])
+kinds["road"].append(junction)
+area = area.union(junction)
 crossings = []
 # Where the mapped approach meets the older Deoksugung fountain surface.
 kinds["path"].append(LineString([(164,286),(174.02,294.7)]).buffer(3))
@@ -67,6 +71,11 @@ kinds["stone"].append(poly(777427337))
 palace_parts = {196072048,196072051,196072053,196072054,196072056,555488612,555488613}
 gates = {196071778,196072046,196072055,555488600}
 halls = {196072049,196072052,555488614}
+# The public pavements around the history museum connect to both sides of Saemunan-ro.
+# Keep roads and footways through to the next junction so a sidewalk never ends at the extraction buffer.
+public_streets = area.buffer(78).intersection(box(-550,-565,214,-70))
+outer_ground = area.buffer(112).intersection(box(-565,-640,280,0))
+area = area.union(public_streets)
 context = area.buffer(25)
 buildings = []
 for i,(t,pts) in ways.items():
@@ -118,15 +127,37 @@ for i,(t,pts) in ways.items():
             if dx or dy: crossings.append((ln,round(math.atan2(dy,dx),4)))
         width=4.2 if crossing else 5.5 if key=="street" else 2.4
         kinds[key].append(ln.buffer(width/2).intersection(area))
+# Fill the spaces between explicitly mapped footways and all street-facing facades.
+# Private lots receive a visual floor too, but do not become pedestrian through-routes.
+kinds["path"].append(avenue.buffer(16).intersection(area))
+kinds["path"].append(poly(607996709).boundary.buffer(3.5).intersection(public_streets))
+kinds["grove"].append(area.intersection(palace))
+# Join each shop entrance and both counter positions to the public footway.
+for cx,cy,width,depth,facing in [(40,202,11,7.2,-1),(18,-214,11,7.2,-1),
+        (-75,-211,11,7.2,1),(107,-231,13.4,9.4,-1),(-101,-111,13.4,9.4,-1)]:
+    near=cy+facing*(depth/2-.1)
+    far=cy+facing*(depth/2+4)
+    kinds["path"].append(Polygon([(cx-width/2,near),(cx+width/2,near),(cx+width/2,far),(cx-width/2,far)]))
+kinds["verge"].append(area)
+kinds["backdrop"]=[outer_ground]
 blocked=unary_union([Polygon(b["rings"][0],b["rings"][1:]) for b in buildings if b["kind"] in ("block","sema")])
 # Bake disjoint surfaces so coplanar materials never fight. Choose surveyed turf before the approach apron.
 surfaces=[]
 used=blocked
 # Finishes share polygon boundaries. The ceremonial lane occupies its own strip,
 # so it never sits above a second set of coplanar courtyard stones.
-court_axis = LineString([(-274.08,-352.58),(-303.45,-403.16)])
-royal_lane = court_axis.buffer(2.0,cap_style="flat")
+# Use the same rotation and roof envelope as the stairs in palaceRoof().
+# Both ends of the ceremonial strip follow the stair centreline.
 palace_angle = -.563
+dx,dy = -math.sin(palace_angle),math.cos(palace_angle)
+c,s = math.cos(palace_angle),math.sin(palace_angle)
+outline = list(poly(196072052).exterior.coords)
+us = [x*c+y*s for x,y in outline]
+vs = [-x*s+y*c for x,y in outline]
+u,v = (min(us)+max(us))/2,(min(vs)+max(vs))/2
+origin = (u*c-v*s,u*s+v*c)
+court_axis = LineString([origin,(origin[0]+dx*70,origin[1]+dy*70)])
+royal_lane = court_axis.buffer(2,cap_style="flat")
 brick_walk = jeongdong.buffer(10)
 def finish(p,kind):
     remaining = p
@@ -146,11 +177,23 @@ def finish(p,kind):
         remaining=remaining.difference(zone)
     return results+[dict(kind=kind,rings=rings(q)) for q in parts(remaining)]
 
-for kind in ["crossing","stone","grass","road","street","path","grove","verge"]:
-    geom=unary_union(kinds[kind]).difference(used).simplify(.09,preserve_topology=True)
+# One centimetre precision grid for every shared edge. Simplifying polygons independently
+# after subtraction creates narrow overlaps and gaps, most visible at low camera angles.
+used=set_precision(blocked,.01)
+for kind in ["crossing","stone","grass","road","street","path","grove","verge","backdrop"]:
+    footprint=set_precision(unary_union(kinds[kind]),.01)
+    geom=footprint.difference(used)
     for p in parts(geom):
-        surfaces.extend(finish(p,kind))
-    used=used.union(geom)
+        # Small tiles keep earcut reliable on deep concavities and multiple interior rings.
+        minx,miny,maxx,maxy=p.bounds
+        if len(p.exterior.coords)<65 and not p.interiors:
+            surfaces.extend(finish(p,kind))
+            continue
+        for ix in range(math.floor(minx/64),math.floor(maxx/64)+1):
+            for iy in range(math.floor(miny/64),math.floor(maxy/64)+1):
+                for piece in parts(p.intersection(box(ix*64,iy*64,ix*64+64,iy*64+64))):
+                    surfaces.extend(finish(piece,kind))
+    used=used.union(footprint)
 out=Path(__file__).resolve().parents[1]/"public/west-district-data.js"
 with out.open("w",encoding="utf-8") as f:
     f.write("// Geometry © OpenStreetMap contributors, ODbL 1.0. See scripts/bake-west-district.py.\n")

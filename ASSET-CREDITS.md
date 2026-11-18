@@ -55,6 +55,20 @@
 
 서울광장 잔디와 둘레 보도, 광화문광장 석재 포장, 건춘문 앞 담장과 보행로는 항공 화면과 거리뷰를 대조해 게임용으로 직접 만들었습니다. [서울시 S-Map](https://smap.seoul.go.kr/) · [서울시 서울광장 안내](https://plaza.seoul.go.kr/archives/247) · [광화문광장 네이버 거리뷰](https://map.naver.com/p?searchType=place&c=15.63,0,0,0,adh&isMini=true&p=Svj9PJ8SN08g-rqlkhonjw,-110,10,80,Float)
 
+## 경복궁 전각과 문
+
+국가유산청의 실측 모델을 게임용으로 경량화하고 원본 색상을 변환했습니다. 공공누리 제1유형으로 제공된 원본은 [경회루](https://www.data.go.kr/data/15115251/fileData.do) · [사정전](https://www.data.go.kr/data/15115294/fileData.do) · [강녕전](https://www.data.go.kr/data/15115247/fileData.do) · [태원전](https://www.data.go.kr/data/15115286/fileData.do) · [건춘문](https://www.data.go.kr/data/15115265/fileData.do) · [비현각](https://www.data.go.kr/data/15115249/fileData.do) · [만춘전](https://www.data.go.kr/data/15115248/fileData.do) · [천추전](https://www.data.go.kr/data/15115253/fileData.do) · [함원전](https://www.data.go.kr/data/15115291/fileData.do) · [자선당](https://www.data.go.kr/data/15115295/fileData.do) · [대전내소주방](https://www.data.go.kr/data/15115269/fileData.do)입니다. [사정문](https://www.data.go.kr/data/15092148/fileData.do)은 공공데이터포털에서 이용허락범위 제한 없음으로 제공합니다.
+
+## 산책과 오락실 효과음
+
+모두 사운드 이펙트(ALL SOUND EFFECT)가 영상 설명에 공개한 다운로드 파일에서 짧은 소리를 골라 길이와 음량을 조정했습니다. [새소리](https://www.youtube.com/watch?v=Ac9VroFOW3U) · [고양이](https://www.youtube.com/watch?v=_F-SpbZvMpM) · [타격음](https://www.youtube.com/watch?v=mMxLoNdvTEs).
+
+## 서울시립미술관 서소문본관
+
+2009년 르누아르전의 기록을 바탕으로 네 작품을 선정했습니다. [서울시립미술관 전시 기록](https://sema.seoul.go.kr/kr/whatson/exhibition/detail?exNo=151&glolangType=KOR)
+
+그림 이미지는 WikiArt의 피에르 오귀스트 르누아르 작품 복제본을 게임에 맞게 축소했습니다. [그네](https://www.wikiart.org/en/pierre-auguste-renoir/the-swing-la-balançoire-1876) · [시골 무도회](https://www.wikiart.org/en/pierre-auguste-renoir/dance-in-the-country-1883-1) · [광대 복장을 한 코코](https://www.wikiart.org/en/pierre-auguste-renoir/the-clown-claude-ranoir-in-clown-costume-1909) · [햇살 속의 누드](https://www.wikiart.org/en/pierre-auguste-renoir/study-torso-sunlight-effect).
+
 ## 전시품과 렌더링
 
 `public/art/`의 이미지와 확대 재현한 유물의 원본 URL 및 이용 조건은 [기본 전시 목록](public/museum-catalog.js), [삼국·고려 추가 목록](public/museum-more-early.js), [조선·근대 추가 목록](public/museum-more-late.js)에 있습니다. 이미지들은 게임에서 빠르게 열리도록 크기를 줄여 WebP로 변환했습니다.

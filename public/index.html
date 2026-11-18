@@ -192,6 +192,7 @@
                   <button id="arcade-baseball" type="button" class="quiet activity-button" hidden>스크린 야구</button>
                   <button id="arcade-pinball" type="button" class="quiet activity-button" hidden>핀볼</button>
                   <button id="arcade-airHockey" type="button" class="quiet activity-button" hidden>에어하키</button>
+                  <button id="arcade-racing" type="button" class="quiet activity-button" hidden>서울 랠리</button>
                   <button id="arcade-brickBreaker" type="button" class="quiet activity-button" hidden>벽돌 깨기</button>
                   <button id="arcade-stairs" type="button" class="quiet activity-button" hidden>2층 올라가기</button>
                   <button id="fountain-show" type="button" class="quiet activity-button" hidden>분수쇼 시작</button>
@@ -206,7 +207,6 @@
                   <button id="museum-exhibit" type="button" class="quiet activity-button" aria-haspopup="dialog" aria-controls="exhibit-dialog" hidden>작품 설명</button>
                   <button id="mmca-light" type="button" class="quiet activity-button" hidden>빛 바꾸기</button>
                   <button id="umbrella" type="button" class="quiet activity-button" hidden>우산 쓰기</button>
-                  <button id="photo" type="button" class="quiet activity-button" hidden>사진 찍기</button>
                   <button id="landmark-guide" type="button" class="quiet activity-button" aria-haspopup="dialog" aria-controls="landmark-guide-dialog" hidden>설명 읽기</button>
                 </div>
               </div>
@@ -376,7 +376,7 @@
             </button>
             <span class="map-north" aria-hidden="true">↑ N</span>
         </div>
-        <div class="map-footer" id="map-footer"><span class="map-key" id="map-key" aria-label="지도 범례"><span><i class="dot mine"></i>나</span><span><i class="dot theirs"></i>동행</span><span data-map-legend="heritage"><i class="dot map-swatch"></i>유적·전시</span><span data-map-legend="park"><i class="dot map-swatch"></i>정원·광장</span><span data-map-legend="shop"><i class="dot map-swatch"></i>상점·식당</span><span data-map-legend="activity"><i class="dot map-swatch"></i>즐길거리</span><span data-map-legend="bus"><i class="dot map-swatch"></i>버스</span><span data-map-legend="subway"><i class="dot map-swatch"></i>지하철</span><span data-map-legend="bike"><i class="dot map-swatch"></i>따릉이</span><span data-map-legend="stamp"><i class="dot map-swatch"></i>찍은 도장</span><span data-map-legend="stamp"><i class="dot stamp-dot unvisited"></i>미방문 도장</span></span><div class="map-links" id="map-links"><button id="model-credits" class="quiet" type="button" aria-haspopup="dialog">자료 출처</button><button id="entrance-target" class="quiet" type="button" aria-label="매표소로 순간이동">매표소</button><button id="fountain-target" class="quiet" type="button" aria-label="정동 분수대로 순간이동">분수대</button><button id="palace-target" class="quiet" type="button" aria-label="중화전으로 순간이동">중화전</button><button id="stop-target" class="quiet" type="button" hidden>정류장</button><button id="plaza-bus-target" class="quiet" type="button" hidden>정류장</button></div></div>
+        <div class="map-footer" id="map-footer"><span class="map-key" id="map-key" aria-label="지도 범례"><span><i class="dot mine"></i>나</span><span><i class="dot theirs"></i>동행</span><span data-map-legend="heritage"><i class="dot map-swatch"></i>유적·전시</span><span data-map-legend="park"><i class="dot map-swatch"></i>정원·광장</span><span data-map-legend="shop"><i class="dot map-swatch"></i>상점·식당</span><span data-map-legend="activity"><i class="dot map-swatch"></i>즐길거리</span><span data-map-legend="bus"><i class="dot map-swatch"></i>버스</span><span data-map-legend="subway"><i class="dot map-swatch"></i>지하철</span><span data-map-legend="bike"><i class="dot map-swatch"></i>따릉이</span><span data-map-legend="stamp"><i class="dot map-swatch"></i>찍은 도장</span><span data-map-legend="stamp"><i class="dot stamp-dot unvisited"></i>미방문 도장</span></span><div class="map-links" id="map-links"><button id="model-credits" class="quiet" type="button" aria-haspopup="dialog">자료 출처</button><button data-shortcut class="quiet" type="button" aria-label="서울시립미술관 입구로 순간이동">시립미술관</button><button data-shortcut class="quiet" type="button" aria-label="중화전으로 순간이동">중화전</button><button data-shortcut class="quiet" type="button" hidden>정류장</button><button data-shortcut class="quiet" type="button" hidden>정류장</button><button data-shortcut class="quiet" type="button" hidden></button></div></div>
       </article>
       <div class="desktop-room-controls" id="desktop-room-controls"></div>
       </aside>
@@ -497,6 +497,9 @@
     <h2 id="credits-title">자료 출처</h2>
     <p>국가유산청이 제공한 3D 실측 자료를 웹에서 볼 수 있도록 경량화했습니다.</p>
     <ul class="credits">
+      <li>국가유산청 경복궁 실측 자료 · <a href="https://www.data.go.kr/data/15115251/fileData.do" target="_blank" rel="noopener">경회루</a> · <a href="https://www.data.go.kr/data/15115294/fileData.do" target="_blank" rel="noopener">사정전</a> · <a href="https://www.data.go.kr/data/15115247/fileData.do" target="_blank" rel="noopener">강녕전</a> · <a href="https://www.data.go.kr/data/15115286/fileData.do" target="_blank" rel="noopener">태원전</a> · <a href="https://www.data.go.kr/data/15115265/fileData.do" target="_blank" rel="noopener">건춘문</a> · <a href="https://www.data.go.kr/data/15115249/fileData.do" target="_blank" rel="noopener">비현각</a> · <a href="https://www.data.go.kr/data/15115248/fileData.do" target="_blank" rel="noopener">만춘전</a> · <a href="https://www.data.go.kr/data/15115253/fileData.do" target="_blank" rel="noopener">천추전</a> · <a href="https://www.data.go.kr/data/15115291/fileData.do" target="_blank" rel="noopener">함원전</a> · <a href="https://www.data.go.kr/data/15115295/fileData.do" target="_blank" rel="noopener">자선당</a> · <a href="https://www.data.go.kr/data/15115269/fileData.do" target="_blank" rel="noopener">대전내소주방</a> · <a href="https://www.data.go.kr/data/15092148/fileData.do" target="_blank" rel="noopener">사정문</a></li>
+      <li><a href="https://sema.seoul.go.kr/kr/whatson/exhibition/detail?exNo=151&glolangType=KOR" target="_blank" rel="noopener">서울시립미술관 르누아르 전시 기록</a></li>
+      <li>모두 사운드 이펙트 · <a href="https://www.youtube.com/watch?v=Ac9VroFOW3U" target="_blank" rel="noopener">새소리</a> · <a href="https://www.youtube.com/watch?v=_F-SpbZvMpM" target="_blank" rel="noopener">고양이</a> · <a href="https://www.youtube.com/watch?v=mMxLoNdvTEs" target="_blank" rel="noopener">타격음</a></li>
       <li><a href="https://www.data.go.kr/data/15104816/fileData.do" target="_blank" rel="noopener">석조전 3D 자료</a></li>
       <li><a href="https://www.data.go.kr/data/15104796/fileData.do" target="_blank" rel="noopener">국가유산청 중화문 3D 자료</a> · <a href="https://www.kogl.or.kr/info/licenseType1.do" target="_blank" rel="noopener">공공누리 제1유형</a></li>
       <li><a href="https://www.data.go.kr/data/15104823/fileData.do" target="_blank" rel="noopener">정관헌 3D 자료</a></li>
@@ -540,7 +543,7 @@
       <section><h3>광화문에서 갈 수 있는 산책길</h3><p>광화문광장에서 세종로공원과 의정부지 역사유적광장을 둘러보세요. 율곡로 횡단보도를 건너면 열린송현녹지광장으로 이어져요. 세종대로 남쪽 청계광장에서는 계단이나 경사로를 내려가 양쪽 수변길을 따라 광교까지 걸을 수 있어요.</p></section>
       <section><h3>세종대로·북촌 순환버스</h3><p>버스는 덕수궁에서 광화문과 경복궁을 거쳐 북촌 북쪽 <strong>삼청동 돌계단길 정류장</strong>까지 갔다가 돌아와요. 정류장마다 10초 정차해요. 정차 중 <strong>버스 타기</strong>로 좌석을 고르고, 도착하면 <strong>버스 내리기</strong>를 누르세요.</p></section>
       <section><h3>지하철과 따릉이</h3><p>지도의 보라색 표시가 지하철 출입구예요. 출입구 앞에서 <strong>지하철 타기</strong>를 누르고 역과 출구 번호를 고르면 그곳으로 이동해요. 따릉이는 대여소에서 빌리거나 반납할 수 있어요. 운전자가 멈추면 같은 방 친구 한 명이 가까이에서 <strong>따릉이 뒷자리 타기</strong>를 누를 수 있어요. 도중에 세워 두면 10분 안에 다시 탈 수 있어요.</p></section>
-      <section><h3>공연과 기념사진</h3><p>광화문광장 명량분수 서쪽에서 <strong>분수쇼 시작</strong>을 누르면 같은 방에서 음악분수 공연을 함께 볼 수 있어요. 경복궁 광화문에서는 수문장 교대식이 열리고, 근정전 포토존에서는 <strong>사진 찍기</strong>를 할 수 있어요.</p></section>
+      <section><h3>분수쇼와 수문장 교대식</h3><p>광화문광장 명량분수 서쪽에서 <strong>분수쇼 시작</strong>을 누르면 같은 방에서 음악분수 공연을 함께 볼 수 있어요. 경복궁 광화문에서는 수문장 교대식을 볼 수 있어요.</p></section>
       <section><h3>도장과 산책 기록</h3><p>전각과 동상, 유적 터에 가까이 가면 여권에 도장이 찍혀요. 덕수궁·광화문광장·경복궁에서 각각 9곳을 방문하면 꾸미기 보상을 받을 수 있어요. <strong>산책 기록</strong>에서 여권, 앨범, 이어하기 코드를 열 수 있어요.</p></section>
       <section><h3>가방과 선물</h3><p>상단의 가방에는 간식과 인형을 15개까지 담을 수 있어요. 산책 중 모아 둔 간식은 돗자리 앞에서 손으로 꺼내 나눠 보세요. 오락실에서 뽑은 인형은 머리나 등에 착용할 수도 있어요. 친구 곁에서 <strong>동행 행동 → 물건 건네기</strong>를 누르면 손에 든 물건을 선물해요.</p></section>
       <section><h3>한복과 전통놀이</h3><p>경복궁 앞 한복 대여소에서 한복과 갓 또는 족두리를 골라 입어 보세요. 근정전 마당에서 투호와 제기차기를, 광화문광장 육조마당에서 연날리기를 혼자 또는 같은 방 친구와 즐길 수 있어요.</p></section>

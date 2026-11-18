@@ -1,8 +1,9 @@
 import {ARCADE_GAMES} from "./arcade-layout.js";
-import {BRICK_MASK,BRICK_PADDLE,CLASSIC_BRICKS,CLASSIC_FIELDS,CLASSIC_RADII,HOCKEY_GOAL,HOCKEY_MALLET,PIN_BUMPERS,PIN_DRAIN,PIN_FLIPPERS} from "./arcade-classics.js";
+import {raceBend,raceTraffic,BRICK_MASK,BRICK_PADDLE,CLASSIC_BRICKS,CLASSIC_FIELDS,CLASSIC_RADII,HOCKEY_GOAL,HOCKEY_MALLET,PIN_BUMPERS,PIN_DRAIN,PIN_FLIPPERS} from "./arcade-classics.js";
 import {standSign} from "./regional-stands.js";
 
 const looks={
+  racing:{name:"서울 랠리",accent:0xe26742,trim:0x47566e,field:0x759470,line:0xf5e2a3,ink:"#ffdc97"},
   pinball:{name:"핀볼",accent:0xe88937,trim:0xbb6541,field:0x483048,line:0x9573a1,ink:"#ffaa56"},
   airHockey:{name:"에어하키",accent:0x48d8db,trim:0x367c90,field:0xbedee1,line:0x377b9a,ink:"#91f2ed"},
   brickBreaker:{name:"벽돌 깨기",accent:0xf17b9e,trim:0x8e4e73,field:0x222445,line:0x494878,ink:"#ffa5ce"}
@@ -76,6 +77,29 @@ export function* buildClassics(T,room,{box,cylinder,shape}){
         return mallet;
       });
       parts={mallets};
+    }else if(kind==="racing"){
+      const strips=[];
+      for(let i=0;i<30;i++){
+        const surface=animated(block(0x434a53,0,top+.009,0,1.55,.016,.14));
+        const line=animated(block(i%2?0xf5ead6:0xd78169,0,top+.021,0,.03,.008,.102));
+        const edge=animated(block(i%2?0xf5ead6:0xd78169,0,top+.021,0,.03,.008,.102));
+        const dash=animated(block(0xf5d59b,0,top+.022,0,.02,.008,.073));
+        strips.push({surface,line,edge,dash});
+      }
+      function car(color){
+        const body=new T.Group();stage.add(body);animated(body);
+        const part=(t,x,y,z,w,h,d)=>animated(box(t,x,y,z,w,h,d,body));
+        part(color,0,.073,0,.205,.09,.33);
+        part(0x93cedb,0,.137,.012,.146,.065,.154);
+        part(color,0,.170,.026,.142,.019,.081);
+        for(const side of [-1,1]){
+          for(const axle of [-.096,.10])part(0x242631,side*.105,.042,axle,.037,.075,.072);
+          part(0xffe9ae,side*.062,.081,-.17,.042,.032,.014);
+          part(0xd9483c,side*.068,.075,.17,.027,.026,.014);
+        }
+        return body;
+      }
+      parts={strips,driver:car(0xe95838),traffic:[car(0x70aabb),car(0xe1b94e),car(0x9676ae)]};
     }else{
       for(let row=0;row<9;row++)block(look.line,0,top+.003,(row-4)*.39,x*2-.10,.006,.012);
       const bricks=CLASSIC_BRICKS.map(({x:bx,z:bz,row})=>
@@ -103,6 +127,23 @@ export function* buildClassics(T,room,{box,cylinder,shape}){
     }else if(kind==="airHockey"){
       const paddles=[state?.paddle??[0,1.51],state?.rival??[0,-1.51]];
       parts.mallets.forEach((mallet,i)=>mallet.position.set(paddles[i][0],top,paddles[i][1]));
+    }else if(kind==="racing"){
+      ball.visible=false;
+      const meters=state?.score??0;
+      for(const [i,{surface,line,edge,dash}] of parts.strips.entries()){
+        const z=1.87-i*.129,roadMeters=meters+(1.18-z)*16,center=raceBend(roadMeters);
+        surface.position.x=center;surface.position.z=line.position.z=edge.position.z=dash.position.z=z;
+        line.position.x=center-.75;edge.position.x=center+.75;dash.position.x=center;
+        dash.visible=Math.floor(roadMeters/2)%2===0;
+      }
+      parts.driver.position.set(state?.ball[0]??0,top+.023,1.18);
+      parts.driver.rotation.z=(state?.flash??0)*.24*Math.sin(meters*1.2);
+      const first=Math.max(0,Math.floor((meters-25)/23));
+      parts.traffic.forEach((model,i)=>{
+        const car=raceTraffic(first+i),z=1.18-(car.meters-meters)/16;
+        model.visible=z>=-1.74&&z<=1.76;
+        model.position.set(car.lane+raceBend(car.meters),top+.023,z);
+      });
     }else{
       const mask=state?.mask??BRICK_MASK;
       parts.bricks.forEach((brick,i)=>{brick.visible=Boolean(mask&(1<<i));});

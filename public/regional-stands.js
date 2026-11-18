@@ -36,10 +36,19 @@ const bukchonShops=[
   ["riceCake","팔판길 떡집",bukchonShopPlots.crepe],
   ["fruitWine","가회동 매실주",bukchonShopPlots.beer]
 ].map(([kind,name,plot])=>({...storefronts[kind],...plot,kind,name,area:"bukchon",h:kind==="churu"?3.62:3.81}));
-const shops=[...palaceShops,...avenueShops,...bukchonShops];
+const westShops=[
+  {kind:"coffee",name:"정동길 로스터리",options:["coffee","cake"],x:40,y:202,angle:Math.PI},
+  {kind:"cake",name:"새문안 과자점",options:["cake","bingsu"],x:18,y:-214,angle:Math.PI},
+  {kind:"wine",name:"흥화문 와인바",options:["wine","highball"],x:-75,y:-211,angle:0}
+].map(shop=>({...storefronts[shop.kind],...shop,area:"west",w:11,d:7.2,h:8.4}));
+const shops=[...palaceShops,...avenueShops,...bukchonShops,...westShops];
 
-export const regionalStations=shops.map(({x,y,d,angle,name,kind,area})=>({kind,name,area,
-  x:x+Math.sin(angle)*(d/2+1.75),y:y+Math.cos(angle)*(d/2+1.75)}));
+export const regionalStations=shops.flatMap(({x,y,d,angle,name,kind,area,options=[kind]})=>
+  options.map((item,index)=>{
+    const offset=(index-(options.length-1)/2)*4.6;
+    return {kind:item,name,area,x:x+Math.sin(angle)*(d/2+1.75)+Math.cos(angle)*offset,
+      y:y+Math.cos(angle)*(d/2+1.75)-Math.sin(angle)*offset};
+  }));
 
 export function registerRegionalStands(){
   for(const {x,y,w,d,angle,h,level=0} of shops)addObstacle(x,y,w,d,angle,level+h);
@@ -169,7 +178,7 @@ function addBoothRoof(T,group,{matte},w,d){
 export function addRegionalStands(T,root,kit,area){
   const {wx,wz,box,cylinder}=kit;
   const group=new T.Group();
-  group.name={gyeongbokgung:"경복궁 산책길 좌판",gwanghwamun:"세종대로 상가",bukchon:"북촌 골목 상점"}[area];
+  group.name={gyeongbokgung:"경복궁 산책길 좌판",gwanghwamun:"세종대로 상가",bukchon:"북촌 골목 상점",west:"정동길과 새문안로 상점"}[area];
   root.add(group);
   const batch=standBatcher(T),props=makeRegionalItemProps(T,kit);
   for(const shop of shops){
@@ -177,7 +186,7 @@ export function addRegionalStands(T,root,kit,area){
     const building=new T.Group();building.name=shop.name;
     building.position.set(wx(shop.x),shop.level??(area==="gyeongbokgung"?.048:0),wz(shop.y));building.rotation.y=shop.angle;
     group.add(building);
-    if(area==="gwanghwamun"){
+    if(area==="gwanghwamun"||area==="west"){
       // The shell stays level at the entrance; its basement closes the gap to
       // the pavement under all four corners on the graded avenue.
       const width=shop.kind==="churu"?shop.w:15.94;
@@ -189,6 +198,10 @@ export function addRegionalStands(T,root,kit,area){
     else{
       building.scale.x=shop.w/15.94;
       avenue({...shop,w:15.94},building);
+    }
+    if(shop.options){
+      const labels={coffee:"커피",cake:"조각 케이크",bingsu:"팥빙수",wine:"와인",highball:"하이볼"};
+      shop.options.forEach((item,i)=>standSign(T,building,labels[item],null,2.6,(i-.5)*4.6/building.scale.x,1.65,shop.d/2+.39,shop.sign,shop.ink,.67));
     }
     batch(building);
   }
