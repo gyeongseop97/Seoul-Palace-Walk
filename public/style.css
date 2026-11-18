@@ -382,9 +382,6 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 #stamp-pins circle{fill:#ffe1a339;stroke:#ead3a5ad;stroke-width:1.35;vector-effect:non-scaling-stroke;cursor:pointer}
 #stamp-pins circle.collected{fill:var(--marker-color);stroke:#543629}
 #stamp-pins circle:is(:hover,:focus-visible,.selected){fill:var(--gold-1);stroke:var(--gold-9)}
-#map-game-destinations{display:grid;gap:8px}
-#map-game-destinations button{display:grid;gap:2px;justify-items:start;text-align:left;white-space:normal}
-#map-game-destinations span{color:var(--muted);font-size:12px;font-weight:500}
 #map-route-path{pointer-events:none}
 #map-route-path polyline,#map-route-end{vector-effect:non-scaling-stroke}
 #map-route-path polyline{fill:none;stroke-linecap:round;stroke-linejoin:round}
@@ -892,7 +889,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   #map-toolbar button,#map-category{min-height:31px;font-size:11px}
   #map-toolbar button{padding:4px 7px}
   #map-toolbar .map-filter{padding:0}
-  #map-toolbar .map-filter span,#map-games-open{display:none}
+  #map-toolbar .map-filter span{display:none}
   #map-category{max-width:83px;padding:4px}
   .game-sidebar .map-location{top:6px;left:6px;padding:3px 7px}
   .desktop-room-controls{display:flex;flex:none}

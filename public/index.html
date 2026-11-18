@@ -12,7 +12,7 @@
   <link rel="manifest" href="./palace.webmanifest">
   <link rel="apple-touch-icon" href="./palace-icon-192.png?v=palace">
   <title>서울 궁 한바퀴 | Seoul Palace Walk</title>
-  <link rel="icon" type="image/png" sizes="192x192" href="./palace-icon-192.png?v=palace">
+  <link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48" href="./favicon.ico?v=palace-roof">
   <link rel="stylesheet" href="./style.css">
   <link rel="stylesheet" href="./passport.css">
   <link rel="stylesheet" href="./minigames.css">
@@ -325,7 +325,7 @@
       <article class="panel map-panel" id="map-panel" data-native-touch>
         <div class="panel-head">
           <h2>산책 지도</h2>
-          <div class="top-actions" id="map-toolbar"><button id="overview-map" class="quiet" type="button" aria-pressed="false" aria-controls="world">전체 지도</button><button id="map-games-open" class="quiet" type="button" aria-haspopup="dialog" aria-controls="map-games-dialog">전통놀이</button><button class="pill" id="presence" type="button" aria-label="접속자 목록 열기" aria-haspopup="dialog" aria-controls="roster-dialog"><i aria-hidden="true"></i><span>접속자</span></button><button id="close-map" class="quiet" type="button" aria-label="지도 닫기">×</button></div>
+          <div class="top-actions" id="map-toolbar"><button id="overview-map" class="quiet" type="button" aria-pressed="false" aria-controls="world">전체 지도</button><button class="pill" id="presence" type="button" aria-label="접속자 목록 열기" aria-haspopup="dialog" aria-controls="roster-dialog"><i aria-hidden="true"></i><span>접속자</span></button><button id="close-map" class="quiet" type="button" aria-label="지도 닫기">×</button></div>
         </div>
         <label for="map-category" class="map-filter" id="map-filter"><span>표시할 장소</span>
           <select id="map-category" aria-label="지도에 표시할 장소" aria-controls="world">
@@ -377,10 +377,6 @@
   </main>
   </div>
   <div id="passport-mount"></div>
-  <dialog id="map-games-dialog" aria-labelledby="map-games-title">
-    <div class="dialog-top"><h2 id="map-games-title">전통놀이 장소</h2><button type="button" class="quiet close" aria-label="닫기">×</button></div>
-    <div id="map-game-destinations"></div>
-  </dialog>
   <dialog id="environment-dialog" aria-labelledby="environment-title">
     <div class="dialog-top"><h2 id="environment-title">시간과 날씨</h2><button type="button" class="quiet close" aria-label="닫기">×</button></div>
     <p id="environment-status" role="status">서울 날씨를 확인하고 있어요.</p>

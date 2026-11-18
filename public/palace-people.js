@@ -1,5 +1,4 @@
-// People of the palace: gate sentries, a marching guard patrol and visitors strolling in
-// hanbok. Everyone follows the shared room clock, so all players see the same scene.
+// Gate sentries and the marching guard patrol follow the shared room clock.
 import {at,gbBounds} from "./gyeongbok-layout.js";
 
 const point=([east,north])=>at(east,north);
@@ -32,28 +31,6 @@ function makeRoute(stops,speed,pauses={}){
   return {lane,pose,time};
 }
 
-const visitorRoutes=[
-  // Throne-hall court.
-  {stops:[[0,262],[-40,262],[-40,330],[0,340],[40,330],[40,262]],speed:.82,pauses:{0:9,3:7}},
-  // Around the Gyeonghoeru pond.
-  {stops:[[-58,362],[-58,430],[-58,488],[-128,488],[-198,488],[-198,430],[-198,362],[-128,362]],speed:.9,pauses:{1:10,3:6,7:6}},
-  // Around the Hyangwonjeong pond.
-  {stops:[[-10,610],[-30,650],[-50,706],[-30,756],[12,762],[46,752],[62,706],[40,650]],speed:.86,pauses:{2:8,4:10,6:8}},
-  // Up and down the royal road between the gates.
-  {stops:[[1.6,16],[1.6,112],[1.6,205],[1.6,256],[-1.6,256],[-1.6,205],[-1.6,112],[-1.6,16]],speed:.95,pauses:{3:8,7:5}}
-];
-// Each party: route, how far round the loop it starts, and its members.
-const parties=[
-  [0,0,[["woman","long",-.45],["man","short",.45]]],
-  [1,.05,[["woman","bun",-.45],["woman","bob",.45]]],
-  [1,.55,[["man","short",-.45],["woman","long",.45]]],
-  [2,.1,[["woman","long",-.45],["woman","bun",.45]]],
-  [2,.6,[["man","short",0]]],
-  [2,.8,[["woman","bob",-.45],["man","short",.45]]],
-  [3,.2,[["woman","bun",-.4],["woman","long",.4]]],
-  [3,.7,[["man","short",0]]]
-];
-const silks=[0xd9778c,0x7fa6d9,0xe3b34f,0x8fbf9a,0xc48bd0,0xe58f6a,0x6fb5b0,0xd16a5a];
 
 // Sentries stand before the piers of Gwanghwamun; the patrol loops between the two gates.
 const sentries=[[-12.6,-8.6,0xb0302a],[-4.6,-8.6,0x2f5d9e],[4.6,-8.6,0x2f5d9e],[12.6,-8.6,0xb0302a]];
@@ -99,7 +76,7 @@ export function addPalacePeople(T,scene,kit,walkerModels,{floorHeight,labelSprit
     model.chest.add(hold);
     for(const part of [hat,hold])part.traverse(mesh=>{if(mesh.isMesh)mesh.castShadow=true;});
   }
-  const person=(spec)=>{people.push({model:null,wave:0,waveCheck:0,...spec});};
+  const person=(spec)=>{people.push({model:null,...spec});};
   for(const [index,[east,north,coat]] of sentries.entries()){
     const spot=at(east,north);
     person({id:"sentry-"+index,coat,gear:"spear",label:"수문장",character:"man",look:{hair:"short",outfit:"hanbok",eyes:"round"},
@@ -110,17 +87,6 @@ export function addPalacePeople(T,scene,kit,walkerModels,{floorHeight,labelSprit
     person({id:"patrol-"+index,coat,gear,label:index?null:"수문군",character:"man",look:{hair:"short",outfit:"hanbok",eyes:"round"},
       where:(seconds,blend)=>drawnUp(patrol.pose(lane,seconds-lag),at((index-1)*2.2,-17),blend)});
   }
-  const routes=visitorRoutes.map(({stops,speed,pauses})=>makeRoute(stops,speed,pauses));
-  let serial=0;
-  for(const [routeIndex,start,members] of parties){
-    const route=routes[routeIndex];
-    for(const [character,hair,aside] of members){
-      const lane=route.lane(aside),index=serial++;
-      person({id:"visitor-"+index,coat:silks[index%silks.length],visitor:true,character,
-        look:{hair,outfit:"hanbok",eyes:["round","bright","soft"][index%3]},
-        where:seconds=>route.pose(lane,seconds+start*route.time)});
-    }
-  }
 
   // anchor: the walker the camera follows (null indoors). sparse: slow device, show fewer.
   function update(clock,now,delta,anchor,walkers=[],sparse=false){
@@ -128,7 +94,7 @@ export function addPalacePeople(T,scene,kit,walkerModels,{floorHeight,labelSprit
     const {minX,maxX,minY,maxY}=gbBounds;
     const near=anchor&&anchor.x>=minX-range&&anchor.x<=maxX+range&&anchor.y>=minY-range&&anchor.y<=maxY+range;
     for(const one of people){
-      const pose=near&&!(sparse&&one.visitor)?one.where(seconds,blend):null;
+      const pose=near?one.where(seconds,blend):null;
       if(!pose||Math.hypot(pose.x-anchor.x,pose.y-anchor.y)>range){
         if(one.model?.group.visible)one.model.group.visible=false;
         continue;
@@ -137,15 +103,10 @@ export function addPalacePeople(T,scene,kit,walkerModels,{floorHeight,labelSprit
         one.model=walkerModels.create(one.coat,one.label,one.label?labelSprite:null,one.id);
         if(one.gear)dress(one.model,one.gear);
       }
-      // Visitors greet a walker who comes close.
-      if(one.visitor&&clock>=one.waveCheck){
-        one.waveCheck=clock+400;
-        if(clock-one.wave>16000&&walkers.some(walker=>Math.hypot(walker.x-pose.x,walker.y-pose.y)<2.6))one.wave=clock;
-      }
       walkerModels.update(one.model,{...pose,id:one.id,character:one.character,look:one.look,running:false,wave:one.wave,vx:0,vy:0},
         {now,clock,delta,floor:floorHeight(pose),jump:0,turnEase:1-Math.exp(-delta*7)});
     }
   }
-  const census=()=>({sentries:sentries.length,patrol:squad.length,visitors:serial});
+  const census=()=>({sentries:sentries.length,patrol:squad.length,visitors:0});
   return {update,census};
 }

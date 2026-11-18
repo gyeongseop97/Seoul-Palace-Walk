@@ -1214,6 +1214,7 @@ async function enterRoom(action,code){
     clockOffset=null;roundTrip=65;
     updateClock(data.serverTime,sent,performance.now());
     session={room:data.room,code:data.code,mode:data.mode??"private",id,key,...data.profile};
+    world?.setVisitorRoom(session.room);
     environment.liveWeather=data.weather??null;passport.setRoom(session.room);
     Object.assign(me,avatar,{nickname:session.nickname,coat:session.coat});
     ownView=view;dirty=true;lastWishSynced=0;lastArcadePost="";lastPost=Date.now();
@@ -3677,15 +3678,6 @@ const stampPins=new Map(passportStamps.map(stamp=>{
   mapLabels.add(mark,stamp,"stamp");setMarkerFilter(mark);
   return [stamp.id,pin];
 }));
-const gameMapSites=new Map(traditionalGames.map(game=>[game.id,{...game.point,id:game.id,name:game.name}]));
-const gameMapDialog=$("map-games-dialog");
-$("map-games-open").addEventListener("click",()=>gameMapDialog.showModal());
-for(const game of traditionalGames){
-  const button=document.createElement("button"),name=document.createElement("strong"),place=document.createElement("span");
-  button.type="button";button.className="quiet";name.textContent=game.name;place.textContent=game.place;
-  button.append(name,place);$("map-game-destinations").append(button);
-  button.addEventListener("click",()=>{gameMapDialog.close();showMapRoute(gameMapSites.get(game.id));});
-}
 const savedCode=sessionStorage.getItem("jeongdong-room-code");
 const savedOpen=sessionStorage.getItem("jeongdong-room-mode")==="open";
 if(nickname.value&&(savedCode&&(!suppliedCode||suppliedCode===savedCode)||savedOpen&&!suppliedCode)){

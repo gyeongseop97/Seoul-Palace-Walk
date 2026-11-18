@@ -1,26 +1,28 @@
-import {clearSegment,walkable,route} from "./layout.js";
-import {plazaAt,plazaShortcuts} from "./plaza-layout.js";
-import {bankAt,cheonggyeAnimalTrails} from "./cheonggye-layout.js";
-import {cheonggyeSeats} from "./cheonggye-seats.js";
+import {clearSegment} from "./layout.js";
+import {stops,createVisitorWalks,streetLine,onLine} from "./visitor-walks.js";
 import {diningVenues} from "./dining-data.js";
+import {buskingSpot} from "./street-people.js";
 import {PET_MS} from "./activities.js";
 
 const coats=[0x95664e,0x527669,0x7a607e,0x58768e,0xae7447,0xa3666a,0x6b7351];
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const facing=(a,b)=>Math.atan2(b.x-a.x,a.y-b.y)*180/Math.PI;
-const point=(x,y)=>({x,y});
 const mix=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
-const from=(p,angle,length)=>({x:p.x+Math.cos(angle)*length,y:p.y+Math.sin(angle)*length});
-const open=p=>walkable(p.x,p.y);
-
-function walkingEnd(start,angle,length){
-  for(const span of [length,length*.55,2]){
-    for(let i=0;i<8;i++){
-      const end=from(start,angle+i*Math.PI/4,span);
-      if(open(end)&&clearSegment(start,end))return end;
-    }
+const besideCache=new WeakMap(),laneCache=new WeakMap();
+function beside(p){
+  if(besideCache.has(p))return besideCache.get(p);
+  const offset=[1.14,-1.14].flatMap(d=>[{x:p.x+d,y:p.y},{x:p.x,y:p.y+d}]).find(q=>clearSegment(p,q))??p;
+  besideCache.set(p,offset);return offset;
+}
+function companionLane(line){
+  if(laneCache.has(line))return laneCache.get(line);
+  const pts=[beside(line.points[0])];
+  for(let i=1;i<line.points.length;i++){
+    const left=pts.at(-1),right=beside(line.points[i]);
+    if(!clearSegment(left,right))pts.push(line.points[i-1],line.points[i]);
+    pts.push(right);
   }
-  return start;
+  const lane=streetLine(pts);laneCache.set(line,lane);return lane;
 }
 
 // Each stop belongs to a room (null outdoors). Doorways switch rooms only at
@@ -44,82 +46,49 @@ function sample(tour,seconds){
     heading:walking?facing(leg.a,leg.b):leg.a.heading??0,stepping:walking,carried:leg.a.carried};
 }
 
-export function addCityVisitors(T,kit,models,{benches,stations,parkLife,floorHeight,seatAt,showMeal,water}){
-  const visitors=[];
-  function visitor(home,build,{venue,phase,kind,seat,side=0}={}){
-    const index=visitors.length;
-    visitors.push({id:"city-visitor-"+index,home,build,venue,phase:phase??index*17.71,kind,seat,side,index,seatIndex:seat?benches.indexOf(seat):-1,
-      character:index%2?"woman":"man",look:{hair:["short","bob","part","bun"][index%4],eyes:index%3?"soft":"round",outfit:index%3?"coat":"puffer"}});
+export function addCityVisitors(T,kit,models,{benches,stations,parkLife,floorHeight,seatAt,showMeal,water,room}){
+  const visitors=new Map();
+  let walks=createVisitorWalks(room);
+  const restaurants=new Map(diningVenues.map(venue=>[venue.id,venue]));
+  const tables=new Map(diningVenues.map(v=>[v.id,benches.filter(b=>b.venueId===v.id)]));
+  function actor(p,side){
+    const index=p.id*2+side;
+    if(!visitors.has(index)){
+      visitors.set(index,{id:"city-visitor-"+index,index,side,character:index%3?"woman":"man",
+        look:{hair:["short","bob","part","bun"][index%4],eyes:index%3?"soft":"round",outfit:index%7===0?"hanbok":index%3?"coat":"puffer"}});
+    }
+    return visitors.get(index);
   }
-  function stroll(home,angle,activity="walk",partner=false){
-    const phase=visitors.length*13.9;
-    let stops;
-    const prepare=()=>{
-      if(stops)return stops;
-      const end=walkingEnd(home,angle,12);
-      const heading=facing(home,end),normal=Math.atan2(end.y-home.y,end.x-home.x)+Math.PI/2;
-      const partnerNear=walkingEnd(home,normal,1.1);
-      const nextToEnd=walkingEnd(end,normal,partner&&activity==="photo"?2.7:1.1);
-      const partnerFar=clearSegment(partnerNear,nextToEnd)?nextToEnd:walkingEnd(partnerNear,angle,gap(home,end));
-      stops={home,end,heading,partnerNear,partnerFar};return stops;
-    };
-    for(let n=0;n<(partner?2:1);n++)visitor(home,()=>{
-      const {end,heading,partnerNear,partnerFar}=prepare(),a=n?partnerNear:home,b=n?partnerFar:end;
-      const action=activity==="photo"?(n?"pose":"camera"):activity;
-      return itinerary([{...a,wait:4,heading,travel:12},{...b,wait:14,action,
-        heading:partner?facing(b,n?end:partnerFar):(heading+180)%360,travel:12}]);
-    },{phase});
-  }
-
-  stroll(plazaShortcuts.sejong,0,"photo",true);
-  stroll(plazaAt(-18,459),Math.PI/2,"walk",true);
-  stroll(plazaAt(-25,82),Math.PI/2,"cat");
-  stroll(plazaAt(-27,355),0);
-  stroll(cheonggyeAnimalTrails[0][2],0,"photo",true);
-  stroll(bankAt(790,1,-1.3),0,"cat");
-  stroll(bankAt(919,-1,-1.5),Math.PI,"walk",true);
-  stroll(route[5],Math.PI,"cat");
-  stroll(point(548,282),0,"photo",true);
-  stroll(point(721.8,-1107.9),Math.PI/2,"walk",true);
-
-  for(const kind of ["crepe","beer","cake","yakgwa","riceCake","wine"]){
-    const shop=stations.find(s=>s.kind===kind);
-    if(!shop)continue;
-    visitor(shop,()=>{
-      const start=walkingEnd(shop,Math.PI/2,9),rest=mix(shop,start,.65);
-      return itinerary([{...start,wait:6,heading:facing(start,shop)},
-        {...shop,wait:3,action:"order",heading:facing(start,shop),carried:kind},
-        {...rest,wait:15,action:"snack",carried:kind,heading:facing(shop,start)}]);
-    },{kind});
-  }
-  function seatVisit(bench,side,phase){
-    const slot=bench.slots[side],approach=slot.approach??slot;
-    visitor(bench,()=>{
-      const start=walkingEnd(approach,0,7);
-      return itinerary([{...start,wait:7,travel:7,heading:facing(start,approach)},{...approach,wait:22,travel:7,
-        action:bench.footBath?"water":"seat",heading:slot.heading}]);
-    },{seat:bench,side,phase});
-  }
-  const ordinary=benches.filter(b=>!b.table&&!b.footBath&&b.slots?.[0]?.approach&&b.catPerch);
-  for(const target of [route[4],plazaShortcuts.sejong,plazaAt(-91,324)]){
-    const bench=ordinary.reduce((best,b)=>!best||gap(b,target)<gap(best,target)?b:best,null);
-    if(bench&&gap(bench,target)<90&&!visitors.some(v=>v.seat===bench))seatVisit(bench,0,visitors.length*3.7);
-  }
-  for(const [x,side,pair] of [[664,1,true],[764,-1,false],[919,1,true]]){
-    const bench=cheonggyeSeats.filter(b=>b.side===side).reduce((a,b)=>Math.abs(b.x-x)<Math.abs(a.x-x)?b:a);
-    const phase=x*.31;
-    seatVisit(bench,0,phase);
-    if(pair)seatVisit(bench,1,phase);
-  }
-  for(const venue of diningVenues){
-    const bench=benches.find(b=>b.venueId===venue.id&&b.tableIndex===3);
-    if(!bench)continue;
-    const side=0,slot=bench.slots[side],room=venue.id,entry=venue.insideDoor,aisle={...point(slot.approach.x,entry.y-2.2),room};
-    visitor(venue.outsideDoor,()=>{
-      const door=venue.outsideDoor,start=walkingEnd(door,Math.atan2(door.y-venue.plot.y,door.x-venue.plot.x),10);
-      return itinerary([{...start,wait:6,heading:facing(start,door)},door,{...entry,room},aisle,
-        {...slot.approach,room,wait:28,action:"meal",heading:slot.heading},aisle,{...entry,room},door]);
-    },{venue,seat:bench,side,kind:venue.dishes[visitors.length%venue.dishes.length].kind});
+  function visit(v,p,site){
+    const side=v.side,start=side?beside(site):site,other=side?site:beside(site);
+    const rest=(q,action,extras={})=>({...q,action,wait:15,heading:p.pair?facing(q,other):p.variant%360,...extras});
+    const venue=restaurants.get(site.ref),shop=stations[site.ref];
+    let path,seat=null,kind=null;
+    if(p.action==="meal"&&venue){
+      const choices=tables.get(venue.id);
+      seat=choices[p.variant%choices.length];
+      const slot=seat.slots[side],room=venue.id,door=venue.outsideDoor,entry={...venue.insideDoor,room};
+      const aisle={x:slot.approach.x,y:entry.y-2.2,room};
+      kind=venue.dishes[(p.variant+side)%venue.dishes.length].kind;
+      path=[start,site,door,entry,aisle,rest(slot.approach,"meal",{room,wait:48,heading:slot.heading}),aisle,entry,door,site];
+    }else if(p.action==="shop"&&shop){
+      kind=shop.kind;
+      const counter=side?beside(shop):shop;
+      const approach=clearSegment(start,counter)?[]:[site,shop];
+      path=[start,...approach,rest(counter,"order",{wait:3,carried:kind}),...approach.reverse(),rest(start,"snack",{carried:kind})];
+    }else if(p.action==="water"||p.action==="seat"){
+      seat=benches[site.ref];
+      const slot=seat?.slots[side];
+      if(slot)path=[start,site,rest(slot.approach,p.action,{heading:slot.heading}),site];
+    }else if(p.action==="music"){
+      path=[rest(start,"listen",{heading:facing(start,buskingSpot)})];
+    }
+    if(!path){
+      const action=p.action==="photo"?(side?"pose":"camera"):p.action==="cat"?"cat":"look";
+      path=[rest(start,action)];
+    }
+    const tour=itinerary(path);
+    return {tour,seat,seatIndex:seat?benches.indexOf(seat):-1,kind};
   }
 
   function cameraProp(model){
@@ -137,15 +106,32 @@ export function addCityVisitors(T,kit,models,{benches,stations,parkLife,floorHei
     if(now-v.lastSeen>9000){models.dispose(v.model);v.model=null;v.camera=null;v.cat=null;}
   }
   function update(clock,now,delta,anchor,inside,players,sparse){
-    const range=sparse?30:55;
-    for(const v of visitors){
-      if(inside?v.venue?.id!==inside:gap(v.home,anchor)>range+18){hide(v,now);continue;}
-      v.tour??=v.build();
-      const pose=sample(v.tour,clock/1000+v.phase);
+    const range=sparse?30:55,{parties,t}=walks.at(clock),claimed=new Set();
+    for(const p of parties)for(let side=0;side<(p.pair?2:1);side++){
+      const v=actor(p,side),site=stops[p.node],venue=p.action==="meal"?restaurants.get(site.ref):null;
+      if(inside&&venue?.id!==inside){hide(v,now);continue;}
+      const ageSec=t-p.start;
+      let pose,visitInfo=null;
+      if(p.edge){
+        const line=p.edge.line,centre=onLine(line,ageSec*p.speed);
+        if(gap(centre,anchor)>range+2){hide(v,now);continue;}
+        const lane=side?companionLane(line):line;
+        pose={...onLine(lane,ageSec*p.speed*lane.length/line.length),age:ageSec,stepping:true};
+      }else{
+        if(!inside&&gap(site,anchor)>range+12){hide(v,now);continue;}
+        const key=clock-ageSec*1000;
+        if(!v.visit||Math.abs(v.visitKey-key)>1){
+          v.visit=visit(v,p,site);v.visitKey=key;
+        }
+        visitInfo=v.visit;
+        const scale=visitInfo.tour.duration/(p.until-p.start);
+        pose=sample(visitInfo.tour,ageSec*scale);pose.age/=scale;
+        if(pose.action==="look"&&!p.pair)pose.heading+=Math.sin(pose.age*.29+p.id)*29;
+      }
       const distance=gap(pose,anchor);
       if((pose.room??null)!==(inside??null)||distance>range){hide(v,now);continue;}
       // The route stays on room time even when distant walkers animate less often.
-      if(v.visible&&distance>22&&now-v.lastSeen<65)continue;
+      if(v.visible&&p.edge&&distance>22&&now-v.lastSeen<65)continue;
       const poseDelta=v.visible?Math.max(delta,Math.min(.15,(now-v.lastSeen)/1000)):delta;
       if(!v.model){
         v.model=models.create(coats[v.index%coats.length],null,null,v.id);
@@ -154,18 +140,25 @@ export function addCityVisitors(T,kit,models,{benches,stations,parkLife,floorHei
       v.lastSeen=now;v.visible=true;
       const age=pose.age*1000,part=age%5000;
       Object.assign(pose,{id:v.id,character:v.character,look:v.look});
+      if(pose.action==="look"&&now>=(v.greetCheck??0)){
+        v.greetCheck=now+550;
+        if(clock-(v.wave??0)>24000&&players.some(player=>gap(player,pose)<2.6))v.wave=clock;
+      }
+      if(pose.action==="look")pose.wave=v.wave;
       let seat=null;
-      if(["seat","water","meal"].includes(pose.action)){
-        const index=v.seatIndex,slot=v.seat.slots[v.side];
-        const occupied=players.some(p=>p.seat===index&&(p.seatSide??0)===v.side||gap(p,slot)<.72);
+      if(visitInfo?.seat&&["seat","water","meal"].includes(pose.action)){
+        const index=visitInfo.seatIndex,slot=visitInfo.seat.slots[v.side],seatKey=index*2+v.side;
+        const occupied=claimed.has(seatKey)||players.some(p=>p.seat===index&&(p.seatSide??0)===v.side||gap(p,slot)<.72);
         if(!occupied&&index>=0){
+          claimed.add(seatKey);
           seat=seatAt({seat:index,seatSide:v.side},clock);
           if(pose.action==="water")pose.kick=clock-age%7800;
-          if(pose.action==="meal"&&age>2600)pose.diningMeal={kind:v.kind,remaining:Math.max(1,3-Math.floor(age/10000)),started:clock-part};
+          if(pose.action==="meal"&&age>2600)pose.diningMeal={kind:visitInfo.kind,remaining:Math.max(1,3-Math.floor(age/10000)),started:clock-part};
         }
       }
       if(pose.carried&&(pose.action!=="order"||age>2100))pose.item={kind:pose.carried,remaining:2,started:pose.action==="snack"?clock-part:0};
       if(pose.action==="pose")pose.gesture={kind:"peace",at:clock-age%4050};
+      if(pose.action==="listen"&&age%12500<2400)pose.gesture={kind:"clap",at:clock-age%12500};
       if(pose.action==="camera"){
         v.camera??=cameraProp(v.model);
         const shot=(age%4050)/1000;
@@ -198,10 +191,16 @@ export function addCityVisitors(T,kit,models,{benches,stations,parkLife,floorHei
         }
       }
       models.update(v.model,pose,{now,clock,delta:poseDelta,seat,floor:floorHeight(pose),turnEase:1-Math.exp(-poseDelta*8)});
-      if(v.seat?.table)showMeal(pose,seat,clock);
-      if(v.seat?.footBath)water(v.id,now,seat,pose,clock);
+      if(seat?.tray||v.hadMeal)showMeal(pose,seat,clock);
+      if(seat?.footBath||v.wasBathing)water(v.id,now,seat,pose,clock);
+      v.hadMeal=Boolean(seat?.tray);v.wasBathing=Boolean(seat?.footBath);
     }
   }
-  return {update};
+  function setRoom(id){
+    if(room===id)return;
+    room=id;walks=createVisitorWalks(id);
+    for(const v of visitors.values()){hide(v,Infinity);v.visit=null;v.catCycle=null;}
+  }
+  return {update,setRoom};
 }
 

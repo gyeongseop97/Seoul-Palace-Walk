@@ -1,4 +1,3 @@
-import {route,clearSegment,planWalk,walkable} from "./layout.js";
 
 export const buskingSpot={x:216.9,y:333.8,name:"돌담길 버스킹"};
 export const BUSKING_HEARING_METRES=36;
@@ -10,31 +9,6 @@ export function buskingBeat(clock){
     phase:(clock-beat*BEAT_MS)/BEAT_MS};
 }
 
-function strollingRoute(){
-  const points=[route[2]];
-  for(const target of route.slice(3,9)){
-    const from=points.at(-1);
-    if(!walkable(target.x,target.y))continue;
-    if(clearSegment(from,target)){points.push(target);continue;}
-    const course=planWalk(from,target);
-    if(course.length&&Math.hypot(course.at(-1).x-target.x,course.at(-1).y-target.y)<.05)points.push(...course);
-  }
-  const loop=[...points,...points.slice(1,-1).reverse(),points[0]];
-  let seconds=0;
-  const legs=loop.slice(1).map((to,index)=>{
-    const from=loop[index],dx=to.x-from.x,dy=to.y-from.y,span=Math.hypot(dx,dy)/.9;
-    const leg={from,dx,dy,start:seconds,span,heading:Math.atan2(dx,-dy)*180/Math.PI};
-    seconds+=span;
-    return leg;
-  }).filter(leg=>leg.span>.01);
-  return (clock,offset)=>{
-    if(!legs.length)return null;
-    const phase=(clock/1000+offset*seconds)%seconds;
-    const leg=legs.find(leg=>phase<leg.start+leg.span)??legs.at(-1);
-    const along=(phase-leg.start)/leg.span;
-    return {x:leg.from.x+leg.dx*along,y:leg.from.y+leg.dy*along,heading:leg.heading,stepping:true};
-  };
-}
 
 export function addStreetPeople(T,scene,kit,walkerModels,{floorHeight,labelSprite,handheld=false}){
   const {wx,wz,box,cylinder}=kit;
@@ -47,13 +21,8 @@ export function addStreetPeople(T,scene,kit,walkerModels,{floorHeight,labelSprit
   box(0x7b684b,-.91,.095,.39,.45,.14,.24,stage);
   box(0x443b31,-.91,.168,.39,.37,.014,.19,stage);
 
-  const playerRoute=strollingRoute();
   const crowd=[
-    {coat:0x8f5651,seat:true,x,y,heading:180,label:"돌담길 연주자"},
-    {coat:0x709379,x:x-1.7,y:y+2.55,heading:32},
-    {coat:0x9c7852,x:x+1.42,y:y+2.43,heading:329},
-    {coat:0x576b8b,x:x-.55,y:y+3.16,heading:12},
-    {coat:0xad6e57,offset:.07},{coat:0x5e876b,offset:.36},{coat:0x687e96,offset:.64},{coat:0xa08262,offset:.87}
+    {coat:0x8f5651,seat:true,x,y,heading:180,label:"돌담길 연주자"}
   ].map((person,index)=>({...person,index,model:null}));
   function instrument(model){
     const guitar=new T.Group();guitar.position.set(.038,.195,.346);guitar.rotation.z=-.57;
@@ -72,8 +41,8 @@ export function addStreetPeople(T,scene,kit,walkerModels,{floorHeight,labelSprit
     stage.visible=Boolean(anchor&&Math.hypot(anchor.x-x,anchor.y-y)<range+10);
     const cue=buskingBeat(clock);
     for(const person of crowd){
-      const pose=anchor&&(person.offset===undefined?person:playerRoute(clock,person.offset));
-      if(!pose||sparse&&person.index>=5||Math.hypot(pose.x-anchor.x,pose.y-anchor.y)>range){
+      const pose=person;
+      if(!anchor||Math.hypot(pose.x-anchor.x,pose.y-anchor.y)>range){
         if(person.model)person.model.group.visible=false;
         continue;
       }

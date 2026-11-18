@@ -56,7 +56,6 @@ import { BUS_FLOOR, busAt, busSeatPose,busStops } from "./sejong-bus.js";
 import { transitStops } from "./transit-routes.js";
 import { addPalacePeople } from "./palace-people.js";
 import { addStreetPeople } from "./street-people.js";
-import { addBukchonPeople } from "./bukchon-people.js";
 import { makePicnicWorld } from "./picnic-world.js";
 import { buildSubwayAccess,registerExpandedSubway } from "./subway-expansion.js";
 import { jeongdongExtensionBounds,registerJeongdongExtension } from "./jeongdong-extension-layout.js";
@@ -281,7 +280,6 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   }
   const palacePeople=addPalacePeople(T,outdoors,kit,outdoorWalkers,{floorHeight:point=>floorHeight(point),labelSprite:(...args)=>labelSprite(...args),handheld});
   const streetPeople=addStreetPeople(T,outdoors,kit,outdoorWalkers,{floorHeight,labelSprite,handheld});
-  const bukchonPeople=addBukchonPeople(outdoorWalkers,{floorHeight,handheld});
   const nightSky=addNightSky(T,heavens,randomFrom(173408));
   const dayHorizon=new T.Color(0xcce4f0),nightHorizon=new T.Color(0x23384f);
   const dayZenith=new T.Color(0x367ec5),nightZenith=new T.Color(0x080e21);
@@ -355,7 +353,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   const birds=addPalaceBirds(T,outdoors,{...kit,floorHeight},{trees,walls:catWalls,seed:catSeed,deferNorth:true,deferPopulation:true});
   const parkLife=addParkLife(T,outdoors,{...kit,trees,floorHeight,terrainHeight:outsideGroundOffset,catWalls,benches,onCatFlee,catSeed,birds,
     deferNorth:true,deferPopulation:true});
-  const cityVisitors=addCityVisitors(T,kit,walkerModels,{benches,stations,parkLife,floorHeight,seatAt,showMeal:updateTableTray,
+  const cityVisitors=addCityVisitors(T,kit,walkerModels,{benches,stations,parkLife,floorHeight,seatAt,room:catSeed,showMeal:updateTableTray,
     water(id,now,seat,pose,clock){
       const point=seat?.waterPoint;
       drawRipples(id,now,point?{...point,level:outsideGroundOffset(seat)+CHEONGGYE_WATER_LEVEL+.016,seat,kick:footKickAge(pose,clock)}:null);
@@ -1204,7 +1202,6 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     parkLife.update(clock,indoors?null:anchor,roster,season==="autumn");
     palacePeople.update(clock,now,delta,indoors?null:anchor,roster,Boolean(quality.sparse));
     streetPeople.update(clock,now,delta,indoors?null:anchor,Boolean(quality.sparse));
-    bukchonPeople.update(clock,now,delta,indoors?null:anchor,Boolean(quality.sparse));
     cityVisitors.update(clock,now,delta,anchor,insideId,roster,Boolean(quality.sparse));
     for(const [id,model] of models){
       if(present.has(id))continue;
@@ -1589,7 +1586,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   const renderStats=()=>({...renderer.info.render,quality:quality.mode,pixelRatio:quality.ratio,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,
     areas:{plaza:Boolean(plaza.chunks),palace:Boolean(palace.chunks),cheonggye:Boolean(cheonggye.chunks),songhyeon:Boolean(songhyeon.chunks),
       ...Object.fromEntries(Object.entries(indoorsById).map(([id,district])=>[id,Boolean(district.chunks)]))}});
-  return {render,setQuality,pick,pickBungeo,pickMole,pickBaseballAim,pickClassicTap,previewWalker,clearChat,floorHeight,groundHeight,renderStats,snapshot,capturePhoto,
+  return {render,setQuality,setVisitorRoom:cityVisitors.setRoom,pick,pickBungeo,pickMole,pickBaseballAim,pickClassicTap,previewWalker,clearChat,floorHeight,groundHeight,renderStats,snapshot,capturePhoto,
     benches,stations,parkLife,birds,palacePeople,museum,underDoldamAwning};
 }
 
