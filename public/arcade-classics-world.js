@@ -38,10 +38,19 @@ export function* buildClassics(T,room,{box,cylinder,shape}){
       }
       if(opening)block(chrome,0,top-.035,end*(z+.095),opening*2,.109,.225);
     }
-    const signZ=-depth/2+.022;
-    block(dark,0,1.48,signZ,width-.25,.56,.16);
-    block(look.accent,0,1.775,signZ,width-.19,.050,.195);
-    standSign(T,stage,look.name,"",width-.46,0,1.49,signZ+.094,"#2a2637",look.ink,.38);
+    if(kind==="airHockey"){
+      // Both ends are player positions. Mount the nameplates on the side aprons below the ice.
+      for(const side of [-1,1]){
+        const apron=new T.Group();apron.position.set(side*(width/2+.029),.81,0);
+        apron.rotation.y=side*Math.PI/2;stage.add(apron);
+        standSign(T,apron,look.name,"",1.12,0,0,0,"#213c42",look.ink,.225);
+      }
+    }else{
+      const signZ=-depth/2+.022;
+      block(dark,0,1.48,signZ,width-.25,.56,.16);
+      block(look.accent,0,1.775,signZ,width-.19,.050,.195);
+      standSign(T,stage,look.name,"",width-.46,0,1.49,signZ+.094,"#2a2637",look.ink,.38);
+    }
     for(const ledX of [-width*.36,width*.36])block(look.accent,ledX,.85,depth/2+.014,.38,.035,.018);
     let parts;
     if(kind==="pinball"){

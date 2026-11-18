@@ -1403,10 +1403,11 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
       camera.lookAt(wx(machine.x+.05),MOLE_BOARD.top+.14,wz(machine.y));
       if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix();}
       cameraDistance=0;
-    }else if(state.arcade?.kind==="pinball"){
-      const {machine}=ARCADE_GAMES.pinball,field=CLASSIC_FIELDS.pinball;
-      // Keep the lens below the ceiling and fit the near lip as well as the upper bumpers.
-      const eye=3.79,offset=.95,target=.28,rise=eye-field.top,run=offset-target;
+    }else if(state.arcade?.kind==="pinball"||state.arcade?.kind==="airHockey"){
+      const {kind,farSide}=state.arcade,{machine}=ARCADE_GAMES[kind],field=CLASSIC_FIELDS[kind];
+      const hockey=kind==="airHockey",side=hockey&&farSide?-1:1;
+      // Mirror the lens inside the room for the far seat; fit both ends even in portrait.
+      const eye=3.79,offset=hockey?1.68:.95,target=hockey?.34:.28,rise=eye-field.top,run=offset-target;
       const distance=Math.hypot(rise,run),cos=rise/distance,sin=run/distance;
       let slope=0;
       for(const z of [field.z+.17,-field.z-.17]){
@@ -1414,16 +1415,15 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
         slope=Math.max(slope,Math.abs((z-target)*cos)/depth,(field.x+.18)/(depth*camera.aspect));
       }
       const fov=2*Math.atan(slope*1.115)*180/Math.PI;
-      camera.position.set(wx(machine.x+offset),eye,wz(machine.y));
-      camera.lookAt(wx(machine.x+target),field.top,wz(machine.y));
+      camera.position.set(wx(machine.x+side*offset),eye,wz(machine.y));
+      camera.lookAt(wx(machine.x+side*target),field.top,wz(machine.y));
       if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix();}
       cameraDistance=0;
     }else if(isClassic(state.arcade?.kind)){
       const machine=ARCADE_GAMES[state.arcade.kind].machine,portrait=camera.aspect<.88;
       const fov=portrait?75:55,offset=portrait?6.30:4.68;
-      const side=state.arcade.farSide?-1:1;
-      camera.position.set(wx(machine.x+side*(side<0?Math.min(4.65,offset):offset)),side<0&&portrait?4.65:3.64,wz(machine.y));
-      camera.lookAt(wx(machine.x+side*.12),1.07,wz(machine.y));
+      camera.position.set(wx(machine.x+offset),3.64,wz(machine.y));
+      camera.lookAt(wx(machine.x+.12),1.07,wz(machine.y));
       if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix();}
       cameraDistance=2;
     }else if(Object.hasOwn(TARGET_LANES,state.arcade?.kind)){
