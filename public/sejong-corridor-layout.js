@@ -56,6 +56,9 @@ export const corridorSidewalks=[
   ...corridorForecourts
 ];
 export const corridorMainRoad=profileBand(2,3);
+const [,southWest,southEast]=corridorProfileAt(-292);
+export const corridorAvenueJoin=[point(southWest,-291.8),point(southEast,-291.8),
+  plazaAt(plazaKerb,.3),plazaAt(eastCurb(0),.3)];
 
 const street=(name,vertices)=>({name,outline:outline(vertices)});
 export const corridorBranches=[

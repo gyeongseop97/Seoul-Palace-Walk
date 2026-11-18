@@ -8,19 +8,19 @@ import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
 import {makeCrosswalkMarkings} from "./crosswalk-markings.js";
 
 const point=(x,y)=>({x,y});
-const walk=(name,width,points)=>({name,width,points:points.map(([x,y])=>point(x,y))});
+const walk=(name,width,points,kind="walk")=>({name,width,kind,points:points.map(([x,y])=>point(x,y))});
 export const subwayAccessPaths=[
   walk("시청역 남쪽 보도",7,[[522,285],[543,298],[551,317],[546,336],[534,349],[522,374],[519,397]]),
   walk("시청역 덕수궁길 보도",8,[[475,307],[470,325],[464,346],[465.8,357],[460,365],[445,377],[438,395],[434,405]]),
   // Meet the east sidewalk before the corner of The Plaza hotel.
-  walk("시청역 남쪽 횡단보도",6,[[467.5,334],[503,336],[545,331.5]]),
+  walk("시청역 남쪽 횡단보도",6,[[467.5,334],[503,336],[545,331.5]],"crossing"),
   walk("광화문역 서쪽 보도",8,[[443,-413],[434,-416.7],[418,-417.2],[400,-418],[364,-418],[331,-418],[320,-427],
     [317,-438],[302,-446],[298,-455]]),
   walk("광화문역 동쪽 보도",8,[[524,-324],[526,-346],[527,-376],[530,-388]]),
   walk("경복궁역 사직로 보도",7,[[388,-884],[356,-886],[321,-886],[275,-886],[239,-887],[207,-896],
     [178,-905],[150,-909],[125,-915],[112,-920],[110,-933],[84,-941],[63,-931]]),
   walk("경복궁역 자하문로 보도",7.4,[[149,-908],[145,-891],[148,-872],[139,-866],[102,-869],[70,-879],[64,-881]]),
-  walk("경복궁역 서측 횡단보도",5.5,[[65,-930],[67,-907],[66,-883]]),
+  walk("경복궁역 서측 횡단보도",5.5,[[65,-930],[67,-907],[66,-883]],"crossing"),
   walk("경복궁역 북서쪽 보도",6.4,[[64,-932],[72,-947],[77,-956],[80,-961]]),
   walk("시청역 1번 출구 앞",6.1,[[461.2,351.65],[461.2,359.45],[464.6,362.4]])
 ];
@@ -62,7 +62,6 @@ function band({width,points}){
   return [...side(1),...side(-1).reverse()];
 }
 const pavement=subwayAccessPaths.map(band);
-const crossingIndexes=[2,7];
 const inside=(x,y,polygon)=>insideCorridorPolygon(x,y,polygon);
 const accessBounds=pavement.map(outline=>{
   const xs=outline.map(p=>p.x),ys=outline.map(p=>p.y);
@@ -82,7 +81,7 @@ export function registerExpandedSubway(){
 export function* buildSubwayAccess(T,root,{wx,wz,box,matte},floorAt,{terrainHeight}={}){
   const approaches=new T.Group();
   root.add(approaches);
-  const cutSidewalks=makeStreetSurfaceCut(T,pavement.filter((_,index)=>!crossingIndexes.includes(index)));
+  const cutSidewalks=makeStreetSurfaceCut(T,pavement.filter((_,index)=>subwayAccessPaths[index].kind!=="crossing"));
   const existing=[plazaOutline,plazaAvenueOutline,...plazaEastSidewalks,...plazaWestPavement()];
   const stone=bukchonPavers(T);
   function surface(parts,color,height,name=""){
@@ -97,7 +96,7 @@ export function* buildSubwayAccess(T,root,{wx,wz,box,matte},floorAt,{terrainHeig
     mesh.userData.followTerrain=true;approaches.add(mesh);
   }
   for(const [index,outline] of pavement.entries()){
-    if(crossingIndexes.includes(index)){
+    if(subwayAccessPaths[index].kind==="crossing"){
       const road=cutSidewalks(outline),markings=makeCrosswalkMarkings(T,road);
       const {width,points}=subwayAccessPaths[index],paint=[],tactile=[];
       const bends=points.slice(1,-1);

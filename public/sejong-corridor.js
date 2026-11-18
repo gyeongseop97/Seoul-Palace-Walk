@@ -1,11 +1,10 @@
 import {addObstacle} from "./layout.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
-import {plazaAt,eastCurb,eastRoadWidth} from "./plaza-layout.js";
 import {cheonggyeAccess,cheonggyeRoadLeads,cheonggyeSurfaces} from "./cheonggye-layout.js";
 import {seoulPlazaOutline} from "./seoul-hwangudan-layout.js";
 import {makeCrosswalkMarkings,streetSegmentParts} from "./crosswalk-markings.js";
 import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
-import {corridorProfile,corridorProfileAt,corridorSidewalks,corridorEastLandingKerb,seoulPlazaCrossingLanding,corridorMainRoad,corridorBranches,corridorCrossings,
+import {corridorProfile,corridorProfileAt,corridorSidewalks,corridorEastLandingKerb,seoulPlazaCrossingLanding,corridorMainRoad,corridorAvenueJoin,corridorBranches,corridorCrossings,
   insideCorridorPolygon} from "./sejong-corridor-layout.js";
 
 export function buildSejongCorridor(T,scene,kit){
@@ -68,9 +67,7 @@ export function buildSejongCorridor(T,scene,kit){
     pavedOutlines.push(walk);
   }
   surface(corridorMainRoad,asphalt,.021);
-  const [,southWest,southEast]=corridorProfileAt(-292),northWest=eastCurb(0);
-  const avenueJoin=[{x:southWest,y:-291.8},{x:southEast,y:-291.8},plazaAt(northWest+eastRoadWidth,.3),plazaAt(northWest,.3)];
-  surface(avenueJoin,asphalt,.009);
+  surface(corridorAvenueJoin,asphalt,.009);
   for(const {outline} of corridorBranches)surface(outline,asphalt,.053);
   const cycleBand=[...corridorProfile.map(([y,,west])=>({x:west-2.25,y})),
     ...corridorProfile.slice().reverse().map(([y,,west])=>({x:west-.26,y}))];
@@ -128,7 +125,7 @@ export function buildSejongCorridor(T,scene,kit){
     cylinder(0xd0ccc0,wx(x),.65,wz(y),.075,.082,8,group);
     obstacle(x,y,.15,.15,.80);
   }
-  const widePaint=makeCrosswalkMarkings(T,[corridorMainRoad,avenueJoin]);
+  const widePaint=makeCrosswalkMarkings(T,[corridorMainRoad,corridorAvenueJoin]);
   const streamRoads=new Map([["stream-north",cheonggyeRoadLeads[0]],["stream-south",cheonggyeRoadLeads[1]]]);
   for(const {name,a,b,width,street} of corridorCrossings){
     const lead=streamRoads.get(street),avenue=street==="avenue";

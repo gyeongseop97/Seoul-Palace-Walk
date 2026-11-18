@@ -349,7 +349,6 @@
         <div class="map-wrap">
           <svg id="world" viewBox="58 28 520 397" role="group" tabindex="0" aria-label="산책 지도. 휠이나 두 손가락으로 확대·축소하고, 마우스나 손가락으로 끌어서 둘러보세요.">
             <defs>
-              <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse"><path d="M28 0H0V28" fill="none" stroke="#c7c59a" stroke-opacity=".10"/></pattern>
               <pattern id="stone" width="20" height="12" patternUnits="userSpaceOnUse"><path d="M0 1h20M0 7h20M5 1v6m10 0v5" stroke="#b59865" stroke-opacity=".5" fill="none"/></pattern>
               <g id="tree"><circle cx="2" cy="4" r="14" fill="#101c18"/><circle r="14" fill="#31493a" stroke="#6c8060" stroke-width="1"/><circle r="6" fill="#435a45"/><circle cx="-3" cy="-4" r="2" fill="#76825b"/></g>
             </defs>
@@ -367,7 +366,10 @@
             <g id="my-avatar" class="avatar me"><ellipse cy="11" rx="16" ry="6"/><circle r="14"/><path d="M-7 7a8 8 0 0 1 14 0" class="shoulders"/><circle cy="-3" r="4" class="face"/><text y="-21" text-anchor="middle">나</text></g>
             <g id="map-labels" aria-hidden="true"></g>
           </svg>
-            <div class="map-location"><span>현재 위치</span><strong id="location">매표소 앞</strong></div>
+            <button class="map-location" id="map-center" type="button" aria-label="지도를 내 위치로 이동" title="내 위치로 이동">
+              <span>◎ 내 위치</span><strong id="location">매표소 앞</strong>
+            </button>
+            <span class="map-north" aria-hidden="true">↑ N</span>
         </div>
         <div class="map-footer" id="map-footer"><span class="map-key" id="map-key" aria-label="지도 범례"><span><i class="dot mine"></i>나</span><span><i class="dot theirs"></i>동행</span><span data-map-legend="heritage"><i class="dot map-swatch"></i>유적·전시</span><span data-map-legend="park"><i class="dot map-swatch"></i>정원·광장</span><span data-map-legend="shop"><i class="dot map-swatch"></i>상점·식당</span><span data-map-legend="activity"><i class="dot map-swatch"></i>즐길거리</span><span data-map-legend="bus"><i class="dot map-swatch"></i>버스</span><span data-map-legend="subway"><i class="dot map-swatch"></i>지하철</span><span data-map-legend="bike"><i class="dot map-swatch"></i>따릉이</span><span data-map-legend="stamp"><i class="dot map-swatch"></i>찍은 도장</span><span data-map-legend="stamp"><i class="dot stamp-dot unvisited"></i>미방문 도장</span></span><div class="map-links" id="map-links"><button id="model-credits" class="quiet" type="button" aria-haspopup="dialog">자료 출처</button><button id="entrance-target" class="quiet" type="button" aria-label="매표소로 순간이동">매표소</button><button id="fountain-target" class="quiet" type="button" aria-label="정동 분수대로 순간이동">분수대</button><button id="palace-target" class="quiet" type="button" aria-label="중화전으로 순간이동">중화전</button><button id="stop-target" class="quiet" type="button" hidden>정류장</button><button id="plaza-bus-target" class="quiet" type="button" hidden>정류장</button></div></div>
       </article>

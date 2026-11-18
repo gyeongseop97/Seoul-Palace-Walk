@@ -16,18 +16,21 @@ import {bindMapLabels} from "./map-labels.js";
 import {makeSound} from "./sound.js";
 import {ceremonyAt} from "./palace-people.js";
 import {cityHallStation,gbSites,gbBounds,gbLake,gbPond,gbPaths,gbCourts,gbLawns,gbShortcuts,wishPond,gbPhotoZone,inGyeongbok,gbWoldae,onWoldaeApproach,nearWoldaeRailing,at as palaceAt,gyeongbokWater} from "./gyeongbok-layout.js";
-import {inGwanghwamunPlaza,plazaAt,plazaBounds,plazaSites,plazaOutline,plazaPaths,plazaShortcuts,plazaBeds,plazaRoadProfile,plazaEastWalkSpine,eastRoadWidth,sajikRoad,sejongParkOutline} from "./plaza-layout.js";
-import {corridorBounds,corridorLandmarks,corridorSidewalks,corridorCrossings,corridorWalkSpine,corridorEastWalkSpine,corridorMainRoad,inSejongCorridor,seoulPlazaApproach} from "./sejong-corridor-layout.js";
+import {inGwanghwamunPlaza,plazaAt,plazaBounds,plazaSites,plazaOutline,plazaPaths,plazaShortcuts,plazaBeds,plazaAvenueOutline,plazaEastSidewalks,plazaSideForecourts,plazaUijeongbuApproach,plazaCrossingLandings,eastCurb,plazaEastWalkSpine,eastRoadWidth,sajikRoad,sejongParkOutline} from "./plaza-layout.js";
+import {corridorBounds,corridorLandmarks,corridorSidewalks,corridorBranches,corridorCrossings,corridorWalkSpine,corridorEastWalkSpine,corridorMainRoad,corridorAvenueJoin,inSejongCorridor,seoulPlazaApproach} from "./sejong-corridor-layout.js";
+import {plazaWestPavement} from "./gwanghwamun-plaza.js";
+import {streetSegmentParts} from "./crosswalk-markings.js";
+import {crosswalkPaintBands} from "./bukchon-surfaces.js";
 import {transitRoutes,transitStops} from "./transit-routes.js";
 import {subwayAccessPaths} from "./subway-expansion.js";
-import {jeongdongExtensionLandmarks,jeongdongExtensionPaths} from "./jeongdong-extension-layout.js";
+import {jeongdongExtensionLandmarks,jeongdongExtensionPaths,jeongdongParkCourt,extensionRibbon} from "./jeongdong-extension-layout.js";
 import {bukchonAlleyShortcut,bukchonBounds,bukchonPaths,bukchonLandmarks,bukchonWalkable,bukchonLawns} from "./bukchon-layout.js";
 import {hwangudanBounds,hwangudanGround,hwangudanPaths,hwangudanLandmarks,hwangudanBuildings,hwangudanWalkable,
   seoulPlazaOutline,seoulPlazaLawn} from "./seoul-hwangudan-layout.js";
-import {cheonggyeBounds,cheonggyeDeckExits,cheonggyeDeckStep,cheonggyeLandmarks,cheonggyeLevel,cheonggyeRoadLeads,cheonggyeStations,cheonggyeSurfaces,cheonggyeWalkable,inCheonggye,riverAt} from "./cheonggye-layout.js";
+import {cheonggyeBounds,cheonggyeDeckExits,cheonggyeDeckStep,cheonggyeLandmarks,cheonggyeLevel,cheonggyeRoadLeads,cheonggyeStations,cheonggyeSurfaces,cheonggyeWalkable,inCheonggye,riverAt,bankAt,streamTerraces,terraceWidth,springBed,cheonggyeCascade} from "./cheonggye-layout.js";
 import {FOOT_BATH_PERIOD,footKickAge} from "./walker-model.js";
 import {inSonghyeon,songhyeonBounds,songhyeonOutline,songhyeonPaths,songhyeonLawns,songhyeonLandmarks} from "./songhyeon-layout.js";
-import {uijeongbuOutline,uijeongbuEntry,uijeongbuGarden,uijeongbuWalks,uijeongbuConnections,uijeongbuSideRoad,uijeongbuBusPavement,uijeongbuRemains,sajikEastRoad} from "./uijeongbu-layout.js";
+import {uijeongbuOutline,uijeongbuEntry,uijeongbuGarden,uijeongbuWalks,uijeongbuConnections,uijeongbuSideRoad,uijeongbuBusPavement,uijeongbuRemains,sajikEastRoad,uijeongbuPavedConnections,uijeongbuCrossings,gardenSidewalk,gardenVerge} from "./uijeongbu-layout.js";
 import {BUS_COUNT,BUS_SEATS,bukchonBusRoads,busAt,busSeatPose,busStopById,busStops,busStopTimes,nearBus} from "./sejong-bus.js";
 import {bikeDocks,bikeMountReach,bikeParkDuration,bikePassengerBoardSpeed,bikePassengerOffset,bikePassengerPose,
   isBikeDriver,isBikePassenger,isCycling,nearBikeDock} from "./sejong-bike.js";
@@ -1449,13 +1452,13 @@ $("foot-kick").addEventListener("click",()=>{
   me.kick=time;dirty=true;wakeSync();focusGame();
 });
 function setMap(open){
-  if(!open)setFullscreenSidebar(false);
+  if(gameShell.classList.contains("game-fullscreen"))setFullscreenSidebar(open);
   if(open){mobileSettings.open=false;closeActionMenus();}
   $("map-panel").classList.toggle("expanded",open);
   $("map-toggle").setAttribute("aria-expanded",String(open));
   if(!open){clearMapGestures();if(!mapRoute)setOverview(false);}
   else if(mapRoute&&!mapRoute.walking&&near(mapRoute.start,me.x,me.y)>5)refreshMapRoute();
-  if(!open&&$("map-panel").contains(document.activeElement))$("map-toggle").focus();
+  if(!open&&mobileHeader.matches&&$("map-panel").contains(document.activeElement))$("map-toggle").focus({preventScroll:true});
 }
 $("map-toggle").addEventListener("click",()=>setMap($("map-toggle").getAttribute("aria-expanded")!=="true"));
 $("close-map").addEventListener("click",()=>setMap(false));
@@ -3092,13 +3095,14 @@ function svg(parent,type,attributes,text){
 const outline=points=>points.map(p=>p.x.toFixed(1)+","+p.y.toFixed(1)).join(" ");
 const eastWalkRoute=outline([...corridorEastWalkSpine,...plazaEastWalkSpine.slice(1)]);
 const indoorMaps=[];
+const mapCoatKey=$("map-key").querySelector(".dot.mine");
 const mapPlaces=[],mapCategory=$("map-category"),mapLabels=bindMapLabels($("world"),$("map-labels"));
 function setMarkerFilter(mark){
   mark.toggleAttribute("hidden",mapCategory.value!=="all"&&mapCategory.value!==mark.dataset.mapCategory);
 }
 mapCategory.addEventListener("change",()=>{
-  for(const mark of $("map-panel").querySelectorAll("[data-map-category]"))setMarkerFilter(mark);
-  for(const key of $("map-panel").querySelectorAll("[data-map-legend]")){
+  for(const mark of gameShell.querySelectorAll("[data-map-category]"))setMarkerFilter(mark);
+  for(const key of $("map-key").querySelectorAll("[data-map-legend]")){
     key.hidden=mapCategory.value!=="all"&&mapCategory.value!==key.dataset.mapLegend;
   }
   mapLabels.request();
@@ -3156,8 +3160,14 @@ function setOverview(open){
 }
 overviewButton.addEventListener("click",()=>setOverview(!overviewOpen));
 function drawMap(base,mini=false){
-  svg(base,"rect",{width:600,height:450,fill:"#23302a"});
-  if(!mini)svg(base,"rect",{width:600,height:450,fill:"url(#grid)"});
+  const patternId=mini?"mini-map-grid":"world-map-grid";
+  const pattern=svg(svg(base,"defs",{}),"pattern",{id:patternId,width:28,height:28,patternUnits:"userSpaceOnUse"});
+  svg(pattern,"rect",{width:28,height:28,fill:"#303b38"});
+  svg(pattern,"path",{d:"M28 0H0V28",fill:"none",stroke:"#bac7b8","stroke-opacity":.14,"stroke-width":.7});
+  // The backdrop covers the full panning range, including the letterbox on tall maps.
+  svg(base,"rect",{x:-12000,y:-12000,width:24000,height:24000,fill:"url(#"+patternId+")","pointer-events":"none"});
+  const landscape=base,outdoors=svg(landscape,"g",{class:"outdoor-map-ground"});
+  base=outdoors;
   svg(base,"polygon",{points:outline(estateOutline),fill:"#465248",stroke:"#7a8566","stroke-width":1.3});
   for(const garden of palaceGardens){
     const fill=garden.kind==="grove"?"#314938":garden.kind==="parterre"?"#607651":"#506649";
@@ -3187,8 +3197,8 @@ function drawMap(base,mini=false){
   drawGyeongbok(base);
   drawPlaza(base);
   drawCheonggye(base);
+  svg(base,"polygon",{points:outline(jeongdongParkCourt),fill:"#758568"});
   drawExtensionPaths(base,jeongdongExtensionPaths);
-  drawExtensionPaths(base,subwayAccessPaths);
   for(const {outline:points,kind} of hwangudanGround){
     svg(base,"polygon",{points:outline(points),fill:points===seoulPlazaOutline?"#b0ad9d":
       kind==="garden"?"#56734f":kind==="road"?"#4e5351":"#8c8067"});
@@ -3198,18 +3208,23 @@ function drawMap(base,mini=false){
     svg(base,"polygon",{points:outline(building.outline),fill:"#716b5d",stroke:"#ac9c78","stroke-width":.9});
   }
   drawExtensionPaths(base,hwangudanPaths);
-  for(const {outline:points,kind} of bukchonPaths){
-    svg(base,"polygon",{points:outline(points),fill:kind==="road"?"#4e5351":kind==="stairs"?"#c2b193":kind==="crosswalk"?"#d8d2bf":"#8c8067"});
-  }
+  drawExtensionPaths(base,subwayAccessPaths);
+  for(const path of bukchonPaths.filter(path=>path.kind==="road"))svg(base,"polygon",{points:outline(path.outline),fill:"#4e5351"});
   for(const points of bukchonBusRoads)svg(base,"polygon",{points:outline(points),fill:"#4e5351"});
   for(const [surfaces,fill] of [[bukchonLawns,"#647e54"],[mmcaCourtyards,"#aa9c84"],[mmcaLawns,"#647e54"],[mmcaBuildings,"#82776a"]]){
     for(const {outline:points} of surfaces)svg(base,"polygon",{points:outline(points),fill,stroke:"#a99a7d","stroke-width":.65});
   }
   drawExtensionPaths(base,bukchonPaths.filter(path=>path.kind!=="road"));
   drawSonghyeon(base);
+  for(const {a,b,width,street} of corridorCrossings){
+    const roads=street==="avenue"?[corridorMainRoad,corridorAvenueJoin]:
+      [(street==="stream-north"?cheonggyeRoadLeads[0]:street==="stream-south"?cheonggyeRoadLeads[1]:street).outline];
+    mapCrossing(base,a,b,width,roads);
+  }
   svg(base,"polyline",{points:eastWalkRoute,fill:"none",stroke:"#ded2a9","stroke-width":mini?1.45:2.6,
     "stroke-linejoin":"round","stroke-dasharray":"3 3","pointer-events":"none"});
   const {minX,maxX,minY,maxY}=museumBounds;
+  base=landscape;
   const interior=svg(base,"g",{visibility:"hidden"});
   indoorMaps.push({id:"museum",layer:interior});
   svg(interior,"rect",{x:minX,y:minY,width:maxX-minX,height:maxY-minY,fill:"#625a46",stroke:"#d3b684","stroke-width":.7});
@@ -3227,8 +3242,7 @@ function drawMap(base,mini=false){
   drawIndoorMap(base,ARCADE_UPPER_SITE,[],mini);
   drawIndoorMap(base,ARCADE_THIRD_SITE,[],mini);
   for(const venue of diningVenues)drawIndoorMap(base,venue,[],mini);
-  if(!mini)svg(base,"text",{x:548,y:94,class:"map-faint","text-anchor":"middle"},"↑ N");
-  drawMapPoints(mini?base:$("map-points"),mini);
+  drawMapPoints(mini?outdoors:$("map-points"),mini);
 }
 function drawTransport(base,mini){
   for(const dock of bikeDocks)drawMapPoint(base,{...dock.access,name:dock.name},"bike",mini);
@@ -3261,15 +3275,31 @@ function drawMapPoints(base,mini){
   drawTransport(base,mini);
 }
 function drawExtensionPaths(base,paths){
-  for(const {points,width,kind,surface} of paths){
-    svg(base,"polyline",{points:outline(points),fill:"none",stroke:kind==="crossing"?"#e0d8bc":surface==="deck"?"#af805d":"#af9e7e",
-      "stroke-width":Math.max(1,width*.74),"stroke-opacity":.8,"stroke-linecap":"round","stroke-linejoin":"round","pointer-events":"none"});
+  for(const path of paths){
+    const {points,width,kind,surface,edges}=path;
+    if(kind==="crosswalk"&&path.left){
+      mapBands(base,crosswalkPaintBands(path.left,path.right));
+      continue;
+    }
+    const footprint=path.outline??(edges?[...edges[0],...edges[1].slice().reverse()]:extensionRibbon(points,width/2));
+    svg(base,"polygon",{points:outline(footprint),fill:kind==="crossing"?"#4e5351":kind==="stairs"?"#c2b193":
+      surface==="deck"?"#af805d":surface==="brick"?"#a48472":"#a69a80"});
+    if(kind==="crossing")for(let i=1;i<points.length;i++)mapCrossing(base,points[i-1],points[i],width,[footprint]);
+  }
+}
+function mapBands(base,bands){
+  if(bands.length)svg(base,"path",{d:bands.map(points=>"M"+points.map(p=>p.x+","+p.y).join("L")+"Z").join(""),fill:"#e2ddc9"});
+}
+function mapCrossing(base,a,b,width,roads){
+  for(const [start,end] of streetSegmentParts(a,b,roads)){
+    const dx=end.x-start.x,dy=end.y-start.y,len=Math.hypot(dx,dy);
+    const offset=(p,side)=>({x:p.x-side*dy/len*width/2,y:p.y+side*dx/len*width/2});
+    mapBands(base,crosswalkPaintBands([offset(start,1),offset(end,1)],[offset(start,-1),offset(end,-1)]));
   }
 }
 function drawCorridor(base,mini){
-  svg(base,"polygon",{points:outline(corridorMainRoad),fill:"#4e5351"});
   for(const points of corridorSidewalks)svg(base,"polygon",{points:outline(points),fill:"#847c62"});
-  for(const crossing of corridorCrossings)svg(base,"polygon",{points:outline(crossing.outline),fill:"#c7c0aa"});
+  for(const points of [corridorMainRoad,corridorAvenueJoin,...corridorBranches.map(branch=>branch.outline)])svg(base,"polygon",{points:outline(points),fill:"#4e5351"});
   svg(base,"polyline",{points:outline(corridorWalkSpine),fill:"none",stroke:"#d7c291","stroke-width":mini?1.15:2.6,
     "stroke-linejoin":"round","stroke-dasharray":"3 3"});
 }
@@ -3323,9 +3353,25 @@ function drawGyeongbok(base){
 function drawCheonggye(base){
   const colors={road:"#4e5351",plaza:"#a49d88",paving:"#9a9584",crossing:"#c7c0aa",lower:"#af9979",water:"#477986",wood:"#c4a16a",
     stones:"#a5a597",ramp:"#bca886",steps:"#d4c5a8",bridge:"#9a9481"};
-  for(const {kind="road",outline:points} of [...cheonggyeRoadLeads,...cheonggyeSurfaces]){
-    svg(base,"polygon",{points:outline(points),fill:colors[kind],opacity:kind==="bridge"?.75:1});
+  const surfaces=[...cheonggyeRoadLeads,...cheonggyeSurfaces];
+  const roads=surfaces.filter(({kind="road"})=>kind==="road"||kind==="bridge").map(s=>s.outline);
+  for(const {kind="road",outline:points,stones,points:axis,width} of surfaces){
+    if(stones){
+      for(const {x,y,width,length} of stones)svg(base,"rect",{x:x-width/2,y:y-length/2,width,height:length,fill:colors.stones});
+    }else if(kind==="crossing"){
+      mapCrossing(base,axis[0],axis.at(-1),width,roads);
+    }else svg(base,"polygon",{points:outline(points),fill:colors[kind],opacity:kind==="bridge"?.75:1});
   }
+  for(const terrace of streamTerraces){
+    const {side,from,to}=terrace;
+    for(const tier of [1,2,3]){
+      const line=Array.from({length:to-from+1},(_,i)=>bankAt(from+i,side,-terraceWidth(terrace,from+i)*tier/3));
+      svg(base,"polyline",{points:outline(line),fill:"none",stroke:"#746e61","stroke-width":.25});
+    }
+  }
+  const {west,north,south}=cheonggyeCascade;
+  svg(base,"rect",{x:west,y:north,width:cheonggyeStations[0]-west,height:south-north,fill:colors.water});
+  svg(base,"rect",{x:springBed.x-springBed.width/2,y:springBed.y-springBed.depth/2,width:springBed.width,height:springBed.depth,fill:"#74905e"});
 }
 function drawSonghyeon(base){
   svg(base,"polygon",{points:outline(songhyeonOutline),fill:"#658056",stroke:"#9b9c84","stroke-width":1.1});
@@ -3335,13 +3381,10 @@ function drawSonghyeon(base){
   }
 }
 function drawPlaza(base){
-  const northRoad=plazaAt(-310,sajikRoad.north),crosswalk=plazaAt(sajikRoad.crossX-sajikRoad.crossWidth/2,sajikRoad.north);
+  const northRoad=plazaAt(-310,sajikRoad.north);
   svg(base,"rect",{x:northRoad.x,y:northRoad.y,width:330,height:sajikRoad.north-sajikRoad.south,fill:"#3a4240"});
-  svg(base,"rect",{x:crosswalk.x,y:crosswalk.y,width:sajikRoad.crossWidth,height:sajikRoad.north-sajikRoad.south,fill:"#c7c0aa"});
-  const road=[...plazaRoadProfile.filter(([n])=>n<sajikRoad.south),[sajikRoad.south,8.75]].map(([n,e])=>plazaAt(e+eastRoadWidth/2,n));
-  svg(base,"polyline",{points:outline(road),fill:"none",stroke:"#4e5351","stroke-width":eastRoadWidth});
-  const eastSidewalk=plazaRoadProfile.filter(([north])=>north<=528).map(([north,east])=>plazaAt(east+eastRoadWidth,north));
-  svg(base,"polygon",{points:outline([...eastSidewalk,plazaAt(48,528),plazaAt(48,0)]),fill:"#847c62"});
+  svg(base,"polygon",{points:outline(plazaAvenueOutline),fill:"#4e5351"});
+  for(const points of [...plazaWestPavement(),...plazaEastSidewalks,...plazaSideForecourts,plazaUijeongbuApproach])svg(base,"polygon",{points:outline(points),fill:"#a69a80"});
   svg(base,"polygon",{points:outline(plazaOutline),fill:"#6a6c56",stroke:"#9f977b","stroke-width":1.5});
   svg(base,"polygon",{points:outline(sejongParkOutline),fill:"#59754f",stroke:"#929283","stroke-width":1});
   for(const bed of plazaBeds)svg(base,"polygon",{points:outline(bed.outline),fill:bed.kind==="lawn"?"#849465":"#4d684f"});
@@ -3351,7 +3394,17 @@ function drawPlaza(base){
   }
   for(const points of [sajikEastRoad,uijeongbuSideRoad])svg(base,"polygon",{points:outline(points),fill:"#4e5351"});
   svg(base,"polygon",{points:outline(uijeongbuOutline),fill:"#6c7856",stroke:"#9c9a85","stroke-width":1.2});
-  for(const points of [uijeongbuBusPavement,...uijeongbuConnections])svg(base,"polygon",{points:outline(points),fill:"#a7977e"});
+  svg(base,"polygon",{points:outline(gardenVerge),fill:"#718457"});
+  for(const points of [gardenSidewalk,uijeongbuBusPavement,...uijeongbuPavedConnections.map(i=>uijeongbuConnections[i])])
+    svg(base,"polygon",{points:outline(points),fill:"#a69a80"});
+  for(const {left,right} of uijeongbuCrossings)mapBands(base,crosswalkPaintBands(left,right));
+  for(const {north,west,east} of plazaCrossingLandings){
+    for(const points of [west,east])svg(base,"polygon",{points:outline(points),fill:"#a69a80"});
+    const curb=eastCurb(north);
+    mapCrossing(base,plazaAt(curb-2,north),plazaAt(curb+eastRoadWidth+2,north),7.05,[plazaAvenueOutline]);
+  }
+  const westSajik=[northRoad,plazaAt(20,sajikRoad.north),plazaAt(20,sajikRoad.south),plazaAt(-310,sajikRoad.south)];
+  mapCrossing(base,plazaAt(sajikRoad.crossX,sajikRoad.south-2),plazaAt(sajikRoad.crossX,sajikRoad.north+2),sajikRoad.crossWidth,[westSajik]);
   for(const {points,width} of uijeongbuWalks)svg(base,"polyline",{points:outline(points),fill:"none",stroke:"#bba88a",
     "stroke-width":width,"stroke-linecap":"round","stroke-linejoin":"round"});
   for(const {east,north,width,length} of uijeongbuRemains){
@@ -3386,13 +3439,19 @@ const clearMapGestures=bindMapGestures(mapSurface,{getView:()=>mapViewport,setVi
 // On a desktop the big map is always in view. Left alone for a few seconds, it drifts back
 // to keep the walker in the middle, as far as the edges of the district allow.
 const MAP_FOLLOW_AFTER_MS=3000;
-let mapTouched=-Infinity,mapFollowed=0;
-for(const type of ["wheel","pointerdown","pointerup"])mapSurface.addEventListener(type,()=>{mapTouched=performance.now();},{passive:true});
-mapSurface.addEventListener("pointermove",event=>{if(event.buttons)mapTouched=performance.now();},{passive:true});
+let mapTouched=-Infinity,mapFollowed=0,mapBrowseOrigin=null;
+function markMapActivity(){
+  mapTouched=performance.now();
+  mapBrowseOrigin={x:me.x,y:me.y};
+}
+for(const type of ["wheel","pointerdown","pointerup"])mapSurface.addEventListener(type,markMapActivity,{passive:true});
+mapSurface.addEventListener("pointermove",event=>{if(event.buttons)markMapActivity();},{passive:true});
 function followOnMap(self){
   const now=performance.now(),elapsed=Math.min(.5,(now-mapFollowed)/1000);
   mapFollowed=now;
-  if(mobileHeader.matches||!mapViewport||now-mapTouched<MAP_FOLLOW_AFTER_MS)return;
+  if(mobileHeader.matches||!mapViewport||overviewOpen||mapRoute&&!mapRoute.walking||now-mapTouched<MAP_FOLLOW_AFTER_MS)return;
+  if(mapBrowseOrigin&&near(mapBrowseOrigin,self.x,self.y)<2)return;
+  mapBrowseOrigin=null;
   const {base,view}=mapViewport;
   const fit=(low,size,span,at)=>span>=size?low+(size-span)/2:Math.min(low+size-span,Math.max(low,at-span/2));
   const dx=fit(base.x,base.w,view.w,self.x)-view.x,dy=fit(base.y,base.h,view.h,self.y)-view.y;
@@ -3412,6 +3471,25 @@ function showMapRegion(box){
   const base=fitMapRegion(box);
   mapViewport={key:box,base,view:base};setMapView(base);
 }
+function centerMapOnPlayer(){
+  setOverview(false);
+  const box=mapRegionAt(me,interiorAt(me.x,me.y),false);
+  showMapRegion(box);
+  const {view}=mapViewport;
+  setMapView({...view,x:me.x-view.w/2,y:me.y-view.h/2});
+  markMapActivity();
+}
+$("map-center").addEventListener("click",centerMapOnPlayer);
+mapSurface.addEventListener("keydown",event=>{
+  if(!mapViewport||event.altKey||event.ctrlKey||event.metaKey)return;
+  const direction={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[event.key];
+  if(!direction&&event.key!=="Home")return;
+  event.preventDefault();event.stopPropagation();
+  if(event.key==="Home"){centerMapOnPlayer();return;}
+  const {view}=mapViewport;
+  setMapView({...view,x:view.x+view.w*.13*direction[0],y:view.y+view.h*.13*direction[1]});
+  markMapActivity();
+});
 if(typeof ResizeObserver!=="undefined")new ResizeObserver(()=>{
   if(!mapViewport)return;
   const {key,base,view}=mapViewport,fitted=fitMapRegion(key);
@@ -3536,11 +3614,13 @@ mapRouteWalk.addEventListener("click",()=>{
   setMap(false);focusGame();
 });
 function drawDestinations(world){
-  const layer=$("map-points");
-  for(const point of [...world.stations,...diningVenues.map(venue=>({...venue.outsideDoor,name:venue.name}))])drawMapPoint(layer,point,"shop");
-  for(const point of [...COOKING_STALLS,ARCADE_SITE])drawMapPoint(layer,point,"activity");
-  for(const point of [{...world.museum.outsideDoor,name:"덕수궁 전시관 입구"},
-    {...mmcaVenue.outsideDoor,name:"국립현대미술관 입구"}])drawMapPoint(layer,point,"heritage");
+  const shops=[...world.stations,...diningVenues.map(venue=>({...venue.outsideDoor,name:venue.name}))];
+  const doors=[{...world.museum.outsideDoor,name:"덕수궁 전시관 입구"},{...mmcaVenue.outsideDoor,name:"국립현대미술관 입구"}];
+  for(const [layer,mini] of [[$("map-points"),false],[$("mini-landscape").querySelector(".outdoor-map-ground"),true]]){
+    for(const point of shops)drawMapPoint(layer,point,"shop",mini);
+    for(const point of [...COOKING_STALLS,ARCADE_SITE])drawMapPoint(layer,point,"activity",mini);
+    for(const point of doors)drawMapPoint(layer,point,"heritage",mini);
+  }
 }
 function updateMaps(self,others){
   const area=outdoorMap(self);
@@ -3565,6 +3645,7 @@ function updateMaps(self,others){
       attr(parkedPin,"r",overview?16:palace?10:6);
     }
     attr($("my-avatar").querySelector("circle"),"fill",coat);
+    if(mapCoatKey.style.getPropertyValue("--coat")!==coat)mapCoatKey.style.setProperty("--coat",coat);
     $("world").classList.toggle("museum-map",indoors);
     attr($("stamp-pins"),"visibility",indoors?"hidden":"visible");
     attr($("map-points"),"visibility",indoors?"hidden":"visible");
