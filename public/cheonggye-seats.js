@@ -3,9 +3,9 @@ import {bankAt,cheonggyeBedLevel,cheonggyeBridges,cheonggyeLowerEdge,stepStoneXs
 export const CHEONGGYE_WATER_LEVEL=cheonggyeBedLevel-.27;
 const ledgeRise=.043;
 // A place to sit on the edge of the lower path with both feet in the stream.
-const place=(x,side,ledge)=>({...bankAt(x,side,cheonggyeLowerEdge(side)+.077),heading:side===1?0:180,
+const place=(x,side,ledge)=>({...bankAt(x,side,cheonggyeLowerEdge(side,x)+.077),heading:side===1?0:180,
   base:cheonggyeBedLevel+(ledge?ledgeRise:0),footBath:true,
-  approach:bankAt(x,side,-1.54),waterPoint:bankAt(x,side,-3.50)});
+  approach:bankAt(x,side,cheonggyeLowerEdge(side,x)+1.3),waterPoint:bankAt(x,side,cheonggyeLowerEdge(side,x)-.35)});
 const pair=(x,side,ledge=false)=>{
   const spread=ledge?.61:.625;
   return [-spread,spread].map(offset=>place(x+offset,side,ledge));
@@ -20,6 +20,6 @@ const taken=(x,side)=>ledges.some(([at,bank])=>bank===side&&Math.abs(x-at)<2.4)|
 const edges=[];
 for(let x=634.5;x<1051;x+=2.5)for(const side of [-1,1])if(!taken(x,side))edges.push([x,side]);
 export const cheonggyeSeats=[
-  ...ledges.map(([x,side])=>({...bankAt(x,side,-2.99),side,footBath:true,ledge:true,slots:pair(x,side,true)})),
-  ...edges.map(([x,side])=>({...bankAt(x,side,-2.99),side,footBath:true,slots:pair(x,side)}))
+  ...ledges.map(([x,side])=>({...bankAt(x,side,cheonggyeLowerEdge(side,x)+.22),side,footBath:true,ledge:true,slots:pair(x,side,true)})),
+  ...edges.map(([x,side])=>({...bankAt(x,side,cheonggyeLowerEdge(side,x)+.22),side,footBath:true,slots:pair(x,side)}))
 ];

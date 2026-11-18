@@ -39,12 +39,30 @@ const plaza=ring([[518.1,-167.8],[531.3,-171.8],[548.5,-170.7],[591,-166.85],[60
   [599.6,-145],[580,-146.62],[573,-147.0],[568,-147.1],[555.3,-144.9],
   [535.6,-140.6],[524.4,-132.6],[519.7,-133.3],[522.4,-144.6],[519.2,-152.6]]);
 // The lower paving runs up to the bank wall; walkers keep a body's width clear of it.
-export const cheonggyeLowerEdge=side=>side<0?-3.35:-3.15;
-const pavedNorth=streamBand([[-1,cheonggyeLowerEdge(-1)],[-1,.2]]);
-const pavedSouth=streamBand([[1,cheonggyeLowerEdge(1)],[1,.2]]);
-const walkersNorth=streamBand([[-1,cheonggyeLowerEdge(-1)],[-1,-.42]]);
-const walkersSouth=streamBand([[1,cheonggyeLowerEdge(1)],[1,-.42]]);
-const water=streamBand([[-1,-3.26],[1,-3.08]]);
+export const streamTerraces=[
+  {side:1,from:638,to:653,width:1.9},{side:-1,from:642,to:653,width:1.3},
+  {side:1,from:670,to:677,width:1.25},{side:-1,from:703,to:737,width:2.2},
+  {side:1,from:767,to:801,width:1.8},{side:-1,from:885,to:902,width:1.5},
+  {side:1,from:1021,to:1040,width:1.7}
+];
+export const terraceWidth=({from,to,width},x)=>{
+  const span=to-from;
+  const sample=offset=>width*Math.sin(Math.PI*offset/span)**2;
+  const offset=Math.max(0,Math.min(span,x-from)),whole=Math.floor(offset);
+  return between(sample(whole),sample(Math.min(span,whole+1)),offset-whole);
+};
+const terraceAt=(side,x)=>streamTerraces.find(row=>row.side===side&&x>row.from&&x<row.to);
+export const cheonggyeLowerEdge=(side,x)=>{
+  const terrace=terraceAt(side,x);
+  return (side<0?-3.35:-3.15)-(terrace?terraceWidth(terrace,x):0);
+};
+export const shorelineStations=[...new Set([...cheonggyeStations,...streamTerraces.flatMap(({from,to})=>
+  Array.from({length:to-from+1},(_,i)=>from+i))])].sort((a,b)=>a-b);
+const shoreLine=(side,offset)=>shorelineStations.map(x=>bankAt(x,side,cheonggyeLowerEdge(side,x)+offset));
+const lowerBand=(side,inset)=>[...shoreLine(side,0),...cheonggyeStations.map(x=>bankAt(x,side,inset)).reverse()];
+const pavedNorth=lowerBand(-1,.2),pavedSouth=lowerBand(1,.2);
+const walkersNorth=lowerBand(-1,-.42),walkersSouth=lowerBand(1,-.42);
+const water=[...shoreLine(-1,.09),...shoreLine(1,.07).reverse()];
 // Stairs straight down the bank, as [x, side]. Each starts on a landing in the pavement,
 // so the pavement is laid in pieces that leave the stairwells open.
 const flightWidth=2.6,flightTop={[-1]:6.9,1:7.6},flightLanding=2.35,flightFoot=-1.25;
@@ -155,7 +173,7 @@ const crossings=deckLanes.flatMap(({centre:[a,b],width})=>[-1,1].map(side=>{
 export const stepStoneXs=[654,657.1,660.2,663.3,666.4,669.5];
 const stoneWidth=1.34,stoneTop=-depth+.042;
 export const cheonggyeSteppingRows=stepStoneXs.map(x=>{
-  const shore=side=>bankAt(x,side,cheonggyeLowerEdge(side));
+  const shore=side=>bankAt(x,side,cheonggyeLowerEdge(side,x));
   const north=shore(-1),south=shore(1),span=south.y-north.y;
   const count=Math.round(span/1.42),pitch=span/count;
   const stones=Array.from({length:count},(_,i)=>{
@@ -164,7 +182,7 @@ export const cheonggyeSteppingRows=stepStoneXs.map(x=>{
     return {x,y:(from+to)/2,width:stoneWidth,length:to-from,top:stoneTop};
   });
   // A short stride bridges the gaps within a row. Extend its ends into both paved banks.
-  const land=side=>bankAt(x,side,cheonggyeLowerEdge(side)+.28);
+  const land=side=>bankAt(x,side,cheonggyeLowerEdge(side,x)+.28);
   const ends=[land(-1),land(1)];
   return {kind:"stones",outline:ribbon(ends,stoneWidth-.08),ends,stones};
 });
@@ -236,7 +254,14 @@ export function cheonggyeLevel({x,y,up}){
     return -depth+.25+Math.sin(t*Math.PI)*.71;
   }
   if(!onBanks.some(contains=>contains(x,y))&&onStones.some(contains=>contains(x,y)))return stoneTop;
-  if(onLower.some(contains=>contains(x,y)))return -depth;
+  if(onLower.some(contains=>contains(x,y))){
+    const side=y<riverAt(x)[0]?-1:1,terrace=terraceAt(side,x);
+    if(terrace){
+      const span=terraceWidth(terrace,x),distance=(bankAt(x,side).y-y)*side;
+      for(let tier=1;tier<=3;tier++)if(distance<=span*tier/3)return -depth+.18*(4-tier);
+    }
+    return -depth;
+  }
   if(atWaterfallOpening(x,y))return null;
   if(onUpper.some(contains=>contains(x,y)))return .04;
   return onRoad.some(contains=>contains(x,y))?.012:null;
@@ -297,7 +322,7 @@ export function cheonggyeConnection(from,to){
 
 const place=(name,x,y,description)=>({name,x,y,description});
 export const cheonggyeLandmarks=[
-  place("청계광장",558,-159,"세종대로와 청계천이 만나는 광장입니다. 동쪽의 분수와 폭포에서 물길이 시작되며, 남쪽 경사로와 북쪽 계단으로 수변에 내려갈 수 있습니다."),
+  place("청계광장",561.2,-159,"세종대로와 청계천이 만나는 광장입니다. 동쪽의 분수와 폭포에서 물길이 시작되며, 남쪽 경사로와 북쪽 계단으로 수변에 내려갈 수 있습니다."),
   place("팔석담",652,-145.3,"청계천 상류에 전국 여덟 지역의 돌을 놓아 만든 얕은 못입니다. 모전교 방향으로 걷다 보면 폭포 아래에 펼쳐집니다."),
   place("모전교",682.1,-163.4,"청계광장 쪽에서 만나는 첫 번째 다리입니다. 과일을 파는 가게가 있던 자리에서 이름을 얻었습니다."),
   place("광통교",834.5,-148.8,"조선 시대에 놓인 돌다리입니다. 교각에는 신덕왕후의 옛 능에서 가져온 석물과 구름무늬가 남아 있습니다."),
@@ -308,8 +333,9 @@ export const cheonggyeTrees=[
   [564,-143,5.8],[612,-137.0,5.6],[653,-164.2,6.3],[711,-161.3,5.7],[785,-151.2,5.5],
   [817,-148.2,6.2],[881,-143.6,6.8],[929,-138.9,6.4],[947,-134.2,5.1],[1042,-124,5.9]
 ];
+export const springBed={x:553.8,y:-157.2,width:11.6,depth:8.8};
 export const cheonggyeAnimalTrails=[
-  ring([[534,-160],[555,-160],[575,-155],[591,-154],[605,-152]]),
+  ring([[534,-160],[546,-162.3],[561,-162.3],[575,-155],[591,-154],[605,-152]]),
   cheonggyeStations.filter(x=>x>=645&&x<=949).map(x=>bankAt(x,1,-1.3)),
   cheonggyeStations.filter(x=>x>=645&&x<=949).map(x=>bankAt(x,-1,-1.5))
 ];
@@ -317,7 +343,7 @@ let registered=false;
 export function registerCheonggyeNavigation(){
   if(registered)return;
   registered=true;
-  addObstacle(553.8,-157.2,7.3,7.3);
+  addObstacle(springBed.x,springBed.y,springBed.width,springBed.depth);
   for(const [x,y] of cheonggyeTrees)addObstacle(x,y,.38,.38);
 }
 addZone({name:"청계천",contains:inCheonggye,walkable:cheonggyeWalkable,connects:cheonggyeConnection});

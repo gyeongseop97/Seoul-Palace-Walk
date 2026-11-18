@@ -2,12 +2,12 @@ import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {makeCrosswalkMarkings} from "./crosswalk-markings.js";
 import {bankAt,cheonggyeAccess,cheonggyeAccessDrop,cheonggyeBedLevel,cheonggyeBounds,cheonggyeBridges,cheonggyeCascade,
   cheonggyeRailOpening,cheonggyeRoadLeads,cheonggyeStations,cheonggyeSteppingRows,cheonggyeSurfaces,cheonggyeTrees,cheonggyeWalkFrom,
-  riverAt,streamBand} from "./cheonggye-layout.js";
+  cheonggyeLowerEdge,riverAt,shorelineStations,springBed,streamBand,streamTerraces,terraceWidth} from "./cheonggye-layout.js";
 import {CHEONGGYE_WATER_LEVEL,cheonggyeSeats} from "./cheonggye-seats.js";
 import {gradePalaceMeshes} from "./gyeongbok-terrain.js";
 import {insideCorridorPolygon} from "./sejong-corridor-layout.js";
 import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
-import {basinWater,tickWater,waterCells,waterNoise} from "./water-shader.js";
+import {waterCells,waterNoise} from "./water-shader.js";
 
 export function* buildCheonggye(T,root,kit,terrain){
   const {wx,wz,box,cylinder,matte}=kit;
@@ -64,13 +64,15 @@ export function* buildCheonggye(T,root,kit,terrain){
     }
     return mesh(vertices,indices,material,drape);
   }
-  function stoneTiles(w,h,tones,stagger){
+  function stoneTiles(w,h,tones,stagger,patchwork=false){
     const size=128,pixels=new Uint8Array(size*size*4);
     for(let y=0;y<size;y++)for(let x=0;x<size;x++){
       const row=Math.floor(y/h),along=(x+row*stagger)%size,column=Math.floor(along/w);
       const border=along%w===0||y%h===0,bevel=along%w===1||y%h===1;
       const block=tones[(row*29+column*17+row*column)%tones.length],grain=(x*19+y*71+(x*y)%11)%9-4;
-      const shade=border?119+grain:bevel?Math.min(244,block+12):block+grain;
+      const square=Math.max(Math.abs(64-x),Math.abs(64-y));
+      const inlay=patchwork&&(square<18||square>=34&&square<38||square>=56&&square<62);
+      const shade=(border?119:bevel?Math.min(244,block+12):block)-(inlay?47:0)+grain;
       pixels.set([shade,shade-2,shade-7,255],(y*size+x)*4);
     }
     const map=new T.DataTexture(pixels,size,size);
@@ -81,6 +83,7 @@ export function* buildCheonggye(T,root,kit,terrain){
   const slabs=stoneTiles(32,16,[184,195,209,201,190,218],16);
   const cobbles=stoneTiles(16,16,[160,183,177,189,171,194],8);
   const paving=new T.MeshStandardMaterial({color:0xdfdfd6,map:slabs,roughness:.96,side:T.DoubleSide});
+  const plazaPaving=new T.MeshStandardMaterial({map:stoneTiles(16,16,[186,198,173,206,180,201],0,true),roughness:.93,side:T.DoubleSide});
   const darkPaving=new T.MeshStandardMaterial({color:0xc9cfc5,map:slabs,roughness:.93,side:T.DoubleSide});
   const asphalt=new T.MeshStandardMaterial({color:0x686d66,roughness:1,side:T.DoubleSide});
   const lower=new T.MeshStandardMaterial({color:0xd8d0bb,map:cobbles,roughness:.97,side:T.DoubleSide});
@@ -200,23 +203,20 @@ export function* buildCheonggye(T,root,kit,terrain){
     return model;
   }
   {
-    const xs=[];
-    for(let x=cheonggyeStations[0];x<cheonggyeStations.at(-1);x+=2)xs.push(x);
-    xs.push(cheonggyeStations.at(-1));
-    sheet(xs.map(x=>{
-      const north=bankAt(x,-1,-3.26),south=bankAt(x,1,-3.08);
+    const waterStations=new Set(shorelineStations);
+    for(let x=cheonggyeStations[0];x<cheonggyeStations.at(-1);x+=2)waterStations.add(x);
+    sheet([...waterStations].sort((a,b)=>a-b).map(x=>{
+      const north=bankAt(x,-1,cheonggyeLowerEdge(-1,x)+.09),south=bankAt(x,1,cheonggyeLowerEdge(1,x)+.07);
       return [0,1,2,3,4,5,6].map(j=>({x,y:north.y+(south.y-north.y)*j/6,level:waterLevel,flow:[x,j/3-1]}));
     }),water);
   }
   {
     // A stone kerb drops from each path into the water, and a dark bed lies under it all,
     // so nothing shows through between the path and the stream.
-    const xs=[cheonggyeStations[0]];
-    for(let x=cheonggyeStations[0]+6;x<cheonggyeStations.at(-1);x+=6)xs.push(x);
-    xs.push(cheonggyeStations.at(-1));
+    const xs=shorelineStations;
     const kerb=new T.MeshStandardMaterial({color:0x8f8d80,roughness:1,side:T.DoubleSide});
-    for(const [side,inset] of [[-1,-3.35],[1,-3.15]]){
-      grid(xs.map(x=>{const p=bankAt(x,side,inset);return [{...p,level:cheonggyeBedLevel},{...p,level:waterLevel-.42}];}),kerb);
+    for(const side of [-1,1]){
+      grid(xs.map(x=>{const p=bankAt(x,side,cheonggyeLowerEdge(side,x));return [{...p,level:cheonggyeBedLevel},{...p,level:waterLevel-.42}];}),kerb);
     }
     grid(xs.map(x=>[bankAt(x,-1,.3),bankAt(x,1,.3)].map(p=>({...p,level:waterLevel-.44}))),
       new T.MeshStandardMaterial({color:0x3f4338,roughness:1,side:T.DoubleSide}));
@@ -248,7 +248,7 @@ export function* buildCheonggye(T,root,kit,terrain){
   const crosswalkWhite=matte(0xdbd9cf);
   for(const {name,kind,outline,points,width} of streetLayers){
     if(kind==="plaza"||kind==="paving"){
-      surface(outline,paving,.039,makeStreetSurfaceCut(T,[...pavedOutlines,...streetRoads])(outline));
+      surface(outline,kind==="plaza"?plazaPaving:paving,.039,makeStreetSurfaceCut(T,[...pavedOutlines,...streetRoads])(outline));
       pavedOutlines.push(outline);
     }
     if(kind==="road"){
@@ -268,16 +268,26 @@ export function* buildCheonggye(T,root,kit,terrain){
     }
   }
   yield;
-  const cascadeTreads=Array.from({length:6},(_,i)=>({
-    from:cascadeWest+i*1.27,to:cascadeWest+(i+1)*1.27,top:.102-i*.23
-  }));
+  for(const terrace of streamTerraces){
+    const {from,to,side}=terrace;
+    const rows=shorelineStations.filter(x=>x>=from&&x<=to).map(x=>{
+      const width=terraceWidth(terrace,x),section=[];
+      for(let tier=0;tier<3;tier++){
+        const level=cheonggyeBedLevel+.18*(3-tier);
+        section.push({...bankAt(x,side,-width*tier/3),level},{...bankAt(x,side,-width*(tier+1)/3),level});
+      }
+      section.push({...section.at(-1),level:cheonggyeBedLevel});
+      return section;
+    });
+    grid(rows,darkPaving).name="청계천 곡선 돌계단";
+  }
+  const cascadeTreads=[{from:cascadeWest,to:619.1,top:.102},{from:619.1,to:623,top:-1.42}];
   // Walls close the head of the channel under the waterfall and the sides of its recess.
   {
     const wall=new T.MeshStandardMaterial({color:0x767a71,roughness:1,side:T.DoubleSide});
     const face=(a,b,top)=>grid([a,b].map(p=>[{...p,level:waterLevel-.55},{...p,level:top}]),wall);
-    const north=bankAt(head,-1,.3).y,south=bankAt(head,1,.3).y,lip=cascadeTreads.at(-1).top-.32,cascade=cheonggyeCascade;
+    const north=bankAt(head,-1,.3).y,south=bankAt(head,1,.3).y,cascade=cheonggyeCascade;
     face({x:head,y:north},{x:head,y:cascade.north},.03);
-    face({x:head,y:cascade.north},{x:head,y:cascade.south},lip);
     face({x:head,y:cascade.south},{x:head,y:south},.03);
     for(const y of [cascade.north,cascade.south])face({x:cascade.west,y},{x:head+.02,y},.03);
     face({x:cascade.west,y:cascade.north},{x:cascade.west,y:cascade.south},-.1);
@@ -286,7 +296,26 @@ export function* buildCheonggye(T,root,kit,terrain){
     const material=new T.MeshStandardMaterial({color:i%2?cap:granite,roughness:.83,side:T.DoubleSide});
     const border=rectangle(from,to,cascadeNorth+.075,cascadeSouth-.075);
     surface(border,material,top);
-    grid([...border,border[0]].map(p=>[{...p,level:top},{...p,level:top-.245}]),material);
+    grid([...border,border[0]].map(p=>[{...p,level:top},{...p,level:i===0?cascadeTreads[1].top:waterLevel-.12}]),material);
+  }
+  const paldo=[0x897565,0x998e7c,0x766d66,0xa8a292,0x846f68,0x686d70,0x987f70,0xada595];
+  for(const side of [-1,1]){
+    const stones=new T.MeshStandardMaterial({vertexColors:true,roughness:.93,side:T.DoubleSide});
+    const vertices=[],indices=[],colors=[],tone=new T.Color();
+    for(let course=0;course<5;course++)for(let col=0;col<18;col++){
+      const start=624+col*1.1+(course%2)*.46;
+      const from=bankAt(start,side,.09),to=bankAt(start+1.075,side,.09);
+      if([from,to].some(p=>cheonggyeRailOpening(p.x,p.y)))continue;
+      const bottom=cheonggyeBedLevel+.08+course*.52,first=vertices.length/3;
+      for(const [p,h] of [[from,bottom],[to,bottom],[to,bottom+.50],[from,bottom+.50]]){
+        vertices.push(wx(p.x),at(p.x,p.y)+h,wz(p.y));
+        tone.setHex(paldo[(Math.floor(col/4)+course*(col%5===0?2:0)+(side>0?4:0))%8]);
+        colors.push(tone.r,tone.g,tone.b);
+      }
+      indices.push(first,first+1,first+2,first,first+2,first+3);
+    }
+    const facing=mesh(vertices,indices,stones,false);
+    facing.geometry.setAttribute("color",new T.Float32BufferAttribute(colors,3));facing.name="팔석담 호안석";
   }
   // True where a point lies in the bank behind the wall face, so a cut there needs retaining walls.
   function inBank({x,y}){
@@ -511,43 +540,84 @@ export function* buildCheonggye(T,root,kit,terrain){
       block(0xa39e91,slot.x,slot.y-side*.168,1.13,.20,.095,top-.189);
     }
   }
-  const springWater=basinWater(T,{bed:[0x4a504d,0x6d746f],tile:1.6,tint:0x2e8fa6,depth:.14});
   {
-    const spring={x:553.8,y:-157.2},base=at(spring.x,spring.y),cx=wx(spring.x),cz=wz(spring.y);
+    const {x,y,width,depth}=springBed,base=at(x,y),cx=wx(x),cz=wz(y);
     const part=(geometry,material,y)=>{
       const model=new T.Mesh(geometry,material);
       model.position.set(cx,base+y,cz);model.castShadow=model.receiveShadow=true;root.add(model);
       return model;
     };
-    part(new T.CylinderGeometry(3.78,3.9,.34,56),new T.MeshStandardMaterial({color:0x5e625d,roughness:.9}),.17);
-    part(new T.CylinderGeometry(3.42,3.42,.06,56),new T.MeshStandardMaterial({color:0x3b403d,roughness:1}),.33);
-    const pool=part(new T.CircleGeometry(3.42,56),springWater,.372);
-    pool.rotation.x=-Math.PI/2;pool.castShadow=false;
-    const sweeps=22,revolution=Math.PI*2,steps=704,sides=32;
+    part(new T.BoxGeometry(width,.92,depth),matte(0x494b46),-.12);
+    const turf=new T.PlaneGeometry(width-.18,depth-.18,36,28).rotateX(-Math.PI/2);
+    const grassColors=[],grass=new T.Color(),turfPosition=turf.attributes.position;
+    const sweeps=19.5,revolution=Math.PI*2,steps=546,sides=84;
     const taper=t=>(Math.exp(-4*t)-Math.exp(-4))/(1-Math.exp(-4));
     function spine(t){
       const angle=-Math.PI/2-t*sweeps*revolution,coil=1.65*taper(t);
       const rise=(1-taper(t))*(1-.62*Math.exp(-t*130));
-      return new T.Vector3(coil*Math.cos(angle),2.02+17.98*rise,coil*Math.sin(angle));
+      return new T.Vector3(coil*Math.cos(angle)+1.15*Math.exp(-110*t),1.88+18.12*rise,coil*Math.sin(angle));
     }
+    const lowestCoil=Array.from({length:22},(_,i)=>({center:spine(i/steps),radius:1.72*taper(i/steps)}));
+    const mound=(east,south)=>{
+      const crown=Math.max(0,1-((east+.92)/4.65)**2-((south-.3)/4.08)**2);
+      const mouth=Math.min(1,Math.hypot(east-1.15,south+1.65)/2.1);
+      let height=.35+1.78*crown*crown*mouth*mouth;
+      for(const {center,radius} of lowestCoil){
+        const clearance=radius*radius-(east-center.x)**2-(south-center.z)**2;
+        if(clearance>0)height=Math.min(height,center.y-Math.sqrt(clearance));
+      }
+      return Math.max(.35,height);
+    };
+    for(let index=0;index<turfPosition.count;index++){
+      const east=turfPosition.getX(index),south=turfPosition.getZ(index);
+      turfPosition.setY(index,mound(east,south));
+      grass.setHex(0x668247).multiplyScalar(.85+.17*Math.sin(east*3.8+south)*Math.cos(south*2.2));
+      grassColors.push(grass.r,grass.g,grass.b);
+    }
+    turf.setAttribute("color",new T.Float32BufferAttribute(grassColors,3));turf.computeVertexNormals();
+    part(turf,new T.MeshStandardMaterial({vertexColors:true,roughness:1}),0).name="스프링 잔디 둔덕";
+    const blades=[],bladeColors=[];
+    let grassSeed=1917;
+    const noise=()=>((grassSeed=Math.imul(1664525,grassSeed)+1013904223>>>0)/4294967296);
+    for(let i=0;i<720;i++){
+      const east=(noise()-.5)*(width-.6),south=(noise()-.5)*(depth-.6);
+      if(east>-.7&&south<-.4||lowestCoil.some(({center,radius})=>Math.hypot(east-center.x,south-center.z)<radius+.12))continue;
+      const floor=mound(east,south)-.025;
+      for(let blade=0;blade<5;blade++){
+        const angle=noise()*revolution,dx=Math.cos(angle),dz=Math.sin(angle),size=.06+noise()*.05;
+        blades.push(east-dz*size,floor,south+dx*size,east+dz*size,floor,south-dx*size,
+          east+dx*.17,floor+.13+noise()*.28,south+dz*.17);
+        grass.setHex(noise()>.55?0x83974f:0x5c783e);
+        for(const brightness of [.65,.65,1])bladeColors.push(grass.r*brightness,grass.g*brightness,grass.b*brightness);
+      }
+    }
+    const planting=new T.BufferGeometry();
+    planting.setAttribute("position",new T.Float32BufferAttribute(blades,3));
+    planting.setAttribute("color",new T.Float32BufferAttribute(bladeColors,3));
+    part(planting,new T.MeshBasicMaterial({vertexColors:true,side:T.DoubleSide}),0).castShadow=false;
+    const ribColors=[0x214e88,0x355d91,0xb82744,0xcf3b51,0x602339,0x192e53];
     const positions=[],normals=[],colors=[],indices=[];
-    const up=new T.Vector3(0,1,0),direction=new T.Vector3(),vertex=new T.Vector3(),tone=new T.Color();
+    const up=new T.Vector3(0,1,0),direction=new T.Vector3(),across=new T.Vector3(),vertex=new T.Vector3(),tone=new T.Color();
     function ring(step,inward){
       const t=step/steps,center=spine(t);
       const tangent=spine(Math.min(1,t+.0002)).sub(spine(Math.max(0,t-.0002))).normalize();
       const radial=tangent.clone().cross(up).normalize(),vertical=radial.clone().cross(tangent);
-      const radius=1.59*taper(t)*(inward ? .94 : 1);
+      const radius=1.59*taper(t)*(inward ? .93 : 1);
       const first=positions.length/3;
       for(let side=0;side<sides;side++){
         const angle=side/sides*revolution;
+        const ridgePhase=14*angle,relief=inward ? .007 : .031;
+        const wave=1+relief*Math.cos(ridgePhase);
         direction.copy(radial).multiplyScalar(Math.cos(angle)).addScaledVector(vertical,Math.sin(angle));
-        vertex.copy(center).addScaledVector(direction,radius);
+        vertex.copy(center).addScaledVector(direction,radius*wave);
         positions.push(vertex.x,vertex.y,vertex.z);
+        across.copy(vertical).multiplyScalar(Math.cos(angle)).addScaledVector(radial,-Math.sin(angle));
+        direction.addScaledVector(across,14*relief*Math.sin(ridgePhase)/wave).normalize();
         if(inward)direction.negate();
         normals.push(direction.x,direction.y,direction.z);
-        if(inward)tone.setHex(0xe2aa40).multiplyScalar(.10+.85*Math.exp(-t*128));
-        else if(step===0)tone.setHex(0xdcb256);
-        else tone.setHex(side<2||side>=25&&side<=29?0xc32340:0x174d9d);
+        if(inward)tone.setHex(step>2&&side>=17&&side<=20?0x25496b:0xf1dca6).multiplyScalar(.20+.80*Math.exp(-t*78));
+        else if(step===0)tone.setHex(0xe8cb86);
+        else tone.setHex(ribColors[side%6]);
         colors.push(tone.r,tone.g,tone.b);
       }
       return first;
@@ -581,16 +651,32 @@ export function* buildCheonggye(T,root,kit,terrain){
   const runnelStart=606,runnelEnd=cascadeTreads[0].from,startWater=cascadeTreads[0].top+.031;
   const runnel=[{x:runnelStart,y:-154.4,flow:[runnelStart,-1]},{x:runnelEnd,y:-153.6,flow:[runnelEnd,-1]}],reach=4.3;
   sheet(runnel.map(({x,y,flow})=>[{x,y,level:startWater,flow},{x,y:y+reach,level:startWater,flow:[flow[0],1]}]),water);
+  const candleJets=new T.InstancedMesh(new T.CylinderGeometry(.045,.105,1,9),
+    new T.MeshStandardMaterial({color:0xc5e2e7,roughness:.20,transparent:true,opacity:.72,depthWrite:false}),12);
+  const fountainPose=new T.Object3D();
+  const candleSites=Array.from({length:12},(_,i)=>{
+    const x=607.2+(i%6)*1.19,y=-153.25+Math.floor(i/6)*1.82;
+    return [wx(x),at(x,y)+startWater,wz(y)];
+  });
+  candleJets.instanceMatrix.setUsage(T.DynamicDrawUsage);
+  candleJets.userData.dynamic=true;candleJets.frustumCulled=false;candleJets.name="청계광장 캔들분수";
+  root.add(candleJets);
   {
     const {north,south}=cheonggyeCascade,rows=[],across=[north+.12,(north+south)/2,south-.12];
     let run=0,last=null;
     const row=(x,level)=>{
       if(last)run+=Math.hypot(x-last[0],level-last[1]);
       last=[x,level];
-      rows.push(across.map(y=>({x,y,level,flow:[run,y]})));
+      const spread=Math.max(0,Math.min(1,(x-619.1)/4.8));
+      rows.push(across.map(y=>({x,y:y-1.9*spread*(y-north)/(south-north),level,flow:[run,y]})));
     };
-    for(const {from,to,top} of cascadeTreads){
-      row(from,top+.031);row(to,top+.031);
+    for(const [i,{from,to,top}] of cascadeTreads.entries()){
+      if(i===0)row(from,top+.031);
+      else for(let j=1;j<=8;j++){
+        const t=j/8,above=cascadeTreads[i-1].top;
+        row(from+.55*t,above+.031+(top-above)*t*t);
+      }
+      row(to,top+.031);
     }
     // Over the lip, thrown clear of the wall, and down to the stream.
     const lip=last[0],from=last[1];
@@ -609,7 +695,7 @@ export function* buildCheonggye(T,root,kit,terrain){
   }
   const rock=new T.DodecahedronGeometry(1,0);
   for(let i=0;i<74;i++){
-    const x=632+rand()*408,side=i%2?1:-1,p=bankAt(x,side,-3.75-rand()*.33);
+    const x=632+rand()*408,side=i%2?1:-1,p=bankAt(x,side,cheonggyeLowerEdge(side,x)-.5-rand()*.33);
     const mesh=kit.shape(rock,stone[i%stone.length],wx(x),at(p.x,p.y)+waterLevel+.09,wz(p.y),root);
     mesh.scale.set(.28+rand()*.4,.12+rand()*.21,.26+rand()*.39);mesh.rotation.y=rand()*Math.PI;
     mesh.userData.streamDetail=true;
@@ -620,7 +706,7 @@ export function* buildCheonggye(T,root,kit,terrain){
     const vertices=[],colors=[],indices=[],tone=new T.Color(),greens=[0x5f8a3c,0x79a046,0x8fae52,0x4f7a3a,0xa0a85a];
     const clear=x=>!cheonggyeBridges.some(bridge=>Math.abs(x-bridge.x)<bridge.width/2+1.5);
     for(let i=0;i<64;i++){
-      const x=i<12?700+rand()*120:852+rand()*190,side=i%2?1:-1,p=bankAt(x,side,-3.62-rand()*.55);
+      const x=i<12?700+rand()*120:852+rand()*190,side=i%2?1:-1,p=bankAt(x,side,cheonggyeLowerEdge(side,x)-.47-rand()*.55);
       if(!clear(x))continue;
       const foot=at(p.x,p.y)+waterLevel-.04,blades=6+Math.floor(rand()*6);
       for(let j=0;j<blades;j++){
@@ -672,6 +758,11 @@ export function* buildCheonggye(T,root,kit,terrain){
     water.uniforms.clock.value=seconds;
     water.uniforms.night.value=night;
     water.uniforms.mist.value.copy(haze);
-    tickWater([springWater],seconds,night);
+    for(const [i,[x,y,z]] of candleSites.entries()){
+      const height=.48+.44*(1+Math.sin(seconds*1.64+i*.78));
+      fountainPose.position.set(x,y+height/2,z);fountainPose.scale.set(1,height,1);fountainPose.updateMatrix();
+      candleJets.setMatrixAt(i,fountainPose.matrix);
+    }
+    candleJets.instanceMatrix.needsUpdate=true;
   };
 }
