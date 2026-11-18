@@ -1,4 +1,5 @@
 import {addObstacle} from "./layout.js";
+import {fountainImpact} from "./fountain-impact.js";
 import {basinWater,jetTube,jetWater,tickWater} from "./water-shader.js";
 
 function basinOutline(T,radius){
@@ -73,15 +74,22 @@ export function addWater(T,scene,sources,{cylinder,rand,terrain=()=>0}) {
       const a=jet*Math.PI*2/9,tall=jet%3===0,height=tall?2.42:1.31,reach=r*(tall?.20:.70);
       const plume=new T.Mesh(jetTube(T,(t,target)=>{
         const radius=.075+t*reach;
-        return target.set(Math.cos(a)*radius,.56+.44*(1-t)+4*height*t*(1-t),Math.sin(a)*radius);
+        const level=pool.position.y+(1-pool.position.y)*(1-t)+4*height*t*(1-t);
+        return target.set(Math.cos(a)*radius,level,Math.sin(a)*radius);
       },{from:tall?.034:.026,to:tall?.070:.052,segments:18}),stream);
       plume.position.set(x,0,z);plume.frustumCulled=false;source.add(plume);
       jets.push(plume);
     }
-    state.push({pool,data,positions,seeds,r,material,stream,jets});
+    const splash=fountainImpact(T,source,jets.map((_,i)=>{
+      const a=i*Math.PI*2/9,reach=.075+r*(i%3===0?.20:.70);
+      return [x+Math.cos(a)*reach,pool.position.y+.012,z+Math.sin(a)*reach,1];
+    }));
+    state.push({pool,data,positions,seeds,r,material,stream,jets,splash});
   }
-  return (seconds,night)=>{
-    for(const {pool,data,positions,seeds,r,material,stream,jets} of state){
+  return (seconds,night,anchor)=>{
+    for(const {pool,data,positions,seeds,r,material,stream,jets,splash} of state){
+      splash.mesh.visible=!anchor||Math.hypot(anchor.x-pool.position.x-300,anchor.y-pool.position.z-225)<50;
+      if(splash.mesh.visible)splash.update(seconds,night);
       tickWater([pool.material,stream],seconds,night);
       material.color.set(night>.5?0xb0dbfb:0xdbf8ff);
       for(let i=0;i<seeds.length;i++){
@@ -89,14 +97,14 @@ export function addWater(T,scene,sources,{cylinder,rand,terrain=()=>0}) {
         const travel=jet.side?t*r*.69:(t*.32+.045)*jet.amp;
         const arc=(jet.side?1.17:2.33)*jet.amp*4*t*(1-t);
         positions[i*3]=Math.cos(jet.angle)*travel;
-        positions[i*3+1]=.56+arc+(jet.side?.48:.51)*(1-t);
+        positions[i*3+1]=pool.position.y+arc+(1-pool.position.y)*(1-t);
         positions[i*3+2]=Math.sin(jet.angle)*travel;
       }
       data.needsUpdate=true;
       // The pressure wavers a little, so each jet breathes up and down from its nozzle.
       for(const [index,plume] of jets.entries()){
         const surge=1+.062*Math.sin(seconds*3.5+index);
-        plume.scale.y=surge;plume.position.y=1-surge;
+        plume.scale.y=surge;plume.position.y=pool.position.y*(1-surge);
       }
     }
   };

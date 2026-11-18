@@ -7,7 +7,8 @@ import {CHEONGGYE_WATER_LEVEL,cheonggyeSeats} from "./cheonggye-seats.js";
 import {gradePalaceMeshes} from "./gyeongbok-terrain.js";
 import {insideCorridorPolygon} from "./sejong-corridor-layout.js";
 import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
-import {waterCells,waterNoise} from "./water-shader.js";
+import {fountainImpact} from "./fountain-impact.js";
+import {jetTube,jetWater,waterCells,waterNoise} from "./water-shader.js";
 
 export function* buildCheonggye(T,root,kit,terrain){
   const {wx,wz,box,cylinder,matte}=kit;
@@ -72,7 +73,8 @@ export function* buildCheonggye(T,root,kit,terrain){
       const block=tones[(row*29+column*17+row*column)%tones.length],grain=(x*19+y*71+(x*y)%11)%9-4;
       const square=Math.max(Math.abs(64-x),Math.abs(64-y));
       const inlay=patchwork&&(square<18||square>=34&&square<38||square>=56&&square<62);
-      const shade=(border?119:bevel?Math.min(244,block+12):block)-(inlay?47:0)+grain;
+      const joint=patchwork?Math.round(block*.81):119;
+      const shade=(border?joint:bevel?Math.min(244,block+12):block)-(inlay?28:0)+grain;
       pixels.set([shade,shade-2,shade-7,255],(y*size+x)*4);
     }
     const map=new T.DataTexture(pixels,size,size);
@@ -651,8 +653,9 @@ export function* buildCheonggye(T,root,kit,terrain){
   const runnelStart=606,runnelEnd=cascadeTreads[0].from,startWater=cascadeTreads[0].top+.031;
   const runnel=[{x:runnelStart,y:-154.4,flow:[runnelStart,-1]},{x:runnelEnd,y:-153.6,flow:[runnelEnd,-1]}],reach=4.3;
   sheet(runnel.map(({x,y,flow})=>[{x,y,level:startWater,flow},{x,y:y+reach,level:startWater,flow:[flow[0],1]}]),water);
-  const candleJets=new T.InstancedMesh(new T.CylinderGeometry(.045,.105,1,9),
-    new T.MeshStandardMaterial({color:0xc5e2e7,roughness:.20,transparent:true,opacity:.72,depthWrite:false}),12);
+  const candleWater=jetWater(T);
+  const arc=jetTube(T,(t,p)=>p.set(.34*t*t,4*t*(1-t),0),{from:.044,to:.060,segments:20});
+  const candleJets=new T.InstancedMesh(arc,candleWater,12);
   const fountainPose=new T.Object3D();
   const candleSites=Array.from({length:12},(_,i)=>{
     const x=607.2+(i%6)*1.19,y=-153.25+Math.floor(i/6)*1.82;
@@ -661,6 +664,13 @@ export function* buildCheonggye(T,root,kit,terrain){
   candleJets.instanceMatrix.setUsage(T.DynamicDrawUsage);
   candleJets.userData.dynamic=true;candleJets.frustumCulled=false;candleJets.name="청계광장 캔들분수";
   root.add(candleJets);
+  const impactSites=candleSites.map(([x,y,z],i)=>[x+.34*Math.cos(i*2.4),y+.014,z-.34*Math.sin(i*2.4),.70]);
+  // The cascade strikes the lower pool along the whole lip.
+  for(let i=0;i<14;i++){
+    const x=624.36,y=cheonggyeCascade.north+.22+i*.60;
+    impactSites.push([wx(x),at(x,y)+waterLevel+.036,wz(y),1.24]);
+  }
+  const splash=fountainImpact(T,root,impactSites);
   {
     const {north,south}=cheonggyeCascade,rows=[],across=[north+.12,(north+south)/2,south-.12];
     let run=0,last=null;
@@ -754,13 +764,17 @@ export function* buildCheonggye(T,root,kit,terrain){
     yield;
   }
   yield* gradePalaceMeshes(T,terrainSurfaces,terrain);
-  return (seconds,night,haze)=>{
+  return (seconds,night,haze,anchor)=>{
     water.uniforms.clock.value=seconds;
     water.uniforms.night.value=night;
     water.uniforms.mist.value.copy(haze);
+    const near=!anchor||Math.hypot(anchor.x-615,anchor.y+151)<75;
+    candleJets.visible=splash.mesh.visible=near;
+    if(!near)return;
+    candleWater.uniforms.clock.value=seconds;candleWater.uniforms.night.value=night;splash.update(seconds,night);
     for(const [i,[x,y,z]] of candleSites.entries()){
       const height=.48+.44*(1+Math.sin(seconds*1.64+i*.78));
-      fountainPose.position.set(x,y+height/2,z);fountainPose.scale.set(1,height,1);fountainPose.updateMatrix();
+      fountainPose.position.set(x,y,z);fountainPose.rotation.y=i*2.4;fountainPose.scale.set(1,height,1);fountainPose.updateMatrix();
       candleJets.setMatrixAt(i,fountainPose.matrix);
     }
     candleJets.instanceMatrix.needsUpdate=true;

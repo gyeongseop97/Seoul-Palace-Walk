@@ -117,7 +117,9 @@ const plazaEastPavement=(north,clearance=5)=>plazaAt(eastCurb(north)+eastRoadWid
 export const plazaEastWalkSpine=[
   ...[7.2,80,246,344,349].map(north=>plazaEastPavement(north)),
   plazaEastPavement(353,1.7),plazaEastPavement(363,1.7),
-  ...[369,418,442,504,514].map(north=>plazaEastPavement(north)),
+  ...[369,418].map(north=>plazaEastPavement(north)),
+  plazaAt(44,429.6),plazaAt(44.6,444.9),
+  ...[451,504,514].map(north=>plazaEastPavement(north)),
   plazaAt(41,516),plazaAt(37.2,527.8),plazaAt(31.6,551),plazaAt(30.2,552.2)
 ];
 export const sajikRoad={south:529,north:551,crossX:-13,crossWidth:10.5};
@@ -134,6 +136,8 @@ export const plazaEastSidewalks=[[0,430.9],[439.8,sajikRoad.south]].map(([first,
   return [...avenueEdge(sections,eastRoadWidth),...sections.slice().reverse().map(n=>plazaAt(Math.max(48,eastCurb(n)+eastRoadWidth+8),n))];
 });
 export const plazaUijeongbuApproach=polygon([[41,494],[66,494],[66,sajikRoad.south],[41,sajikRoad.south]]);
+export const plazaSideJunction=[plazaAt(eastCurb(430.9)+eastRoadWidth,430.9),plazaAt(34,431),
+  plazaAt(34,439),plazaAt(eastCurb(439.8)+eastRoadWidth,439.8)];
 
 const bed=(id,kind,points)=>({id,kind,outline:polygon(points)});
 export const yukjoLawn=bed("yukjo-lawn","lawn",
@@ -192,10 +196,10 @@ export function plazaGroundHeight(position){
 export function isPlazaWalkable(x,y){
   const east=x-plazaOrigin.x,north=plazaOrigin.y-y;
   const curb=eastCurb(north),sidewalk=curb+eastRoadWidth;
-  if(north>=0&&north<=528){
+  if(north>=0&&north<=sajikRoad.south){
     if(east>=curb&&east<=sidewalk&&plazaCrossings.some(crossing=>Math.abs(north-crossing)<3.7))return true;
     if(plazaCrossingLandings.some(({west,east})=>insidePlazaPolygon(x,y,west)||insidePlazaPolygon(x,y,east)))return true;
-    if(east>=sidewalk&&east<=48)return true;
+    if(plazaEastSidewalks.some(outline=>insidePlazaPolygon(x,y,outline)))return true;
     if(north<430&&east>=-55&&east< -45&&!insidePlazaPolygon(x,y,plazaOutline))return true;
   }
   const sajik=sajikRoad;

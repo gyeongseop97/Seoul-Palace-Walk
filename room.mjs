@@ -11,6 +11,7 @@ import {acceptBikeRide,bikePassenger,closeBikeOffer,dismountBikePassenger,dropBi
 import {HEADWEAR,KEEPSAKES} from "./public/wearable-options.js";
 import {LOOK_OPTIONS} from "./public/look-options.js";
 import {GITHUB_PAGES_ORIGIN} from "./public/hosting.js";
+import {worldExtent} from "./public/world-extent.js";
 import {exchangeMotion} from "./server/motion.mjs";
 import {ensureSocialTables} from "./database/social-schema.mjs";
 import {roomYields,selectYields,yieldEntries} from "./server/room-crossings.mjs";
@@ -35,7 +36,7 @@ const json = (data, status = 200) => Response.json(data,{status,headers:{"Cache-
 const validId = (value) => typeof value==="string" && /^[a-f0-9]{32}$/.test(value);
 const finite = (value,min,max) => typeof value==="number" && value>=min && value<=max;
 // The shared map keeps Deoksugung's original origin. The route and palace extend north of it.
-const validPoint = (point) => point && finite(point.x,-480,2100) && finite(point.y,-1900,1100);
+const validPoint = (point) => point && finite(point.x,worldExtent.minX,worldExtent.maxX) && finite(point.y,worldExtent.minY,worldExtent.maxY);
 const validTime = (value) => finite(value,0,9999999999999);
 const reactions = new Set(["😊","😂","❤️","👍","😮","😢","😠","✨"]);
 // Hair, eyes and outfit are required; choices added later are optional so older clients still pass.

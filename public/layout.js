@@ -1,3 +1,4 @@
+import {worldExtent} from "./world-extent.js";
 import {interiorAt,interiorBounds} from "./interior-layout.js";
 
 const origin = {lat:37.56780,lng:126.97150};
@@ -443,8 +444,8 @@ export function clearSegment(from,to,step=.36,feet=0){
 }
 const spacing=2;
 const around=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
-const gridPoint=(i,{ox,oy,cols})=>({x:ox+i%cols*spacing,y:oy+Math.floor(i/cols)*spacing});
-const walkingBounds={minX:-480,maxX:1160,minY:-1890,maxY:Math.max(465,...Object.values(interiorBounds).map(bounds=>bounds.maxY))};
+const gridPoint=(i,{ox,oy,cols,spacing})=>({x:ox+i%cols*spacing,y:oy+Math.floor(i/cols)*spacing});
+const walkingBounds={minX:worldExtent.minX,maxX:1160,minY:-1890,maxY:Math.max(465,...Object.values(interiorBounds).map(bounds=>bounds.maxY))};
 const gateLink=[gate,...entranceWalk,...stationWalk];
 const gridDown=value=>Math.floor(value/spacing)*spacing,gridUp=value=>Math.ceil(value/spacing)*spacing;
 const gateClearance=6*spacing;
@@ -455,7 +456,9 @@ const gateLinkBounds={
 };
 const onDeoksugungSide=({x,y})=>x<=gate.x&&y>=deoksugungNorthEdge;
 function walkingField(from,target){
-  const padding=Math.round(Math.min(168,68+distance(from,target.x,target.y)*.24)/spacing)*spacing;
+  const routing=zones.find(zone=>zone.routing&&zone.contains(from.x,from.y)&&zone.contains(target.x,target.y))?.routing;
+  const cell=routing?.spacing??spacing;
+  const padding=Math.max(routing?.detour??0,Math.round(Math.min(168,68+distance(from,target.x,target.y)*.24)/spacing)*spacing);
   const {minX,maxX,minY,maxY}=walkingBounds;
   let left=gridDown(Math.min(from.x,target.x))-padding;
   let right=gridUp(Math.max(from.x,target.x))+padding;
@@ -473,7 +476,7 @@ function walkingField(from,target){
   const ox=Math.max(minX,left),oy=Math.max(minY,gridDown(Math.min(from.y,target.y))-padding);
   right=Math.min(maxX,right);
   bottom=Math.min(maxY,bottom);
-  return {ox,oy,cols:(right-ox)/spacing+1,rows:(bottom-oy)/spacing+1,viaGate};
+  return {ox,oy,cols:Math.floor((right-ox)/cell)+1,rows:Math.floor((bottom-oy)/cell)+1,spacing:cell,viaGate};
 }
 function inWalkingBounds(point){
   const {minX,maxX,minY,maxY}=walkingBounds;
@@ -481,7 +484,7 @@ function inWalkingBounds(point){
 }
 function snap(point,radius,direct,feet,field,open=walkable,clear=clearSegment){
   let best=-1,gap=Infinity;
-  const {ox,oy,cols,rows}=field;
+  const {ox,oy,cols,rows,spacing}=field;
   const cx=Math.round((point.x-ox)/spacing),cy=Math.round((point.y-oy)/spacing);
   for(let y=Math.max(0,cy-radius);y<=Math.min(rows-1,cy+radius);y++){
     for(let x=Math.max(0,cx-radius);x<=Math.min(cols-1,cx+radius);x++){
@@ -535,7 +538,7 @@ export function planWalk(from,target,feet=0){
   const open=(x,y)=>walkable(x,y,platformAt(x,y)+.19),clear=(a,b,step,level)=>strideSegment(a,b,level);
   const exact=open(target.x,target.y);
   if(exact&&clear(from,target,.36,feet))return [target];
-  const field=walkingField(from,target),{ox,oy,cols,rows}=field;
+  const field=walkingField(from,target),{ox,oy,cols,rows,spacing}=field;
   // Two smaller searches around the known gate avoid scanning the length of the palace wall.
   if(field.viaGate&&distance(spawn,from.x,from.y)>0&&distance(spawn,target.x,target.y)>0){
     const approach=planWalk(from,spawn,feet);

@@ -16,7 +16,7 @@ import {bindMapLabels} from "./map-labels.js";
 import {makeSound} from "./sound.js";
 import {ceremonyAt} from "./palace-people.js";
 import {cityHallStation,gbSites,gbBounds,gbLake,gbPond,gbPaths,gbCourts,gbLawns,gbShortcuts,wishPond,inGyeongbok,gbWoldae,onWoldaeApproach,nearWoldaeRailing,at as palaceAt,gyeongbokWater} from "./gyeongbok-layout.js";
-import {inGwanghwamunPlaza,plazaAt,plazaBounds,plazaSites,plazaOutline,plazaPaths,plazaShortcuts,plazaBeds,plazaAvenueOutline,plazaEastSidewalks,plazaSideForecourts,plazaUijeongbuApproach,plazaCrossingLandings,eastCurb,plazaEastWalkSpine,eastRoadWidth,sajikRoad,sejongParkOutline} from "./plaza-layout.js";
+import {inGwanghwamunPlaza,plazaAt,plazaBounds,plazaSites,plazaOutline,plazaPaths,plazaShortcuts,plazaBeds,plazaAvenueOutline,plazaEastSidewalks,plazaSideForecourts,plazaUijeongbuApproach,plazaSideJunction,plazaCrossingLandings,eastCurb,plazaEastWalkSpine,eastRoadWidth,sajikRoad,sejongParkOutline} from "./plaza-layout.js";
 import {corridorBounds,corridorLandmarks,corridorSidewalks,corridorBranches,corridorCrossings,corridorWalkSpine,corridorEastWalkSpine,corridorMainRoad,corridorAvenueJoin,inSejongCorridor,seoulPlazaApproach} from "./sejong-corridor-layout.js";
 import {plazaWestPavement} from "./gwanghwamun-plaza.js";
 import {streetSegmentParts} from "./crosswalk-markings.js";
@@ -24,6 +24,7 @@ import {crosswalkPaintBands} from "./bukchon-surfaces.js";
 import {transitRoutes,transitStops} from "./transit-routes.js";
 import {subwayAccessPaths} from "./subway-expansion.js";
 import {jeongdongExtensionLandmarks,jeongdongExtensionPaths,jeongdongParkCourt,extensionRibbon} from "./jeongdong-extension-layout.js";
+import {worldExtent} from "./world-extent.js";
 import {westSurfaces,westBuildings,westSites,westRegion,westWalkable} from "./west-district-layout.js";
 
 import {bukchonAlleyShortcut,bukchonBounds,bukchonPaths,bukchonLandmarks,bukchonWalkable,bukchonLawns} from "./bukchon-layout.js";
@@ -3544,7 +3545,7 @@ function drawPlaza(base){
     svg(base,"polyline",{points:outline(points),fill:"none",stroke:surface==="stone"?"#b9ad90":"#9f9679",
       "stroke-width":width,"stroke-linecap":"round","stroke-linejoin":"round"});
   }
-  for(const points of [sajikEastRoad,uijeongbuSideRoad])svg(base,"polygon",{points:outline(points),fill:"#4e5351"});
+  for(const points of [sajikEastRoad,plazaSideJunction,uijeongbuSideRoad])svg(base,"polygon",{points:outline(points),fill:"#4e5351"});
   svg(base,"polygon",{points:outline(uijeongbuOutline),fill:"#6c7856",stroke:"#9c9a85","stroke-width":1.2});
   svg(base,"polygon",{points:outline(gardenVerge),fill:"#718457"});
   for(const points of [gardenSidewalk,uijeongbuBusPavement,...uijeongbuPavedConnections.map(i=>uijeongbuConnections[i])])
@@ -3576,7 +3577,7 @@ const songhyeonViewBox=[songhyeonBounds.minX-24,songhyeonBounds.minY-18,
   songhyeonBounds.maxX-songhyeonBounds.minX+48,songhyeonBounds.maxY-songhyeonBounds.minY+46].join(" ");
 const plazaApproachBox=[plazaBounds.minX-18,plazaBounds.minY+210,Math.max(plazaBounds.maxX,corridorBounds.maxX)-plazaBounds.minX+36,
   -58-(plazaBounds.minY+210)].join(" ");
-const fieldViewBox=[-480,bukchonBounds.minY-26,bukchonBounds.maxX+505,510-bukchonBounds.minY].join(" ");
+const fieldViewBox=[worldExtent.minX,bukchonBounds.minY-26,bukchonBounds.maxX-worldExtent.minX+25,510-bukchonBounds.minY].join(" ");
 const miniMapWidth=126,miniMapHeight=126;
 function attr(node,key,value){if(node.getAttribute(key)!==String(value))node.setAttribute(key,value);}
 function setMapView(view){

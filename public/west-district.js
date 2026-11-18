@@ -1,4 +1,4 @@
-import {westSurfaces,westBuildings,palaceRoof,westGround} from "./west-district-layout.js";
+import {westSurfaces,westBuildings,palaceRoof,westGround,WEST_PAVING_HEIGHT} from "./west-district-layout.js";
 import {gradePalaceMeshes,southWorldTerrainHeight,southWorldSurfaceHeight as elevation} from "./gyeongbok-terrain.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {westStreetTrees} from "./west-district-data.js";
@@ -68,7 +68,7 @@ export function* buildWestDistrict(T,root,kit,anisotropy){
       uv.setXY(i,finish==="royal"?(east*c+south*s)/4+.5:(east*c+south*s)/repeat,(-east*s+south*c)/repeat);
     }
     geometry.rotateX(-Math.PI/2);
-    const mesh=new T.Mesh(geometry,materials[finish]);mesh.position.y=item.kind==="backdrop"?-.34:.062;
+    const mesh=new T.Mesh(geometry,materials[finish]);mesh.position.y=item.kind==="backdrop"?-.34:WEST_PAVING_HEIGHT;
     mesh.receiveShadow=true;mesh.userData.followTerrain=true;ground.push(mesh);root.add(mesh);
   }
   yield* gradePalaceMeshes(T,ground,southWorldTerrainHeight);

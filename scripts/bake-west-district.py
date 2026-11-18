@@ -43,7 +43,10 @@ avenue = avenue.intersection(box(-238,-300,339,0))
 area = unary_union([museum, palace, jeongdong.buffer(21),avenue.buffer(17),line(238543311).buffer(7),
                     line(238542338).buffer(9),line(238541245).buffer(12),poly(768444911),line(78503341).buffer(8)])
 kinds = {k:[] for k in ["crossing","stone","path","street","road","grass","grove"]}
-kinds["grove"] += [palace,museum]
+# The Heunghwamun forecourt is a public square between the bike rack and gate.
+# Include the history museum grounds, keeping its buildings and planted beds distinct.
+kinds["stone"].append(poly(768469010))
+kinds["grove"] += [palace,museum,poly(768469011),poly(768444909)]
 kinds["verge"] = [jeongdong.buffer(16).difference(box(120,0,500,307))]
 kinds["road"].append(avenue.buffer(6.0))
 kinds["path"].append(avenue.buffer(11.5).difference(avenue.buffer(6)))
@@ -76,7 +79,15 @@ halls = {196072049,196072052,555488614}
 public_streets = area.buffer(78).intersection(box(-550,-565,214,-70))
 outer_ground = area.buffer(112).intersection(box(-565,-640,280,0))
 area = area.union(public_streets)
+# The northern streets reconnect around the hillside. Cropping at the old
+# district boundary left the western section of Gyeonghuigung 3ga-gil isolated.
+north_loop = unary_union([line(i) for i in (773054444,773054447,221431171,37396901,221431174)])
+area = area.union(north_loop.buffer(7).intersection(box(-520,-636,-150,-482)))
 context = area.buffer(25)
+# These two roof traces meet over the mapped corner of Gyeonghuigung 1ga-gil.
+# Recess only the encroaching facade corners; the rendered walls and collision
+# edges then share the same opening along the surveyed public footway.
+north_footway = line(1168305937).buffer(1.4,join_style="bevel")
 buildings = []
 for i,(t,pts) in ways.items():
     ln = LineString(pts)
@@ -87,6 +98,7 @@ for i,(t,pts) in ways.items():
         if t.get("building")=="roof" or pg.area<12: continue
         if not context.covers(pg.representative_point()) and i!=607996709: continue
         if i==607996709: pg=pg.difference(poly(607996710))
+        if i in (228470498,1226735885): pg=pg.difference(north_footway)
         # Existing Deoksugung models meet the east end of Jeongdong-gil.
         if pg.centroid.x>60 and 0<pg.centroid.y<305 or pg.centroid.x>342 and pg.centroid.y<0: continue
         if pg.centroid.x>215 and pg.centroid.y>300 and i!=381941864: continue
@@ -172,7 +184,7 @@ def finish(p,kind):
     results=[]
     for zone,material,angle in treatments:
         if remaining.is_empty: break
-        for q in parts(remaining.intersection(zone)):
+        for q in parts(set_precision(remaining.intersection(zone),.01)):
             results.append(dict(kind=kind,finish=material,angle=angle,rings=rings(q)))
         remaining=remaining.difference(zone)
     return results+[dict(kind=kind,rings=rings(q)) for q in parts(remaining)]

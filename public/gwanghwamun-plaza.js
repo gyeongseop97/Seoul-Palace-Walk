@@ -2,13 +2,14 @@ import {addObstacle} from "./layout.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {makeCrosswalkMarkings} from "./crosswalk-markings.js";
 import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
+import {fountainImpact} from "./fountain-impact.js";
 import {basinWater,tickWater} from "./water-shader.js";
 import {assemblePlazaCity,registerPlazaCity} from "./plaza-city.js";
 import {addPlazaMonuments,plazaMonumentFootprints} from "./plaza-monuments.js";
-import {sajikEastRoad,uijeongbuConnections,uijeongbuOutline,uijeongbuSideRoad} from "./uijeongbu-layout.js";
+import {sajikEastRoad,uijeongbuConnections,uijeongbuOutline} from "./uijeongbu-layout.js";
 import {plazaAt,plazaOutline,plazaBeds,plazaSites,plazaTransitStops,insidePlazaPolygon,
   plazaRoadProfile,plazaAvenueOutline,plazaEastSidewalks,plazaCrossings,plazaCrossingApronHalf,plazaCrossingLandings,plazaSideForecourts,
-  plazaUijeongbuApproach,eastCurb,eastRoadWidth,sajikRoad,haechiBasin,
+  plazaUijeongbuApproach,plazaSideJunction,eastCurb,eastRoadWidth,sajikRoad,haechiBasin,
   sejongParkOutline,sejongParkCourt,sejongParkStage,sejongParkFountain,sejongParkMonoliths,sejongParkBenches} from "./plaza-layout.js";
 import {PLAZA_SHOW_VIEW_METRES,plazaShowFrame,plazaShowJet} from "./plaza-show.js";
 
@@ -176,8 +177,10 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
   surface(basinHole,terrainBase,-2.24);
   surface(plazaOutline,stone,.025,[basinHole]);
   for(const outline of plazaWestPavement())surface(outline,stone,.025);
-  surface(sejongParkOutline,stone,.024);
-  for(const outline of plazaSideForecourts.slice(1))surface(outline,stone,.025);
+  const westPaved=[plazaOutline,...plazaWestPavement()];
+  surface(sejongParkOutline,stone,.025,[],makeStreetSurfaceCut(T,westPaved)(sejongParkOutline));
+  const forecourtCut=makeStreetSurfaceCut(T,[...westPaved,sejongParkOutline,...plazaEastSidewalks]);
+  for(const outline of plazaSideForecourts)surface(outline,stone,.025,[],forecourtCut(outline));
   const westSajik=rect(-310,20,sajikRoad.south,sajikRoad.north);
   surface(westSajik,road,-.012);
   const roadProfile=[...plazaRoadProfile.filter(([n])=>n<sajikRoad.south),[sajikRoad.south,eastCurb(sajikRoad.south)]];
@@ -189,9 +192,7 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
   }
   const openApproach=makeStreetSurfaceCut(T,[...plazaEastSidewalks,uijeongbuOutline,sajikEastRoad,...uijeongbuConnections]);
   surface(plazaUijeongbuApproach,stone,.016,[],openApproach(plazaUijeongbuApproach)).name="의정부지 광장 연결 보도";
-  const sideJunction=[plazaAt(eastCurb(430.9)+eastRoadWidth,430.9),plazaAt(35,430.9),
-    plazaAt(35,439.8),plazaAt(eastCurb(439.8)+eastRoadWidth,439.8)];
-  surface(sideJunction,road,-.012,[],makeStreetSurfaceCut(T,[uijeongbuSideRoad])(sideJunction));
+  surface(plazaSideJunction,road,-.012);
   for(const offset of [0,eastRoadWidth]){
     const openings=plazaCrossings.map(n=>[n-plazaCrossingApronHalf,n+plazaCrossingApronHalf]);
     if(offset)openings.push([430.9,439.8]);
@@ -509,6 +510,13 @@ function addPlazaFountains({T,group,world,block,water,random,terrainHeight}){
   const falls=[];
   for(let i=0;i<18;i++)falls.push({...jet(-38.1+i*.48,403.68,1.04,0,-.88),fall:true});
   sources.push({centre:plazaSites.cascade,jets:falls});
+  const park=sejongParkFountain;
+  const parkJets=Array.from({length:8},(_,i)=>{
+    const angle=i*Math.PI/4,dx=Math.sin(angle),dn=Math.cos(angle);
+    return jet(park.east+1.77*dx,park.north+1.77*dn,1.18,-dx,-dn);
+  });
+  parkJets.push(jet(park.east,park.north,2.12));
+  sources.push({centre:plazaAt(park.east,park.north,"세종로공원 분수"),jets:parkJets,basin:true});
   const droplet=new T.SphereGeometry(1,7,6),dropColor=new T.MeshBasicMaterial({color:0xc4ecf4,transparent:true,opacity:.58,depthWrite:false});
   const transform=new T.Object3D(),nightColor=new T.Color(0x8bc6ff),dayColor=new T.Color(0xc4eaf4),white=new T.Color(0xffffff);
   // Enough drops, each drawn out along its flight, that a jet reads as one unbroken stream.
@@ -526,11 +534,18 @@ function addPlazaFountains({T,group,world,block,water,random,terrainHeight}){
     for(const value of source.jets){
       const {x,z}=world(value.e,value.n);value.x=x;value.z=z;
       value.base=terrainHeight(plazaAt(value.e,value.n));
-      if(!value.fall){
+      if(!value.fall&&!value.dx&&!value.dn){
+        value.dx=Math.cos(value.phase*6.283)*.32;value.dn=Math.sin(value.phase*6.283)*.32;
+      }
+      if(!value.fall&&!source.basin){
         block(0x6f7775,value.e,value.n,.21,.21,.026,.039);
         block(water,value.e,value.n,.072,.071,.022,.065);
       }
     }
+    source.splash=fountainImpact(T,group,source.jets.map(j=>{
+      const floor=terrainHeight(plazaAt(j.e+j.dx,j.n+j.dn));
+      return [j.x+j.dx,floor+(source.basin?.47:j.fall?.292:.044),j.z-j.dn,j.fall?.92:.74];
+    }));
   }
   const lights=addMyeongnyangShowLights(T,group,myeongnyang,world);
   const palette=[[0x47dcff,0xa8e0ff],[0x77b6ff,0xffbd64],[0x9cf5e4,0xff9ed1],[0xffc879,0xb3ebff]]
@@ -543,17 +558,19 @@ function addPlazaFountains({T,group,world,block,water,random,terrainHeight}){
     const frame=closeToShow?plazaShowFrame(showStart,clock):null;
     lights.visible=Boolean(frame);
     if(!anchor){
-      for(const {mesh} of sources)mesh.visible=false;
+      for(const {mesh,splash} of sources)mesh.visible=splash.mesh.visible=false;
       return;
     }
     dropColor.color.copy(dayColor).lerp(nightColor,night);
     for(const source of sources){
       const {centre,jets,mesh}=source,isShow=source===showFountain;
       mesh.visible=Boolean(anchor&&Math.hypot(centre.x-anchor.x,centre.y-anchor.y)<85);
+      source.splash.mesh.visible=mesh.visible&&Math.hypot(centre.x-anchor.x,centre.y-anchor.y)<52;
       if(!mesh.visible)continue;
       let index=0;
       const performance=isShow?frame:null;
       const flowTime=performance?.elapsed??now;
+      source.splash.update(flowTime*.001,night,1+(performance?.envelope??0)*.48);
       for(let jetIndex=0;jetIndex<jets.length;jetIndex++){
         const {x,z,h,dx,dn,phase,fall,row,arc,base}=jets[jetIndex];
         let pulse=fall?1:.72+Math.sin(flowTime*.0021+phase*6.3)*.18;
@@ -572,7 +589,8 @@ function addPlazaFountains({T,group,world,block,water,random,terrainHeight}){
         for(let i=0;i<droplets;i++){
           const time=(flowTime*.00145+phase+i/droplets)%1;
           const drift=fall?time:time*time;
-          const y=fall?between(1.19,.18,time):.08+4*h*pulse*time*(1-time);
+          const floor=source.basin?.47:.044;
+          const y=fall?between(1.19,.292,time):floor+(source.basin?.21:.035)*(1-time)+4*h*pulse*time*(1-time);
           transform.position.set(x+dx*drift,base+y,z-dn*drift);
           // The water thins as it climbs and breaks into heavier drops on the way down.
           const thickness=(fall?.030:.034-.012*Math.sin(Math.PI*time)+time*.020)+(performance?.envelope??0)*.019;

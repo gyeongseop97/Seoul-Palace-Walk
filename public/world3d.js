@@ -60,7 +60,7 @@ import { addStreetPeople } from "./street-people.js";
 import { makePicnicWorld } from "./picnic-world.js";
 import { buildSubwayAccess,registerExpandedSubway } from "./subway-expansion.js";
 import { jeongdongExtensionBounds,registerJeongdongExtension } from "./jeongdong-extension-layout.js";
-import {westBounds,westWalkable,registerWestDistrict} from "./west-district-layout.js";
+import {westBounds,westWalkable,registerWestDistrict,WEST_PAVING_HEIGHT} from "./west-district-layout.js";
 import { buildJeongdongExtension } from "./jeongdong-extension.js";
 import { bukchonBounds,bukchonWalkable,bukchonGroundHeight,bukchonSurfaceGrade,registerBukchonTrees } from "./bukchon-layout.js";
 import { hwangudanBounds,hwangudanWalkable,hwangudanFloorHeight,registerHwangudanNavigation } from "./seoul-hwangudan-layout.js";
@@ -856,6 +856,9 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   // Low kerbs, benches and ledges can be stood on after a jump, so they raise the floor too.
   function floorHeight(position){
     const terrain=interiorAt(position.x,position.y)?0:outsideGroundOffset(position);
+    if(position.x<150&&position.y< -120&&westWalkable(position.x,position.y)){
+      return terrain+WEST_PAVING_HEIGHT+platformAt(position.x,position.y,true);
+    }
     const basin=plazaGroundHeight(position);
     if(basin!=null)return terrain+basin;
     const river=cheonggyeLevel(position);
@@ -1202,13 +1205,13 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     bungeoCustomer.update(cookingId===BUNGEO_STALL.id?state.bungeoOrder:null,
       !indoors&&plazaRoot.parent===outdoors?anchor:null,now,clock,delta);
     if(hwangudan.root.parent===outdoors)updateHwangudan?.(night);
-    if(!indoors&&cheonggye.root.parent===outdoors)updateCheonggye?.(now*.001,night,scene.fog.color);
+    if(!indoors&&cheonggye.root.parent===outdoors)updateCheonggye?.(now*.001,night,scene.fog.color,anchor);
     const roster=[me,...peers],present=new Set(roster.map(player=>player.id));
     minigameWorld.begin(clock,indoors?null:anchor,state.minigames,state.minigameAction,state.minigameFree);
     if(!indoors){
       // Every pond shares one surface, so it keeps moving at Gyeongbokgung too.
       drawPond(now*.001,night);
-      if(deoksRoot.parent===outdoors&&distanceToDistrict(anchor,deoksBounds)<120)drawWater(now*.001,night);
+      if(deoksRoot.parent===outdoors&&distanceToDistrict(anchor,deoksBounds)<120)drawWater(now*.001,night,anchor);
       nightSky(night*(1-cloud*.91)*(1-fog*.89));
       drawPalaceSky(clock,night,{cloud,fog,twilight,direction:weather?skyUniforms.solar.value:undefined,haze:scene.fog.color});
       birds.update(clock,delta,roster);

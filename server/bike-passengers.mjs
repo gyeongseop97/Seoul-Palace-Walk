@@ -1,3 +1,4 @@
+import {worldExtent} from "../public/world-extent.js";
 import {bikeMountReach,bikePassengerBoardSpeed,bikePassengerOffset} from "../public/sejong-bike.js";
 import {interiorBounds} from "../public/interior-layout.js";
 
@@ -29,8 +30,8 @@ const heading=field=>`COALESCE(${at(field,"heading")},0)`;
 const outdoors=field=>Object.values(interiorBounds).map(bounds=>`NOT (
   ${at(field,"x")} BETWEEN ${bounds.minX} AND ${bounds.maxX}
   AND ${at(field,"y")} BETWEEN ${bounds.minY} AND ${bounds.maxY})`).join(" AND ");
-const rearPose=field=>`'$.x',MAX(0,MIN(2100,${at(field,"x")}-SIN(RADIANS(${heading(field)}))*${bikePassengerOffset})),
-  '$.y',MAX(-1900,MIN(1100,${at(field,"y")}+COS(RADIANS(${heading(field)}))*${bikePassengerOffset})),
+const rearPose=field=>`'$.x',MAX(${worldExtent.minX},MIN(${worldExtent.maxX},${at(field,"x")}-SIN(RADIANS(${heading(field)}))*${bikePassengerOffset})),
+  '$.y',MAX(${worldExtent.minY},MIN(${worldExtent.maxY},${at(field,"y")}+COS(RADIANS(${heading(field)}))*${bikePassengerOffset})),
   '$.heading',${heading(field)},'$.vx',0,'$.vy',0,'$.jump',0,'$.running',json('false'),'$.blocked',json('false'),'$.up',json('false')`;
 const driverOf="d.room=walkers.room AND d.id=json_extract(walkers.avatar,'$.bikeRide.driver')";
 

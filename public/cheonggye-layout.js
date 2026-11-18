@@ -6,7 +6,7 @@ const ring=vertices=>vertices.map(([x,y])=>point(x,y));
 const clamp=value=>Math.max(0,Math.min(1,value));
 const between=(a,b,t)=>a+(b-a)*t;
 const depth=3.75;
-export const cheonggyeBounds={minX:520,maxX:1056,minY:-188,maxY:-83};
+export const cheonggyeBounds={minX:514,maxX:1056,minY:-191,maxY:-83};
 
 // Projected metres along the water and the inner banks. Sources: OpenStreetMap
 // ways 368276771, 156922847 and 377289811, checked against the waterway map
@@ -83,7 +83,7 @@ function walkPieces(side,inner,outer,edge){
 }
 // Laid from the wall face; walked up to an arm's length from the railing.
 const northWalk=walkPieces(-1,3.5,6.9,railGap),southWalk=walkPieces(1,4,7.6,railGap);
-const northSteps=walkPieces(-1,3.5,6.9,railReach),southSteps=walkPieces(1,4,7.6,railReach);
+const northSteps=walkPieces(-1,railReach,6.9,railReach),southSteps=walkPieces(1,railReach,7.6,railReach);
 export const cheonggyeWalkFrom=walkFrom;
 const northRoad=streamBand([[-1,6.9],[-1,12.1]]);
 const southRoad=streamBand([[1,7.6],[1,12.3]]);
@@ -91,9 +91,9 @@ const northFrontage=streamBand([[-1,12.05],[-1,16.7]]);
 const southFrontage=streamBand([[1,12.25],[1,17.0]]);
 export const cheonggyeRoadLeads=[
   {name:"청계천로 북쪽",outline:ring([[514.6,-185.4],[536,-179.6],[578,-176.2],
-    [624,-172.65],[624,-167.3],[578,-170.65],[536,-174.3],[517.3,-179.3]])},
+    [624,-172.5],[624,-167.3],[578,-170.65],[536,-174.3],[517.3,-179.3]])},
   {name:"청계천로 남쪽",outline:ring([[515.9,-132.8],[535.5,-145.6],[578,-141.6],
-    [624,-135.8],[624,-130.6],[578,-136.9],[537,-140.3],[519.6,-127.6]])}
+    [624,-135.8],[624,-131.1],[578,-136.9],[537,-140.3],[519.6,-127.6]])}
 ];
 
 const ribbon=(points,width)=>{
@@ -136,6 +136,19 @@ const rampShoulder={name:"청계광장 남쪽 경사로 옆 보도",kind:"paving
 const stairHead={name:"청계광장 북쪽 계단 앞",kind:"paving",outline:ring([
   [601,-165.8],[612,-167.18],[624,-166.9],[628.5,-165.6],
   [628.5,-161.0],[624,-161.0],[622.8,-159.35],[614,-159.8],[607,-160.8],[601,-162.6]
+])};
+// The two outer pavements run alongside the approach roads before the first bank station.
+const approachFrontages=[
+  {kind:"paving",name:"청계천로 북측 인도",outline:ring([[514.6,-185.4],[536,-179.6],[578,-176.2],[624,-172.5],
+    [624,-177.1],[578,-180.8],[536,-184.2],[515.4,-190.1]])},
+  {kind:"paving",name:"청계천로 남측 인도",outline:ring([[519.6,-127.6],[537,-140.3],[578,-136.9],[624,-131.1],
+    [624,-126.4],[578,-132.2],[537,-135.6],[520.4,-122.9]])}
+];
+// Fill the street-level square up to both inner curbs. The channel and stairwells
+// are cut from this very polygon by the renderer and the level tests below.
+const headPavement={kind:"paving",name:"청계광장 가장자리 보도",outline:ring([
+  [517.3,-179.3],[536,-174.3],[578,-170.65],[624,-167.3],[624,-135.8],
+  [578,-141.6],[535.5,-145.6],[515.9,-132.8],[521,-145.2]
 ])};
 const startRamp=access("청계광장 경사로 입구",[[561,-151],[566,-148.1],[570.83,-145.86]],3.65,"paving");
 const sidePlaza=access("청계광장 보도 연결",[[536,-165],[540,-169],[548,-172.05],[559,-171]],3.7,"paving");
@@ -188,7 +201,7 @@ export const cheonggyeSteppingRows=stepStoneXs.map(x=>{
 });
 export const cheonggyeSurfaces=[
   {kind:"road",outline:northRoad},{kind:"road",outline:southRoad},
-  {kind:"plaza",outline:plaza},approachNorth,approachSouth,rampShoulder,startRamp,stairHead,sidePlaza,plazaSouthShoulder,...plazaSouthCrossings,
+  {kind:"plaza",outline:plaza},approachNorth,approachSouth,rampShoulder,startRamp,stairHead,sidePlaza,plazaSouthShoulder,...plazaSouthCrossings,...approachFrontages,headPavement,
   ...[...northWalk,...southWalk].map(outline=>({kind:"paving",outline})),
   {kind:"paving",outline:northFrontage},{kind:"paving",outline:southFrontage},...crossings,
   {kind:"lower",outline:pavedNorth},{kind:"lower",outline:pavedSouth},
@@ -346,5 +359,5 @@ export function registerCheonggyeNavigation(){
   addObstacle(springBed.x,springBed.y,springBed.width,springBed.depth);
   for(const [x,y] of cheonggyeTrees)addObstacle(x,y,.38,.38);
 }
-addZone({name:"청계천",contains:inCheonggye,walkable:cheonggyeWalkable,connects:cheonggyeConnection});
+addZone({name:"청계천",contains:inCheonggye,walkable:cheonggyeWalkable,connects:cheonggyeConnection,routing:{spacing:1,detour:150}});
 addLandmarks(cheonggyeLandmarks);

@@ -1,8 +1,9 @@
+import {worldExtent} from "./world-extent.js";
 import {addLandmarks,addObstacle,addZone} from "./layout.js";
 import {westSurfaces,westBuildings,westStreetTrees} from "./west-district-data.js";
 export {westSurfaces,westBuildings};
 
-export const westBounds={minX:-470,maxX:474,minY:-558,maxY:464};
+export const westBounds={minX:worldExtent.minX,maxX:485,minY:-637,maxY:464};
 export const westSites=[
   {name:"서울시립미술관",label:"서소문본관",x:201,y:378,heading:177},
   {name:"정동길",label:"정동길",x:-46.53,y:136.94,heading:305},
@@ -11,6 +12,7 @@ export const westSites=[
   {name:"경희궁 자정전",label:"자정전",x:-321,y:-425,heading:328},
   {name:"경희궁 태령전",label:"태령전",x:-357,y:-393,heading:328}
 ];
+export const WEST_PAVING_HEIGHT=.062;
 const index=new Map(),step=32;
 function indexRing(feature){
   const outer=feature.rings[0],xs=outer.map(p=>p[0]),ys=outer.map(p=>p[1]);

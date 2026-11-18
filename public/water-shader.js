@@ -137,15 +137,21 @@ export function basinWater(T,{bed=[0x9da39c,0xc3c6bb],tile=2.2,tint=0x2f8f9a,dep
 // The geometry's uv runs around the jet in x and along it, from nozzle to splash, in y.
 export function jetWater(T){
   return new T.ShaderMaterial({
-    uniforms:{clock:{value:0},night:{value:0}},transparent:true,depthWrite:false,side:T.DoubleSide,
+    uniforms:{clock:{value:0},night:{value:0}},transparent:true,depthWrite:false,side:T.DoubleSide,forceSinglePass:true,
     vertexShader:`
       varying vec2 along;
       varying float rim;
       void main(){
         along=uv;
-        vec4 mvPosition=modelViewMatrix*vec4(position,1.);
-        // Bright where the column turns away from the eye, like a glass rod.
-        rim=1.-abs(dot(normalize(normalMatrix*normal),normalize(-mvPosition.xyz)));
+        vec4 p=vec4(position,1.);
+        vec3 n=normal;
+        #ifdef USE_INSTANCING
+          p=instanceMatrix*p;
+          mat3 basis=mat3(instanceMatrix);
+          n=basis*(normal/vec3(dot(basis[0],basis[0]),dot(basis[1],basis[1]),dot(basis[2],basis[2])));
+        #endif
+        vec4 mvPosition=modelViewMatrix*p;
+        rim=1.-abs(dot(normalize(normalMatrix*n),normalize(-mvPosition.xyz)));
         gl_Position=projectionMatrix*mvPosition;
       }`,
     fragmentShader:`
@@ -159,10 +165,10 @@ export function jetWater(T){
         // Solid at the nozzle, torn into drops as it falls.
         float broken=smoothstep(.45,1.,along.y);
         float body=mix(1.,smoothstep(.34,.62,streak),broken);
-        float white=clamp(.35+rim*.55+streak*.35+broken*.25,0.,1.);
-        vec3 color=mix(vec3(.62,.82,.88),vec3(1.),white);
+        float white=clamp(rim*.64+streak*.36+broken*.21,0.,1.);
+        vec3 color=mix(vec3(.39,.64,.72),vec3(1.),white);
         color=mix(color,color*vec3(.46,.58,.78),night);
-        gl_FragColor=vec4(color,body*(.52+.40*white)*(1.-smoothstep(.93,1.,along.y)));
+        gl_FragColor=vec4(color,body*(.22+.52*white)*(1.-smoothstep(.93,1.,along.y)));
         #include <colorspace_fragment>
       }`
   });

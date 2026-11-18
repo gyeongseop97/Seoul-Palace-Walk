@@ -1,3 +1,4 @@
+import {worldExtent} from "./world-extent.js";
 import {plazaAt} from "./plaza-layout.js";
 
 // The game racks sit on public sidewalks next to the real neighbourhoods they serve.
@@ -39,7 +40,8 @@ export const isCycling=position=>isBikeDriver(position)||isBikePassenger(positio
 
 export function bikePassengerPose(driver){
   const heading=driver.heading??0,angle=heading*Math.PI/180;
-  return {x:driver.x-Math.sin(angle)*bikePassengerOffset,y:driver.y+Math.cos(angle)*bikePassengerOffset,heading};
+  return {x:Math.max(worldExtent.minX,Math.min(worldExtent.maxX,driver.x-Math.sin(angle)*bikePassengerOffset)),
+    y:Math.max(worldExtent.minY,Math.min(worldExtent.maxY,driver.y+Math.cos(angle)*bikePassengerOffset)),heading};
 }
 
 function rackApproach(dock,point){
