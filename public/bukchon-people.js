@@ -54,27 +54,15 @@ function promenade(points){
   return {distance,legs,west:Math.min(...xs),east:Math.max(...xs),north:Math.min(...ys),south:Math.max(...ys)};
 }
 
-function crowdRoutes(){
+function crowdRoutes(path,pathIndex){
   const routes=[];
-  for(const path of bukchonPaths){
-    if(path.kind==="road"||path.kind==="entrance")continue;
-    const offsets=path.width>=5.3&&path.kind!=="crosswalk"?[-.57,.57]:[0];
-    for(const offset of offsets){
-      for(const points of walkSegments(path.points,offset)){
-        const route=promenade(points);
-        if(route.distance>=11)routes.push(route);
-      }
-    }
+  for(const points of walkSegments(path.points,0)){
+    const route=promenade(points);
+    if(route.distance>=11)routes.push(route);
   }
-  for(const points of courtyardRoutes){
-    for(const run of walkSegments(points,0)){
-      const route=promenade(run);
-      if(route.distance>=11)routes.push({...route,spacing:17});
-    }
-  }
-  let identity=0;
+  let identity=pathIndex*1024;
   for(const route of routes){
-    const count=Math.min(32,Math.max(1,Math.round(route.distance/(route.spacing??26))));
+    const count=Math.min(8,Math.max(1,Math.round(route.distance/85)));
     route.people=Array.from({length:count},(_,index)=>{
       const id=identity++,character=id%2?"woman":"man";
       return {id,character,speed:1.04+(id%7)*.075,phase:(index+.28+(id%5)*.11)/count,
@@ -102,15 +90,24 @@ function poseAt(route,person,clock){
 }
 
 export function addBukchonPeople(walkerModels,{floorHeight,handheld=false}){
-  let routes;
+  const routes=[],paths=[...bukchonPaths.filter(p=>p.kind!=="road"&&p.kind!=="entrance"),
+    ...courtyardRoutes.map(points=>({points}))].map((path,index)=>{
+    const xs=path.points.map(p=>p.x),ys=path.points.map(p=>p.y);
+    return {path,index,west:Math.min(...xs),east:Math.max(...xs),north:Math.min(...ys),south:Math.max(...ys),ready:false};
+  });
+  let nextBuild=0;
   const models=new Map();
   function update(clock,now,delta,anchor,sparse=false){
     const nearby=[];
-    const range=sparse?31:handheld?46:66,limit=sparse?7:handheld?13:20;
+    const range=sparse?31:handheld?46:66,limit=sparse?2:handheld?4:6;
     // Do not prepare routes until Bukchon can be seen. Their phases use the
     // shared room clock, so players arriving at different times see the same poses.
     if(anchor&&anchor.x>560&&anchor.y< -814){
-      routes??=crowdRoutes();
+      if(now>=nextBuild){
+        nextBuild=now+200;
+        const entry=paths.find(p=>!p.ready&&anchor.x>p.west-range&&anchor.x<p.east+range&&anchor.y>p.north-range&&anchor.y<p.south+range);
+        if(entry){routes.push(...crowdRoutes(entry.path,entry.index));entry.ready=true;}
+      }
       for(const route of routes){
         const dx=Math.max(route.west-anchor.x,0,anchor.x-route.east);
         const dy=Math.max(route.north-anchor.y,0,anchor.y-route.south);

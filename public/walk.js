@@ -247,6 +247,13 @@ $("bike-fall-tip-dismiss").addEventListener("click",()=>{
 
 const mobileHeader=matchMedia("(max-width:810px), (pointer:coarse)");
 const fullscreenToggle=$("fullscreen-toggle");
+const graphicsSelect=$("graphics-quality");
+const savedQuality=localStorage.getItem("palace-graphics-quality");
+graphicsSelect.value=["high","medium","low"].includes(savedQuality)?savedQuality:"high";
+graphicsSelect.addEventListener("change",()=>{
+  localStorage.setItem("palace-graphics-quality",graphicsSelect.value);
+  world?.setQuality(graphicsSelect.value);
+});
 let fullscreenFallback=false;
 function placeViewControls(){
   const menu=$("mobile-settings-actions"),filter=$("map-filter"),mapLinks=$("map-links"),mapKey=$("map-key");
@@ -3687,7 +3694,7 @@ if(nickname.value&&(savedCode&&(!suppliedCode||suppliedCode===savedCode)||savedO
 function loadWorld(){
   if(world||worldLoading)return worldLoading;
   worldLoading=import("./world3d.js").then(({makeWorld})=>{
-    world=makeWorld($("game"),{onCatFlee,catSeed:session?.room});worldFailed=false;
+    world=makeWorld($("game"),{onCatFlee,catSeed:session?.room,graphics:graphicsSelect.value});worldFailed=false;
     drawDestinations(world);$("loading-game").hidden=true;
     if($("character-dialog").open)refreshCharacterPreview();
   }).catch(()=>{

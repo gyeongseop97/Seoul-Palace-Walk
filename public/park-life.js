@@ -906,8 +906,8 @@ export function addParkLife(T,scene,kit){
     }
     leaves(now,autumn?anchor:null);
   }
-  function nearestCat(x,y){
-    let nearest=null,best=2.2;
+  function nearestCat(x,y,range=2.2){
+    let nearest=null,best=range;
     for(const cat of live){
       const gap=Math.hypot(cat.x-x,cat.y-y);
       if(!cat.canPet||gap>=best||!clearSegment({x,y},cat.approach??cat))continue;

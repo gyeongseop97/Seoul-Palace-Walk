@@ -28,6 +28,8 @@ button:not(:disabled):hover{filter:brightness(1.13)}
 }
 .mobile-settings:not([open]) .mobile-settings-actions{display:none}
 .mobile-settings-actions button{min-height:44px;text-align:left}
+.graphics-setting{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:5px;color:var(--lettering);font-size:12px;white-space:nowrap}
+.graphics-setting select{font:inherit;min-height:40px;padding:4px;border:1px solid var(--carving);border-radius:6px;background:var(--deep-lacquer);color:var(--lettering)}
 .mobile-settings-actions #settings-leave{color:#ffc197;border-color:#825336}
 .quiet{color:var(--ink);border-color:var(--pine-7);background:var(--pine-3)}
 .invite{background:#d6dbb8;color:var(--pine-3)}

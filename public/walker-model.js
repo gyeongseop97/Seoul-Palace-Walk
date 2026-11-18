@@ -1106,7 +1106,9 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       x += side*airborne*.14; y += airborne*.30; z += airborne*.08;
       pole.set(side*.56,-.12,-1);
       const clasping = side === claspSide;
-      if(carryingTray){
+      if(position.photograph!=null){
+        x=side*.14;y=.15+.22*position.photograph;z=.35;pole.set(side*.63,-.5,.04);
+      }else if(carryingTray){
         x=side*(DINING_TRAY_WIDTH*.46*.91/BODY);y=.096;z=.37;
         pole.set(side*.67,-.8,-.26);
       } else if(eatingMeal){

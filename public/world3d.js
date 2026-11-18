@@ -3,6 +3,7 @@ import { buildJeongdong, hallRooms } from "./streets.js";
 import { addWater } from "./water.js";
 import { addObstacle, solidAt, platformAt, loftHeight, bridge, gate, middle, hall, stoneHall, courtAngle, fountain,ticketGuide } from "./layout.js";
 import { addParkLife } from "./park-life.js";
+import {addCityVisitors} from "./city-visitors.js";
 import { addPalaceBirds } from "./palace-birds.js";
 import { addPalaceSky } from "./palace-sky.js";
 import { resolveSeoulEnvironment } from "./seoul-environment.js";
@@ -68,7 +69,7 @@ import { CHEONGGYE_WATER_LEVEL,cheonggyeSeats } from "./cheonggye-seats.js";
 import { songhyeonBounds,songhyeonWalkable,songhyeonGroundHeight,registerSonghyeonNavigation } from "./songhyeon-layout.js";
 import { decodeWishFace, WISH_WIDTH, WISH_HEIGHT, WISH_COLORS, WISH_FLIGHT_MS } from "./wish-art.js";
 
-export function makeWorld(container,{onCatFlee,catSeed}={}) {
+export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   const scene=new T.Scene();
   const arcadeFloors=new Set([ARCADE_SITE,ARCADE_UPPER_SITE,ARCADE_THIRD_SITE].map(venue=>venue.id));
   scene.matrixAutoUpdate=false;
@@ -80,10 +81,9 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   renderer.toneMappingExposure=1.07;
   const handheld=matchMedia("(pointer:coarse)").matches;
   // Frame-rate governor: the render scale and shadows step down on a slow device and recover later.
-  const quality={max:Math.min(devicePixelRatio,handheld?1.6:2),min:handheld?.6:.75,ratio:0,shadows:true,
+  const profiles={high:{min:1.5,max:2.25},medium:{min:1,max:1.5},low:{min:.72,max:1}};
+  const quality={mode:graphics,max:0,min:0,ratio:0,shadows:true,
     pinned:new URLSearchParams(location.search).get("quality")==="max",frame:16.7,checkAt:0,calm:0};
-  quality.ratio=Math.min(quality.max,handheld?1.25:1.5);
-  renderer.setPixelRatio(quality.pinned?quality.max:quality.ratio);
   renderer.shadowMap.enabled=true;
   renderer.shadowMap.type=T.PCFSoftShadowMap;
   renderer.shadowMap.autoUpdate=false;
@@ -355,6 +355,11 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
   const birds=addPalaceBirds(T,outdoors,{...kit,floorHeight},{trees,walls:catWalls,seed:catSeed,deferNorth:true,deferPopulation:true});
   const parkLife=addParkLife(T,outdoors,{...kit,trees,floorHeight,terrainHeight:outsideGroundOffset,catWalls,benches,onCatFlee,catSeed,birds,
     deferNorth:true,deferPopulation:true});
+  const cityVisitors=addCityVisitors(T,kit,walkerModels,{benches,stations,parkLife,floorHeight,seatAt,showMeal:updateTableTray,
+    water(id,now,seat,pose,clock){
+      const point=seat?.waterPoint;
+      drawRipples(id,now,point?{...point,level:outsideGroundOffset(seat)+CHEONGGYE_WATER_LEVEL+.016,seat,kick:footKickAge(pose,clock)}:null);
+    }});
   let landmarkLoaders,surveyLoading=false;
   const surveyQueue=[];
   // Doorways cut through the surveyed shells so the furnished rooms inside can be entered.
@@ -600,6 +605,16 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       requireDistrict(palace);requireDistrict(bukchon);
     }
     const incomplete=district=>!district.chunks&&!district.failed;
+    // Fetch both sides of a district crossing together. Mesh assembly still
+    // runs one chunk at a time on the render thread.
+    function fetchModule(target){
+      if(!target.load||target.module||target.fetching||target.failed)return;
+      target.fetching=true;
+      target.load().then(module=>{target.module=module;},error=>{
+        target.failed=true;console.error("Could not load a walking district",error);
+      }).finally(()=>{target.fetching=false;});
+    }
+    for(const district of required)if(incomplete(district))fetchModule(district);
     const pending=required.find(district=>incomplete(district)&&!district.fetching);
     let nearby=null,gap=handheld?245:315;
     if(!indoors&&!pending)for(const district of districts){
@@ -611,17 +626,11 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       Math.hypot(anchor.x-district.outsideDoor.x,anchor.y-district.outsideDoor.y)<24);
     const travelling=Boolean(anchor.bus)||isCycling(anchor);
     const target=!indoors&&(approachInterior||(!transport.chunks&&!transport.failed?transport:nearby));
-    const budget=pending?7:travelling?4:handheld?2.4:3.5;
+    const budget=pending?7:quality.frame>22?1:travelling?3:handheld?2:3.5;
     const deadline=performance.now()+budget;
     function build(target){
       if(target.load&&!target.module){
-        if(!target.fetching){
-          target.fetching=true;
-          target.load().then(module=>{target.module=module;},error=>{
-            target.failed=true;
-            console.error("Could not load a walking district",error);
-          }).finally(()=>{target.fetching=false;});
-        }
+        fetchModule(target);
         return;
       }
       target.steps??=target.build();
@@ -951,6 +960,19 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     quality.sparse=sparse;birds.setSparse(sparse);parkLife.setSparse(sparse);
     cullAt=0;
   }
+  function setQuality(mode){
+    const profile=profiles[mode];
+    if(!profile)return;
+    quality.mode=mode;
+    quality.max=Math.min(devicePixelRatio,profile.max);
+    quality.min=Math.min(quality.max,profile.min);
+    quality.ratio=quality.max;
+    quality.shadows=mode!=="low";
+    quality.frame=16.7;quality.calm=0;quality.raiseAfter=0;quality.checkAt=performance.now()+2500;
+    renderer.setPixelRatio(quality.ratio);resize();
+    thinWildlife(mode==="low");shadowDirty=true;
+  }
+  setQuality(graphics);
   function govern(now){
     const elapsed=now-(governedAt||now);
     governedAt=now;
@@ -970,8 +992,8 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
       quality.frame=19;
     }else if(quality.frame<17.6&&++quality.calm>=5&&now>(quality.raiseAfter??0)){
       quality.calm=0;
-      if(quality.sparse)thinWildlife(false);
-      else if(!quality.shadows)quality.shadows=true;
+      if(quality.sparse&&quality.mode!=="low")thinWildlife(false);
+      else if(!quality.shadows&&quality.mode!=="low")quality.shadows=true;
       else if(quality.ratio<quality.max-.01){
         quality.ratio=Math.min(quality.max,quality.ratio*1.08);
         renderer.setPixelRatio(quality.ratio);resize();
@@ -1183,6 +1205,7 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     palacePeople.update(clock,now,delta,indoors?null:anchor,roster,Boolean(quality.sparse));
     streetPeople.update(clock,now,delta,indoors?null:anchor,Boolean(quality.sparse));
     bukchonPeople.update(clock,now,delta,indoors?null:anchor,Boolean(quality.sparse));
+    cityVisitors.update(clock,now,delta,anchor,insideId,roster,Boolean(quality.sparse));
     for(const [id,model] of models){
       if(present.has(id))continue;
       minigameWorld.remove(model);
@@ -1563,10 +1586,10 @@ export function makeWorld(container,{onCatFlee,catSeed}={}) {
     render({...state,firstPerson:false,photoCapture:true},performance.now());
     return renderer.domElement.toDataURL("image/jpeg",.92);
   }
-  const renderStats=()=>({...renderer.info.render,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,
+  const renderStats=()=>({...renderer.info.render,quality:quality.mode,pixelRatio:quality.ratio,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,
     areas:{plaza:Boolean(plaza.chunks),palace:Boolean(palace.chunks),cheonggye:Boolean(cheonggye.chunks),songhyeon:Boolean(songhyeon.chunks),
       ...Object.fromEntries(Object.entries(indoorsById).map(([id,district])=>[id,Boolean(district.chunks)]))}});
-  return {render,pick,pickBungeo,pickMole,pickBaseballAim,pickClassicTap,previewWalker,clearChat,floorHeight,groundHeight,renderStats,snapshot,capturePhoto,
+  return {render,setQuality,pick,pickBungeo,pickMole,pickBaseballAim,pickClassicTap,previewWalker,clearChat,floorHeight,groundHeight,renderStats,snapshot,capturePhoto,
     benches,stations,parkLife,birds,palacePeople,museum,underDoldamAwning};
 }
 
