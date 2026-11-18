@@ -108,22 +108,7 @@
         <div class="scene-wrap">
           <div id="game" tabindex="0" role="group" aria-label="3D 산책. 조이스틱이나 방향키로 이동, 드래그로 시야 회전, 마우스 휠이나 두 손가락으로 확대 및 축소">
             <p id="loading-game">산책길을 열고 있어요.</p>
-            <div class="game-info">
-              <div class="game-place"><span id="game-season">정동의 가을</span><strong id="game-place">매표소 앞</strong><small class="desktop-controls-hint">WASD · 방향키로 이동</small><small id="travel-status" hidden></small><small id="dining-status" role="status" hidden></small><small id="bungeo-order-status" role="status" hidden></small><small id="bungeo-status" role="status" hidden></small></div>
-              <div class="look-actions">
-                <span id="look-hint" hidden>내 위치를 지도에 5초 동안 표시해요.</span>
-                <button id="look" class="primary" type="button" aria-describedby="look-hint" disabled><span aria-hidden="true">✦</span> 여기 봐</button>
-                <button id="look-target" class="quiet" type="button" aria-haspopup="dialog" aria-controls="look-target-dialog" disabled>보낼 대상</button>
-              </div>
-              <section id="bus-status" class="bus-status" aria-labelledby="bus-status-stop" hidden>
-                <h3 id="bus-status-stop"></h3>
-                <p id="bus-status-direction"></p>
-                <dl class="bus-status-times">
-                  <div id="bus-status-arrival"><dt id="bus-status-arrival-label">다음 버스 도착</dt><dd></dd></div>
-                  <div id="bus-status-departure"><dt>정차 버스 출발</dt><dd></dd></div>
-                </dl>
-              </section>
-            </div>
+            <div class="game-info"><strong class="game-place" id="game-place">매표소 앞</strong></div>
             <div id="bungeo-hint" class="cooking-hint" hidden>
               <span id="bungeo-instruction" role="status"></span>
               <small id="bungeo-keyboard"></small>
@@ -140,7 +125,6 @@
             <button id="map-toggle" class="minimap" type="button" data-native-touch aria-label="미니맵, 큰 지도 열기" aria-controls="map-panel" aria-expanded="false">
               <svg id="mini-world" viewBox="404 241.5 126 105" aria-hidden="true">
                 <g id="mini-landscape"></g><g id="mini-people"></g>
-                <g id="mini-look-pins"></g>
                 <g id="mini-track-pin" class="track-map-pin" visibility="hidden"><circle/><circle/></g>
                 <path id="mini-my" d="M0 -4.8 3.4 3 0 1.6 -3.4 3Z" fill="#e5b672" stroke="#fff4da" stroke-width=".75"/>
               </svg>
@@ -304,16 +288,26 @@
           </div>
           <div class="location-guides">
             <div id="hand-status" class="hand-status" role="status" hidden></div>
-            <div class="look-direction" id="look-direction" hidden>
-              <span class="guidance-arrow" id="look-arrow" aria-hidden="true">↑</span>
-              <div class="guidance-copy"><strong id="look-title" role="status"></strong><small id="look-distance"></small></div>
-            </div>
             <div class="tracked-direction" id="tracked-direction" hidden>
               <span class="guidance-arrow" id="track-arrow" aria-hidden="true">↑</span>
               <div class="guidance-copy"><strong id="track-title" role="status"></strong><small id="track-distance"></small></div>
               <button id="clear-tracking" class="quiet" type="button" aria-label="동행 위치 표시 끄기">×</button>
             </div>
           </div>
+        </div>
+        <div class="scene-status">
+          <small id="travel-status" hidden></small>
+          <small id="dining-status" role="status" hidden></small>
+          <small id="bungeo-order-status" role="status" hidden></small>
+          <small id="bungeo-status" role="status" hidden></small>
+          <section id="bus-status" class="bus-status" aria-labelledby="bus-status-stop" hidden>
+            <h3 id="bus-status-stop"></h3>
+            <p id="bus-status-direction"></p>
+            <dl class="bus-status-times">
+              <div id="bus-status-arrival"><dt id="bus-status-arrival-label">다음 버스 도착</dt><dd></dd></div>
+              <div id="bus-status-departure"><dt>정차 버스 출발</dt><dd></dd></div>
+            </dl>
+          </section>
         </div>
         <div class="scene-controls">
           <form class="chat-composer" id="chat-form" aria-label="산책방 채팅">
@@ -361,7 +355,6 @@
             <g id="stamp-pins"></g>
             <g id="map-people" aria-hidden="true"></g>
             <circle id="parked-bike-pin" r="5.8" fill="#8ed7a2" stroke="#f8e5ac" stroke-width="1.8" visibility="hidden" aria-hidden="true"><title>내가 세워둔 따릉이</title></circle>
-            <g id="look-pins" aria-hidden="true"></g>
             <g id="track-pin" class="track-map-pin" aria-hidden="true" visibility="hidden"><circle/><circle/></g>
             <g id="my-avatar" class="avatar me"><ellipse cy="11" rx="16" ry="6"/><circle r="14"/><path d="M-7 7a8 8 0 0 1 14 0" class="shoulders"/><circle cy="-3" r="4" class="face"/><text y="-21" text-anchor="middle">나</text></g>
             <g id="map-labels" aria-hidden="true"></g>
@@ -445,18 +438,6 @@
     </div>
     <p id="landmark-guide-description"></p>
     <a id="landmark-guide-source" target="_blank" rel="noopener">공식 자료 보기 ↗</a>
-  </dialog>
-  <dialog id="look-target-dialog" aria-labelledby="look-target-title">
-    <div class="dialog-top">
-      <h2 id="look-target-title">‘여기 봐’ 보낼 대상</h2>
-      <button class="quiet close" type="button" aria-label="닫기">×</button>
-    </div>
-    <p>선택한 대상의 지도에 내 위치가 5초 동안 표시돼요.</p>
-    <div class="look-target-options">
-      <button class="quiet" type="button" data-look-audience="nearby">근처 사람</button>
-      <button class="quiet" type="button" data-look-audience="room">방 전체</button>
-    </div>
-    <ul id="look-target-people" aria-label="한 사람에게 보내기"></ul>
   </dialog>
   <dialog id="wish-drawing" aria-labelledby="wish-drawing-title">
     <div class="dialog-top">
@@ -554,7 +535,7 @@
       <section><h3>광화문 오락실</h3><p>지도에서 광화문 오락실을 찾아 보세요. 기계 앞에서 집게를 움직여 인형을 뽑거나 농구공을 던질 수 있어요. 펌프는 내려오는 화살표가 판정선에 겹칠 때 조이스틱이나 방향키로 해당 발판을 밟아요.</p></section>
       <section><h3>고양이와 새</h3><p>고양이에게 천천히 다가가 <strong>쓰다듬기</strong>를 눌러 보세요. 츄르를 들고 기다리면 다가오는 고양이에게 <strong>간식 주기</strong>를 할 수 있어요. 친해진 고양이는 잠깐 멈춰 기다리면 먼저 다가오기도 해요. 산책길에서는 까치와 비둘기가 바닥을 쪼거나 나무에 쉬는 모습도 볼 수 있어요.</p></section>
       <section><h3>잔디밭 피크닉과 우산</h3><p>광화문광장 육조마당 잔디밭에서 <strong>돗자리 펴기</strong>를 누르고 음식이나 음료를 한 몫씩 나눠 보세요. 비나 눈이 오면 가까운 친구에게 <strong>우산 같이 쓰기</strong>를 요청할 수 있어요. 친구가 수락하면 우산을 든 사람이 앞장서요.</p></section>
-      <section><h3>친구와 함께</h3><p>오픈서버에서 다른 산책자와 만나거나 초대코드로 친구와 같은 방에 들어오세요. 가까이에서 손을 잡고 벤치에 나란히 앉거나, 둘 다 음료를 들고 <strong>건배하기</strong>를 눌러 보세요. <strong>여기 봐</strong>를 누르면 상대에게 내 위치가 5초 동안 표시돼요.</p></section>
+      <section><h3>친구와 함께</h3><p>오픈서버에서 다른 산책자와 만나거나 초대코드로 친구와 같은 방에 들어오세요. 가까이에서 손을 잡고 벤치에 나란히 앉거나, 둘 다 음료를 들고 <strong>건배하기</strong>를 눌러 보세요. 접속자 목록에서 친구 이름을 누르면 그 친구가 있는 방향을 볼 수 있어요.</p></section>
     </div>
   </dialog>
   <dialog id="exhibit-dialog" aria-labelledby="exhibit-title">

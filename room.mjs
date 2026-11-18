@@ -80,10 +80,6 @@ const validAvatar = (a) => validPoint(a) &&
   (a.pet==null || typeof a.pet.id==="string" && /^[a-z0-9-]{1,32}$/.test(a.pet.id) && validTime(a.pet.at));
 const validView = (v) => v && finite(v.pan,-720,720) && finite(v.tilt,-90,90) &&
   finite(v.zoom,-3,3) && (v.night===undefined || typeof v.night==="boolean");
-const validSignal = (signal,self) => validId(signal?.id) && (signal.audience===undefined?
-  validView(signal.view)&&(signal.point===undefined||validPoint(signal.point)):
-  validPoint(signal.point)&&(signal.audience==="nearby"||signal.audience==="room"||
-    signal.audience==="person"&&validId(signal.target)&&signal.target!==self));
 const validHand = (h) => h && validId(h.id) && (h.kind===undefined||h.kind==="umbrella") && (h.action==="release" ||
   (h.side===-1 || h.side===1) && (h.action==="accept" || h.action==="offer" && validId(h.peer)));
 const validShow=show=>validId(show?.id)&&show.fountain==="myeongnyang";
@@ -109,7 +105,6 @@ const parkedBikePatch=`CASE WHEN ${parkedBikeTime}>?
 
 const codeAlphabet="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const openRoomId="00000000000000000000000000000001";
-const lookPingLifetime=5000,lookPingDistance=40;
 const chatLifetime=6000,walkerLifetime=18_000;
 const clothes=[
   0xb85545,0x308070,0x5f75bb,0xb77934,0xa2548c,0x6d8647,0x3084a2,0xb34762,
@@ -296,38 +291,6 @@ function chatUpdate(db,room,id,key,chat,now,active){
       AND json_extract(avatar,'$.chat.id') IS NOT ?
       AND COALESCE(json_extract(avatar,'$.chat.sentAt'),-1)<?
   `).bind(JSON.stringify({...chat,at:now}),room,id,key,active,chat.id,chat.sentAt);
-}
-
-function signalUpdate(db,room,id,key,signal,avatar,now,active){
-  const location={x:avatar.x,y:avatar.y};
-  const point=signal.point?{x:signal.point.x,y:signal.point.y}:location;
-  const sameArea=interiorAt(point.x,point.y)===interiorAt(location.x,location.y);
-  const payload={id:signal.id,point:sameArea&&Math.hypot(point.x-location.x,point.y-location.y)<=5?point:location,
-    receivedAt:now};
-  if(signal.audience===undefined)payload.view=signal.view;
-  else{
-    payload.audience=signal.audience;
-    if(signal.audience==="person")payload.target=signal.target;
-  }
-  return db.prepare(`
-    UPDATE walkers SET signal=? WHERE room=? AND id=? AND player_key IS ? AND updated>=?
-      AND json_extract(signal,'$.id') IS NOT ?
-  `).bind(JSON.stringify(payload),room,id,key,active,signal.id);
-}
-
-function visibleSignal(row,avatar,receiver,lookPings,room,now){
-  if(!row.signal||row.id===receiver.id)return null;
-  const signal=JSON.parse(row.signal);
-  if(!signal?.receivedAt||now-signal.receivedAt>=lookPingLifetime)return null;
-  // A cached client still changes camera for old broadcasts. Map pings are opt-in.
-  if(!lookPings)return signal.audience===undefined?signal:null;
-  const point=signal.point??{x:avatar.x,y:avatar.y};
-  const audience=signal.audience??(room===openRoomId?"nearby":"room");
-  if(audience==="person"&&signal.target!==receiver.id)return null;
-  if(audience==="nearby"&&(
-    interiorAt(point.x,point.y)!==interiorAt(receiver.avatar.x,receiver.avatar.y)||
-    Math.hypot(point.x-receiver.avatar.x,point.y-receiver.avatar.y)>lookPingDistance))return null;
-  return {id:signal.id,point,receivedAt:signal.receivedAt};
 }
 
 function feedUpdate(db,room,id,key,feed,now){
@@ -547,7 +510,7 @@ export async function api(request,env){
   if(!validId(body?.room)||!validId(body.id)||(body.key!==undefined&&!validId(body.key))){
     return json({error:"잘못된 산책방 정보예요."},400);
   }
-  const {room,id,key=null,avatar,view,signal,hand,feed,bus,bike,show,clink,leave,lookPings}=body;
+  const {room,id,key=null,avatar,view,hand,feed,bus,bike,show,clink,leave}=body;
   const {minigame,picnic,dining,bungeo,bowling}=body;
   const diningVenue=dining?.venue??body.diningVenue;
   if(body.guestbook!==undefined){
@@ -588,7 +551,6 @@ export async function api(request,env){
   if(diningVenue!=null&&(!key||!isDiningVenue(diningVenue))||dining!=null&&(!key||avatar===undefined||!validDiningCommand(dining))){
     return json({error:"식당 요청을 읽을 수 없어요."},400);
   }
-  if(signal!=null&&(avatar===undefined||!validSignal(signal,id)))return json({error:"‘여기 봐’ 위치를 읽을 수 없어요."},400);
   if(avatar!==undefined&&(!validAvatar(avatar)||!validView(view)))return json({error:"산책 위치를 읽을 수 없어요."},400);
   const chat=avatar?.chat==null?null:cleanChat(avatar.chat);
   if(avatar?.chat!=null&&(!key||!chat))return json({error:"말풍선은 1~80자로 입력해 주세요."},400);
@@ -616,7 +578,6 @@ export async function api(request,env){
     if(!feed||currentFeed)operations.push(avatarUpdate(db,room,id,key,avatar,view,now,active,feed?.claim,bike?.action,pendingPicnic,pendingBungeo));
     if(key&&avatar.bikeRide?.driver)operations.push(refreshBikePassenger(db,room,id,key,online));
     if(chat)operations.push(chatUpdate(db,room,id,key,chat,now,active));
-    if(signal)operations.push(signalUpdate(db,room,id,key,signal,avatar,now,active));
     if(Math.random()<.004){
       operations.push(db.prepare("DELETE FROM walkers WHERE updated < ?").bind(now-86400000));
       operations.push(...cleanupSocial(db,room,now-86400000));
@@ -671,7 +632,7 @@ export async function api(request,env){
   if(clink)operations.push(clinkStatement(db,socialContext));
   operations.push(selectSocial(db,socialContext));
   operations.push(db.prepare(`
-    SELECT id,updated,avatar,view,signal,player_key,nickname,coat FROM walkers
+    SELECT id,updated,avatar,view,player_key,nickname,coat FROM walkers
     WHERE room=? AND (updated>=? OR (updated>=? AND ${parkedBikeTime}>?)) ORDER BY id
   `).bind(room,active,bikeCutoff-walkerLifetime,bikeCutoff));
   operations.push(db.prepare(`
@@ -727,7 +688,6 @@ export async function api(request,env){
     if(chat?.text&&chat.at>now-chatLifetime)avatar.chat={id:chat.id,text:chat.text,at:chat.at};
     else delete avatar.chat;
     walkers.push({id:row.id,updated:row.updated,avatar,view:JSON.parse(row.view),
-      signal:visibleSignal(row,avatar,receiver,lookPings===true,room,now),
       nickname:row.nickname||"동행",coat:row.coat??0x397e70,handholdAvailable:Boolean(row.player_key)});
   }
   const handholds=[],umbrellas=[];

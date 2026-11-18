@@ -80,7 +80,6 @@ const initialView=()=>({pan:entranceHeading,tilt:0,zoom:0,night:false});
 const lookChoices={...LOOK_OPTIONS,headwear:HEADWEAR,keepsake:KEEPSAKES};
 const timeChoices=["auto","day","sunset","night"],storedTime=localStorage.getItem("jeongdong-time");
 const environment={time:timeChoices.includes(storedTime)?storedTime:"auto",weather:"live",season:"live",liveWeather:null};
-const seasonNames={spring:"봄",summer:"여름",autumn:"가을",winter:"겨울"};
 const weatherNames={clear:"맑음",cloudy:"흐림",rain:"비",snow:"눈",fog:"안개"};
 let currentEnvironment=resolveSeoulEnvironment(environment),umbrellaFolded=false;
 const defaultHair=character=>character==="woman"?"long":"short";
@@ -98,13 +97,13 @@ function initialAvatar(){
     blushUntil:0,blushLevel:0,alcoholGlasses:0,sickAt:0,bikeFallAt:0,gesture:null,pet:null,feed:null,
     running:false,blocked:false,up:false,character,look};
 }
-const me=initialAvatar(),people=new Map(),markers=new Map(),seenSignals=new Map(),lookPings=new Map(),formations=new Map();
+const me=initialAvatar(),people=new Map(),markers=new Map(),formations=new Map();
 let ownView=initialView(),trackedPersonId=null,world,worldLoading,worldFailed=false;
 let firstPerson=localStorage.getItem("jeongdong-first-person")==="true";
 let session=null,active=true,joining=false,lastPost=0,lastWishSynced=0,lastArcadePost="",dirty=true;
 let pageVersion=0,walkPositionAt=0,lastWalkPosition=null;
 let syncTimer,syncDue=Infinity,syncInFlight=null,syncStarted=-Infinity,syncFailures=0;
-let links=[],queuedSignal=null,queuedHand=null,queuedFeed=null,queuedChat=null,toastTimer;
+let links=[],queuedHand=null,queuedFeed=null,queuedChat=null,toastTimer;
 let queuedBus=null,queuedBike=null,lastBusHeading=null,lastBikeHeading=null;
 let tandemOffer=null;
 let queuedDining=null,diningService=null;
@@ -704,7 +703,7 @@ document.querySelectorAll("[data-emoji]").forEach(button=>button.addEventListene
 }));
 
 const directions=["앞","오른쪽 앞","오른쪽","오른쪽 뒤","뒤","왼쪽 뒤","왼쪽","왼쪽 앞"];
-const rosterDialog=$("roster-dialog"),targetDialog=$("look-target-dialog");
+const rosterDialog=$("roster-dialog");
 const trackPins=[$("track-pin"),$("mini-track-pin")];
 function setText(node,value){if(node.textContent!==value)node.textContent=value;}
 function outdoorMap(position){
@@ -723,9 +722,9 @@ function shownPlace(point){
   const place=placeName(point);
   return isInsideMuseum(point.x,point.y)&&place!=="덕수궁 전시관"?"미술관 · "+place:place;
 }
-function updatePeopleList(list,includeSelf){
+function updatePeopleList(list){
   const entries=[...people.values()].sort((a,b)=>a.nickname.localeCompare(b.nickname,"ko")||a.id.localeCompare(b.id));
-  if(includeSelf)entries.unshift({id:session.id,nickname:session.nickname,coat:session.coat,position:me});
+  entries.unshift({id:session.id,nickname:session.nickname,coat:session.coat,position:me});
   const previous=new Map(Array.from(list.children,item=>[item.dataset.personId,item]));
   for(const [index,person] of entries.entries()){
     const self=person.id===session.id;
@@ -740,7 +739,7 @@ function updatePeopleList(list,includeSelf){
       coat.className="roster-coat";coat.setAttribute("aria-hidden","true");
       coat.style.setProperty("--player-color",hexCoat(person.coat??0x397e70));
       copy.className="roster-person";copy.append(document.createElement("strong"),document.createElement("small"));
-      indicator.className="roster-indicator";indicator.textContent=self?"나":includeSelf?"위치 보기":"보내기";
+      indicator.className="roster-indicator";indicator.textContent=self?"나":"위치 보기";
       row.append(coat,copy,indicator);item.append(row);
     }
     setText(item.querySelector("strong"),person.nickname);
@@ -752,9 +751,8 @@ function updatePeopleList(list,includeSelf){
 function refreshPeopleDialogs(){
   if(rosterDialog.open){
     setText($("roster-count"),syncFailures?"다시 연결 중 · 마지막으로 확인한 위치":(people.size+1)+"명 접속 중");
-    updatePeopleList($("roster-list"),true);
+    updatePeopleList($("roster-list"));
   }
-  if(targetDialog.open)updatePeopleList($("look-target-people"),false);
 }
 for(const id of ["presence","game-presence"]){
   $(id).addEventListener("click",()=>{
@@ -766,46 +764,11 @@ $("roster-list").addEventListener("click",event=>{
   const id=event.target.closest("button[data-person-id]")?.dataset.personId;
   if(!people.has(id))return;
   trackedPersonId=id;rosterDialog.close();focusGame();
-  updateLocationGuides(gameTime());
+  updateLocationGuides();
 });
 $("clear-tracking").addEventListener("click",()=>{
-  trackedPersonId=null;updateLocationGuides(gameTime());focusGame();
+  trackedPersonId=null;updateLocationGuides();focusGame();
 });
-function sendLook(audience,target){
-  if(!session||!people.size||(audience==="person"&&!people.has(target)))return;
-  queuedSignal={id:token(),point:{x:me.x,y:me.y},audience,...(target?{target}:{})};
-  wakeSync();
-  if(targetDialog.open)targetDialog.close();
-  toast(audience==="nearby"?"근처 동행에게 내 위치를 보냈어요.":
-    audience==="room"?"방 전체에 내 위치를 보냈어요.":people.get(target).nickname+" 님에게 내 위치를 보냈어요.");
-}
-$("look").addEventListener("click",()=>sendLook(session?.mode==="open"?"nearby":"room"));
-$("look-target").addEventListener("click",()=>{
-  if(!people.size||targetDialog.open)return;
-  resetInput();targetDialog.showModal();refreshPeopleDialogs();
-});
-targetDialog.addEventListener("click",event=>{
-  const audience=event.target.closest("[data-look-audience]")?.dataset.lookAudience;
-  const target=event.target.closest("button[data-person-id]")?.dataset.personId;
-  if(audience)sendLook(audience);
-  else if(target)sendLook("person",target);
-});
-function readLookSignals(serverTime){
-  for(const id of seenSignals.keys())if(!people.has(id))seenSignals.delete(id);
-  for(const person of people.values()){
-    const signal=person.signal;
-    if(!signal||seenSignals.get(person.id)===signal.id)continue;
-    seenSignals.set(person.id,signal.id);
-    const expires=(signal.receivedAt??serverTime)+5000;
-    if(expires<=serverTime)continue;
-    let pins=lookPings.get(person.id)?.pins;
-    if(!pins)pins=["look-pins","mini-look-pins"].map(layer=>{
-      const pin=svg($(layer),"g",{class:"look-map-pin"});
-      svg(pin,"circle",{});svg(pin,"circle",{});return pin;
-    });
-    lookPings.set(person.id,{point:signal.point??person.avatar,expires,nickname:person.nickname,pins});
-  }
-}
 function guideLocation(point,inside){
   const otherInside=interiorAt(point.x,point.y);
   if(otherInside===inside){
@@ -840,16 +803,8 @@ function showGuide(kind,title,location){
   }
   arrow.hidden=!point;setText($(kind+"-distance"),label);
 }
-function updateLocationGuides(time){
+function updateLocationGuides(){
   const inside=interiorAt(me.x,me.y);
-  let newest;
-  for(const [id,ping] of lookPings){
-    if(time>=ping.expires){ping.pins.forEach(pin=>pin.remove());lookPings.delete(id);continue;}
-    positionGuidePins(ping.pins,guideLocation(ping.point,inside).point,Boolean(inside));
-    if(!newest||ping.expires>newest.expires)newest=ping;
-  }
-  $("look-direction").hidden=!newest;
-  if(newest)showGuide("look",newest.nickname+" · "+shownPlace(newest.point),guideLocation(newest.point,inside));
   const tracked=people.get(trackedPersonId);
   if(!tracked)trackedPersonId=null;
   $("tracked-direction").hidden=!tracked;
@@ -858,9 +813,8 @@ function updateLocationGuides(time){
   if(tracked)showGuide("track",tracked.nickname+" · "+shownPlace(tracked.position),target);
 }
 function resetLocationGuides(){
-  for(const ping of lookPings.values())ping.pins.forEach(pin=>pin.remove());
-  lookPings.clear();seenSignals.clear();trackedPersonId=null;
-  updateLocationGuides(gameTime());
+  trackedPersonId=null;
+  updateLocationGuides();
 }
 
 function handCandidates(kind){
@@ -1006,7 +960,7 @@ function wakeSync(){
   scheduleSync(Math.max(0,syncStarted+movingCadence()-performance.now()));
 }
 function syncCadence(){
-  const fast=dirty||myLink()||queuedHand||queuedSignal||queuedFeed||queuedChat||queuedBus||queuedBike||seatClaim||moving(me)||me.blocked||
+  const fast=dirty||myLink()||queuedHand||queuedFeed||queuedChat||queuedBus||queuedBike||seatClaim||moving(me)||me.blocked||
     queuedShow||queuedClink||queuedPhoto||queuedMinigame||queuedPicnic||queuedDining||bungeoQueue.length||arcade.kind||bowlingQueue.length;
   if(fast)return movingCadence();
   for(const {avatar} of people.values())if(moving(avatar)||avatar.blocked)return movingCadence();
@@ -1017,7 +971,7 @@ async function sync(){
   const visit=session;
   if(!active||!visit||syncInFlight===visit)return;
   syncInFlight=visit;
-  const sent=performance.now(),signal=queuedSignal,hand=queuedHand,claim=seatClaim,feed=queuedFeed,chat=queuedChat;
+  const sent=performance.now(),hand=queuedHand,claim=seatClaim,feed=queuedFeed,chat=queuedChat;
   const bus=queuedBus,bike=queuedBike;
   const dining=queuedDining,serviceVenue=dining?.venue??currentDining()?.id??(diningService?.self?diningService.venue:undefined);
   const show=queuedShow,clink=queuedClink,photo=queuedPhoto,minigame=queuedMinigame,picnicCommand=queuedPicnic;
@@ -1027,9 +981,9 @@ async function sync(){
   const sincePost=Date.now()-lastPost;
   const arcadePacket=arcade.kind&&arcade.kind!=="bowling"?arcadeSnapshot(arcade.state(sent)):null;
   const arcadeKey=arcadePacket?JSON.stringify(arcadePacket):"";
-  const post=dirty||signal||hand||claim||feed||chat||bus||bike||show||clink||photo||minigame||picnicCommand||dining||bungeo||bowling||
+  const post=dirty||hand||claim||feed||chat||bus||bike||show||clink||photo||minigame||picnicCommand||dining||bungeo||bowling||
     sincePost>=3800||sincePost>=125&&arcadeKey!==lastArcadePost;
-  const base={room:visit.room,id:visit.id,key:visit.key,lookPings:true,
+  const base={room:visit.room,id:visit.id,key:visit.key,
     bikeOffers:isBikeDriver(me)||Boolean(tandemOffer),diningVenue:serviceVenue,...(bungeoWatch?{bungeoWatch}:null),
     ...(bowlingWatch?{bowlingWatch}:null)};
   const avatar=post?{...me,catFriends:passport.friendlyCatIds()}:null;
@@ -1037,7 +991,7 @@ async function sync(){
   if(avatar&&claim)Object.assign(avatar,{seat:claim.bench,seatSide:claim.side});
   if(avatar){if(chat)avatar.chat=chat;else delete avatar.chat;}
   if(avatar&&(avatar.wish===lastWishSynced||gameTime(sent)-avatar.wish>=WISH_FLIGHT_MS))delete avatar.wishArt;
-  const body=post?{...base,avatar,view:{...ownView},signal,hand,feed,bus,bike,show,clink,photo,minigame,picnic:picnicCommand,dining,
+  const body=post?{...base,avatar,view:{...ownView},hand,feed,bus,bike,show,clink,photo,minigame,picnic:picnicCommand,dining,
     ...(bungeo?{bungeo}:null),...(bowling?{bowling}:null)}:base;
   if(post)dirty=false;
   try{
@@ -1050,7 +1004,6 @@ async function sync(){
     if(data.weather)environment.liveWeather=data.weather;
     syncFailures=0;
     if(post){lastPost=Date.now();lastWishSynced=avatar.wish;lastArcadePost=arcadeKey;}
-    if(queuedSignal===signal)queuedSignal=null;
     if(queuedHand===hand)queuedHand=null;
     bowlingMatch=bowlingWatch?data.bowling??null:null;
     if(bowling&&bowlingQueue[0]===bowling){
@@ -1110,10 +1063,8 @@ async function sync(){
     const link=myLink();
     if(hand?.action==="offer"&&!link)toast(hand.kind==="umbrella"?"가까이 있는 친구에게 우산을 같이 쓰자고 다시 요청해 주세요.":"가까이 있는 친구에게 다시 손을 내밀어 주세요.");
     if(hand?.action==="accept"&&!link?.active)toast(hand.kind==="umbrella"?"우산 같이 쓰기 요청이 끝났어요.":"손잡기 요청이 끝났어요. 가까이에서 다시 요청해 주세요.");
-    readLookSignals(data.serverTime);
     refreshPeopleDialogs();
     setPresence(data.walkers.length+"명 접속 중",data.walkers.length);
-    $("look-target").disabled=$("look").disabled=!people.size;
   }catch{
     if(!active||session!==visit)return;
     dirty=true;syncFailures++;
@@ -1193,7 +1144,7 @@ function returnToLobby(message=""){
   const old=session;
   rememberWalkPosition();
   leaveBeacon();session=null;clearSyncTimer();resetInput();
-  queuedSignal=queuedHand=queuedFeed=queuedChat=null;people.clear();changeLinks([]);resetLocationGuides();
+  queuedHand=queuedFeed=queuedChat=null;people.clear();changeLinks([]);resetLocationGuides();
   queuedBus=queuedBike=lastBusHeading=lastBikeHeading=selectedBus=null;
   tandemOffer=null;$("bike-offer").hidden=true;
   alcoholSip=null;bikeFallHintSeen=false;hideBikeFallTip();
@@ -1212,7 +1163,7 @@ function returnToLobby(message=""){
   sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);
   busStatus.hidden=true;
   chatInput.value="";composingChat=false;lastChatAt=0;updateChatSend();
-  $("invite").disabled=$("look").disabled=$("look-target").disabled=true;
+  $("invite").disabled=true;
   world?.clearChat();
   clearTransit();
   closeActionMenus();mobileSettings.open=false;clearMapRoute();setMap(false);
@@ -1276,7 +1227,6 @@ async function enterRoom(action,code){
     history.replaceState(null,"",location.pathname+location.search+(session.code?"#code="+session.code:""));
     $("invite").disabled=false;
     $("invite").hidden=session.mode==="open";
-    $("look-hint").textContent=(session.mode==="open"?"근처 동행에게":"방 전체에")+" 내 위치를 5초 동안 표시해요.";
     $("lobby-status").textContent="";entryFlow.hidden=true;gameShell.hidden=false;
     world?.parkLife.setSeed(session.room);
     world?.parkLife.resetInteractions();
@@ -3065,13 +3015,11 @@ function frame(now){
     setActivity("foot-kick",seatEnabled&&bathing()?(kicking?"발장구치는 중":"발장구치기"):null,kicking);
     attr($("sit"),"aria-pressed",me.seat!=null);
     setText($("game-place"),$("location").textContent);
-    const area=outdoorMap(me),jeongdong=area==="덕수궁";
-    setText($("game-season"),interiorAt(me.x,me.y)?"실내":(jeongdong?"정동":area)+"의 "+seasonNames[currentEnvironment.season]);
     refreshShortcuts();
     updateHandControls();
     nearbyControls.refresh(preferredNearbyAction(time));peerControls.refresh(preferredPeerAction(time));
     leaveWater();
-    updateLocationGuides(time);updateMaps(self,others);
+    updateLocationGuides();updateMaps(self,others);
   }
   lastScene={me:self,peers:[...others.values()],parkedBikes,view:ownView,
     firstPerson:Boolean(bungeoMode||arcade.kind==="mole"||firstPerson&&!arcade.kind)&&!photoMode.camera,
@@ -3162,8 +3110,8 @@ overviewButton.addEventListener("click",()=>setOverview(!overviewOpen));
 function drawMap(base,mini=false){
   const patternId=mini?"mini-map-grid":"world-map-grid";
   const pattern=svg(svg(base,"defs",{}),"pattern",{id:patternId,width:28,height:28,patternUnits:"userSpaceOnUse"});
-  svg(pattern,"rect",{width:28,height:28,fill:"#303b38"});
-  svg(pattern,"path",{d:"M28 0H0V28",fill:"none",stroke:"#bac7b8","stroke-opacity":.14,"stroke-width":.7});
+  svg(pattern,"rect",{width:28,height:28,fill:"var(--map-ground)"});
+  svg(pattern,"path",{d:"M28 0H0V28",fill:"none",stroke:"var(--map-grid)","stroke-opacity":.10,"stroke-width":.7});
   // The backdrop covers the full panning range, including the letterbox on tall maps.
   svg(base,"rect",{x:-12000,y:-12000,width:24000,height:24000,fill:"url(#"+patternId+")","pointer-events":"none"});
   const landscape=base,outdoors=svg(landscape,"g",{class:"outdoor-map-ground"});

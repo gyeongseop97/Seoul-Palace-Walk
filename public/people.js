@@ -47,7 +47,6 @@ export function receivePeople(people,rows,self,serverTime){
     person.targetView=row.view;
     person.nickname=row.nickname;
     person.coat=row.coat;
-    person.signal=row.signal;
     person.available=row.handholdAvailable&&!avatar.bus&&!isCycling(avatar);
   }
   for(const id of people.keys())if(!present.has(id))people.delete(id);
