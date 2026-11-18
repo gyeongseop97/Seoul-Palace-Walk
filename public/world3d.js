@@ -59,6 +59,7 @@ import { addStreetPeople } from "./street-people.js";
 import { makePicnicWorld } from "./picnic-world.js";
 import { buildSubwayAccess,registerExpandedSubway } from "./subway-expansion.js";
 import { jeongdongExtensionBounds,registerJeongdongExtension } from "./jeongdong-extension-layout.js";
+import {westBounds,westWalkable,registerWestDistrict} from "./west-district-layout.js";
 import { buildJeongdongExtension } from "./jeongdong-extension.js";
 import { bukchonBounds,bukchonWalkable,bukchonGroundHeight,bukchonSurfaceGrade,registerBukchonTrees } from "./bukchon-layout.js";
 import { hwangudanBounds,hwangudanWalkable,hwangudanFloorHeight,registerHwangudanNavigation } from "./seoul-hwangudan-layout.js";
@@ -163,7 +164,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   const drawPalaceSky=addPalaceSky(T,heavens,{
     sunDirection:sunDirection.clone().multiplyScalar(142),landscape:outdoors,
     cityOrigin:{x:wx(plazaSites.sejong.x)-21,z:wz(plazaSites.sejong.y)+14},
-    cityExclusions:[corridorBounds,plazaBounds,gbBounds,bukchonBounds,hwangudanBounds,cheonggyeBounds,songhyeonBounds,
+    cityExclusions:[westBounds,corridorBounds,plazaBounds,gbBounds,bukchonBounds,hwangudanBounds,cheonggyeBounds,songhyeonBounds,
       {minX:45,maxX:560,minY:30,maxY:420}]
   });
   const drawPrecipitation=addSeoulPrecipitation(T,outdoors),foliage=makeSeasonFoliage(T);
@@ -200,6 +201,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     buildJeongdong(T,deoksRoot,makeKit(deoksRoot),{deferGyeongbok:true});
   buildSejongCorridor(T,corridorRoot,makeKit(corridorRoot));
   registerJeongdongExtension();
+  registerWestDistrict();
   registerHwangudanNavigation();
   registerCheonggyeNavigation();
   registerSonghyeonNavigation(benches);
@@ -475,7 +477,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   }};
   let updatePlaza,updateHwangudan,updateCheonggye,northWildlife,plazaWildlife,southWildlife,buildTurn=false;
   const wildlife=[["jeongdong",jeongdongExtensionBounds],["hwangudan",hwangudanBounds],["bukchon",bukchonBounds],
-    ["songhyeon",songhyeonBounds],["cheonggye",cheonggyeBounds]]
+    ["west",westBounds],["songhyeon",songhyeonBounds],["cheonggye",cheonggyeBounds]]
     .map(([id,bounds])=>({id,bounds,steps:null,ready:false}));
   const plaza={root:plazaRoot,bounds:plazaBounds,*build(){
     const birdPerches=[];
@@ -564,7 +566,10 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   const stationsDistrict=expansionDistrict({minX:55,maxX:1160,minY:-965,maxY:410},()=>false,function*(root,localKit){
     yield* buildSubwayAccess(T,root,localKit,floorHeight,{terrainHeight:outsideGroundOffset});
   });
-  const expansions=[songhyeon,cheonggye,bukchon,hwangudan,stationsDistrict];
+  const west=expansionDistrict(westBounds,westWalkable,function*(root,localKit,{buildWestDistrict}){
+    yield* buildWestDistrict(T,root,localKit,Math.min(4,renderer.capabilities?.getMaxAnisotropy?.()??1));
+  },()=>import("./west-district.js"));
+  const expansions=[songhyeon,cheonggye,bukchon,hwangudan,west,stationsDistrict];
   const districts=[deoks,corridor,plaza,palace,...expansions],loading=container.querySelector("#loading-game");
   function distanceToDistrict({x,y},{minX,maxX,minY,maxY}){
     return Math.hypot(Math.max(minX-x,0,x-maxX),Math.max(minY-y,0,y-maxY));
@@ -1375,8 +1380,9 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     }else if(isClassic(state.arcade?.kind)){
       const machine=ARCADE_GAMES[state.arcade.kind].machine,portrait=camera.aspect<.88;
       const fov=portrait?75:55,offset=portrait?6.30:4.68;
-      camera.position.set(wx(machine.x+offset),3.64,wz(machine.y));
-      camera.lookAt(wx(machine.x+.12),1.07,wz(machine.y));
+      const side=state.arcade.farSide?-1:1;
+      camera.position.set(wx(machine.x+side*(side<0?Math.min(4.65,offset):offset)),side<0&&portrait?4.65:3.64,wz(machine.y));
+      camera.lookAt(wx(machine.x+side*.12),1.07,wz(machine.y));
       if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix();}
       cameraDistance=2;
     }else if(Object.hasOwn(TARGET_LANES,state.arcade?.kind)){
@@ -1584,7 +1590,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     return renderer.domElement.toDataURL("image/jpeg",.92);
   }
   const renderStats=()=>({...renderer.info.render,quality:quality.mode,pixelRatio:quality.ratio,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,
-    areas:{plaza:Boolean(plaza.chunks),palace:Boolean(palace.chunks),cheonggye:Boolean(cheonggye.chunks),songhyeon:Boolean(songhyeon.chunks),
+    areas:{west:Boolean(west.chunks),plaza:Boolean(plaza.chunks),palace:Boolean(palace.chunks),cheonggye:Boolean(cheonggye.chunks),songhyeon:Boolean(songhyeon.chunks),
       ...Object.fromEntries(Object.entries(indoorsById).map(([id,district])=>[id,Boolean(district.chunks)]))}});
   return {render,setQuality,setVisitorRoom:cityVisitors.setRoom,pick,pickBungeo,pickMole,pickBaseballAim,pickClassicTap,previewWalker,clearChat,floorHeight,groundHeight,renderStats,snapshot,capturePhoto,
     benches,stations,parkLife,birds,palacePeople,museum,underDoldamAwning};

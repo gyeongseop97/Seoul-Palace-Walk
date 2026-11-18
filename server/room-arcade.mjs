@@ -1,5 +1,5 @@
 import {CLAW_PRIZES} from "../public/arcade-games.js";
-import {ARCADE_GAMES} from "../public/arcade-layout.js";
+import {ARCADE_GAMES,hockeyFarEnd} from "../public/arcade-layout.js";
 import {interiorAt} from "../public/interior-layout.js";
 import {cleanTargetSnapshot} from "../public/arcade-targets.js";
 import {BASEBALL_CENTER,BASEBALL_PITCH_COUNT,BASEBALL_ZONE} from "../public/arcade-baseball.js";
@@ -85,7 +85,9 @@ export function cleanArcadeActivity(avatar){
   if(typeof activity?.kind!=="string"||!Object.hasOwn(ARCADE_GAMES,activity.kind)||avatar.seat!=null||avatar.bus||avatar.bikeRide||
     avatar.bike&&!avatar.bike.parked)return null;
   const station=ARCADE_GAMES[activity.kind],reach=activity.kind==="pump"?3.6:activity.kind==="mole"?3.05:1.85;
-  if(interiorAt(avatar.x,avatar.y)!==station.floor||Math.hypot(station.x-avatar.x,station.y-avatar.y)>reach)return null;
+  const distance=Math.hypot(station.x-avatar.x,station.y-avatar.y);
+  const opposite=activity.kind==="airHockey"&&Math.hypot(hockeyFarEnd.x-avatar.x,hockeyFarEnd.y-avatar.y)<=reach;
+  if(interiorAt(avatar.x,avatar.y)!==station.floor||distance>reach&&!opposite)return null;
   if(isClassic(activity.kind))return cleanClassicSnapshot(activity);
   switch(activity.kind){
     case "pump":return cleanPump(activity);

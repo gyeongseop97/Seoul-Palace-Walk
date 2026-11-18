@@ -237,9 +237,11 @@
             <button type="button" class="quiet" data-gesture="heart">하트</button>
             <button type="button" class="quiet" data-gesture="cheer">환호</button>
           </div>
+          <section id="arcade-info" class="arcade-info" aria-label="오락실 게임 정보" hidden>
+            <div class="arcade-summary"><strong id="arcade-title"></strong><span id="arcade-status" role="status"></span><button id="arcade-help-toggle" class="quiet" type="button" aria-label="조작 설명" aria-controls="arcade-help" aria-expanded="true">?</button><button id="arcade-exit" type="button" class="quiet">종료</button></div>
+            <div id="arcade-help" class="arcade-help"><span id="arcade-help-text"></span><button id="arcade-help-close" type="button" class="quiet" aria-label="조작 설명 닫기">닫기</button></div>
+          </section>
           <section id="arcade-panel" class="arcade-panel" aria-label="오락실 게임 조작" hidden>
-            <div class="arcade-head"><strong id="arcade-title"></strong><button id="arcade-exit" type="button" class="quiet">그만하기</button></div>
-            <p id="arcade-status" role="status"></p>
             <div id="baseball-stance" class="baseball-stance" role="group" aria-label="타석 선택" hidden>
               <button type="button" class="quiet" data-baseball-hand="left" aria-pressed="false">좌타</button>
               <button type="button" class="quiet" data-baseball-hand="right" aria-pressed="false">우타</button>
@@ -509,6 +511,8 @@
       <li><a href="https://futureheritage.seoul.go.kr/futureHeritageMeet/futureHeritage/view.do?htNo=393" target="_blank" rel="noopener">서울미래유산 세종대왕상 사진 및 규격</a> · <a href="https://futureheritage.seoul.go.kr/futureHeritageMeet/futureHeritage/view.do?htNo=391" target="_blank" rel="noopener">이순신 장군상 규격</a></li>
       <li id="yi-stl-credit" hidden>이순신 장군상 · <a href="https://www.thingiverse.com/thing:233665" target="_blank" rel="noopener">Andrea / RenatoT 원본</a> · <a href="https://www.thingiverse.com/thing:234161" target="_blank" rel="noopener">downeym 수정본</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.ko" target="_blank" rel="noopener">CC BY-SA 4.0</a> · 받침 제거, 실물 비율 조정, 경량화 및 청동 재질 적용</li>
       <li><a href="https://mediahub.seoul.go.kr/archives/2001581" target="_blank" rel="noopener">서울시 세종대로 사람숲길</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap 기여자</a></li>
+      <li>정동길·경희궁 건물 윤곽 및 도로 데이터 © OpenStreetMap contributors, <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener">ODbL 1.0</a>. <a href="./west-district-data.js" download>게임용 지리 데이터</a> · <a href="https://sema.seoul.go.kr/kr/visit/seosomun" target="_blank" rel="noopener">서소문본관</a> · <a href="https://museum.seoul.go.kr/www/support/ghp/supportBranchGHPpalace.jsp" target="_blank" rel="noopener">경희궁 전각</a></li>
+      <li>정전 앞 포장 참고 자료 · <a href="https://digital.khs.go.kr/buis/buisDetail.do?bizUid=13983502643880499112&amp;ctptNo=1111102230000&amp;ctptUid=13898859666526200071" target="_blank" rel="noopener">근정전 답도 및 삼도</a> · <a href="https://digital.khs.go.kr/heri/heriDetail.do?ctptNo=1121108190000&amp;ctptUid=13898859671361200471" target="_blank" rel="noopener">중화전 및 중화문</a></li>
       <li><a href="https://access.visitkorea.or.kr/ms/detail.do?cotId=b2b3e368-293e-4fc4-a719-90b0f1514385" target="_blank" rel="noopener">한국관광공사 세종로공원</a> · <a href="https://mediahub.seoul.go.kr/archives/2000721" target="_blank" rel="noopener">서울시 한글글자마당</a></li>
       <li><a href="https://mediahub.seoul.go.kr/archives/2011545" target="_blank" rel="noopener">서울시 의정부지 역사유적광장</a> · <a href="https://mediahub.seoul.go.kr/archives/2019760" target="_blank" rel="noopener">서울시 유적전시관</a></li>
       <li><a href="https://mediahub.seoul.go.kr/archives/2005988" target="_blank" rel="noopener">서울시 열린송현녹지광장</a> · <a href="https://english.seoul.go.kr/songhyeon-green-plaza/" target="_blank" rel="noopener">서울시 광장 항공사진</a></li>

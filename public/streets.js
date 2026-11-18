@@ -15,6 +15,7 @@ import {cityHallStation,cityHallExit3} from "./gyeongbok-layout.js";
 import {gyeongbokObstacles,gyeongbokBenches} from "./gyeongbok-obstacles.js";
 import {furnishHall} from "./palace-interiors.js";
 import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
+import {makePavingMaterial,pavingRepeat} from "./palace-paving.js";
 // Rooms people can walk into, for the lighting: centre (map), size, turn and floor height.
 export const hallRooms=[];
 
@@ -119,9 +120,10 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
     ctx.putImageData(pixels,0,0);
     const map=new T.CanvasTexture(canvas);map.wrapS=map.wrapT=T.RepeatWrapping;
     map.colorSpace=T.SRGBColorSpace;map.anisotropy=4;
-    return new T.MeshStandardMaterial({map,bumpMap:map,bumpScale:.8,roughness:.94});
+    return new T.MeshStandardMaterial({map,bumpMap:map,bumpScale:.055,roughness:.96});
   }
   const courtStoneMaterial=courtyardStone();
+  const royalWay=makePavingMaterial(T,"samdo"),terraceStone=makePavingMaterial(T,"royal");
   const gravelMaterial=new T.MeshStandardMaterial({map:grain(["#b8a78e"],{random:groundNoise}),roughness:1});
   const asphalt=grain(["#747670"]);
   const gardenMaterials={
@@ -154,10 +156,15 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
   const floor=box(0x677253,0,-.36,0,1320,.65,1140);
   floor.userData.flatBackground=true;
   floor.receiveShadow=true;
-  function plots(pieces,material,height){
+  function plots(pieces,material,height,turn=0){
     const footprints=pieces.map(points=>new T.Shape(points.map(point=>new T.Vector2(point.x,-point.y))));
     const geometry=new T.ShapeGeometry(footprints);
-    uvScale({geometry},.19,.19);
+    // Shape coordinates are east and north. Unrotate into the hall's local grid.
+    const uv=geometry.attributes.uv,c=Math.cos(turn),s=Math.sin(turn);
+    for(let i=0;i<uv.count;i++){
+      const x=uv.getX(i),north=uv.getY(i);
+      uv.setXY(i,(x*c+north*s)*.19,(-x*s+north*c)*.19);
+    }
     const surface=flat(geometry,material,0,height,0);
     surface.rotation.x=-Math.PI/2;
     surface.userData.followTerrain=true;
@@ -174,7 +181,8 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
       const length=Math.hypot(b.x-a.x,b.y-a.y)||1,nx=(b.y-a.y)/length,nz=-(b.x-a.x)/length;
       for(const offset of [min,max]){
         coords.push(wx(p.x)+nx*offset,height,wz(p.y)+nz*offset);
-        uv.push(metres/5,(offset-min)/2.5);
+        if(material===royalWay)uv.push((offset-min)/(max-min),metres/pavingRepeat("samdo"));
+        else uv.push(metres/5,(offset-min)/2.5);
       }
       if(i){const j=i*2;indices.push(j-2,j,j-1,j-1,j,j+1);}
     }
@@ -212,10 +220,20 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
   plot(estateOutline,earthMaterial,.008);
   plot(stonewallVerge,gardenMaterials.lawn,.010);
   for(const {outline,kind} of palaceGardens)plot(outline,gardenMaterials[kind],.017);
-  for(const {name,outline,kind} of palaceCourts)plot(outline,name==="중화전 마당"?courtStoneMaterial:
-    kind==="stone"?pavingMaterial:gravelMaterial,.022);
+  const royalEnd=fromBuilding({...hall,angle:courtAngle},-.25,29.06);
+  const royalAxis=[middle,royalEnd],halfWay=2.7;
+  const dx=royalEnd.x-middle.x,dy=royalEnd.y-middle.y,len=Math.hypot(dx,dy);
+  const rim=(p,sign)=>({x:wx(p.x)+sign*dy/len*halfWay,y:wz(p.y)-sign*dx/len*halfWay});
+  const roadOutline=[rim(middle,-1),rim(royalEnd,-1),rim(royalEnd,1),rim(middle,1)];
+  const cutRoyalWay=makeStreetSurfaceCut(T,[roadOutline]);
+  for(const {name,outline,kind} of palaceCourts){
+    if(name==="중화전 마당"){
+      plots(cutRoyalWay(outline.map(p=>({x:wx(p.x),y:wz(p.y)}))),courtStoneMaterial,.022,courtAngle);
+    }else plot(outline,kind==="stone"?pavingMaterial:gravelMaterial,.022);
+  }
+  ribbon(royalAxis,-halfWay,halfWay,royalWay,.050);
   // Keep the existing path priority at forks while giving each point only one path surface.
-  const palacePathCoverage=[];
+  const palacePathCoverage=[roadOutline];
   for(const {points,width,surface,edge} of palacePaths.slice().reverse()){
     const half=width/2,height=.039;
     ribbon(points,-half,half,surface==="stone"?pavingMaterial:gravelMaterial,height,palacePathCoverage);
@@ -572,7 +590,7 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
       box(0x5b4b44,towerX,h+8.82,-d*.38,.69,.09,.09,group);
     }
   }
-  for(const spec of city.slice(1))facade(spec);
+  for(const spec of city.slice(1))if(!spec.surveyReplaced)facade(spec);
 
   function roof(group,w,d,y,rise,hip=true){
     const geometry=new T.BufferGeometry(),data=[];
@@ -835,9 +853,9 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
   box(0xaaa591,-.25,.50,5.95,39.7,1,42.5,hallModel);
   box(0xb7ae99,-.25,.91,7.075,27.10,1.82,31.15,hallModel);
   for(const [height,z,width,depth] of [[1.003,5.95,39.7,42.5],[1.823,7.075,27.1,31.15]]){
-    const terrace=new T.Mesh(new T.PlaneGeometry(width,depth),courtStoneMaterial);
+    const terrace=new T.Mesh(new T.PlaneGeometry(width,depth),terraceStone);
     terrace.rotation.x=-Math.PI/2;terrace.position.set(-.25,height,z);
-    terrace.receiveShadow=true;hallModel.add(uvScale(terrace,width*.19,depth*.19));
+    terrace.receiveShadow=true;hallModel.add(uvScale(terrace,width/3.2,depth/3.2));
   }
   for(const [start,end,bottom,top] of [[29.06,27.2,0,1],[24.06,22.65,1.05,1.82]]){
     for(let step=0;step<5;step++){
@@ -846,7 +864,7 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
     }
   }
   const c=placed(court);
-  paved(c.x,c.z,4.2,37,.054,courtAngle);
+
   for(const side of [-1,1])for(let i=0;i<6;i++){
     const dx=side*4.35,dz=10-i*2.93;
     const px=c.x+dx*Math.cos(courtAngle)+dz*Math.sin(courtAngle);
@@ -989,7 +1007,7 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
   const districtKit={...kit,box,cylinder,shape,rand};
   const districtTools={pavilion,roof,wall,coveredWall,plot,ribbon,paved,tree,treeMix,treeFits,bench,lamp,
     nameplate,block,flat,uvScale,orient,treeKit,treeClearance,waterMaterial,pathClear,
-    materials:{stone:stoneMaterial,paving:pavingMaterial,gravel:gravelMaterial,court:courtStoneMaterial,earth:earthMaterial,
+    materials:{stone:stoneMaterial,paving:pavingMaterial,royalWay,terraceStone,gravel:gravelMaterial,court:courtStoneMaterial,earth:earthMaterial,
       road:roadMaterial,garden:gardenMaterials}};
   for(const station of [cityHallStation,cityHallExit3]){
     buildSubwayExit(T,scene,districtKit,districtTools,station,"시청 City Hall",0x00a84d);

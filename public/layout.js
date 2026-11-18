@@ -224,9 +224,8 @@ export const palaceWalls = [
 export const city = [
   {...p("서울광장",37.56572,126.97791), w:62,d:47,h:0},
   {...p("서울시청 서소문청사",37.56447,126.97497),w:47,d:24,h:31},
-  {...p("서울시의회 별관",37.56454,126.97400),w:39,d:23,h:16},
+  {...p("서울시의회 별관",37.56454,126.97400),w:39,d:23,h:16,surveyReplaced:true},
   {...p("정동제일교회",37.56522,126.97298),w:21,d:26,h:11,brick:true,church:true},
-  {...p("서울시립미술관",37.56410,126.97365),w:41,d:24,h:16,brick:true},
   {...p("서울도서관",37.566283,126.977873),w:55,d:22.4,h:19},
   {...p("정동극장",37.56563,126.97308),w:27,d:21,h:14}
 ];
@@ -445,7 +444,7 @@ export function clearSegment(from,to,step=.36,feet=0){
 const spacing=2;
 const around=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
 const gridPoint=(i,{ox,oy,cols})=>({x:ox+i%cols*spacing,y:oy+Math.floor(i/cols)*spacing});
-const walkingBounds={minX:0,maxX:1160,minY:-1890,maxY:Math.max(450,...Object.values(interiorBounds).map(bounds=>bounds.maxY))};
+const walkingBounds={minX:-480,maxX:1160,minY:-1890,maxY:Math.max(465,...Object.values(interiorBounds).map(bounds=>bounds.maxY))};
 const gateLink=[gate,...entranceWalk,...stationWalk];
 const gridDown=value=>Math.floor(value/spacing)*spacing,gridUp=value=>Math.ceil(value/spacing)*spacing;
 const gateClearance=6*spacing;
@@ -463,7 +462,8 @@ function walkingField(from,target){
   let bottom=gridUp(Math.max(from.y,target.y))+padding;
   // The palace meets the avenue through Daehanmun. An endpoint near its northern wall still
   // needs the southern turn around the wall, even when both destinations are far west.
-  const viaGate=onDeoksugungSide(from)!==onDeoksugungSide(target)&&
+  const outsideWest=(from.x<0||target.x<0)&&!inEstate(from.x,from.y)&&!inEstate(target.x,target.y);
+  const viaGate=!outsideWest&&onDeoksugungSide(from)!==onDeoksugungSide(target)&&
     (left>gateLinkBounds.left||right<gateLinkBounds.right||bottom<gateLinkBounds.bottom);
   if(viaGate){
     left=Math.min(left,gateLinkBounds.left);

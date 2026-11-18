@@ -111,7 +111,7 @@ export function* buildClassics(T,room,{box,cylinder,shape}){
   }
   return {updateArcade(local,_now,peers){
     for(const kind of games.keys()){
-      const peer=peers.filter(player=>player.arcade?.kind===kind).sort((a,b)=>a.id.localeCompare(b.id))[0];
+      const peer=peers.filter(player=>player.arcade?.kind===kind).sort((a,b)=>(a.arcade.hockey?.joined??0)-(b.arcade.hockey?.joined??0)||a.id.localeCompare(b.id))[0];
       draw(kind,local?.kind===kind?local:peer?.arcade);
     }
   }};

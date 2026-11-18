@@ -1,9 +1,9 @@
 // Bake from a fully initialized game's pedestrian collision map. The resulting
 // junctions and checked polylines let all clients plan the same trips offline.
 export function bakeVisitorPaths({walkable,clearSegment,benches,stations,venues,busker,busStops,bikeDocks}){
-  const step=2,cols=583,rows=1158,top=-1890,count=cols*rows;
-  const cell=(x,y)=>Math.round((y-top)/step)*cols+Math.round(x/step);
-  const xy=n=>({x:(n%cols)*step,y:top+Math.floor(n/cols)*step});
+  const step=2,left=-480,cols=823,rows=1178,top=-1890,count=cols*rows;
+  const cell=(x,y)=>Math.round((y-top)/step)*cols+Math.round((x-left)/step);
+  const xy=n=>({x:left+(n%cols)*step,y:top+Math.floor(n/cols)*step});
   const open=new Uint8Array(count),owner=new Int32Array(count).fill(-1),parent=new Int32Array(count).fill(-1);
   for(let n=0;n<count;n++){const p=xy(n);open[n]=+walkable(p.x,p.y);}
   const nodes=[],spots=[],queue=new Int32Array(count);
@@ -35,7 +35,7 @@ export function bakeVisitorPaths({walkable,clearSegment,benches,stations,venues,
     if(b.footBath)lastWater=b.x;
   }
   // One attraction per walkable city block, including narrow alleyways.
-  for(let y=top+36;y<421;y+=69)for(let x=33;x<1160;x+=69){
+  for(let y=top+36;y<465;y+=69)for(let x=33-7*69;x<1160;x+=69){
     const p={x,y};if(nodes.some(q=>Math.hypot(q.x-x,q.y-y)<39))continue;
     seed(p,null,15);
   }

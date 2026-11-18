@@ -137,7 +137,8 @@ export const subwayStops=[
 
 // Stone-paved royal road along the axis and the main visitor paths (for ground and map).
 export const gbPaths=[
-  {name:"광화문에서 근정전까지",width:8.2,surface:"stone",points:[at(0,-50),at(0,0),at(0,135),at(0,232),at(0,276)]},
+  {name:"광화문에서 근정문까지",width:8.2,surface:"stone",points:[at(0,-50),at(0,0),at(0,135),at(0,232)]},
+  {name:"근정전 삼도",width:8.2,surface:"stone",ceremonial:true,points:[at(0,232),at(0,274.1)]},
   {name:"사정전에서 교태전까지",width:4.6,surface:"stone",points:[at(0,318),at(0,350),at(0,404),at(0,446)]},
   {name:"경복궁역에서 흥례문 앞까지",width:6.0,surface:"gravel",points:[at(-96,36),at(-70,60),at(-36,96),at(0,112)]},
   {name:"경회루 가는 길",width:4.8,surface:"gravel",points:[at(-56,246),at(-58,300),at(-56,356),at(-58,400),at(-60,428)]},

@@ -141,15 +141,20 @@ export function* buildGyeongbok(T,scene,kit,tools){
     if(grass.length>=3)plot(grass,materials.garden[kind],.017);
     yield;
   }
-  for(const court of [gbCourts.heungnye,gbCourts.geunjeong]){
-    plot(rect(court.west+1,court.east-1,court.south+1,court.north-1),materials.court,.022);
-  }
+  const outerCourt=gbCourts.heungnye,throneCourt=gbCourts.geunjeong;
+  plot(rect(outerCourt.west+1,outerCourt.east-1,outerCourt.south+1,outerCourt.north-1),materials.gravel,.022);
+  const royalPath=gbPaths.find(path=>path.ceremonial),halfWay=royalPath.width/2;
+  const stairFront=gwanghwamun.y-royalPath.points.at(-1).y;
+  const {west,east,south,north}=throneCourt;
+  for(const [w,e,s,n] of [[west+1,-halfWay,south+1,stairFront],[halfWay,east-1,south+1,stairFront],
+    [west+1,east-1,stairFront,north-1]])plot(rect(w,e,s,n),materials.court,.022);
   // Keep the surface of the higher path at a junction, and trim the lower ribbon.
   // Two almost coplanar ribbons exchange places in the depth buffer at distance.
   const groundPaths=gbPaths.map((path,i)=>({...path,level:(path.surface==="stone"?.054:.030)+i*.0004}));
   const covered=[];
-  for(const {name,points,width,surface,level} of groundPaths.sort((a,b)=>b.level-a.level)){
-    const footpath=ribbon(points,-width/2,width/2,surface==="stone"?materials.paving:materials.gravel,level);
+  for(const {name,points,width,surface,level,ceremonial} of groundPaths.sort((a,b)=>b.level-a.level)){
+    const material=ceremonial?materials.royalWay:surface==="stone"?materials.paving:materials.gravel;
+    const footpath=ribbon(points,-width/2,width/2,material,level);
     footpath.name=name;
     const old=footpath.geometry,{index,attributes:{position,uv}}=old;
     const vertices=Array.from({length:position.count},(_,i)=>({x:position.getX(i),y:position.getZ(i),u:uv.getX(i),v:uv.getY(i)}));
@@ -401,7 +406,15 @@ export function* buildGyeongbok(T,scene,kit,tools){
   const tiers=[{half:29,south:276,north:323,top:tier,base:0},{half:22.6,south:283,north:317,top:tier*2,base:tier}];
   for(const {half,south,north,top,base} of tiers){
     const footing=base||-.15;
-    slab(stoneTint,0,(south+north)/2,half*2,north-south,top-footing,footing);
+    // The box supplies the four vertical faces. Tile only its top, using the hall axis.
+    const sides=new T.BoxGeometry(half*2,top-footing,north-south);
+    const triangles=Array.from(sides.index.array);
+    sides.setIndex([...triangles.slice(0,12),...triangles.slice(18)]);
+    const p=world(0,(south+north)/2);
+    flat(sides,matte(stoneTint),p.x,(top+footing)/2,p.z);
+    const topSurface=flat(new T.PlaneGeometry(half*2,north-south),materials.terraceStone,p.x,top,p.z);
+    topSurface.rotation.x=-Math.PI/2;topSurface.receiveShadow=true;
+    uvScale(topSurface,half*2/3.2,(north-south)/3.2);
     solid(0,(south+north)/2,half*2,north-south,top);
     // Steps: front (wide, on the royal road), back and both sides.
     const flights=[[0,south,0,-1,9],[0,north,0,1,5],[-half,300,-1,0,5],[half,300,1,0,5]];

@@ -329,6 +329,15 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 .bungeo-active #game{cursor:crosshair}
 .arcade-panel{position:absolute;z-index:6;right:10px;bottom:10px;width:min(248px,calc(100% - 25px));padding:9px;
   display:grid;gap:6px;background:#132a30ea;color:#fff1dc;border:1px solid #87cbc4;border-radius:12px}
+.arcade-info{position:absolute;z-index:8;top:max(7px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 24px);pointer-events:none;color:#fff3d9;text-align:center}
+.arcade-summary,.arcade-help{pointer-events:auto;display:flex;align-items:center;gap:6px;justify-content:center;background:#223028e8;border:1px solid #d6bd8659;border-radius:9px;padding:3px 7px;font-size:12px}
+.arcade-summary strong{white-space:nowrap}.arcade-summary button,.arcade-help button{min-height:32px;min-width:32px;padding:3px 6px;white-space:nowrap}
+.arcade-help{margin:5px auto 0;max-width:355px;line-height:1.45;text-align:left}
+:is(.arcade-machine-active,.arcade-avatar-active) #arcade-panel{width:max-content;max-width:calc(100% - 104px);padding:0;background:transparent;border:0;gap:4px}
+#arcade-charge{justify-self:end;width:min(106px,100%);height:6px;pointer-events:none}
+#arcade-act{justify-self:end}#arcade-pump-track{max-width:min(154px,33vw)}
+.arcade-panel .arcade-move button{flex-basis:auto}
+@media(max-width:600px){.arcade-info{max-width:calc(100% - 12px)}.arcade-summary{font-size:11px}.arcade-info #arcade-status{line-height:1.2}}
 .arcade-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .arcade-head button,.arcade-move button,.arcade-panel>.primary{min-height:44px}
 .arcade-panel p{margin:0;font-size:12px;line-height:1.35;color:#f6e0b7}

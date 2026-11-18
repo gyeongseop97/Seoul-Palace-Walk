@@ -11,6 +11,8 @@ const samcheongProfile=[[-890,0],[-1030,1],[-1145,.8],[-1280,2],[-1400,3],[-1515
 const sejongProfile=[[-905,0],[-840,.1],[-750,-.3],[-620,-.75],[-495,-1.2],[-355,-1.85],
   [-260,-2.7],[-130,-4.3],[-45,-4.8],[35,-3.95],[115,-3.35],[205,-3.1],[295,-3.15],[450,-2.7]];
 const gardenProfile=[[6,6.1],[70,5.4],[140,4.3],[216,3.05],[300,2.0],[386,.9],[450,.2]];
+const westStreetGrade=[[260,4],[137,8],[-58,17],[-182,15],[-250,12]];
+const westPalaceGrade=[[-182,15],[-248,11],[-300,13],[-346,16],[-410,16],[-437,21],[-470,31]];
 // The northeast corner continues beyond the surveyed Samcheong-ro wall run.
 const northeastBlend=gbOuterWallRuns[1].slice(0,4).map(({x,y})=>[y,x]);
 const levelPads=[
@@ -43,6 +45,26 @@ export function southWorldTerrainHeight({x,y}){
   const south=clamp((y+200)/230);
   const garden=profileAt(y,gardenProfile,1)+west*4.5;
   let level=street+garden*clamp((474-x)/160)*south;
+  // The approach climbs from Saemunan-ro to the restored palace terrace.
+  // 30 m elevation samples along Jeongdong-gil, the palace entrance and the ridge.
+  // The restored ceremonial courtyard is a level terrace within that slope.
+  if(x<150&&y<270){
+    const blend=clamp((150-x)/180)*clamp((270-y)/100);
+    const approach=profileAt(y,westStreetGrade,-1);
+    const palace=profileAt(y,westPalaceGrade,-1);
+    const slope=approach+(palace-approach)*clamp((-135-y)/70);
+    level+=(slope-level)*blend;
+    if(x< -205&&y< -300){
+      // The courtyard, its roofed corridors and the steps belong to the same
+      // rotated terrace. The hill rises again behind it, beyond the rear gate.
+      const dx=x+303.445,dy=y+403.16;
+      const across=dx*.84565-dy*.53371,along=dx*.53371+dy*.84565;
+      const gap=Math.max(Math.abs(across)-45,along-68,-17-along,0);
+      level+=(16-level)*clamp(1-gap/22);
+    }
+  }
+  const museumRise=clamp((y-296)/74)*clamp((y-296)/74)*clamp((280-x)/44)*clamp((x-128)/38);
+  level+=museumRise*4.2;
   const east=clamp((x-560)/200),sogong=clamp((y-155)/85)*clamp((490-y)/65);
   level+=east*sogong*2.6;
   for(const [site,w,d,base] of levelPads){

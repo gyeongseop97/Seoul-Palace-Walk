@@ -18,7 +18,11 @@ const fixedStep=1/150, maxFrame=.09, float=value=>Math.round(value*1000)/1000;
 const phases=new Set(["ready","playing","finished"]);
 
 export function classicSnapshot(state){
-  return {kind:state.kind,phase:state.phase,score:state.score,other:state.other,lives:state.lives,mask:state.mask,
+  const seat=state.hockey;
+  const hockey=state.kind==="airHockey"&&seat&&Number.isSafeInteger(seat.joined)&&seat.joined>0&&
+    Array.isArray(seat.aim)&&seat.aim.length===2&&seat.aim.every(Number.isFinite)&&Number.isSafeInteger(seat.serve)&&seat.serve>=0?
+    {joined:seat.joined,aim:[float(clamp(seat.aim[0],-1.2,1.2)),float(clamp(seat.aim[1],-1.89,-.23))],serve:seat.serve}:null;
+  return {...(hockey?{hockey}:{}),kind:state.kind,phase:state.phase,score:state.score,other:state.other,lives:state.lives,mask:state.mask,
     ball:state.ball.map(float),paddle:state.paddle.map(float),rival:state.rival.map(float),
     flippers:state.flippers.map(float),hit:state.hit,flash:float(state.flash)};
 }
@@ -54,7 +58,7 @@ function reflectSides(ball,edge){
 }
 
 export function makeArcadeClassics(play=()=>{}){
-  let game=null,accumulator=0,aim=null,held=[0,0],flips=[0,0];
+  let game=null,accumulator=0,aim=null,held=[0,0],flips=[0,0],opponent=null;
   function start(kind){
     if(!isClassic(kind))return false;
     game={kind,phase:"ready",score:0,other:0,lives:3,mask:BRICK_MASK,hit:-1,flash:0,
@@ -142,7 +146,8 @@ export function makeArcadeClassics(play=()=>{}){
     follow(paddle,clamp(playerX,-x+.26,x-.26),clamp(playerZ,.23,z-.26),5.9,dt);
     const intercept=ball.z<.1?ball.x+ball.vx*.13:paddle.x*.19;
     const attack=ball.z<-.23&&ball.vz<1.15;
-    follow(rival,clamp(intercept,-x+.26,x-.26),attack?clamp(ball.z-.26,-z+.24,-.37):-1.58,2.45+game.score*.22,dt);
+    if(opponent)follow(rival,opponent[0],opponent[1],5.9,dt);
+    else follow(rival,clamp(intercept,-x+.26,x-.26),attack?clamp(ball.z-.26,-z+.24,-.37):-1.58,2.45+game.score*.22,dt);
     for(const mallet of [paddle,rival]){
       if(bounceCircle(ball,mallet.x,mallet.z,r+HOCKEY_MALLET,mallet.vx*.76,mallet.vz*.76))hit(-1);
     }
@@ -198,7 +203,8 @@ export function makeArcadeClassics(play=()=>{}){
       return;
     }
     const ball=game.ball,previous=ball.z;
-    ball.x+=ball.vx*dt;ball.z+=ball.vz*dt;
+    const ballStep=game.kind==="brickBreaker"?dt*.82:dt;
+    ball.x+=ball.vx*ballStep;ball.z+=ball.vz*ballStep;
     if(game.kind==="pinball")stepPinball(dt);
     else if(game.kind==="airHockey")stepHockey(dt);
     else stepBricks(dt,previous);
@@ -216,5 +222,5 @@ export function makeArcadeClassics(play=()=>{}){
     return {kind,phase,score,other,lives,mask,hit,flash,ball:[ball.x,ball.z],paddle:[paddle.x,paddle.z],
       rival:[rival.x,rival.z],flippers:flips.map(time=>Math.min(1,time/.075))};
   }
-  return {start,stop(){game=null;},clear(){held=[0,0];aim=null;},tap,action,move,update,state};
+  return {start,stop(){game=null;opponent=null;},setOpponent(target){opponent=target;},clear(){held=[0,0];aim=null;},tap,action,move,update,state};
 }

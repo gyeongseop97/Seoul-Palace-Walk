@@ -5,6 +5,7 @@ import {gbSite} from "./gyeongbok-layout.js";
 import {bukchonLandmarks} from "./bukchon-layout.js";
 import {hwangudanLandmarks} from "./seoul-hwangudan-layout.js";
 import {cheonggyeLandmarks} from "./cheonggye-layout.js";
+import {westSites} from "./west-district-layout.js";
 import {songhyeonLandmarks} from "./songhyeon-layout.js";
 import {plazaSites} from "./plaza-layout.js";
 import {uijeongbuEntry,uijeongbuGarden} from "./uijeongbu-layout.js";
@@ -61,6 +62,14 @@ const fountainEdge=Array.from({length:16},(_,index)=>{
 });
 
 const guides=[
+  guide("sema-seosomun",westSites[0],"아치가 줄지어 선 정면은 옛 대법원 청사의 흔적이에요. 정동길에서 언덕을 올라오면 앞마당에서 옛 건물과 현대 미술관이 만나는 모습을 볼 수 있습니다.",
+    "https://sema.seoul.go.kr/kr/visit/seosomun",[westSites[0]]),
+  ...[
+    [2,"흥화문은 경희궁의 정문이에요. 처음에는 지금과 다른 위치에 있었고, 일제강점기에 옮겨졌다가 궁으로 돌아왔습니다."],
+    [3,"숭정전은 왕이 신하들과 조회를 열고 외국 사신을 맞이하던 정전이에요. 마당 양쪽의 품계석을 따라 숭정문에서 전각까지 걸어 보세요."],
+    [4,"자정전은 왕이 신하들과 정사를 논하던 편전이에요. 숭정전 뒤편에 자리하고 있습니다."],
+    [5,"태령전은 영조의 어진을 모셨던 전각이에요. 서궐도안을 바탕으로 정면 다섯 칸, 옆면 두 칸 규모로 복원했습니다."]
+  ].map(([i,description])=>guide("gyeonghui-"+i,westSites[i],description,"https://museum.seoul.go.kr/www/support/ghp/supportBranchGHPpalace.jsp",[westSites[i]])),
   guide("daehanmun",mainGate,
     "덕수궁의 정문이에요. 동쪽에 있던 대안문을 1906년에 고쳐 대한문이라 이름 붙이고 정문으로 삼았습니다.",
     "https://royal.khs.go.kr/ROYAL/contents/R404000000.do?schGroupCode=dsg",localPoints(mainGate,[[0,-6],[0,0],[0,7],[0,12]])),
