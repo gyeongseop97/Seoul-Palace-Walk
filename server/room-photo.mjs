@@ -11,7 +11,8 @@ const inRange=(value,min,max)=>Number.isFinite(value)&&value>=min&&value<=max;
 export function validPhoto(photo){
   const c=photo?.camera;
   return typeof photo?.id==="string"&&/^[a-f0-9]{32}$/.test(photo.id)&&c&&
-    inRange(c.x,worldExtent.minX,1160)&&inRange(c.y,-1890,Math.max(465,...Object.values(interiorBounds).map(room=>room.maxY)))&&inRange(c.height,.65,5.5)&&
+    inRange(c.x,worldExtent.minX,worldExtent.maxX)&&inRange(c.y,worldExtent.minY,worldExtent.maxY)&&
+    inRange(c.height,.65,5.5)&&
     inRange(c.pan,0,360)&&inRange(c.tilt,-70,70)&&inRange(c.fov,32,82);
 }
 export function ensureRoomPhotos(db){
