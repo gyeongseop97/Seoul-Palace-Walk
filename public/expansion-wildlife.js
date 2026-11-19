@@ -5,6 +5,7 @@ import {mmcaLandmarks,mmcaTrees,mmcaAt,mmcaGround} from "./mmca-layout.js";
 import {cheonggyeAnimalTrails,cheonggyeBounds,cheonggyeTrees,cheonggyeWalkable} from "./cheonggye-layout.js";
 import {songhyeonBounds,songhyeonGrade,songhyeonPaths,songhyeonTrees,songhyeonWalkable} from "./songhyeon-layout.js";
 import {southWorldSurfaceHeight} from "./gyeongbok-terrain.js";
+import {stationBounds,stationWalkable} from "./station-layout.js";
 import {westBounds,westWalkable} from "./west-district-layout.js";
 
 const samples=(points,stride=23)=>points.slice(1).flatMap((to,i)=>{
@@ -26,6 +27,10 @@ const westTrails=[[[175,296],[186,323],[200,341],[201,377]],[[153,278],[95,231],
   [[-165,-193],[-177,-230],[-210,-253],[-248,-292],[-270,-340]],
   [[-278,-356],[-284,-370],[-292,-386]]].map(path=>samples(path.map(([x,y])=>({x,y})),12).filter(p=>westWalkable(p.x,p.y)));
 export const expansionWildlife=[
+  {id:"station",bounds:stationBounds,land:stationWalkable,catCount:6,birdCount:20,perches:[],
+    trails:[[[33,1260],[39,1280],[39,1310],[44,1342],[43,1375],[41,1404],[40,1442]],
+      [[152,1320],[151,1345],[151,1370],[151,1400]],
+      [[322,891],[316,899],[308,906]]].map(path=>samples(path.map(([x,y])=>({x,y})),5).filter(p=>stationWalkable(p.x,p.y)))},
   {id:"west",bounds:westBounds,land:westWalkable,trails:westTrails,catCount:8,birdCount:25,perches:[]},
   {id:"jeongdong",bounds:jeongdongExtensionBounds,trails:trails(jeongdongExtensionPaths),catCount:5,birdCount:13,perches:[
     {x:158,y:237,height:7.6,kind:"tree"},{x:174,y:201,height:2.6,kind:"wall"},{x:282,y:89,height:7,kind:"tree"}

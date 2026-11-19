@@ -2,6 +2,7 @@ import {addLandmarks,addObstacle} from "./layout.js";
 import {at as palaceAt,gbSite} from "./gyeongbok-layout.js";
 import {plazaAt,plazaShopPlots} from "./plaza-layout.js";
 import {bukchonShopPlots} from "./bukchon-layout.js";
+import {retailBlockAt} from "./plaza-retail.js";
 import {makeRegionalItemProps} from "./regional-item-props.js";
 
 // Fictional counters beside visitor paths and between the office buildings.
@@ -28,7 +29,7 @@ const storefronts={
 };
 const avenueShops=plazaShopPlots.map(([kind,name,east,north,width])=>({
   ...(kind==="churu"?{w:7.8,d:5.7,h:3.62}:{w:width??15.94,d:7.2,h:8.4,...storefronts[kind]}),
-  ...plazaAt(east,north,name),kind,area:"gwanghwamun",angle:east<0?Math.PI/2:-Math.PI/2
+  ...plazaAt(east,north,name),host:retailBlockAt(north,Math.sign(east)),kind,area:"gwanghwamun",angle:east<0?Math.PI/2:-Math.PI/2
 }));
 const bukchonShops=[
   ["churu","삼청로 편의점",bukchonShopPlots.churu],
@@ -51,7 +52,7 @@ export const regionalStations=shops.flatMap(({x,y,d,angle,name,kind,area,options
   }));
 
 export function registerRegionalStands(){
-  for(const {x,y,w,d,angle,h,level=0} of shops)addObstacle(x,y,w,d,angle,level+h);
+  for(const {x,y,w,d,angle,h,level=0,host} of shops)if(!host)addObstacle(x,y,w,d,angle,level+h);
   addLandmarks(regionalStations.map(({x,y,name})=>({x,y,name:name+" 앞"})));
 }
 
@@ -186,6 +187,29 @@ export function addRegionalStands(T,root,kit,area){
     const building=new T.Group();building.name=shop.name;
     building.position.set(wx(shop.x),shop.level??(area==="gyeongbokgung"?.048:0),wz(shop.y));building.rotation.y=shop.angle;
     group.add(building);
+    if(shop.host){
+      const {front,side}=shop.host,z=(shop.east-front)*side+.13;
+      const w=shop.w,paint=shop.paint??0x246a5d;
+      box(0x5c6c68,0,1.75,z,w-.12,3.38,.18,building);
+      for(const offset of [-.34,.34]){
+        box(paint,w*offset,1.65,z+.12,w*.29,2.79,.12,building);
+        box(0x849b98,w*offset,1.7,z+.19,w*.26,2.47,.08,building);
+        box(0xe4d6b8,w*offset,1.59,z+.24,.07,2.39,.06,building);
+      }
+      // Recessed glass door between the display windows, open to the sidewalk.
+      box(paint,0,1.36,z+.12,2.05,2.70,.14,building);
+      box(0x709297,0,1.37,z+.23,1.79,2.44,.09,building);
+      box(0xe4d3ac,.64,1.1,z+.34,.07,.54,.10,building);
+      box(0xb5ac98,0,.052,z+.32,2.13,.10,.52,building);
+      const sign=shop.sign??"#16695c";
+      standSign(T,building,shop.name,shop.subtitle,w*.87,0,3.65,z+.22,sign,shop.ink??"#fff4d9",.89);
+      box(paint,0,3.08,z+.47,w+.13,.12,.86,building).rotation.x=.12;
+      for(const offset of [-.34,.34]){
+        box(shop.counter??0xb49e78,w*offset,.73,z+.38,w*.27,.12,.48,building);
+        sample(shop.kind,building,w*offset,.88,z+.45,.9);
+      }
+      batch(building);continue;
+    }
     if(area==="gwanghwamun"||area==="west"){
       // The shell stays level at the entrance; its basement closes the gap to
       // the pavement under all four corners on the graded avenue.

@@ -445,7 +445,7 @@ export function clearSegment(from,to,step=.36,feet=0){
 const spacing=2;
 const around=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
 const gridPoint=(i,{ox,oy,cols,spacing})=>({x:ox+i%cols*spacing,y:oy+Math.floor(i/cols)*spacing});
-const walkingBounds={minX:worldExtent.minX,maxX:1160,minY:-1890,maxY:Math.max(465,...Object.values(interiorBounds).map(bounds=>bounds.maxY))};
+const walkingBounds={minX:worldExtent.minX,maxX:Math.max(1160,...Object.values(interiorBounds).map(b=>b.maxX)),minY:-1890,maxY:worldExtent.maxY};
 const gateLink=[gate,...entranceWalk,...stationWalk];
 const gridDown=value=>Math.floor(value/spacing)*spacing,gridUp=value=>Math.ceil(value/spacing)*spacing;
 const gateClearance=6*spacing;
@@ -454,7 +454,7 @@ const gateLinkBounds={
   right:gridUp(Math.max(...gateLink.map(point=>point.x)))+gateClearance,
   bottom:gridUp(Math.max(...gateLink.map(point=>point.y)))+gateClearance
 };
-const onDeoksugungSide=({x,y})=>x<=gate.x&&y>=deoksugungNorthEdge;
+const onDeoksugungSide=({x,y})=>x<=gate.x&&y>=deoksugungNorthEdge&&y<=420;
 function walkingField(from,target){
   const routing=zones.find(zone=>zone.routing&&zone.contains(from.x,from.y)&&zone.contains(target.x,target.y))?.routing;
   const cell=routing?.spacing??spacing;

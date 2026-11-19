@@ -30,6 +30,7 @@ const cities={
   plaza:["광화문역","광화문광장",0x8255ac],
   palace:["경복궁역","경복궁 · 사직로",0xe97c1c],
   euljiro:["을지로입구역","환구단 · 소공동",0x008c58],
+  station:["서울역","서울역광장 · 숭례문",0x27588f],
   anguk:["안국역","북촌 · 안국동",0xe97c1c]
 };
 function entrance(area,number,x,y,heading){
@@ -42,6 +43,10 @@ function entrance(area,number,x,y,heading){
 // Survey anchors from OpenStreetMap's entrance nodes. Short offsets fit the
 // project's existing street widths and preserve a clear landing for each exit.
 export const expandedSubwayStops=[
+  entrance("station",1,17.7,1415.4,90),entrance("station",2,52,1281.7,180),entrance("station",3,109.4,1125.4,35),
+  entrance("station",4,137.7,1155,35),entrance("station",5,130.8,1191.8,80),entrance("station",6,155.7,1227.3,70),
+  entrance("station",7,184.3,1237.4,180),entrance("station",8,171.8,1292.6,180),entrance("station",9,155.5,1317.4,180),
+  entrance("station","9-1",110.3,1426.8,0),
   entrance("city",1,461.2,354.4,0),entrance("city",4,523.2,105,0),entrance("city",5,525.3,187.4,0),
   entrance("city",6,547.8,328.6,0),entrance("city",7,518.3,388.3,0),entrance("city",12,434.7,395.8,0),
   entrance("plaza",1,299.5,-452.5,0),entrance("plaza",2,522.6,-521.7,0),entrance("plaza",3,526.4,-384.9,0),
@@ -78,7 +83,7 @@ export function registerExpandedSubway(){
   for(const stop of expandedSubwayStops)addObstacle(stop.x,stop.y,2.42,4.9,stop.angle);
 }
 
-export function* buildSubwayAccess(T,root,{wx,wz,box,matte},floorAt,{terrainHeight}={}){
+function* buildSubwayPavements(T,root,{wx,wz,matte},terrainHeight){
   const approaches=new T.Group();
   root.add(approaches);
   const cutSidewalks=makeStreetSurfaceCut(T,pavement.filter((_,index)=>subwayAccessPaths[index].kind!=="crossing"));
@@ -117,7 +122,13 @@ export function* buildSubwayAccess(T,root,{wx,wz,box,matte},floorAt,{terrainHeig
     yield;
   }
   if(terrainHeight)yield* gradeAvenueMeshes(T,approaches.children,terrainHeight);
+}
+
+export function* buildSubwayAccess(T,root,kit,floorAt,{terrainHeight,stationBand}={}){
+  const {wx,wz,box}=kit;
+  if(!stationBand)yield* buildSubwayPavements(T,root,kit,terrainHeight);
   for(const stop of expandedSubwayStops){
+    if(stationBand?stop.area!=="station"||stop.y<stationBand[0]||stop.y>=stationBand[1]:stop.area==="station")continue;
     const group=new T.Group();group.name=stop.name;
     group.position.set(wx(stop.x),floorAt(stop),wz(stop.y));
     group.rotation.y=stop.angle;root.add(group);

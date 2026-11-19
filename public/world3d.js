@@ -60,6 +60,7 @@ import { addStreetPeople } from "./street-people.js";
 import { makePicnicWorld } from "./picnic-world.js";
 import { buildSubwayAccess,registerExpandedSubway } from "./subway-expansion.js";
 import { jeongdongExtensionBounds,registerJeongdongExtension } from "./jeongdong-extension-layout.js";
+import {stationBounds,stationBands,stationGround,registerStation} from "./station-layout.js";
 import {westBounds,westWalkable,registerWestDistrict,WEST_PAVING_HEIGHT} from "./west-district-layout.js";
 import { buildJeongdongExtension } from "./jeongdong-extension.js";
 import { bukchonBounds,bukchonWalkable,bukchonGroundHeight,bukchonSurfaceGrade,registerBukchonTrees } from "./bukchon-layout.js";
@@ -165,7 +166,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   const drawPalaceSky=addPalaceSky(T,heavens,{
     sunDirection:sunDirection.clone().multiplyScalar(142),landscape:outdoors,
     cityOrigin:{x:wx(plazaSites.sejong.x)-21,z:wz(plazaSites.sejong.y)+14},
-    cityExclusions:[westBounds,corridorBounds,plazaBounds,gbBounds,bukchonBounds,hwangudanBounds,cheonggyeBounds,songhyeonBounds,
+    cityExclusions:[stationBounds,westBounds,corridorBounds,plazaBounds,gbBounds,bukchonBounds,hwangudanBounds,cheonggyeBounds,songhyeonBounds,
       {minX:45,maxX:560,minY:30,maxY:420}]
   });
   const drawPrecipitation=addSeoulPrecipitation(T,outdoors),foliage=makeSeasonFoliage(T);
@@ -203,6 +204,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   buildSejongCorridor(T,corridorRoot,makeKit(corridorRoot));
   registerJeongdongExtension();
   registerWestDistrict();
+  registerStation();
   registerHwangudanNavigation();
   registerCheonggyeNavigation();
   registerSonghyeonNavigation(benches);
@@ -211,7 +213,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   const deoksExtras=new T.Group();
   registerBikeDocks();
   const addDocks=(root,where,height)=>buildBikeDocks(T,root,makeKit(root),{docks:bikeDocks.filter(where),register:false,height});
-  addDocks(deoksExtras,dock=>dock.y>=28&&dock.area!=="west",southWorldSurfaceHeight);
+  addDocks(deoksExtras,dock=>dock.y>=28&&dock.area!=="west"&&dock.area!=="station",southWorldSurfaceHeight);
   addDocks(corridorRoot,dock=>dock.y<28&&dock.y>-280&&dock.area!=="cheonggye"&&dock.area!=="west",southWorldSurfaceHeight);
   const createItemProp=makeItemProps(T,kit);
   const walkerModels=makeWalkerModels(T,scene,kit,createItemProp);
@@ -493,7 +495,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   }};
   let updatePlaza,updateHwangudan,updateCheonggye,northWildlife,plazaWildlife,southWildlife,buildTurn=false;
   const wildlife=[["jeongdong",jeongdongExtensionBounds],["hwangudan",hwangudanBounds],["bukchon",bukchonBounds],
-    ["west",westBounds],["songhyeon",songhyeonBounds],["cheonggye",cheonggyeBounds]]
+    ["station",stationBounds],["west",westBounds],["songhyeon",songhyeonBounds],["cheonggye",cheonggyeBounds]]
     .map(([id,bounds])=>({id,bounds,steps:null,ready:false}));
   const plaza={root:plazaRoot,bounds:plazaBounds,*build(){
     const birdPerches=[];
@@ -590,7 +592,13 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     addDocks(root,dock=>dock.area==="west",southWorldSurfaceHeight);
     yield* addDiningFronts(root,"west");
   },()=>import("./west-district.js"));
-  const expansions=[songhyeon,cheonggye,bukchon,hwangudan,west,stationsDistrict];
+  const stationDistricts=stationBands.map(([minY,maxY],i)=>expansionDistrict({...stationBounds,minY,maxY},
+    (x,y)=>y>=minY&&y<maxY&&stationGround(x,y)!=null,function*(root,localKit,{buildStationBand}){
+      yield* buildStationBand(T,root,localKit,i);
+      addDocks(root,dock=>dock.area==="station"&&dock.y>=minY&&dock.y<maxY,southWorldSurfaceHeight);
+      yield* buildSubwayAccess(T,root,localKit,floorHeight,{stationBand:[minY,maxY]});
+    },()=>import("./station-world.js")));
+  const expansions=[songhyeon,cheonggye,bukchon,hwangudan,west,...stationDistricts,stationsDistrict];
   const districts=[deoks,corridor,plaza,palace,...expansions],loading=container.querySelector("#loading-game");
   function distanceToDistrict({x,y},{minX,maxX,minY,maxY}){
     return Math.hypot(Math.max(minX-x,0,x-maxX),Math.max(minY-y,0,y-maxY));
@@ -1103,7 +1111,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     hemi.groundColor.copy(season==="winter"?winterGround:ordinaryGround);
     sun.color.copy(sunlightDay).lerp(sunlightWarm,twilight*.84);
     // The sky follows the route; modeled buildings stay fixed in the world.
-    const horizonFollow=T.MathUtils.smoothstep(180-anchor.y,0,220);
+    const horizonFollow=Math.max(T.MathUtils.smoothstep(180-anchor.y,0,220),T.MathUtils.smoothstep(anchor.y-410,0,300));
     heavens.position.set((wx(anchor.x)-21)*horizonFollow,0,(wz(anchor.y)+14)*horizonFollow);
     // Range visibility only changes with the walker, a new district or quality tier.
     // A stationary view only needs another sweep when detached buffers expire.
@@ -1616,7 +1624,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     return renderer.domElement.toDataURL("image/jpeg",.92);
   }
   const renderStats=()=>({...renderer.info.render,quality:quality.mode,pixelRatio:quality.ratio,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,
-    areas:{west:Boolean(west.chunks),plaza:Boolean(plaza.chunks),palace:Boolean(palace.chunks),cheonggye:Boolean(cheonggye.chunks),songhyeon:Boolean(songhyeon.chunks),
+    areas:{...Object.fromEntries(stationDistricts.map((d,i)=>["station-"+i,Boolean(d.chunks)])),west:Boolean(west.chunks),plaza:Boolean(plaza.chunks),palace:Boolean(palace.chunks),cheonggye:Boolean(cheonggye.chunks),songhyeon:Boolean(songhyeon.chunks),
       ...Object.fromEntries(Object.entries(indoorsById).map(([id,district])=>[id,Boolean(district.chunks)]))}});
   return {render,setQuality,setVisitorRoom:cityVisitors.setRoom,pick,pickBungeo,pickMole,pickBaseballAim,pickClassicTap,previewWalker,clearChat,floorHeight,groundHeight,renderStats,capturePhoto,
     benches,stations,parkLife,birds,palacePeople,museum,underDoldamAwning};

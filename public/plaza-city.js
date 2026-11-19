@@ -1,6 +1,8 @@
 import {addObstacle} from "./layout.js";
 import {plazaAt} from "./plaza-layout.js";
 
+import {retailBlocks} from "./plaza-retail.js";
+
 const podiums={
   sejong:[-99,204,93,93],hyundai:[-91,68,77,66],government:[-146,470,156,53],
   kyobo:[87,52,81,77],kt:[82,184,69,75]
@@ -11,6 +13,10 @@ const sejongSouthWing=[-96,140,82,31];
 const sejongNorthWing=[-118,254,70,25];
 
 export function registerPlazaCity(){
+  for(const {front,side,start,end,depth} of retailBlocks){
+    const p=plazaAt(front+side*depth/2,(start+end)/2);
+    addObstacle(p.x,p.y,depth,end-start);
+  }
   // Ground-level shells span the building line, including the few metres of
   // the wide plaza pavement touched by the western and eastern podiums.
   for(const [east,north,width,length] of [...Object.values(podiums),frontSteps,sejongSouthWing,sejongNorthWing,
@@ -272,6 +278,17 @@ export function* assemblePlazaCity(T,group,{wx,wz}){
     yield;
   }
 
+  // One continuous office shell per plot, with its ground-floor tenant signs applied on the front.
+  for(const {front,side,start,end,depth,height} of retailBlocks){
+    const north=(start+end)/2,east=front+side*depth/2,length=end-start;
+    at(east,north);
+    slab(0x9e998e,east,north,depth,length,0,height);
+    slab(0xb9b1a0,east,north,depth+.18,length+.12,height,.3);
+    windows({east,north,width:depth,length,base:4.6,storeys:Math.floor((height-4)/3.4),
+      columns:Math.max(2,Math.floor(length/3.2)),pitch:3.4,face:side<0?"east":"west",tones:[0x526a70,0x60747a]});
+    renderBatch(stone,masonry,true);renderBatch(glass,glazing,false,true);
+    stone=[];glass=[];yield;
+  }
   // Secondary blocks sit behind the recognizable frontage and leave the gate's sightline open.
   for(const [east,north,width,length,height,color] of [
     [-168,67,61,52,48,0x899496],[-206,130,54,58,76,0x859598],

@@ -47,6 +47,14 @@ export const samcheongLevel=y=>profileAt(y,samcheongProfile,-1);
 // The southern avenue valley and the higher Jeongdong grounds join at the
 // avenue sidewalks. Reduce SRTM building/foliage spikes to the street grade.
 export function southWorldTerrainHeight({x,y}){
+  // The station approach follows the avenue grade beyond the old terrain survey.
+  // Fade the Deoksugung hillside out before the railway forecourt.
+  if(y>=650)return 1.35;
+  if(y>420){
+    const curb=southWorldTerrainHeight({x,y:420}),end=1.35;
+    const t=clamp((y-420)/230);
+    return curb+(end-curb)*t*t*(3-2*t);
+  }
   const street=profileAt(y,sejongProfile,1);
   const west=clamp((485-x)/410);
   const south=clamp((y+200)/230);

@@ -33,6 +33,16 @@ export function* buildDiningFacade(T,root,kit,venue=diningVenue,groundHeight=poi
     }
     part(color,0,(top+bottom)/2,0,w+widen,top-bottom,d+lengthen);
   }
+  if(venue.plot.tenant){
+    const face=z+.22;
+    part(style.front,0,1.76,face,w,3.49,.21);
+    for(const side of [-1,1])part(0x667d7b,side*w*.31,1.70,face+.13,w*.32,2.26,.1);
+    part(0x354f50,0,1.45,face+.15,2.16,2.9,.12);
+    part(0xbba980,.72,1.32,face+.245,.075,.55,.065);
+    standSign(T,group,venue.name,venue.dishes[0].name,w*.82,0,3.47,face+.2,style.sign,style.ink,.92);
+    part(style.trim,0,2.92,face+.49,w+.1,.12,.86);
+    yield;return;
+  }
   if(venue.service==="robot"||venue.cuisine==="western"){
     foundation(0x777e7c,.26,.22,.095);
     part(style.front,0,1.70,-.10,w,3.36,d-.20);

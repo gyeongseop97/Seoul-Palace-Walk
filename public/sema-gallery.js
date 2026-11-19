@@ -4,7 +4,7 @@ import {standSign} from "./regional-stands.js";
 
 export function* buildSemaGallery(T,root,{wx,wz,box},venue){
   const room=new T.Group();
-  room.position.set(wx(440),0,wz(511));root.add(room);
+  room.position.set(wx(venue.insideSpawn.x),0,wz(511));root.add(room);
   const block=(color,x,y,z,w,h,d)=>box(color,x,y,z,w,h,d,room);
   block(0x9d8a72,0,-.06,0,24,.12,18);
   for(let i=-11;i<=11;i++)block(0x877561,i,.001,0,.012,.004,18);
@@ -23,7 +23,7 @@ export function* buildSemaGallery(T,root,{wx,wz,box},venue){
   standSign(T,exit,"출구",null,1.26,0,2.88,.06,"#45574c","#f3ecd7",.36);
   const loader=new T.TextureLoader();
   for(const work of semaExhibits){
-    const frame=new T.Group();frame.position.set(work.x-440,2.10,work.y-511);frame.rotation.y=work.angle;room.add(frame);
+    const frame=new T.Group();frame.position.set(work.x-venue.insideSpawn.x,2.10,work.y-511);frame.rotation.y=work.angle;room.add(frame);
     const h=2.06,w=h*work.ratio;
     box(0x765837,0,0,0,w+.18,h+.18,.11,frame);
     box(0xc3a176,0,0,.055,w+.075,h+.075,.038,frame);

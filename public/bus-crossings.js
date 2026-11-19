@@ -1,3 +1,4 @@
+import {stationCrossings} from "./station-lanes.js";
 import {corridorCrossings} from "./sejong-corridor-layout.js";
 import {plazaCrossings,eastCurb,eastRoadWidth,plazaAt} from "./plaza-layout.js";
 import {uijeongbuCrossings} from "./uijeongbu-layout.js";
@@ -6,6 +7,7 @@ import {bukchonPaths} from "./bukchon-layout.js";
 const mid=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
 export const streetCrossings=[
   ...corridorCrossings,
+  ...stationCrossings.map(([[x,y],[bx,by],width])=>({a:{x,y},b:{x:bx,y:by},width})),
   ...plazaCrossings.map(n=>({a:plazaAt(eastCurb(n)-.8,n),b:plazaAt(eastCurb(n)+eastRoadWidth+.8,n),width:6})),
   ...uijeongbuCrossings.map(({left,right})=>({a:mid(left[0],right[0]),b:mid(left[1],right[1]),width:5})),
   ...bukchonPaths.filter(p=>p.kind==="crosswalk").map(p=>({a:p.points[0],b:p.points.at(-1),width:p.width}))

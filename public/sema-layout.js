@@ -1,8 +1,8 @@
 export const semaVenue={
   id:"sema",area:"jeongdong",name:"서울시립미술관 서소문본관",
-  bounds:{minX:428,maxX:452,minY:502,maxY:520},
-  outsideDoor:{x:201,y:378,heading:177},insideDoor:{x:440,y:518.8,heading:180},
-  insideSpawn:{x:440,y:512.8,heading:0}
+  bounds:{minX:1428,maxX:1452,minY:502,maxY:520},
+  outsideDoor:{x:201,y:378,heading:177},insideDoor:{x:1440,y:518.8,heading:180},
+  insideSpawn:{x:1440,y:512.8,heading:0}
 };
 
 const exhibition="https://sema.seoul.go.kr/kr/whatson/exhibition/detail?exNo=151&glolangType=KOR";
@@ -13,5 +13,5 @@ export const semaExhibits=[
   ["sunlight","햇살 속의 누드","1875–1876","오르세 미술관",451.65,510,-Math.PI/2,453/600,"햇살을 받은 어깨와 그늘진 팔에서 따뜻한 색과 차가운 색이 이웃합니다. 정원과 인물의 경계를 빛이 이어 줍니다."]
 ].map(([id,title,year,museum,x,y,angle,ratio,description])=>({
   id:"sema-"+id,gallery:"sema",title,credit:`피에르 오귀스트 르누아르 · ${year} · ${museum} 소장`,
-  file:"sema-"+id,x,y,angle,ratio,radius:3.75,description,source:exhibition,sourceLabel:"서울시립미술관 전시 기록"
+  file:"sema-"+id,x:x+1000,y,angle,ratio,radius:3.75,description,source:exhibition,sourceLabel:"서울시립미술관 전시 기록"
 }));

@@ -2,8 +2,8 @@ export function diningPoint(x,y,venue=diningVenue){
   return {x:venue.center.x+x,y:venue.center.y+y};
 }
 
-function venue({id,name,area,street,centerX,plotX,plotY,angle,service="staff",cuisine="korean"},dishes){
-  const center={x:centerX,y:515},plot={x:plotX,y:plotY,w:13.4,d:9.4,angle};
+function venue({id,name,area,street,centerX,plotX,plotY,angle,service="staff",cuisine="korean",shopWidth=13.4,tenant=false},dishes){
+  const center={x:centerX,y:515},plot={x:plotX,y:plotY,w:shopWidth,d:9.4,angle,tenant};
   const local={center};
   const reach=plot.d/2+1.4;
   return {id,name,area,street,center,plot,dishes,service,cuisine,
@@ -39,7 +39,7 @@ export const diningVenues=[diningVenue,
     source:"https://korean.visitseoul.net/restaurants/%EC%9C%A0%EB%A6%BC%EB%A9%B4/KOP012801"
   }, {kind:"mushroomSoup",name:"버섯 국밥",description:"표고버섯과 두부를 넣은 따뜻한 국밥이에요."}]),
   venue({id:"plaza-dining",name:"광화문 키친",area:"gwanghwamun",street:"광화문광장",
-    centerX:600,plotX:535.8,plotY:-415.7,angle:-Math.PI/2,service:"robot"},[{
+    centerX:600,plotX:536,plotY:-415.7,tenant:true,angle:-Math.PI/2,service:"robot"},[{
     kind:"jangGukbap",name:"피맛골 장국밥",description:"쇠고기 장국에 밥을 말고 파를 얹은 한 그릇",
     source:"https://archives.seoul.go.kr/post/2737"
   }, {kind:"bibimbap",name:"나물 비빔밥",description:"밥에 여러 가지 나물과 고추장을 곁들였어요."}]),
@@ -49,7 +49,7 @@ export const diningVenues=[diningVenue,
     {kind:"chickenSandwich",name:"치킨 샌드위치",description:"닭고기와 채소를 토스트에 담고 감자튀김을 곁들였어요."},
   ]),
   venue({id:"plaza-japanese",name:"세종 우동집",area:"gwanghwamun",street:"세종대로",
-    centerX:942,plotX:535.8,plotY:-450,angle:-Math.PI/2,service:"robot",cuisine:"japanese"},[
+    centerX:942,plotX:536,plotY:-527.8,shopWidth:10.9,tenant:true,angle:-Math.PI/2,service:"robot",cuisine:"japanese"},[
     {kind:"udon",name:"가케 우동",description:"맑은 국물에 굵은 면과 파를 담았어요."},
     {kind:"beefCurry",name:"소고기 카레라이스",description:"소고기와 채소를 넣고 걸쭉하게 끓인 일본식 카레예요."},
   ]),

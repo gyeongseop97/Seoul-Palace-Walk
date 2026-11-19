@@ -3,6 +3,10 @@ import {plazaAt} from "./plaza-layout.js";
 
 // The game racks sit on public sidewalks next to the real neighbourhoods they serve.
 export const bikeDocks=[
+  {id:"station-shinhan",name:"신한은행 본점 따릉이",area:"station",x:291.9,y:779.7,heading:90,access:{x:295,y:779.7}},
+  {id:"station-chamber",name:"대한상공회의소 따릉이",area:"station",x:230,y:848.7,heading:0,access:{x:230,y:852}},
+  {id:"station-five",name:"서울역 5번 출구 따릉이",area:"station",x:149.9,y:1224.3,heading:180,access:{x:149.9,y:1221.2}},
+  {id:"station-nine",name:"서울역 9번 출구 따릉이",area:"station",x:164,y:1309.8,heading:270,access:{x:160.8,y:1309.8}},
   {id:"west-jeongdong",name:"정동길 따릉이",area:"west",x:-38.1,y:137,heading:90,access:{x:-35,y:137}},
   {id:"west-history",name:"서울역사박물관 따릉이",area:"west",x:92,y:-281,heading:90,access:{x:95.1,y:-281}},
   {id:"west-palace",name:"흥화문 따릉이",area:"west",x:-123.1,y:-160,heading:90,access:{x:-120,y:-160}},

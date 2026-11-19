@@ -26,6 +26,8 @@ import {transitRoutes,transitStops} from "./transit-routes.js";
 import {subwayAccessPaths} from "./subway-expansion.js";
 import {jeongdongExtensionLandmarks,jeongdongExtensionPaths,jeongdongParkCourt,extensionRibbon} from "./jeongdong-extension-layout.js";
 import {worldExtent} from "./world-extent.js";
+import {stationSites,stationGround} from "./station-layout.js";
+import {stationSurfaces,stationBuildings} from "./station-data.js";
 import {westSurfaces,westBuildings,westSites,westRegion,westWalkable} from "./west-district-layout.js";
 
 import {bukchonAlleyShortcut,bukchonBounds,bukchonPaths,bukchonLandmarks,bukchonWalkable,bukchonLawns} from "./bukchon-layout.js";
@@ -783,6 +785,7 @@ function outdoorMap(position){
   const {x,y}=position;
   const indoors=venueById[interiorAt(x,y)];
   if(indoors)return indoors===mmcaVenue?"북촌":diningRegion[indoors.area]??"북촌";
+  if(y>397&&stationGround(x,y))return "서울역";
   if(westWalkable(x,y)){const region=westRegion(x,y);return region==="서울시립미술관"?"덕수궁":region;}
   if(inSonghyeon(x,y))return "열린송현녹지광장";
   if(cheonggyeWalkable(x,y)||position.up&&cheonggyeLevel(position)!=null)return "청계천";
@@ -1187,6 +1190,7 @@ function readWalkPosition(name,code){
     if(pose&&[pose.x,pose.y,pose.heading,pose.height].every(Number.isFinite)&&
       pose.heading>=0&&pose.heading<=360&&typeof pose.up==="boolean"){
       // Older saved gallery positions were in the original outdoor coordinate range.
+      if(pose.layout===2&&pose.x>428&&pose.x<452&&pose.y>502&&pose.y<520)return {...pose,x:pose.x+1000};
       const galleryY=pose.y+museumInteriorOffsetY;
       return !pose.layout&&isInsideMuseum(pose.x,galleryY)?{...pose,y:galleryY}:pose;
     }
@@ -1204,7 +1208,7 @@ function rememberWalkPosition(){
     (me.jump&&gameTime()-me.jump<jumpDuration(me)))return;
   const {x,y,heading}=me,up=Boolean(me.up),height=walkPositionHeight(me);
   if(height===null)return;
-  const record=JSON.stringify({x,y,heading,up,height,layout:2});
+  const record=JSON.stringify({x,y,heading,up,height,layout:3});
   if(record===lastWalkPosition)return;
   try{
     localStorage.setItem(walkPositionKey(session.nickname,session.code),record);
@@ -1592,6 +1596,7 @@ const localDestinations={"덕수궁":mapDestinations,"광화문광장":plazaDest
     {...angukExit.arrive,label:"안국역",name:angukExit.name,aria:"안국역 1번 출구로 순간이동"},
     {...mmcaVenue.outsideDoor,label:"국현미",name:mmcaVenue.name,aria:"국립현대미술관 입구로 순간이동"}],"환구단":hwangudanDestinations,
   "청계천":cheonggyeDestinations,"열린송현녹지광장":songhyeonDestinations,
+  "서울역":[...stationSites,busShortcut("station-transfer","환승센터")],
   "정동길":[...westSites.slice(1,3),busShortcut("history-west","박물관 정류장")],"경희궁":[...westSites.slice(2),busShortcut("heunghwa-west","흥화문 정류장")]};
 const shortcutRegion=document.createElement("select");
 shortcutRegion.id="shortcut-region";
@@ -3326,7 +3331,7 @@ function drawMap(base,mini=false){
   const landscape=base,outdoors=svg(landscape,"g",{class:"outdoor-map-ground"});
   base=outdoors;
   const westColors={grove:"#465a43",grass:"#607553",verge:"#77796b",crossing:"#ece4c9",stone:"#a39780",road:"#58605b",street:"#847e6f",path:"#b6a687"};
-  for(const feature of [...westSurfaces,...westBuildings]){
+  for(const feature of [...stationSurfaces,...stationBuildings,...westSurfaces,...westBuildings]){
     if(feature.kind==="backdrop")continue;
     const d=feature.rings.map(ring=>"M"+ring.map(p=>p.join(",")).join("L")+"Z").join("");
     svg(base,"path",{d,fill:westColors[feature.kind]??(feature.kind==="block"?"#706e61":"#675d50"),"fill-rule":"evenodd"});
@@ -3416,7 +3421,7 @@ function drawTransport(base,mini){
 function drawMapPoints(base,mini){
   const plazaHeritage=["woldae","yi","sejong","ruins"];
   const heritage=[
-    ...westSites,...pavilions,...gbSites,...corridorLandmarks,...jeongdongExtensionLandmarks,...hwangudanLandmarks,
+    ...stationSites,...westSites,...pavilions,...gbSites,...corridorLandmarks,...jeongdongExtensionLandmarks,...hwangudanLandmarks,
     ...bukchonLandmarks.filter(point=>!point.name.includes("쉼터")),...plazaHeritage.map(key=>plazaSites[key]),
     ...cheonggyeLandmarks.slice(1),uijeongbuEntry,uijeongbuGarden,
     ...[[gate,"대한문"],[bridge,"금천교"],[middle,"중화문"],[hall,"중화전"],[stoneHall,"석조전"],
@@ -3476,7 +3481,7 @@ function drawOverview(base){
     "stroke-linecap":"round","stroke-dasharray":"14 9",opacity:.9,"pointer-events":"none"});
   for(const [point,name] of [[spawn,"덕수궁"],[plazaAt(-12,240),"광화문광장"],[palaceAt(0,245),"경복궁"],
     [hwangudanLandmarks[0],"환구단"],[bukchonAlleyShortcut,"북촌"],[cheonggyeLandmarks[0],"청계천"],
-    [songhyeonLandmarks[0],"열린송현"]]){
+    [songhyeonLandmarks[0],"열린송현"],[stationSites[2],"서울역"]]){
     const destination=svg(layer,"g",{"data-walk-x":point.x,"data-walk-y":point.y});
     svg(destination,"circle",{cx:point.x,cy:point.y,r:16,fill:"#f2d59b",stroke:"#40392c","stroke-width":5});
     mapLabels.add(destination,{...point,name},null,{area:true});
@@ -3588,7 +3593,7 @@ const songhyeonViewBox=[songhyeonBounds.minX-24,songhyeonBounds.minY-18,
   songhyeonBounds.maxX-songhyeonBounds.minX+48,songhyeonBounds.maxY-songhyeonBounds.minY+46].join(" ");
 const plazaApproachBox=[plazaBounds.minX-18,plazaBounds.minY+210,Math.max(plazaBounds.maxX,corridorBounds.maxX)-plazaBounds.minX+36,
   -58-(plazaBounds.minY+210)].join(" ");
-const fieldViewBox=[worldExtent.minX,bukchonBounds.minY-26,bukchonBounds.maxX-worldExtent.minX+25,510-bukchonBounds.minY].join(" ");
+const fieldViewBox=[worldExtent.minX,bukchonBounds.minY-26,bukchonBounds.maxX-worldExtent.minX+25,worldExtent.maxY+26-bukchonBounds.minY].join(" ");
 const miniMapWidth=126,miniMapHeight=126;
 function attr(node,key,value){if(node.getAttribute(key)!==String(value))node.setAttribute(key,value);}
 function setMapView(view){
@@ -3667,6 +3672,7 @@ function mapRegionAt(point,inside,overview){
   if(inside)return indoorViewBoxes[inside];
   if(overview)return fieldViewBox;
   const area=outdoorMap(point);
+  if(area==="서울역")return point.y<800?"275 378 310 488":point.y<1125?"104 710 359 462":"-102 1057 420 509";
   if(area==="경희궁")return "-462 -550 450 430";
   if(area==="정동길")return "-265 -260 490 585";
 
@@ -3796,7 +3802,7 @@ function updateMaps(self,others){
   const fullMap=$("map-panel").classList.contains("expanded")||!mobileHeader.matches&&!gameShell.classList.contains("game-fullscreen");
   const coat=hexCoat(self.coat??0xe5b672);
   if(fullMap){
-    const mapArea=["북촌","환구단","청계천","열린송현녹지광장","경희궁","정동길"].includes(area)?area:
+    const mapArea=["북촌","환구단","청계천","열린송현녹지광장","경희궁","정동길","서울역"].includes(area)?area:
       palace?"경복궁":plaza||corridor&&self.y<-58?"광화문광장":"덕수궁";
     setText($("map-panel").querySelector("h2"),indoors?`${inside==="museum"?"전시관":venueById[inside].name} 지도`:overview?"전체 지도":mapArea+" 지도");
     $("world").classList.toggle("overview-map",overview);

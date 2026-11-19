@@ -1,8 +1,9 @@
+import {southbound,northbound} from "./station-lanes.js";
 import {eastCurb, eastRoadWidth, plazaAt} from "./plaza-layout.js";
 import {uijeongbuBusBerth} from "./uijeongbu-layout.js";
 import {routeCrossings} from "./bus-crossings.js";
 
-export const BUS_COUNT=14;
+export const BUS_COUNT=18;
 export const BUS_SEATS=8;
 export const BUS_DWELL_MS=10_000;
 export const BUS_BOARD_REACH=4.2;
@@ -23,7 +24,7 @@ const bukchonStop={x:762.7,y:-1429};
 // Shelter and passenger positions are on the pavement, offset from the front right door.
 // Opposite-direction plaza stops are separate berths on the two sides of the avenue.
 export const busStops=[
-  {id:"deoksugung",name:"시청앞·덕수궁 정류장",direction:"광화문광장 · 경복궁 방면",
+  {id:"deoksugung",name:"시청앞·덕수궁 정류장",direction:"숭례문 · 서울역 방면",
     berth:pose(484.0,205,180),board:pose(480.4,208.2,90),exit:pose(478.4,208.7,270),shelter:pose(476.9,204.5,90)},
   {id:"seoul-plaza",name:"서울광장·환구단 정류장",direction:"광화문광장 · 경복궁 방면",
     berth:pose(516.5,247,0),board:pose(521.2,243.75,270),exit:pose(523.4,242.8,90),shelter:pose(524.8,249.4,270)},
@@ -57,13 +58,27 @@ export const busStops=[
 ];
 const [deoksugung,seoulPlaza,cheonggyeNorth,plazaNorth,gyeongbokgung,songhyeonNorth,bukchon,bukchonTerminal,
   songhyeonSouth,plazaSouth,historyWest,heunghwaWest,cheonggyeSouth]=busStops;
+const sungSouth={id:"sungnyemun-south",name:"숭례문 정류장",direction:"서울역 방면",
+  berth:pose(202.3,1000.7,215),board:pose(197.9,1000.9,125),exit:pose(196.8,1000.4,305),shelter:pose(196,997.8,125)};
+const transfer={id:"station-transfer",name:"서울역버스환승센터",direction:"숭례문 · 시청 방면",
+  berth:pose(89.2,1389.8,359),board:pose(92.9,1386.9,269),exit:pose(93,1384.1,90),shelter:pose(93.45,1390.9,270)};
+const sungNorth={id:"sungnyemun-north",name:"숭례문 건너편 정류장",direction:"시청 · 광화문 방면",
+  berth:pose(226.3,1020.3,35),board:pose(231.4,1019.3,305),exit:pose(233,1020,125),shelter:pose(232.1,1023,305)};
+busStops.splice(1,0,sungSouth,transfer,sungNorth);
 const stopIndex=new Map(busStops.map(stop=>[stop.id,stop]));
 export const busStopById=id=>stopIndex.get(id)??null;
 
 // The northern turn is at the end of Samcheong-ro, beyond the last stop.
 const itineraries=[
-  {travelMs:21_000,points:[deoksugung.berth,point(484,222),point(487.4,247),point(490.3,278),point(490.7,297),
-    point(493.4,305.2),point(502.8,309),point(511.6,306.6),point(516.3,299.1),point(516.1,285),point(516.5,259),seoulPlaza.berth]},
+  {travelMs:87_000,points:[deoksugung.berth,point(484,224),point(489,278),
+    ...southbound.filter(([,y])=>y<986).map(([x,y])=>point(x,y)),sungSouth.berth]},
+  {travelMs:69_000,points:[sungSouth.berth,point(195,1012),
+    ...southbound.filter(([,y])=>y>1015).map(([x,y])=>point(x,y)),point(82.9,1407),point(85,1447),
+    point(86.7,1451),point(90,1452),point(92.3,1448),point(90,1423),transfer.berth]},
+  {travelMs:50_000,points:[transfer.berth,point(88.3,1340),point(88,1318),point(98,1302),point(117,1287),
+    ...northbound.filter(([,y])=>y>1038).map(([x,y])=>point(x,y)),sungNorth.berth]},
+  {travelMs:86_000,points:[sungNorth.berth,point(232,1009),
+    ...northbound.filter(([,y])=>y<999).map(([x,y])=>point(x,y)),point(510.5,298),point(515.1,274),seoulPlaza.berth]},
   {travelMs:33_000,points:[seoulPlaza.berth,point(516.5,235),point(513.3,215),
     point(513.3,135),point(512.5,-70),point(512.6,-134),point(514.55,-147),cheonggyeNorth.berth]},
   {travelMs:40_000,points:[cheonggyeNorth.berth,point(514.55,-170),point(512.3,-190),point(512.2,-240),

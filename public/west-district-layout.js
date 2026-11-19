@@ -1,3 +1,4 @@
+import {groundIndex} from "./ground-index.js";
 import {worldExtent} from "./world-extent.js";
 import {addLandmarks,addObstacle,addZone} from "./layout.js";
 import {westSurfaces,westBuildings,westStreetTrees} from "./west-district-data.js";
@@ -13,29 +14,7 @@ export const westSites=[
   {name:"경희궁 태령전",label:"태령전",x:-357,y:-393,heading:328}
 ];
 export const WEST_PAVING_HEIGHT=.062;
-const index=new Map(),step=32;
-function indexRing(feature){
-  const outer=feature.rings[0],xs=outer.map(p=>p[0]),ys=outer.map(p=>p[1]);
-  for(let col=Math.floor(Math.min(...xs)/step);col<=Math.floor(Math.max(...xs)/step);col++)
-    for(let row=Math.floor(Math.min(...ys)/step);row<=Math.floor(Math.max(...ys)/step);row++){
-      const key=row*1000+col;
-      if(!index.has(key))index.set(key,[]);
-      index.get(key).push(feature);
-    }
-}
-for(const surface of westSurfaces)indexRing(surface);
-function inRing(x,y,ring){
-  let inside=false;
-  for(let i=0,j=ring.length-1;i<ring.length;j=i++){
-    const [ax,ay]=ring[i],[bx,by]=ring[j];
-    if((ay>y)!==(by>y)&&x<ax+(y-ay)*(bx-ax)/(by-ay))inside=!inside;
-  }
-  return inside;
-}
-export function westGround(x,y){
-  const items=index.get(Math.floor(y/step)*1000+Math.floor(x/step));
-  return items?.find(({rings})=>inRing(x,y,rings[0])&&!rings.slice(1).some(h=>inRing(x,y,h)))?.kind;
-}
+export const westGround=groundIndex(westSurfaces);
 export function westWalkable(x,y){
   const kind=westGround(x,y);
   return Boolean(kind&&kind!=="road"&&kind!=="verge"&&kind!=="backdrop");
