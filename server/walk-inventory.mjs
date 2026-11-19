@@ -1,8 +1,8 @@
 import {inventoryAction} from "../public/walk-inventory.js";
 import {ARCADE_CLAW} from "../public/arcade-layout.js";
 import {regionalStations,streetCounters} from "../public/street-stands.js";
-import {railCounters} from "../public/rail-station-layout.js";
-const counters=[...regionalStations,...streetCounters,...railCounters];
+import {railCounters,plazaCafe} from "../public/rail-station-layout.js";
+const counters=[...regionalStations,...streetCounters,...railCounters,plazaCafe];
 const actions=new Set(["store","hold","give","prize","wear","remove","collect"]);
 const token=v=>typeof v==="string"&&/^[a-f0-9]{32}$/.test(v);
 export const validInventory=(c,id)=>c&&actions.has(c.action)&&token(c.id)&&typeof c.kind==="string"&&c.kind.length<60&&
@@ -14,7 +14,7 @@ export async function applyInventory(db,{room,id,key,now,cmd,rows}){
   const own=rows.find(row=>row.id===id&&row.player_key===key),other=cmd.action==="give"&&rows.find(row=>row.id===cmd.to&&row.updated>=now-9000);
   if(!own)return {id:cmd.id,error:"산책방에 다시 들어와 주세요."};
   const a=JSON.parse(own.avatar),b=other&&JSON.parse(other.avatar);
-  if(cmd.action==="collect"&&(a.bus||a.bikeRide||a.seat!=null||!counters.some(s=>s.kind===cmd.kind&&Math.hypot(s.x-a.x,s.y-a.y)<2.65)))
+  if(cmd.action==="collect"&&(a.bus||a.bikeRide||a.seat!=null||!counters.some(s=>s.kind===cmd.kind&&(s.up==null||Boolean(a.up)===s.up)&&Math.hypot(s.x-a.x,s.y-a.y)<2.65)))
     return {id:cmd.id,error:"매장 앞에서 받아 주세요."};
   if(cmd.action==="prize"&&Math.hypot(a.x-ARCADE_CLAW.x,a.y-ARCADE_CLAW.y)>ARCADE_CLAW.reach+1)
     return {id:cmd.id,error:"인형뽑기 기계 가까이에서 받아 주세요."};

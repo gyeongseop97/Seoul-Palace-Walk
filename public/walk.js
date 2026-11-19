@@ -23,7 +23,7 @@ import {plazaWestPavement} from "./gwanghwamun-plaza.js";
 import {streetSegmentParts} from "./crosswalk-markings.js";
 import {crosswalkPaintBands} from "./bukchon-surfaces.js";
 import {transitRoutes,transitStops} from "./transit-routes.js";
-import {subwayAccessPaths} from "./subway-expansion.js";
+import {expandedSubwayStops,subwayAccessPaths} from "./subway-expansion.js";
 import {jeongdongExtensionLandmarks,jeongdongExtensionPaths,jeongdongParkCourt,extensionRibbon} from "./jeongdong-extension-layout.js";
 import {worldExtent} from "./world-extent.js";
 import {stationSites,stationGround} from "./station-layout.js";
@@ -45,8 +45,9 @@ import {canRideBikeSegment} from "./bike-movement.js";
 import {gbWallOutline,clipGbGround} from "./gyeongbok-perimeter.js";
 import {outsideGroundOffset} from "./gyeongbok-terrain.js";
 import {mmcaCourtyards,mmcaBuildings,mmcaLawns} from "./mmca-layout.js";
-import {approachAt,approachRoute,stationApproaches,partAt,concourseParts,hallOrigin,westExit,marketExit,subwayExit,railPoint,railHeight,sameStation,liftAt,liftBanks,liftLanding,floorName,setStationClock} from "./station-levels.js";
-import {stationHall,terminalDoors,railRooms,railRoomById,railCounters} from "./rail-station-layout.js";
+import {approachAt,approachRoute,stationApproaches,partAt,concourseParts,hallOrigin,westExit,northBridgeExit,rearMarketExit,marketExit,subwayExit,metroInsidePoint,railPoint,railHeight,sameStation,liftAt,liftBanks,liftLanding,floorName,setStationClock} from "./station-levels.js";
+import {cultureFrontDoors,culturePart,cultureVenues} from "./culture-station-layout.js";
+import {stationHall,hallDoors,terminalDoors,railRooms,railRoomById,railCounters} from "./rail-station-layout.js";
 import {semaVenue,semaExhibits} from "./sema-layout.js";
 import {mmcaVenue,mmcaGalleryAt,mmcaGalleryRooms,mmcaExhibits} from "./mmca-gallery-layout.js";
 import {diningTables} from "./dining-layout.js";
@@ -1021,6 +1022,7 @@ function placeName(point){
   const inside=interiorAt(point.x,point.y);
   if(inside==="museum")return museumGalleryAt(point.x,point.y)?.name??"덕수궁 전시관";
   if(inside===mmcaVenue.id)return mmcaGalleryAt(point.x,point.y)?.name??mmcaVenue.name;
+  if(inside?.startsWith("culture284"))return culturePart(point.x,point.y)?.r.name??"문화역서울284";
   const stationPart=partAt(point.x,point.y);
   if(stationPart)return stationPart.name;
   if(venueById[inside])return venueById[inside].name;
@@ -1988,6 +1990,7 @@ $("wish").addEventListener("click",openWish);
 function nearbyStation(){
   let best=null,range=2.55;
   for(const station of world?.stations??[]){
+    if(station.up!=null&&Boolean(me.up)!==station.up)continue;
     const distance=near(station,me.x,me.y);
     if(distance<range&&clearSegment(me,station)){best=station;range=distance;}
   }
@@ -2032,19 +2035,30 @@ function feedCatNearby(){
 }
 const venueAt=id=>id==="museum"?world?.museum:venueById[id];
 function atIndoorStation(point,reach=2.8){return near(point,me.x,me.y)<reach&&clearSegment(me,point);}
+const subwayPortals=expandedSubwayStops.filter(s=>s.area==="station"&&s.number!==1).map(s=>[
+  {inside:metroInsidePoint(s.number),outside:s.arrive},s.name]);
+const stationPortals=[[westExit,"서부광장"],[northBridgeExit,"북측 보행육교"],[rearMarketExit,"마트 서쪽 출입구"],[marketExit,"쇼핑동 보행데크"],[subwayExit,"지하철 1번 출구"],...subwayPortals];
 function portalNearby(){
   if(!world||me.bus||isCycling(me)||queuedBus||queuedBike)return null;
   const inside=interiorAt(me.x,me.y);
+  if(inside==="culture284"||!inside){
+    const door=cultureFrontDoors.find(d=>atIndoorStation(inside?d.inside:d.outside,1.9));
+    if(door)return {inside:Boolean(inside),venue:cultureVenues[0],destination:inside?door.outside:{...door.inside,y:door.inside.y-1.8,heading:0}};
+  }
   if(inside==="station-hall"||!inside){
-    for(const [link,label] of [[westExit,"서부광장"],[marketExit,"쇼핑동 보행데크"],[subwayExit,"지하철 1번 출구"]]){
+    for(const door of hallDoors){
+      if((inside||me.up)&&atIndoorStation(inside?door.inside:door.outside,2.5))return {inside:Boolean(inside),venue:stationHall,
+        destination:inside?door.outside:{x:door.inside.x,y:door.inside.y-2.4,heading:0},label:inside?"서울역광장으로":"서울역 들어가기"};
+    }
+    for(const [link,label] of stationPortals){
       if(atIndoorStation(inside?link.inside:link.outside,2.2)&&(inside||Boolean(me.up)===Boolean(link.outside.up)))return {inside:Boolean(inside),venue:stationHall,
-        destination:inside?link.outside:link.inside,label:inside?label+"로 나가기":label==="서부광장"?"서부 맞이방 들어가기":label==="쇼핑동 보행데크"?"쇼핑동 들어가기":"환승통로 들어가기"};
+        destination:inside?link.outside:link.inside,label:inside?label+"로 나가기":label==="서부광장"?"서부 맞이방 들어가기":link===marketExit||link===rearMarketExit||link===northBridgeExit?"쇼핑동 들어가기":label.includes("경의중앙선")?"경의중앙선 연결구로":"환승통로 들어가기"};
     }
   }
   const current=inside&&venueAt(inside);
   if(current&&current!==stationDining&&current.id!=="ktx-platform"&&atIndoorStation(current.insideDoor,2.5))return {inside:true,venue:current};
   const venues=inside?stationVenues.filter(v=>v.parent===inside&&v!==stationDining&&v.id!=="ktx-platform"):
-    [world.museum,mmcaVenue,semaVenue,ARCADE_SITE,stationHall,...streetRestaurants];
+    [world.museum,mmcaVenue,semaVenue,ARCADE_SITE,stationHall,...cultureVenues.filter(v=>!v.parent),...streetRestaurants];
   for(const venue of venues){
     const accessible=venue===stationHall?me.up&&terminalDoors.some(door=>atIndoorStation(door,2.5)):atIndoorStation(venue.outsideDoor,2.5);
     if(accessible)return {inside:false,venue};
@@ -2137,7 +2151,7 @@ function stationConveyor(dt){
   if(p?.style==="stairs"){
     const side=(me.x-hallOrigin.x-p.x0)/(p.x1-p.x0);
     if(side>.60)move(me.x,me.y+(side>.80?1:-1)*dt*.95);
-  }else if(me.y>1400&&me.y<1431){
+  }else if(!p){
     const at=approachAt(me.x,me.y);
     if(at?.s.kind==="escalator"){
       const dir=at.side>0?1:-1;
@@ -3386,6 +3400,14 @@ function drawIndoorMap(base,venue,galleries,mini){
     for(const [u,z,text] of [[0,5,"2F 맞이방"],[0,-96,"1F KTX"],[-24,-59,"3F 식당가"],[-21,-91,"4F 정원"],[-68,8,"서부 출구"],[-68,-39,"환승"],[-106,-65,"B2 공항터미널"],[-80,-117,"B7 공항철도"],[-7,-50,"↕"]]){
       const {x,y}=railPoint(u,z);svg(layer,"text",{x,y,"text-anchor":"middle","font-size":3.15,fill:"#fff3cf"},text);
     }
+  }else if(cultureVenues.includes(venue)){
+    const named=new Set();
+    for(const r of venue.rooms){
+      const x=venue.center.x+r.x0,y=venue.center.y+r.z0,w=r.x1-r.x0,h=r.z1-r.z0;
+      svg(layer,"rect",{x,y,width:w,height:h,fill:r.key==="hall"?"#99774c":"#786856",stroke:"#dbc89b","stroke-width":.14});
+      if(!mini&&!named.has(r.key)&&w>4&&h>3)svg(layer,"text",{x:x+w/2,y:y+h/2,"font-size":.83,"text-anchor":"middle",fill:"#fff2ce"},r.name);
+      named.add(r.key);
+    }
   }else svg(layer,"rect",{x:minX,y:minY,width:maxX-minX,height:maxY-minY,fill:"#425050",stroke:"#c8d1c9","stroke-width":.55,rx:.9});
   for(const room of galleries){
     svg(layer,"rect",{x:room.minX,y:room.minY,width:room.maxX-room.minX,height:room.maxY-room.minY,
@@ -3400,7 +3422,8 @@ function drawIndoorMap(base,venue,galleries,mini){
   }
   const points=[[venue.insideDoor,venue.exitLabel??"출구"]];
   for(const child of stationVenues)if(child.parent===venue.id)points.push([child.outsideDoor,child.enterLabel]);
-  if(venue===stationHall)for(const shop of railCounters)if(!shop.secondary)drawMapPoint(layer,shop,"shop",mini,true);
+  if(venue===stationHall)for(const [link,label] of stationPortals)drawMapPoint(layer,{...link.inside,name:label},"railway",mini,true);
+  if(venue===stationHall)for(const shop of railCounters)if(!shop.secondary&&shop.interior)drawMapPoint(layer,shop,"shop",mini,true);
   if(venue===semaVenue)for(const work of semaExhibits)drawMapPoint(layer,{...work,name:work.title},"heritage",mini,true);
   if(venue.guestbookPoint)points.push([venue.guestbookPoint,"방명록"]);
   if(venue.menuPoint)points.push(venue.service==="robot"?[venue.kioskPoint,"키오스크"]:[venue.menuPoint,"카운터"]);
@@ -3546,6 +3569,7 @@ function drawMapPoints(base,mini){
   for(const [category,points] of [["heritage",heritage],["park",parks],["activity",activities]]){
     for(const point of points)drawMapPoint(base,point,category,mini);
   }
+  drawMapPoint(base,{x:33.5,y:1499.8,name:"서울역 광장 카페"},"shop",mini);
   drawMapPoint(base,{...stationHall.outsideDoor,name:"서울역",approach:stationSites[2]},"railway",mini);
   drawTransport(base,mini);
 }
@@ -3779,7 +3803,7 @@ function mapRegionAt(point,inside,overview){
   if(inside)return indoorViewBoxes[inside];
   if(overview)return fieldViewBox;
   const area=outdoorMap(point);
-  if(area==="서울역")return point.y<800?"275 378 310 488":point.y<1125?"104 710 359 462":"-184 1057 486 509";
+  if(area==="서울역")return point.y<800?"275 378 310 488":point.y<1125?"104 710 359 462":"-260 1057 559 690";
   if(area==="경희궁")return "-462 -550 450 430";
   if(area==="정동길")return "-265 -260 490 585";
 

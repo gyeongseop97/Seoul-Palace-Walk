@@ -23,8 +23,9 @@ import { hanbokRental,registerHanbokRental } from "./passport-data.js";
 import { addHanbokRental } from "./wearables-models.js";
 import { assembleMuseum, registerMuseumNavigation, isInsideMuseum, museumOutsideDoor, museumInsideDoor, museumInsideSpawn, stairHeight } from "./museum.js";
 import { interiorAt } from "./interior-layout.js";
+import {cultureVenues,cultureHeight} from "./culture-station-layout.js";
 import {approachAt,partAt,railHeight,sameStation} from "./station-levels.js";
-import {railRooms,railRoomById,railCounters,registerRailFurniture} from "./rail-station-layout.js";
+import {railRooms,railRoomById,railCounters,plazaCafe,registerRailFurniture} from "./rail-station-layout.js";
 import {semaVenue} from "./sema-layout.js";
 import { mmcaVenue,mmcaExhibits,mmcaWalls } from "./mmca-gallery-layout.js";
 import { diningTrayPose,diningVenues,stationDining } from "./dining-data.js";
@@ -240,7 +241,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   const minigameProps=registerMinigameProps(floorHeight);
   const minigameWorld=makeMinigameWorld(T,outdoors,kit,floorHeight);
   const transportCount=transportRoot.children.length;
-  const stations=[...addStands(T,transportRoot,makeKit(transportRoot)),...regionalStations,...railCounters];
+  const stations=[...addStands(T,transportRoot,makeKit(transportRoot)),...regionalStations,...railCounters,plazaCafe];
   const transportGround=transportRoot.children.slice(transportCount);
   outdoors.add(transportRoot);
   const picnicWorld=makePicnicWorld(T,outdoors,kit,floorHeight,createItemProp);
@@ -554,7 +555,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   }
   const indoorsById={
     museum:gallery,
-    ...Object.fromEntries(railRooms.map(venue=>[venue.id,indoorDistrict(venue,()=>import("./rail-station-world.js"),"buildRailRoom")])),
+    ...Object.fromEntries(railRooms.filter(v=>!cultureVenues.includes(v)).map(venue=>[venue.id,indoorDistrict(venue,()=>import("./rail-station-world.js"),"buildRailRoom")])),
     [semaVenue.id]:indoorDistrict(semaVenue,()=>import("./sema-gallery.js"),"buildSemaGallery"),
     [mmcaVenue.id]:indoorDistrict(mmcaVenue,()=>import("./mmca-gallery.js"),"buildMmcaGallery"),
     [ARCADE_SITE.id]:indoorDistrict(ARCADE_SITE,()=>import("./arcade-world.js"),"buildArcadeInterior"),
@@ -562,6 +563,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     [ARCADE_THIRD_SITE.id]:indoorDistrict(ARCADE_THIRD_SITE,()=>import("./arcade-third-world.js"),"buildArcadeThird"),
     ...Object.fromEntries(diningVenues.map(venue=>[venue.id,indoorDistrict(venue,()=>import("./dining-world.js"),"buildDiningInterior")])),
   };
+  for(const venue of cultureVenues)indoorsById[venue.id]=indoorDistrict(venue,()=>import("./culture-station-world.js"),"buildCultureStation");
   const railComplex=indoorDistrict(railRooms[0],()=>import("./station-complex-world.js"),"buildStationComplex");
   for(const id of ["station-hall","ktx-platform",stationDining.id])indoorsById[id]=railComplex;
   const indoorDistricts=[...new Set(Object.values(indoorsById))];
@@ -873,7 +875,9 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   function floorHeight(position){
     const rail=railHeight(position.x,position.y);
     if(rail!=null)return rail+platformAt(position.x,position.y,true);
+    const culture=cultureHeight(position.x,position.y);if(culture!=null)return culture;
     const terrain=interiorAt(position.x,position.y)?0:outsideGroundOffset(position);
+    const approach=approachAt(position.x,position.y);if(approach?.height<0)return terrain+approach.height;
     if(position.x<150&&position.y< -120&&westWalkable(position.x,position.y)){
       return terrain+WEST_PAVING_HEIGHT+platformAt(position.x,position.y,true);
     }
@@ -946,7 +950,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   function groundHeight(position) {
     const rail=railHeight(position.x,position.y);
     if(rail!=null)return rail;
-    if(interiorAt(position.x,position.y))return stairHeight(position)??0;
+    if(interiorAt(position.x,position.y))return cultureHeight(position.x,position.y)??stairHeight(position)??0;
     const terrain=outsideGroundOffset(position);
     const river=cheonggyeLevel(position);
     if(river!=null)return terrain+river;
@@ -1391,7 +1395,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
       for(let sample=1,count=Math.ceil(distance/.20);sample<=count;sample++){
         const step=distance*sample/count;
         const point={x:pivot.x+300+arm.x*step,y:pivot.z+225+arm.z*step};
-        const terrain=indoors?railHeight(point.x,point.y)??0:outsideGroundOffset(point);
+        const terrain=indoors?cultureHeight(point.x,point.y)??railHeight(point.x,point.y)??0:outsideGroundOffset(point)+Math.min(0,approachAt(point.x,point.y)?.height??0);
         const y=pivot.y+arm.y*step;
         const roof=lowerStream?cheonggyeCameraCeiling(point.x,point.y):null;
         const roofCollision=roof!=null&&pivot.y<terrain+roof+.05&&y>terrain+roof-.20;

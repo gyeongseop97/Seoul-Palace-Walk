@@ -1,5 +1,5 @@
 """Bake the Seoul Station approach from an OSM /map XML extract (Shapely 2).
-BBox 126.9680,37.5531,126.9788,37.56525. Coordinates are metres in layout.js.
+BBox 126.96790,37.55120,126.9788,37.56525. Coordinates are metres in layout.js.
 The original geometry is © OpenStreetMap contributors, ODbL 1.0.
 """
 import json
@@ -31,6 +31,8 @@ def dumped(value): return json.dumps(value,ensure_ascii=False,separators=(",",":
 
 spine=LineString([(485,380),(476,425),(381,748),(347,805),(291,858),(249,947),(106,1189),(105,1340),(104,1537)])
 scope=spine.buffer(66).union(box(-19,1201,206,1518)).intersection(box(-100,399,610,1530))
+# West taxi plaza, both sides of Hangang-daero and the approaches to exits 10–15.
+scope=scope.union(box(-248,1260,218,1730))
 # Meet both existing mapped city-hall subway pavements at the southern kerb line.
 joins=[LineString([(434,404),(443,409),(457,416),(459,427)]).buffer(3.2),
        LineString([(519,394),(511,403),(502,421),(496,435)]).buffer(3.6)]
@@ -122,7 +124,17 @@ squares.append(gate.buffer(12).intersection(Polygon([(280,890),(330,837),(363,81
 for n in root.findall("node"):
     p=nodes[n.get("id")]
     if tags(n).get("natural")=="tree" and scope.covers(Point(p)):trees.append(p)
-used=merge(built)
+# Cut the subway escalator well from every at-grade paving layer.
+down=LineString([(17.7,1415.4),(34.7,1407.7)]).buffer(2.22,cap_style="flat")
+used=merge(built+[down])
+squares.extend([box(23.6,1311.5,40,1335),LineString([(-182.5,1322.2),(-190,1322.2),(-205,1323),(-211,1330)]).buffer(3.1),
+                Polygon([(-201,1499),(-168,1499),(-160,1523),(-195,1557),(-204,1546)]),
+                LineString([(-196.2,1592.1),(-198,1578),(-201,1547)]).buffer(3),
+                LineString([(26.5,1323),(40,1323),(42,1290),(14,1260)]).buffer(3.2)])
+for px,py,heading in [(199.83,1524.46,180),(142.71,1593.60,180),(108.93,1697.06,0),
+                      (70.54,1683.50,0),(84.52,1579.23,180),(-196.16,1592.12,0),(12.60,1260.83,90)]:
+    a=math.radians(heading)
+    walk.append(LineString([(px,py),(px+7*math.sin(a),py+7*math.cos(a))]).buffer(2.6))
 surfaces=[]
 def add(kind,shape,angle=None):
     global used

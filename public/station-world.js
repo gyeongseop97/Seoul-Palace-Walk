@@ -1,3 +1,4 @@
+import {stationFrontage,lettering} from "./station-frontage.js";
 import {stationSurfaces,stationBuildings,stationTrees,seoulloDeck} from "./station-data.js";
 import {southWorldSurfaceHeight as ground,southWorldTerrainHeight,gradePalaceMeshes} from "./gyeongbok-terrain.js";
 import {standSign} from "./regional-stands.js";
@@ -40,11 +41,11 @@ export function* buildStationBand(T,root,kit,band){
     if(++count%16===0)yield;
   }
   yield* gradePalaceMeshes(T,paving,southWorldTerrainHeight);
-  const bottom=[383,720,1120][band],top=[720,1120,1660][band];
+  const bottom=[383,720,1120][band],top=[720,1120,1800][band];
   const support=new T.PlaneGeometry(1000,top-bottom,32,Math.ceil((top-bottom)/22));support.rotateX(-Math.PI/2);
   support.translate(wx(225),0,wz((top+bottom)/2));
   const pos=support.attributes.position;
-  for(let i=0;i<pos.count;i++)pos.setY(i,ground({x:pos.getX(i)+300,y:pos.getZ(i)+225})-1.6);
+  for(let i=0;i<pos.count;i++)pos.setY(i,ground({x:pos.getX(i)+300,y:pos.getZ(i)+225})-(band===2?8:1.6));
   support.computeVertexNormals();root.add(new T.Mesh(support,matte(0x838374)));
   function groupAt(x,y,angle=0){
     const group=new T.Group();group.position.set(wx(x),ground({x,y}),wz(y));group.rotation.y=angle;root.add(group);return group;
@@ -105,10 +106,21 @@ export function* buildStationBand(T,root,kit,band){
         dome(bay,0,13.34,0,3.1,2.2,4.55,bronze);
       }
     }
-    for(const z of [-8.2,-4.1,0,4.1,8.2]){
-      box(0x53433f,7.52,4.2,z,.45,6.2,2.86,g);box(stone,7.94,3.57,z-1.63,.57,7.1,.47,g);
-      dome(g,7.52,7.23,z,.31,1.45,1.43,window);
+    // The plan shows three double-leaf doors behind the projecting stone vestibule.
+    box(0xa3876d,7.35,3.82,0,.64,7.64,15.2,g);
+    for(const z of [-4.05,0,4.05]){
+      box(0x644938,7.83,2.52,z,.38,5.04,3.45,g);
+      for(const side of [-1,1]){
+        const u=z+side*.73;
+        box(0x557070,8.05,2.15,u,.15,3.91,1.29,g);
+        box(0x7f5c42,8.16,.51,u,.10,.83,1.28,g);
+        box(0xcab391,8.17,2.90,u,.10,.09,1.27,g);
+        box(0xc4ae7a,8.22,1.31,z+side*.18,.10,.58,.08,g);
+      }
+      box(stone,8.09,4.88,z,.51,.26,3.72,g);
+      dome(g,8.06,5.03,z,.22,1.35,1.63,window);
     }
+    box(0xb6a48c,8.26,.085,0,.62,.17,12.4,g);
     box(0x975d4c,-1.4,12.2,0,13,4.8,17.6,g);
     box(stone,-1.4,14.46,0,14.2,.56,18.4,g);
     const drum=cylinder(stone,-1.4,14.27,0,1,.64,32,g);
@@ -121,13 +133,27 @@ export function* buildStationBand(T,root,kit,band){
     }
     cylinder(bronze,-1.4,24,0,.62,2.1,12,g);
     dome(g,-1.4,24.92,0,.76,.68,.76,bronze);cylinder(bronze,-1.4,26,0,.10,1.2,10,g);
+    const rto=groupAt(11.05,1259,Math.PI/2);
+    box(stone,0,2.5,0,4.1,5,.29,rto);box(window,0,1.98,.17,3.12,3.96,.18,rto);
+    for(const side of [-1,1])box(0xd5c7ab,side*.76,2.05,.28,.075,3.7,.08,rto);
+    lettering(T,rto,"RTO",0,4.45,.24,2.0,.60);
     const front=new T.Group();front.position.set(8.65,7.65,0);front.rotation.y=Math.PI/2;g.add(front);
-    standSign(T,front,"문화역서울284",null,7.8,0,0,0,"#57493e","#fff0cf",1.05);
+    lettering(T,front,"문화역서울284",0,0,0,7.8,.9);
+    const clock=new T.Mesh(new T.CircleGeometry(.9,40),matte(0xf5e6ca));front.add(clock);clock.position.set(0,4.25,1);
+    for(let i=0;i<12;i++){const a=i*Math.PI/6;box(0x463c33,.73*Math.sin(a),4.25+.73*Math.cos(a),1.03,.055,.13,.03,front).rotation.z=-a;}
+    const hand=box(0x3f3932,.17,4.45,1.06,.06,.54,.04,front);hand.rotation.z=-.65;
+    box(0x3f3932,-.26,4.25,1.07,.53,.063,.04,front);
   }
   function terminal(){
     const g=groupAt(terminalPose.x,terminalPose.y,terminalPose.angle);g.name="서울역";
     g.position.y+=stationRise;
     box(0xa4aaa9,0,-stationRise/2,0,47,stationRise,8,g);
+    // Ground-level shop windows remain visible under the raised KTX forecourt.
+    for(let i=0;i<9;i++){
+      const x=(i-4)*4.95;box(i%3?0x65858d:0x4e686e,x,-3.18,4.08,4.65,4.17,.15,g);
+      box(0xb8b5a6,x,-1.04,4.24,4.94,.51,.32,g);
+      for(const u of [-2.26,0,2.26])box(0xbac4c2,x+u,-3.16,4.2,.10,4.04,.13,g);
+    }
     const silver=0xc1c9c8,glaze=0x597b87;
     const span=47,half=span/2;
     box(glaze,0,9.4,0,span,18.8,8,g);
@@ -135,6 +161,17 @@ export function* buildStationBand(T,root,kit,band){
       const tint=[0x517682,0x70909b,0x688a94,0x436473][(col+row+(col%3)*row)%4];
       box(tint,(col-5.5)*3.84,4+row*2.87,4.04,3.72,2.76,.09,g);
     }
+    const ref=document.createElement("canvas");ref.width=512;ref.height=192;
+    const ct=ref.getContext("2d"),sky=ct.createLinearGradient(0,0,0,192);
+    sky.addColorStop(0,"#688f9f");sky.addColorStop(.55,"#527b8e");sky.addColorStop(.7,"#6c8a96");sky.addColorStop(1,"#385b6b");
+    ct.fillStyle=sky;ct.fillRect(0,0,512,192);
+    for(let i=0;i<25;i++){
+      const x=i*22,h=8+Math.abs(Math.sin(i*8.39))*27;
+      ct.fillStyle=i%2?"rgba(42,69,84,.18)":"rgba(194,209,211,.15)";ct.fillRect(x,192-h,21,h);
+    }
+    const tex=new T.CanvasTexture(ref);tex.colorSpace=T.SRGBColorSpace;
+    const pane=new T.Mesh(new T.PlaneGeometry(span,14.45),new T.MeshBasicMaterial({map:tex,color:0xc6d2d5}));
+    pane.position.set(0,11.50,4.101);g.add(pane);
     for(const x of [-14,-7,0,7,14]){
       box(0xc1cbcc,x,2.05,4.26,5.68,4.08,.21,g);
       for(const side of [-1,1]){box(0x314d5c,x+side*1.33,1.91,4.43,2.49,3.65,.10,g);box(0xa6b7b8,x+side*.35,1.25,4.54,.08,.72,.08,g);}
@@ -151,7 +188,7 @@ export function* buildStationBand(T,root,kit,band){
     for(let h=2;h<19;h+=3.2)box(silver,0,h,4.16,span,.17,.22,g);
     const canopy=box(silver,0,17.6,7.4,span+2,.55,7,g);canopy.rotation.x=.14;
     for(const z of [-7,4.1])for(const x of [-20,-8,8,20])cylinder(0x98a6a5,x,7.9,z,.45,16,10,g);
-    standSign(T,g,"서울역","SEOUL STATION",11.6,0,14.2,4.4,"#274965","#ffffff",2.35);
+    lettering(T,g,"서울역  Seoul Station",0,14.2,4.88,25,2.8);
     buildStationApproaches(T,root,kit,ground);
   }
   function sungnyemun(){
@@ -208,11 +245,13 @@ export function* buildStationBand(T,root,kit,band){
     const center=b.rings[0].reduce((p,[x,y],_,a)=>({x:p.x+x/a.length,y:p.y+y/a.length}),{x:0,y:0});
     if(bandOf(center.y)!==band)continue;
     if(b.kind==="gate")sungnyemun();
-    else{
+    else if(b.kind==="terminal"||b.kind==="stationWing"){
+      stationFrontage(T,kit,{groupAt,beam,ground},b);
+      if(b.kind==="terminal")terminal();
+    }else{
       const wall=b.kind==="historic"?brick:b.kind==="terminal"?facades[4]:b.kind==="squareOffice"?facades[5]:facades[Number(b.id)%5||0];
       shell(b,wall,b.kind==="historic"?0x495b59:b.kind==="terminal"?0x9aa8a7:0x858984,b.kind==="historic"?9.8:b.height);
       if(b.kind==="historic")oldStation();
-      if(b.kind==="terminal")terminal();
     }
     if(++count%6===0)yield;
   }

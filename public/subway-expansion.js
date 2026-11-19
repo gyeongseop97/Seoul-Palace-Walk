@@ -47,6 +47,10 @@ export const expandedSubwayStops=[
   entrance("station",4,137.7,1155,35),entrance("station",5,130.8,1191.8,80),entrance("station",6,155.7,1227.3,70),
   entrance("station",7,184.3,1237.4,180),entrance("station",8,171.8,1292.6,180),entrance("station",9,155.5,1317.4,180),
   entrance("station","9-1",110.3,1426.8,0),
+  entrance("station",10,199.83,1524.46,180),entrance("station",11,142.71,1593.60,180),
+  entrance("station",12,108.93,1697.06,0),entrance("station",13,70.54,1683.50,0),
+  entrance("station",14,84.52,1579.23,180),entrance("station",15,-196.16,1592.12,0),
+  {...entrance("station","경의1",12.6,1260.83,90),name:"경의중앙선 서울역 1번 출구"},
   entrance("city",1,461.2,354.4,0),entrance("city",4,523.2,105,0),entrance("city",5,525.3,187.4,0),
   entrance("city",6,547.8,328.6,0),entrance("city",7,518.3,388.3,0),entrance("city",12,434.7,395.8,0),
   entrance("plaza",1,299.5,-452.5,0),entrance("plaza",2,522.6,-521.7,0),entrance("plaza",3,526.4,-384.9,0),
@@ -80,7 +84,7 @@ addZone({name:"지하철 출입구 보행로",
 addLandmarks(expandedSubwayStops.map(stop=>({...stop.arrive,name:stop.name})));
 
 export function registerExpandedSubway(){
-  for(const stop of expandedSubwayStops)addObstacle(stop.x,stop.y,2.42,4.9,stop.angle);
+  for(const stop of expandedSubwayStops)if(stop.id!=="station-exit-1")addObstacle(stop.x,stop.y,2.42,4.9,stop.angle);
 }
 
 function* buildSubwayPavements(T,root,{wx,wz,matte},terrainHeight){
@@ -129,6 +133,7 @@ export function* buildSubwayAccess(T,root,kit,floorAt,{terrainHeight,stationBand
   if(!stationBand)yield* buildSubwayPavements(T,root,kit,terrainHeight);
   for(const stop of expandedSubwayStops){
     if(stationBand?stop.area!=="station"||stop.y<stationBand[0]||stop.y>=stationBand[1]:stop.area==="station")continue;
+    if(stop.id==="station-exit-1")continue; // The two glass-covered flights share the plaza mesh.
     const group=new T.Group();group.name=stop.name;
     group.position.set(wx(stop.x),floorAt(stop),wz(stop.y));
     group.rotation.y=stop.angle;root.add(group);

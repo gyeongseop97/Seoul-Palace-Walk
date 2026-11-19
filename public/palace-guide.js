@@ -1,3 +1,4 @@
+import {culturePart} from "./culture-station-layout.js";
 import {bridge,clearSegment,courtAngle,gate,hall,middle,palacePond,pavilions,stoneFountain,stoneHall,walkable} from "./layout.js";
 import {fromBuilding} from "./museum.js";
 import {isInsideMuseum} from "./visit-layout.js";
@@ -180,7 +181,23 @@ function squaredDistance(a,b){
   return (a.x-b.x)**2+(a.y-b.y)**2;
 }
 
+const cultureDescriptions={
+ hall:"정문 안쪽 중앙홀은 천장이 약 17m까지 열립니다. 기둥 사이의 아치와 머리 위 스테인드글라스를 올려다보세요.",
+ first:"1·2등 승객이 기차를 기다리던 곳입니다. 중앙홀 건너편에는 더 넓은 3등 대합실이 있습니다.",
+ third:"3등 승객의 대합실입니다. 넓게 트인 바닥과 높은 천장 너머로 서측복도가 이어집니다.",
+ vip:"귀빈을 맞던 방입니다. 벽난로와 인접한 예비실을 살펴보세요.",
+ ladies:"1·2등 여성 승객을 위한 별도의 대기 공간이었습니다.",
+ office:"역장이 근무하던 공간입니다. 귀빈실과 대합실 사이에 자리합니다.",
+ west:"긴 서측복도는 서로 다른 등급의 대합실과 역무 공간 뒤를 연결합니다.",
+ grill:"그릴은 경성역 2층에서 운영되던 서양식 식당입니다. 붉은 바닥과 높은 천장을 지나 랑하복도로 나갈 수 있습니다.",
+ restoration:"과거 이발소와 화장실이 있던 자리입니다. 오늘날 복원전시실에서는 역사의 복원 과정과 건축 부재를 소개합니다.",
+ small:"그릴 옆 소식당입니다. 공개 평면도에는 약 43㎡의 방으로 기록되어 있습니다.",
+ conference:"옛 회의실입니다. 중앙홀 위의 빈 공간을 돌아 이곳까지 이어지는 복도를 살펴보세요.",
+ rto:"RTO는 군용 철도 수송 업무에 쓰였습니다. 지금은 문화역서울284의 공연과 체험을 위한 공간입니다."
+};
 export function nearbyPalaceGuide(position){
+  const room=culturePart(position.x,position.y)?.r,description=room&&cultureDescriptions[room.key];
+  if(description)return {title:room.name,description,source:"https://www.kcdf.or.kr/cms/content/view/217"};
   if(isInsideMuseum(position.x,position.y)||!walkable(position.x,position.y))return null;
   let result=null,bestDistance=guideDistance*guideDistance;
   for(const {site,points,radiusSquared,entry} of guides){

@@ -1,4 +1,4 @@
-import {concourseParts,hallOrigin,liftAt,liftBanks,floorName,partAt,railPoint,storeys} from "./station-levels.js";
+import {concourseParts,metroInsidePoint,hallOrigin,liftAt,liftBanks,floorName,partAt,railPoint,storeys} from "./station-levels.js";
 import {stationHall,railPlatform} from "./rail-station-layout.js";
 import {stationDining} from "./dining-data.js";
 import {buildRailRoom} from "./rail-station-world.js";
@@ -78,7 +78,7 @@ export function* buildStationComplex(T,root,kit,venue,walkerModels){
     }else if(!["hall","platform","dining"].includes(style)){
       box(style==="garden"?0xa8a994:style==="bridge"?0xbac5c2:tiles,x,h-.17,z,w,.34,d);
       for(let v=z0+2;v<z1;v+=2)box(0xa1a79f,x,h+.004,v,w,.008,.025);
-      if(["west","retail","transfer","arcade","terminal","gates","arexPlatform"].includes(style)){
+      if(["west","retail","transfer","arcade","terminal","gates","metro","arexPlatform"].includes(style)){
         box(0xdadbd3,x,h+5.8,z,w,.22,d);
         for(let v=z0+2;v<z1;v+=5)box(0xffeed0,x,h+5.63,v,Math.min(5,w*.65),.065,.22);
         for(const u of [x0+.25,x1-.25])for(const v of [z0+.4,z1-.4])box(metal,u,h+2.85,v,.28,5.7,.28);
@@ -121,6 +121,33 @@ export function* buildStationComplex(T,root,kit,venue,walkerModels){
       }
       sign(x,h+3.4,z0+6,"공항철도 서울역","직통 · 일반열차",0,4);
     }
+    if(style==="atrium"){
+      box(0xd9ddd7,x,10.85,z,w,.25,d);
+      for(let u=x0+2;u<x1;u+=5.4){
+        beam([u,8.8,z0],[u,10.45,z1],.24,0x3066a2);
+        for(let k=0;k<3;k++)beam([u,8.9+k*.49,z0+k*d/3],[u,10.52,z0+(k+1)*d/3],.16,0xe4e4db);
+      }
+      if(z1===19)for(let u=x0+1;u<x1;u+=3.6){
+        box(0x90afb9,u,5.34,z1-.1,3.51,10.4,.16);box(0xdce2df,u-1.76,5.34,z1-.14,.14,10.6,.30);
+      }
+      box(0xc2a56d,x,.023,z,w,.024,.32);
+    }
+    if(style==="atrium"&&x0===-56&&z0===10){
+      box(0x233e49,x,4.35,z1-.4,23,1.65,.24);
+      for(const [index,title] of ["KTX  타는 곳","열차 출발 안내","서부광장  →"].entries())sign(x+(index-1)*7.45,4.35,z1-.58,title,"SEOUL STATION",Math.PI,6.9);
+    }
+    if(style==="metro"){
+      for(let v=z0+3;v<z1;v+=6){
+        kit.cylinder(0xe3e3db,x,h+2.55,v,.44,5.1,16,hall);
+        box(0xe9c467,x-3.5,h+.018,v,.28,.024,6);
+      }
+      for(const number of [2,3,4,5,6,7,8,9,"9-1",10,11,12,13,14]){
+        const pt=metroInsidePoint(number),xx=pt.x-hallOrigin.x,zz=pt.y-hallOrigin.y,left=xx<x;
+        const doorX=left?x0+.26:x1-.26;
+        box(0x4b6168,doorX,h+1.55,zz,.21,3.1,2.2);
+        sign(doorX+(left?.20:-.20),h+3.42,zz,number+"번 출구","EXIT",left?Math.PI/2:-Math.PI/2,2.7);
+      }
+    }
     if(style==="garden")for(let i=0;i<6;i++){
       const u=x0+1.8+(i%3)*4.8,v=z0+2+Math.floor(i/3)*8;
       box(0xb0aba0,u,h+.31,v,2.8,.62,2.1);
@@ -134,8 +161,12 @@ export function* buildStationComplex(T,root,kit,venue,walkerModels){
   sign(35,3.1,6,"쇼핑 · 마트","MARKET", -Math.PI/2);
   sign(44,2.95,10,"쇼핑동 데크 출입구","PLAZA EXIT",Math.PI);
   sign(-72,3.15,-5.6,"↓ 공항철도 · 환승통로","AREX   /   METRO",0,6);
-  sign(-74,2.95,11,"서부 출입구","WEST EXIT",Math.PI/2);
+  sign(-98,2.95,11,"서부 출입구","WEST EXIT",Math.PI/2);
   sign(-72,-7.5,-44.8,"지하철 1 · 4호선   공항철도","환승통로",0,7.3);
+  sign(-101,-7.7,-42,"15번 출구","서부광장",0,3.7);
+  sign(45,3.2,0,"경의중앙선","지상 출입구",0,3.6);
+  sign(38,3,0,"마트 서쪽 출입구","WEST PLAZA",0,4.0);
+  sign(38,3,15,"북측 보행육교","PEDESTRIAN BRIDGE",Math.PI,3.8);
   sign(-19,8.25,-49,"3F 식당가","FOOD HALL",0);
   sign(-31,8.4,-70,"4F ↑ 옥상정원 · 상가","ROOF GARDEN",0);
   sign(-21,12.8,-100,"옥상정원  →","THE ROOF ATELIER",0);

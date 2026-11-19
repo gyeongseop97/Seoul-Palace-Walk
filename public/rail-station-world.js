@@ -38,12 +38,13 @@ export function* buildRailRoom(T,root,kit,venue){
     ceilingLight(7,5,15,52,27);ceilingLight(0,7,-15,60,32);
     paving(42,58,2.2,0xd3cec0);
     for(const side of [-1,1]){
-      for(const [z,len] of (side<0?[[20,18]]:[[-14,30],[20,18]]))box(0xb7c6c9,side*21,4.25,z,.27,8.5,len);
+      for(const [z,len] of (side<0?[[25,8]]:[[-14,30],[20,18]]))box(0xb7c6c9,side*21,4.25,z,.27,8.5,len);
       if(side>0)box(0xd3d6d0,0,4.25,29,42,8.5,.27);
       else box(0xb4c6c8,0,7.6,-29,42,1.8,.22);
       for(let z=-26;z<=26;z+=4)if(z<1||z>10)box(0x778d92,side*20.79,5.5,z,.14,4.6,.115);
       for(let z=-25;z<=25;z+=5){
         if(z>=0&&z<=10)continue;
+        if(side<0&&z<21&&z>=10)continue;
         box(0x9db7bd,side*20.84,6.35,z,.1,2.35,4.81);
         box(0xe0dcd1,side*20.8,3.1,z,.2,.28,5);
       }
@@ -61,16 +62,17 @@ export function* buildRailRoom(T,root,kit,venue){
     const skylightMaterial=new T.MeshBasicMaterial({color:0xd9e5db});
     for(let z=-27;z<=27;z+=6){
       for(const side of [-1,1]){
-        girder(room,[side*20.9,7.9,z],[0,10.1,z],.27,silver);
-        girder(room,[side*20.9,7.4,z],[0,9.6,z],.14,silver);
-        for(let x=2;x<20;x+=4)girder(room,[side*x,9.75-x*.105,z],[side*(x+2),9.4-(x+2)*.105,z],.08,slate);
+        girder(room,[side*20.9,7.9,z],[0,10.1,z],.31,0x316aa2);
+        girder(room,[side*20.9,6.9,z],[0,8.8,z],.20,0x34679a);
+        for(let x=2;x<20;x+=4)girder(room,[side*x,9.96-x*.105,z],[side*(x+2),8.8-(x+2)*.10,z],.12,0xe5e8df);
         const roof=box(0xc6d2d1,side*10.5,9.16,z,21.2,.12,5.97);roof.rotation.z=-side*.102;
       }
       const lightwell=box(0xe0eff0,0,9.46,z,2.2,.06,5.85);lightwell.material=skylightMaterial;
       box(0xfbf1d4,0,9.39,z,5.5,.06,.16);
     }
     for(const [x,z] of hallColumns){
-      rod(silver,x,3.85,z,.33,7.7);rod(0x73838a,x,.38,z,.41,.76);
+      box(0xa07155,x,.66,z,1.08,1.32,1.08);box(0xc3a386,x,1.39,z,1.17,.12,1.17);
+      for(const d of [-.18,.18])for(const e of [-.18,.18])rod(0xe0e4dc,x+d,4.6,z+e,.15,6.42);
     }
     for(const [x,z] of waitingRows)seats(room,x,z,2.1,2,0x648085);
     const tickets=group(-16,-13,Math.PI/2);
@@ -81,7 +83,7 @@ export function* buildRailRoom(T,root,kit,venue){
     }
     sign(tickets,"표 사는 곳","TICKETS",8,0,3.55,3.12);
     const entry=group(0,28.77,Math.PI);
-    for(const x of [-2.25,0,2.25]){
+    for(const x of [-14,-7,0,7,14]){
       box(0x677e88,x,1.55,.06,2.13,3.15,.22,entry);box(0xabc8c8,x,1.55,.21,1.89,2.89,.1,entry);
     }
     sign(entry,"서울역광장 출구","EXIT",5.9,0,3.9,.25);

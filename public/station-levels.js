@@ -16,7 +16,15 @@ export const stationApproaches=[
   {a:[-154.9,1390.5],b:[-131.6,1390],w:7,h0:0,h1:stationRise,kind:"stairs"},
   {a:[-155,1390.5],b:[-162,1390.5],w:12,h0:0,h1:0,kind:"square"},
   {a:[17.7,1415.4],b:[3.1,1422],w:4.2,h0:0,h1:stationRise,kind:"escalator"},
-  {a:[3.1,1422],b:[-9,1426],w:6,h0:stationRise,h1:stationRise,kind:"deck"}
+  {a:[3.1,1422],b:[-9,1426],w:6,h0:stationRise,h1:stationRise,kind:"deck"},
+  {a:[32.3,1408.8],b:[17.7,1415.4],w:4.2,h0:-4.8,h1:0,kind:"escalator"},
+  {a:[34.7,1407.7],b:[32.3,1408.8],w:4.2,h0:-4.8,h1:-4.8,kind:"lowerLanding"},
+  {a:[37.5,1435.0],b:[12.3,1435.6],w:3.95,h0:0,h1:stationRise,kind:"escalator",open:true},
+  {a:[12.3,1435.6],b:[12.3,1443.9],w:4.3,h0:stationRise,h1:stationRise,kind:"deck"},
+  {a:[47.7,1478],b:[24.2,1489.5],w:8,h0:0,h1:stationRise,kind:"stairs"},
+  {a:[24.2,1489.5],b:[34.6,1501.8],w:10,h0:stationRise,h1:stationRise,kind:"deck"},
+  {a:[-198.2,1528.8],b:[-169.6,1517.8],w:11,h0:0,h1:stationRise,kind:"stairs"},
+  {a:[-169.6,1517.8],b:[-163.6,1515.5],w:11,h0:stationRise,h1:stationRise,kind:"deck"}
 ];
 export function segmentFrame(s){
   const dx=s.b[0]-s.a[0],dy=s.b[1]-s.a[1],len=Math.hypot(dx,dy);
@@ -24,7 +32,7 @@ export function segmentFrame(s){
 }
 for(const s of stationApproaches)Object.assign(s,segmentFrame(s));
 export function approachAt(x,y){
-  if(x< -170||x>48||y<1378||y>1497)return null;
+  if(x< -207||x>57||y<1378||y>1542)return null;
   let result=null,best=Infinity;
   for(const s of stationApproaches){
     const dx=x-s.a[0],dy=y-s.a[1],t=dx*s.ux+dy*s.uy,side=dy*s.ux-dx*s.uy;
@@ -52,14 +60,14 @@ function approachNetwork(){
         node.edges.push([other,d]);other.edges.push([node,d]);
       }
       nodes.push(node);
-      if(i===0&&s.kind==="stairs")feet.push(node);
+      if(i===0&&s.h0===0&&s.h1!==0)feet.push(node);
     }
   }
   return deckNetwork={nodes,feet};
 }
 export function approachRoute(from,to,groundPath){
   const start=approachAt(from.x,from.y),end=approachAt(to.x,to.y);
-  const raised=(p,flag)=>p&&(p.s.h0!==p.s.h1||p.s.kind==="deck"&&flag);
+  const raised=(p,flag)=>p&&(p.s.h0!==p.s.h1||p.s.kind==="lowerLanding"||p.s.kind==="deck"&&flag);
   const onDeck=raised(start,from.up),toDeck=raised(end,to.up!==false);
   if(!onDeck&&!toDeck)return null;
   const {nodes,feet}=approachNetwork();
@@ -143,7 +151,11 @@ export const concourseParts=[
   slab("station-hall","3층 엘리베이터 통로",-12,-8.75,-51.4,-48.6,5.1,"bridge"),
   slab("station-hall","4층 엘리베이터 통로",-8.65,-5.85,-87,-51.5,9.6,"bridge"),
   slab("station-hall","서울역 승강기",-8.75,-5.75,-51.5,-48.5,0,"lift"),
-  slab("station-hall","2층 동서 자유통로",-56,-21,2,10,0,"bridge"),
+  slab("station-hall","2층 동서 자유통로",-56,-21,2,10,0,"atrium"),
+  slab("station-hall","중앙 맞이방",-56,-21,10,19,0,"atrium"),
+  slab("station-hall","서부 출입홀",-101,-77,2,19,0,"atrium"),
+  slab("station-hall","1·4호선 출입구 연결통로",-58,-39,-46,-35,-10.8,"transfer"),
+  slab("station-hall","서울역 지하 보행홀",-56,-39,-35,0,-10.8,"metro"),
   slab("station-hall","서울역 서부 맞이방",-77,-56,-7,19,0,"west"),
   flight("공항철도 환승 계단",-74,-66,-34,-7,-10.8,0),
   slab("station-hall","지하 환승통로",-81,-58,-46,-34,-10.8,"transfer"),
@@ -167,9 +179,18 @@ export const concourseParts=[
   slab("station-hall","3층 상가 연결통로",-60,-36,-68,-62,5.1,"bridge"),
   slab("station-hall","서울역 3층 상가",-74,-60,-73,-57,5.1,"retail")
 ];
-export const westExit={inside:railPoint(-75,9),outside:{x:-155.8,y:1390.5,heading:270}};
+export const westExit={inside:railPoint(-98,9),outside:{x:-165.4,y:1516.2,heading:270,up:true}};
+export const northBridgeExit={inside:railPoint(38,14),outside:{x:-155.8,y:1390.5,heading:270}};
+export const rearMarketExit={inside:railPoint(38,1),outside:{x:-183.2,y:1322.2,heading:270}};
 export const marketExit={inside:railPoint(44,8),outside:{x:-62.7,y:1408.4,heading:180,up:true}};
-export const subwayExit={inside:railPoint(-78,-39),outside:{x:23.05,y:1415.4,heading:90}};
+export const subwayExit={inside:railPoint(-78,-39),outside:{x:33.4,y:1408.25,heading:290}};
+const metroNumbers=[2,3,4,5,6,7,8,9,"9-1",10,11,12,13,14,15,"경의1"];
+export function metroInsidePoint(number){
+  if(number==="경의1")return railPoint(45,1);
+  if(number===15)return railPoint(-101,-41);
+  const i=metroNumbers.indexOf(number);
+  return railPoint(i<7?-54:-41,-32+(i%7)*4.6);
+}
 export function partAt(x,y){
   const u=x-hallOrigin.x,z=y-hallOrigin.y;
   if(u< -118.01||u>48.01||z< -144.01||z>29.01)return null;

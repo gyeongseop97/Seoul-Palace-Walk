@@ -6,7 +6,9 @@ import {ktxCoach,railCounters,railPlatform,railRooms,registerRailFurniture,seatR
 import {interiorAt} from "../public/interior-layout.js";
 import {registerDiningNavigation} from "../public/dining-layout.js";
 import {stationDining} from "../public/dining-data.js";
-import {registerExpandedSubway} from "../public/subway-expansion.js";
+import {cultureVenues,cultureFrontDoors} from "../public/culture-station-layout.js";
+import {metroInsidePoint,westExit,rearMarketExit} from "../public/station-levels.js";
+import {expandedSubwayStops,registerExpandedSubway} from "../public/subway-expansion.js";
 import {busAt,busStops,BUS_CYCLE_MS} from "../public/sejong-bus.js";
 
 const seats=[];
@@ -52,6 +54,27 @@ assert(walkable(subwayExit.outside.x,subwayExit.outside.y),"지하철 출구 보
 const eastRoute=approachRoute(square,stationHall.outsideDoor,planWalk);
 assert(eastRoute?.some(p=>Math.hypot(p.x-37.5,p.y-1443.3)<.5),"광장에서 계단을 거쳐 정문으로");
 assert.deepEqual(eastRoute.at(-1),stationHall.outsideDoor);
+for(const venue of cultureVenues){
+  for(const r of venue.rooms){
+    const p={x:venue.center.x+(r.x0+r.x1)/2,y:venue.center.y+(r.z0+r.z1)/2};
+    reachable(venue.insideSpawn,p,venue.name+" → "+r.name);
+  }
+  assert(walkable(venue.outsideDoor.x,venue.outsideDoor.y),venue.name+" 외부 착지");
+}
+for(const door of cultureFrontDoors){
+  assert(walkable(door.outside.x,door.outside.y));
+  reachable(cultureVenues[0].insideSpawn,door.inside,"중앙홀 현관 출입문");
+}
+const metroStops=expandedSubwayStops.filter(s=>s.area==="station");
+assert.equal(metroStops.length,17);
+for(const stop of metroStops){
+  const outside=stop.number===1?subwayExit.outside:stop.arrive;
+  const inside=stop.number===1?subwayExit.inside:metroInsidePoint(stop.number);
+  assert(walkable(outside.x,outside.y),stop.name+" 광장 보도");
+  reachable(railPoint(-70,-40),inside,stop.name+" 실내 접근");
+}
+for(const p of [westExit.outside,rearMarketExit.outside])assert(walkable(p.x,p.y));
+assert(approachAt(subwayExit.outside.x,subwayExit.outside.y).height< -4);
 const roadKinds=new Set(["road","crossing","shared"]);
 assert.equal(stationGround(45.6,1390),"shared","서울역 택시 승차장 진입로");
 for(let t=0;t<BUS_CYCLE_MS;t+=200){
