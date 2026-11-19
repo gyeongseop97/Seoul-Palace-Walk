@@ -23,9 +23,10 @@ import { hanbokRental,registerHanbokRental } from "./passport-data.js";
 import { addHanbokRental } from "./wearables-models.js";
 import { assembleMuseum, registerMuseumNavigation, isInsideMuseum, museumOutsideDoor, museumInsideDoor, museumInsideSpawn, stairHeight } from "./museum.js";
 import { interiorAt } from "./interior-layout.js";
+import {railRooms,railRoomById,railCounters,registerRailFurniture} from "./rail-station-layout.js";
 import {semaVenue} from "./sema-layout.js";
 import { mmcaVenue,mmcaExhibits,mmcaWalls } from "./mmca-gallery-layout.js";
-import { diningTrayPose,diningVenues } from "./dining-data.js";
+import { diningTrayPose,diningVenues,stationDining } from "./dining-data.js";
 import { registerDiningNavigation } from "./dining-layout.js";
 import { buildDiningFacade } from "./dining-world.js";
 import { PET_MS, FEED_MS, ITEMS, diningTray, jumpLift, renderedJumpLift } from "./activities.js";
@@ -238,7 +239,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   const minigameProps=registerMinigameProps(floorHeight);
   const minigameWorld=makeMinigameWorld(T,outdoors,kit,floorHeight);
   const transportCount=transportRoot.children.length;
-  const stations=[...addStands(T,transportRoot,makeKit(transportRoot)),...regionalStations];
+  const stations=[...addStands(T,transportRoot,makeKit(transportRoot)),...regionalStations,...railCounters];
   const transportGround=transportRoot.children.slice(transportCount);
   outdoors.add(transportRoot);
   const picnicWorld=makePicnicWorld(T,outdoors,kit,floorHeight,createItemProp);
@@ -319,8 +320,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   outdoors.add(guideMarker,showMarker);
   registerMuseumNavigation();
   const bounds=semaVenue.bounds;
-  for(const x of [bounds.minX,bounds.maxX])addObstacle(x,511,.3,18);
-  for(const y of [bounds.minY,bounds.maxY])addObstacle(440,y,24,.3);
+  for(const x of [bounds.minX,bounds.maxX])addObstacle(x,(bounds.minY+bounds.maxY)/2,.3,bounds.maxY-bounds.minY);
+  for(const y of [bounds.minY,bounds.maxY])addObstacle((bounds.minX+bounds.maxX)/2,y,bounds.maxX-bounds.minX,.3);
   const {minX,maxX,minY,maxY}=mmcaVenue.bounds;
   const perimeter=[[minX,minY,maxX,minY],[minX,maxY,maxX,maxY],[minX,minY,minX,maxY],[maxX,minY,maxX,maxY]];
   for(const [x1,y1,x2,y2] of [...perimeter,...mmcaWalls]){
@@ -330,17 +331,19 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     for(const [dx,dy,width,depth,height] of obstacles)addObstacle(x+dx,y+dy,width,depth,0,height);
   }
   addObstacle(339,537.5,2.4,1.05,0,1.25);
-  registerDiningNavigation(benches);
+  registerDiningNavigation(benches,diningVenues.filter(v=>v!==stationDining));
   benches.push(...cheonggyeSeats);
+  registerDiningNavigation(benches,[stationDining]);
+  registerRailFurniture(addObstacle,benches);
   const museum={outsideDoor:museumOutsideDoor,insideDoor:museumInsideDoor,insideSpawn:museumInsideSpawn,
     id:"museum",name:"덕수궁 전시관",outsideName:"석조전 서관",isInside:isInsideMuseum,floorAt:stairHeight,exhibits:[]};
   const amenity=(point,label)=>({...point,kind:"activity",label});
   const interactionMarkers=makeInteractionMarkers(T,scene,{wx,wz,floorHeight},[
     ...COOKING_STALLS.map(stall=>amenity(stall,stall.kind==="hotteok"?"호떡 굽기":"붕어빵 굽기")),
     ...stations.map(station=>({...station,kind:"food",label:station.kind==="churu"?"츄르 사기":ITEMS[station.kind].name+" 받기"})),
-    ...[museum,mmcaVenue,semaVenue,ARCADE_SITE,...diningVenues].flatMap(venue=>[
-      {...venue.outsideDoor,kind:"enter",label:venue===ARCADE_SITE?"오락실 입장":diningById[venue.id]?"식당 입장":"전시관 입장"},
-      {...venue.insideDoor,kind:"exit",label:"나가기"}
+    ...[museum,mmcaVenue,semaVenue,ARCADE_SITE,...diningVenues,...railRooms].flatMap(venue=>[
+      {...venue.outsideDoor,kind:"enter",label:venue.enterLabel??(venue===ARCADE_SITE?"오락실 입장":diningById[venue.id]?"식당 입장":"전시관 입장")},
+      {...venue.insideDoor,kind:"exit",label:venue.exitLabel??"나가기"}
     ]),
     ...Object.values(ARCADE_STAIRS).flat().map(point=>amenity(point,point.name)),
     ...diningVenues.map(venue=>({...(venue.kioskPoint??venue.menuPoint),kind:"food",
@@ -542,13 +545,14 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     return {root,outsideDoor:venue.outsideDoor,load,*build(){
       const features=yield* this.module[builder](T,root,makeKit(root),venue,walkerModels);
       if(venue===ARCADE_THIRD_SITE)Object.assign(features,yield* buildClassics(T,features.room,makeKit(features.room)));
-      if(arcadeFloors.has(venue.id))yield* consolidate(root,new Set());
+      if(arcadeFloors.has(venue.id)||railRoomById[venue.id])yield* consolidate(root,new Set());
       this.view=features;
       return [];
     }};
   }
   const indoorsById={
     museum:gallery,
+    ...Object.fromEntries(railRooms.map(venue=>[venue.id,indoorDistrict(venue,()=>import("./rail-station-world.js"),"buildRailRoom")])),
     [semaVenue.id]:indoorDistrict(semaVenue,()=>import("./sema-gallery.js"),"buildSemaGallery"),
     [mmcaVenue.id]:indoorDistrict(mmcaVenue,()=>import("./mmca-gallery.js"),"buildMmcaGallery"),
     [ARCADE_SITE.id]:indoorDistrict(ARCADE_SITE,()=>import("./arcade-world.js"),"buildArcadeInterior"),
@@ -1106,6 +1110,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
       .lerp(fogHorizon,fog*.58).lerp(nightZenith,night).lerp(cloudNight,cloud*night*.55);
     scene.fog.color.copy(dayFog).lerp(warmHorizon,twilight*.34).lerp(cloudHorizon,cloud*.8)
       .lerp(fogHorizon,fog).lerp(nightFog,night);
+    scene.background=insideId==="ktx-platform"||insideId==="ktx-coach"?skyUniforms.horizon.value:null;
     scene.fog.density=indoors?.0039:.0039+cloud*.00065+fog*.016;
     hemi.color.copy(ambientDay).lerp(overcastAmbient,cloud*.58).lerp(ambientNight,night);
     hemi.groundColor.copy(season==="winter"?winterGround:ordinaryGround);
@@ -1370,7 +1375,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
       camera.rotateZ(fallWeight*.62);
       cameraDistance=0;
     }else{
-      const ceiling=arcadeFloors.has(insideId)?3.74:diningById[insideId]?4.5:4.97;
+      const ceiling=insideId==="ktx-coach"?2.68:insideId==="station-hall"?8:arcadeFloors.has(insideId)?3.74:diningById[insideId]?4.5:4.97;
       const distance=Math.min(outsideBus?11.8-view.zoom*1.15:4.55-view.zoom*.42,
         indoors&&arm.y>0?(ceiling-pivot.y)/arm.y:Infinity,tightStreamView?2.36:bathView?3.3:Infinity);
       let available=distance;

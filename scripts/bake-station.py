@@ -39,7 +39,8 @@ scope=scope.union(merge(joins))
 for bounds in [(309,437,393,547),(512,503.8,528,526.2),(472,569.8,488,592.2),(531,570,547,593)]:
     scope=scope.difference(box(*bounds))
 context=scope.buffer(52)
-road=[];walk=list(joins);cross=[];crossing_lines=[];grass=[];buildings=[];built=[];squares=[];platforms=[];trees=[]
+busways=[];road_centres=[];public_squares=[];parks=[]
+road=[];walk=list(joins);cross=[];crossing_lines=[];grass=[];buildings=[];built=[];squares=[];platforms=[];taxi_aprons=[];trees=[]
 for i,(t,pts) in ways.items():
     if len(pts)<2 or i in (767663127,767663128):continue  # Masonry parts of the Sungnyemun gate relation.
     ln=LineString(pts)
@@ -57,12 +58,22 @@ for i,(t,pts) in ways.items():
             built.append(part)
         continue
     if not scope.intersects(ln) and not (closed and pg.intersects(scope)):continue
-    if t.get("layer","0").startswith("-") or t.get("tunnel") or t.get("bridge") or t.get("access") in ("no","private"):continue
+    if t.get("layer","0").startswith("-") or t.get("tunnel") or t.get("bridge"):continue
     hw=t.get("highway")
+    if hw=="busway" and (t.get("bus") in ("yes","designated","permissive") or t.get("access") not in ("no","private")):
+        busways.append(ln.buffer(1.85));continue
+    footway=hw in ("footway","pedestrian","steps","path","cycleway","platform")
+    foot=t.get("foot")
+    if t.get("access") in ("no","private") and not (footway and foot in ("yes","designated","permissive")):continue
+    if footway and foot in ("no","private"):continue
+    if closed and t.get("place")=="square":public_squares.append(pg)
+    if closed and t.get("leisure")=="park":parks.append(pg)
     if closed and ((hw in ("pedestrian","footway") and t.get("area")=="yes") or t.get("area:highway") in ("footway","pedestrian")):
         squares.append(pg)
     elif hw=="platform" or t.get("public_transport")=="platform":
-        platforms.append(pg if closed else ln.buffer(2.15))
+        platform = pg if closed else ln.buffer(2.15)
+        platforms.append(platform)
+        if t.get("taxi")=="yes":taxi_aprons.append(platform)
     elif hw in ("pedestrian","footway","steps","path","cycleway"):
         if t.get("footway")=="crossing":
             dx,dy=pts[-1][0]-pts[0][0],pts[-1][1]-pts[0][1]
@@ -74,6 +85,7 @@ for i,(t,pts) in ways.items():
         lanes=t.get("lanes","")
         radius=min(10.6,float(lanes)*1.58) if lanes.isdigit() else defaults.get(hw,3.6)
         road.append(ln.buffer(max(2.35,radius)))
+        road_centres.append(ln.buffer(1.85))
     elif closed and (t.get("landuse")=="grass" or t.get("leisure")=="garden"):grass.append(pg)
 # Station concourse faces east across the plaza, beyond the old station's south wing.
 # OSM relation 7307085 has three closed outer ways: the north hall, main concourse and south wing.
@@ -86,8 +98,7 @@ buildings.append(dict(id="gate",name="숭례문",kind="gate",height=20,rings=rin
 asphalt=merge(road)
 # Cover the public shoulders up to the facade, preserving all surveyed sides of each junction.
 walk.append(asphalt.buffer(5.7).difference(asphalt))
-walk.extend([LineString([(32,1423),(28,1452),(18,1460),(15,1464)]).buffer(5),
-             LineString([(66,1424),(71,1439),(80,1446),(92,1446),(108,1446),(127,1446),(149,1446)]).buffer(2.4)])
+walk.append(LineString([(32,1423),(28,1452),(18,1460),(15,1464)]).buffer(5))
 # Public approaches to the subway stairs and racks are wider than the tagged centre lines.
 walk.extend([LineString([(17.7,1415.4),(28,1416),(35,1416)]).buffer(3.5),
              LineString([(52,1272),(52,1282),(44,1287)]).buffer(3.0),
@@ -101,6 +112,11 @@ walk.extend([LineString([(88,1139),(83,1150),(81,1168)]).buffer(3),
              LineString([(55,1199),(49,1209),(43,1215)]).buffer(3.2),
              LineString([(151,1223),(151,1230)]).buffer(3)])
 squares.append(Polygon([(9,1416),(61,1417),(63,1468),(43,1503),(8,1506),(14,1474)]))
+# Pave the full apron along the angled five-door entrance, including its south end.
+def terminal_apron(x,z):
+    c,s=math.cos(2.22),math.sin(2.22)
+    return (15+x*c+z*s,1485.4-x*s+z*c)
+squares.append(Polygon([terminal_apron(x,z) for x,z in [(-23,4),(23,4),(23,15),(-23,15)]]))
 # The main gate sits on a landscaped island with a broad, paved forecourt.
 squares.append(gate.buffer(12).intersection(Polygon([(280,890),(330,837),(363,816),(379,834),(357,892),(316,928),(280,931)])))
 for n in root.findall("node"):
@@ -123,11 +139,19 @@ def add(kind,shape,angle=None):
                     surfaces.append(obj)
 for shape,angle in cross:add("crossing",shape,angle)
 crossing_lines.extend([[[81,1168],[55,1199],5.2],[[151,1230],[156,1265],5]])
+# Keep vehicle access through pedestrian aprons, alleys and forecourt drop-off areas.
+# Only mapped zebra crossings get stripes; raised bus islands retain their own paving.
+add("shared",merge(walk+squares+taxi_aprons).intersection(merge(road_centres)))
 add("stone",merge(platforms+squares))
+# Transit-only carriageways serve the islands even when general motor access is prohibited.
+# Pedestrians cross these lanes only at marked crossing sections.
+busways.append(LineString([(213,987),(204.1,1000.7),(196.6,1012.2)]).buffer(1.75))
+add("road",merge(busways))
 # Mapped footways can run through a generalized carriageway buffer.
 add("path",merge(walk))
 add("road",asphalt)
-add("grass",merge(grass))
+add("stone",merge(public_squares))
+add("grass",merge(grass+parks))
 add("path",scope.intersection(asphalt.buffer(10.5)))
 add("verge",scope)
 out=Path(__file__).resolve().parents[1]/"public"/"station-data.js"
@@ -136,6 +160,8 @@ with out.open("w",encoding="utf8") as f, out.with_name("station-lanes.js").open(
     f.write("// Geometry © OpenStreetMap contributors, ODbL 1.0. Generated by scripts/bake-station.py.\n")
     for key,value in [("stationSurfaces",surfaces),("stationBuildings",buildings),("stationTrees",trees),
                       ("seoulloDeck",ways[550625236][1]),("southbound",sum([ways[i][1][:-1] for i in (619147732,517634898,899373686,619147734,198566324,585341917,619147736,585341901,585341904,796927124,1206223944,331947407)],[])+[(81.4,1298.8)]),
+                      ("transferArrival",ways[615671505][1][1:4]+ways[331990404][1][1:5]+ways[1206220507][1][1:]+[(140.17,1465.33)]+ways[331994926][1][1:4]),
+                      ("transferDeparture",ways[331994926][1][4:]+[(119.53,1251.49)]),
                       ("stationCrossings",crossing_lines),("northbound",sum([ways[i][1][:-1] for i in (1206223947,615671503,218926711,619147727,919984684,619147729,619147735,908622900)],[])+[(504.2,318.8)])]:
-        (lanes_file if key in ("southbound","northbound","stationCrossings") else f).write("export const "+key+"="+dumped(value)+";\n")
+        (lanes_file if key in ("southbound","northbound","transferArrival","transferDeparture","stationCrossings") else f).write("export const "+key+"="+dumped(value)+";\n")
 print(len(buildings),"buildings,",len(surfaces),"ground polygons,",len(cross),"crossings")

@@ -1,3 +1,5 @@
+import {stationHall} from "./rail-station-layout.js";
+
 export function diningPoint(x,y,venue=diningVenue){
   return {x:venue.center.x+x,y:venue.center.y+y};
 }
@@ -22,6 +24,12 @@ export const diningVenue=venue({id:"bukchon-dining",name:"북촌 작은 식탁",
   kind:"sujebi",name:"삼청동 손수제비",description:"감자와 애호박, 김가루를 곁들인 손수제비",
   source:"https://english.visitseoul.net/attractions/Samcheong-dongSujebi/ENPqgbap0"
 }, {kind:"bibimbap",name:"나물 비빔밥",description:"나물, 달걀, 고추장을 올린 비빔밥이에요."}]);
+// Staffed food court reached from the upper-floor stairs inside the station.
+export const stationDining={...venue({id:"station-foodhall",name:"서울역 3층 식당가",area:"station",street:"서울역",
+  centerX:1550,plotX:stationHall.center.x-17,plotY:stationHall.center.y+16,shopWidth:6,angle:Math.PI/2},[
+  {kind:"bibimbap",name:"나물 비빔밥",description:"제철 나물에 고추장을 곁들인 한 그릇이에요."},
+  {kind:"udon",name:"유부 우동",description:"유부와 쑥갓을 얹은 따뜻한 우동이에요."}
+]),parent:stationHall.id,enterLabel:"3층 식당가 올라가기",exitLabel:"2층 맞이방으로",outsideName:stationHall.name};
 export const diningVenues=[diningVenue,
   venue({id:"saemunan-table",name:"새문안 국수집",area:"west",street:"새문안로",
     centerX:1130,plotX:107,plotY:-231,angle:Math.PI},[
@@ -59,6 +67,7 @@ export const diningVenues=[diningVenue,
     {kind:"friedRice",name:"달걀 볶음밥",description:"달걀과 파를 넣어 볶고 짭짤한 소스를 곁들였어요."},
   ]),
 ];
+diningVenues.push(stationDining);
 export const diningMenu=diningVenues.flatMap(place=>place.dishes);
 
 export const diningCounter={x:0,z:-9.55,w:9.4,d:1.15,h:.97};

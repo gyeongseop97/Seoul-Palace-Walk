@@ -112,6 +112,7 @@ export function buildDiningKitchen(T,room,kit,venue){
 }
 
 const uniforms={
+  "station-foodhall":{character:"woman",hair:"bob",eyes:"soft",outfit:"tee",shirt:0xd4e1de,apron:0x385565,hat:0xe9dcc8},
   "bukchon-dining":{character:"woman",hair:"bob",eyes:"soft",outfit:"tee",shirt:0xc1a988,apron:0x425a4d,hat:0xefdec1},
   "jeongdong-dining":{character:"man",hair:"short",eyes:"round",outfit:"tee",shirt:0x687c6b,apron:0x2b504a,hat:0xe1d6c3},
   "plaza-dining":{character:"woman",hair:"bob",eyes:"round",outfit:"tee",shirt:0xd3e1da,apron:0x296368,hat:0x4a777a},

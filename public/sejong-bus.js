@@ -1,4 +1,4 @@
-import {southbound,northbound} from "./station-lanes.js";
+import {southbound,northbound,transferArrival,transferDeparture} from "./station-lanes.js";
 import {eastCurb, eastRoadWidth, plazaAt} from "./plaza-layout.js";
 import {uijeongbuBusBerth} from "./uijeongbu-layout.js";
 import {routeCrossings} from "./bus-crossings.js";
@@ -59,9 +59,9 @@ export const busStops=[
 const [deoksugung,seoulPlaza,cheonggyeNorth,plazaNorth,gyeongbokgung,songhyeonNorth,bukchon,bukchonTerminal,
   songhyeonSouth,plazaSouth,historyWest,heunghwaWest,cheonggyeSouth]=busStops;
 const sungSouth={id:"sungnyemun-south",name:"숭례문 정류장",direction:"서울역 방면",
-  berth:pose(202.3,1000.7,215),board:pose(197.9,1000.9,125),exit:pose(196.8,1000.4,305),shelter:pose(196,997.8,125)};
+  berth:pose(204.1,1000.7,215),board:pose(200.4,1000.9,125),exit:pose(198.2,1000.4,305),shelter:pose(196,997.8,125)};
 const transfer={id:"station-transfer",name:"서울역버스환승센터",direction:"숭례문 · 시청 방면",
-  berth:pose(89.2,1389.8,359),board:pose(92.9,1386.9,269),exit:pose(93,1384.1,90),shelter:pose(93.45,1390.9,270)};
+  berth:pose(124.64,1389.8,359),board:pose(128.4,1386.9,269),exit:pose(128.4,1384.1,90),shelter:pose(128.9,1390.9,270)};
 const sungNorth={id:"sungnyemun-north",name:"숭례문 건너편 정류장",direction:"시청 · 광화문 방면",
   berth:pose(226.3,1020.3,35),board:pose(231.4,1019.3,305),exit:pose(233,1020,125),shelter:pose(232.1,1023,305)};
 busStops.splice(1,0,sungSouth,transfer,sungNorth);
@@ -72,10 +72,9 @@ export const busStopById=id=>stopIndex.get(id)??null;
 const itineraries=[
   {travelMs:87_000,points:[deoksugung.berth,point(484,224),point(489,278),
     ...southbound.filter(([,y])=>y<986).map(([x,y])=>point(x,y)),sungSouth.berth]},
-  {travelMs:69_000,points:[sungSouth.berth,point(195,1012),
-    ...southbound.filter(([,y])=>y>1015).map(([x,y])=>point(x,y)),point(82.9,1407),point(85,1447),
-    point(86.7,1451),point(90,1452),point(92.3,1448),point(90,1423),transfer.berth]},
-  {travelMs:50_000,points:[transfer.berth,point(88.3,1340),point(88,1318),point(98,1302),point(117,1287),
+  {travelMs:69_000,points:[sungSouth.berth,point(196.6,1012.2),
+    ...[...southbound.filter(([,y])=>y>1015),...transferArrival].map(([x,y])=>point(x,y)),transfer.berth]},
+  {travelMs:50_000,points:[transfer.berth,...transferDeparture.map(([x,y])=>point(x,y)),
     ...northbound.filter(([,y])=>y>1038).map(([x,y])=>point(x,y)),sungNorth.berth]},
   {travelMs:86_000,points:[sungNorth.berth,point(232,1009),
     ...northbound.filter(([,y])=>y<999).map(([x,y])=>point(x,y)),point(510.5,298),point(515.1,274),seoulPlaza.berth]},

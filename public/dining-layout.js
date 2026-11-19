@@ -22,8 +22,8 @@ export const chairSize={w:.53,d:.66};
 
 addLandmarks(diningVenues.map(venue=>({...venue.outsideDoor,name:venue.name})));
 
-export function registerDiningNavigation(benches){
-  for(const venue of diningVenues){
+export function registerDiningNavigation(benches,venues=diningVenues){
+  for(const venue of venues){
     const {x,y,w,d,angle}=venue.plot;
     addObstacle(x,y,w,d,angle);
     const add=(x,z,w,d,height=Infinity)=>addObstacle(venue.center.x+x,venue.center.y+z,w,d,0,height);

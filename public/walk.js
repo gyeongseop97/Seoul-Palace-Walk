@@ -45,10 +45,11 @@ import {canRideBikeSegment} from "./bike-movement.js";
 import {gbWallOutline,clipGbGround} from "./gyeongbok-perimeter.js";
 import {outsideGroundOffset} from "./gyeongbok-terrain.js";
 import {mmcaCourtyards,mmcaBuildings,mmcaLawns} from "./mmca-layout.js";
+import {stationHall,terminalDoors,railRooms,railRoomById,railCounters} from "./rail-station-layout.js";
 import {semaVenue,semaExhibits} from "./sema-layout.js";
 import {mmcaVenue,mmcaGalleryAt,mmcaGalleryRooms,mmcaExhibits} from "./mmca-gallery-layout.js";
 import {diningTables} from "./dining-layout.js";
-import {diningVenues} from "./dining-data.js";
+import {diningVenues,stationDining} from "./dining-data.js";
 import {interiorAt,interiorBounds} from "./interior-layout.js";
 import {bindDiningMenu} from "./dining-menu.js";
 import {bindGuestbook} from "./guestbook.js";
@@ -187,9 +188,11 @@ joinCode.value=suppliedCode;
 profileChoices.find(option=>option.value===me.character).checked=true;
 const photoAlbum=bindPhotoAlbum($("photo-album")),tutorial=bindTutorial($("tutorial-card"));
 const diningById=Object.fromEntries(diningVenues.map(venue=>[venue.id,venue]));
-const diningRegion={west:"경희궁",jeongdong:"덕수궁",gwanghwamun:"광화문광장",bukchon:"북촌"};
-const venueById={ [semaVenue.id]:semaVenue,[mmcaVenue.id]:mmcaVenue,[ARCADE_SITE.id]:ARCADE_SITE,[ARCADE_UPPER_SITE.id]:ARCADE_UPPER_SITE,
+const diningRegion={station:"서울역",west:"경희궁",jeongdong:"덕수궁",gwanghwamun:"광화문광장",bukchon:"북촌"};
+const venueById={ ...railRoomById,[semaVenue.id]:semaVenue,[mmcaVenue.id]:mmcaVenue,[ARCADE_SITE.id]:ARCADE_SITE,[ARCADE_UPPER_SITE.id]:ARCADE_UPPER_SITE,
   [ARCADE_THIRD_SITE.id]:ARCADE_THIRD_SITE,...diningById };
+const stationVenues=[...railRooms,stationDining];
+const streetRestaurants=diningVenues.filter(venue=>!venue.parent);
 const guestbook=bindGuestbook({getSession:()=>session,onClose:focusGame,request});
 const diningMenu=bindDiningMenu({onSelectDish:takeMeal});
 const galleryLogKey="seoul-palace-walk:mmca-exhibits";
@@ -846,14 +849,23 @@ $("roster-list").addEventListener("click",event=>{
 $("clear-tracking").addEventListener("click",()=>{
   trackedPersonId=null;updateLocationGuides();focusGame();
 });
+function stationDoorToward(from,to){
+  let child=venueById[to];
+  if(!stationVenues.includes(child)||from===to)return null;
+  while(child){
+    if((child.parent??null)===(from??null))return {...child.outsideDoor,name:child.enterLabel};
+    child=venueById[child.parent];
+  }
+  return null;
+}
 function guideLocation(point,inside){
   const otherInside=interiorAt(point.x,point.y);
   if(otherInside===inside){
     const area=outdoorMap(point);
     return {point,prefix:!inside&&area!==outdoorMap(me)?area:""};
   }
-  const stairs=arcadeStairToward(inside,otherInside);
-  if(stairs)return {point:stairs,prefix:"계단까지"};
+  const stairs=arcadeStairToward(inside,otherInside)??stationDoorToward(inside,otherInside);
+  if(stairs)return {point:stairs,prefix:stairs.name??"계단까지"};
   const venue=venueAt(inside??otherInside);
   return inside?{point:venue?.insideDoor,prefix:"출구까지"}:
     {point:venue?.outsideDoor,prefix:(venue?.name??"전시관")+" 입구까지"};
@@ -2013,10 +2025,13 @@ function atIndoorStation(point,reach=2.8){return near(point,me.x,me.y)<reach&&cl
 function portalNearby(){
   if(!world||me.bus||isCycling(me)||queuedBus||queuedBike)return null;
   const inside=interiorAt(me.x,me.y);
-  const venues=inside?[venueAt(inside)]:[world.museum,mmcaVenue,semaVenue,ARCADE_SITE,...diningVenues];
+  const current=inside&&venueAt(inside);
+  if(current&&atIndoorStation(current.insideDoor,2.5))return {inside:true,venue:current};
+  const venues=inside?stationVenues.filter(v=>v.parent===inside):
+    [world.museum,mmcaVenue,semaVenue,ARCADE_SITE,stationHall,...streetRestaurants];
   for(const venue of venues){
-    const door=inside?venue?.insideDoor:venue?.outsideDoor;
-    if(door&&atIndoorStation(door,2.5))return {inside:Boolean(inside),venue};
+    const accessible=venue===stationHall?terminalDoors.some(door=>atIndoorStation(door,2.5)):atIndoorStation(venue.outsideDoor,2.5);
+    if(accessible)return {inside:false,venue};
   }
   return null;
 }
@@ -2963,7 +2978,7 @@ function updateActivities(time,guideNearby){
   setActivity("subway",stop?"지하철 타기":null,riding||feeding||Boolean(myLink()?.active));
   const portal=eligible&&portalNearby();
   const entrance=portal?.venue===ARCADE_SITE?"오락실 입장":[mmcaVenue,semaVenue].includes(portal?.venue)?"미술관 입장":diningById[portal?.venue?.id]?"식당 입장":"입장하기";
-  setActivity("museum-door",portal?(portal.inside?"나가기":entrance):null,feeding||(!portal?.inside&&Boolean(myLink()?.active)));
+  setActivity("museum-door",portal?(portal.inside?portal.venue.exitLabel??"나가기":portal.venue.enterLabel??entrance):null,feeding||(!portal?.inside&&Boolean(myLink()?.active)));
   setActivity("venue-guestbook",eligible&&guestbookVenue()?"방명록":null);
   updateDiningControls(eligible,busy,time);
   const exhibit=eligible&&nearbyExhibit();
@@ -3300,7 +3315,9 @@ function drawIndoorMap(base,venue,galleries,mini){
     for(const table of diningTables)svg(layer,"rect",{x:venue.center.x+table.x-1.15,y:venue.center.y+table.z-.69,
       width:2.3,height:1.38,rx:.25,fill:"#d0ab79"});
   }
-  const points=[[venue.insideDoor,"출구"]];
+  const points=[[venue.insideDoor,venue.exitLabel??"출구"]];
+  for(const child of stationVenues)if(child.parent===venue.id)points.push([child.outsideDoor,child.enterLabel]);
+  if(venue===stationHall)for(const shop of railCounters)if(!shop.secondary)drawMapPoint(layer,shop,"shop",mini,true);
   if(venue===semaVenue)for(const work of semaExhibits)drawMapPoint(layer,{...work,name:work.title},"heritage",mini,true);
   if(venue.guestbookPoint)points.push([venue.guestbookPoint,"방명록"]);
   if(venue.menuPoint)points.push(venue.service==="robot"?[venue.kioskPoint,"키오스크"]:[venue.menuPoint,"카운터"]);
@@ -3330,7 +3347,7 @@ function drawMap(base,mini=false){
   svg(base,"rect",{x:-12000,y:-12000,width:24000,height:24000,fill:"url(#"+patternId+")","pointer-events":"none"});
   const landscape=base,outdoors=svg(landscape,"g",{class:"outdoor-map-ground"});
   base=outdoors;
-  const westColors={grove:"#465a43",grass:"#607553",verge:"#77796b",crossing:"#ece4c9",stone:"#a39780",road:"#58605b",street:"#847e6f",path:"#b6a687"};
+  const westColors={shared:"#58605b",grove:"#465a43",grass:"#607553",verge:"#77796b",crossing:"#ece4c9",stone:"#a39780",road:"#58605b",street:"#847e6f",path:"#b6a687"};
   for(const feature of [...stationSurfaces,...stationBuildings,...westSurfaces,...westBuildings]){
     if(feature.kind==="backdrop")continue;
     const d=feature.rings.map(ring=>"M"+ring.map(p=>p.join(",")).join("L")+"Z").join("");
@@ -3406,6 +3423,7 @@ function drawMap(base,mini=false){
   }
   svg(interior,"line",{x1:78.4,x2:81.6,y1:maxY,y2:maxY,stroke:"#d4b985","stroke-width":1.6});
   drawIndoorMap(base,semaVenue,[],mini);
+  for(const room of railRooms)drawIndoorMap(base,room,[],mini);
   drawIndoorMap(base,mmcaVenue,mmcaGalleryRooms,mini);
   drawIndoorMap(base,ARCADE_SITE,[],mini);
   drawIndoorMap(base,ARCADE_UPPER_SITE,[],mini);
@@ -3719,10 +3737,10 @@ function refreshMapRoute(fit=false){
   guide.indoors=Boolean(guide.inside);
   const targetInterior=interiorAt(guide.site.x,guide.site.y);
   guide.leaving=guide.indoors&&targetInterior!==guide.inside;
-  guide.stairs=guide.leaving?arcadeStairToward(guide.inside,targetInterior):null;
+  guide.stairs=stationDoorToward(guide.inside,targetInterior)??(guide.leaving?arcadeStairToward(guide.inside,targetInterior):null);
   guide.start={x:me.x,y:me.y};
   guide.loading=!world&&!worldFailed;
-  guide.destination=guide.leaving?guide.stairs??venueAt(guide.inside)?.insideDoor:guide.loading?guide.site:mapRouteDestination(guide.site);
+  guide.destination=guide.stairs??(guide.leaving?venueAt(guide.inside)?.insideDoor:guide.loading?guide.site:mapRouteDestination(guide.site));
   guide.walking=false;
   guide.steps=guide.destination&&!guide.loading?walkingSteps(guide.destination):[];
   const end=guide.steps.at(-1);
@@ -3787,8 +3805,8 @@ mapRouteWalk.addEventListener("click",()=>{
   setMap(false);focusGame();
 });
 function drawDestinations(world){
-  const shops=[...world.stations,...diningVenues.map(venue=>({...venue.outsideDoor,name:venue.name}))];
-  const doors=[{...world.museum.outsideDoor,name:"덕수궁 전시관 입구"},{...mmcaVenue.outsideDoor,name:"국립현대미술관 입구"},{...semaVenue.outsideDoor,name:"서울시립미술관 입구"}];
+  const shops=[...world.stations.filter(p=>!p.interior),...diningVenues.filter(v=>!v.parent).map(venue=>({...venue.outsideDoor,name:venue.name}))];
+  const doors=[{...stationHall.outsideDoor,name:"서울역 정문"},{...world.museum.outsideDoor,name:"덕수궁 전시관 입구"},{...mmcaVenue.outsideDoor,name:"국립현대미술관 입구"},{...semaVenue.outsideDoor,name:"서울시립미술관 입구"}];
   for(const [layer,mini] of [[$("map-points"),false],[$("mini-landscape").querySelector(".outdoor-map-ground"),true]]){
     for(const point of shops)drawMapPoint(layer,point,"shop",mini);
     for(const point of [...COOKING_STALLS,ARCADE_SITE])drawMapPoint(layer,point,"activity",mini);

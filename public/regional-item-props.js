@@ -179,6 +179,29 @@ export function makeRegionalItemProps(T,{box,cylinder,shape}){
     hotteok,
     hotteokBurnt:parent=>hotteok(parent,"burnt"),
     hotteokTorn:parent=>hotteok(parent,"torn"),
+    triangleRice(parent){
+      const outline=new T.Shape();
+      outline.moveTo(-.09,-.063);outline.lineTo(-.008,.09);outline.quadraticCurveTo(0,.103,.01,.089);
+      outline.lineTo(.091,-.063);outline.closePath();
+      const packet=new T.ExtrudeGeometry(outline,{depth:.052,bevelEnabled:true,bevelSize:.008,bevelThickness:.009,bevelSegments:1});
+      shape(packet,0x32453a,0,0,-.027,parent);
+      box(0xeee7ca,0,-.034,.037,.101,.042,.006,parent);
+      box(0xba6151,0,-.027,.041,.069,.008,.004,parent);
+    },
+    fruitMochi(parent){
+      berry(parent,0xfae6df,0,0,0,.092,.083,.094);
+      berry(parent,0xca7879,0,.001,.072,.074,.067,.024);
+      berry(parent,0xed5457,0,.005,.087,.057,.052,.014);
+      for(const [x,y] of [[-.025,.017],[.011,.028],[.03,-.001],[-.012,-.017]])berry(parent,0xffdb99,x,y,.099,.004,.006,.002);
+    },
+    stationBurger(parent){
+      berry(parent,0xc68445,0,-.035,0,.117,.037,.111);
+      cylinder(0x5c3928,0,-.003,0,.108,.039,18,parent);
+      box(0xf6bf59,0,.018,0,.172,.014,.172,parent).rotation.y=.35;
+      for(let i=0;i<7;i++){const a=i*.898;berry(parent,0x74a147,.066*Math.sin(a),.029,.066*Math.cos(a),.053,.014,.049);}
+      berry(parent,0xe8a45a,0,.056,0,.115,.057,.11);
+      for(let i=0;i<7;i++){const a=i*2.4;berry(parent,0xffe1a7,.066*Math.cos(a),.1,.052*Math.sin(a),.006,.003,.01);}
+    },
     riceCake(parent){
       cylinder(0xe7d8bf,0,-.044,0,.113,.023,24,parent,.94);
       cylinder(0xbfb492,0,-.029,0,.102,.008,24,parent);

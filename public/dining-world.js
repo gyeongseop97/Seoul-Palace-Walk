@@ -6,6 +6,7 @@ import {standBatcher,standSign} from "./regional-stands.js";
 const wood=0x614336,heartwood=0x402e28,copper=0xc9955d,cream=0xe8d8b6;
 const paper=0xf4e4bf,teal=0x4c6557,red=0x88473e;
 const styles={
+  station:{front:0xece3d1,trim:0x4c6068,sign:"#294655",ink:"#f7efdc",wall:0xe3dfd2,runner:0x7f9995},
   west:{front:0xc6ae8e,trim:0x645143,sign:"#594436",ink:"#ffecd3",wall:0xe9dac5,runner:0x756e57},
   bukchon:{front:paper,trim:wood,sign:"#4b362c",ink:"#ffeac8",wall:0xe2cfab,runner:teal},
   jeongdong:{front:0xb48570,trim:0x496353,sign:"#384e45",ink:"#f6e5cf",wall:0xe3d6c5,runner:0x66846e},

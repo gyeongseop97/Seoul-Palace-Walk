@@ -1,7 +1,8 @@
 import {inventoryAction} from "../public/walk-inventory.js";
 import {ARCADE_CLAW} from "../public/arcade-layout.js";
 import {regionalStations,streetCounters} from "../public/street-stands.js";
-const counters=[...regionalStations,...streetCounters];
+import {railCounters} from "../public/rail-station-layout.js";
+const counters=[...regionalStations,...streetCounters,...railCounters];
 const actions=new Set(["store","hold","give","prize","wear","remove","collect"]);
 const token=v=>typeof v==="string"&&/^[a-f0-9]{32}$/.test(v);
 export const validInventory=(c,id)=>c&&actions.has(c.action)&&token(c.id)&&typeof c.kind==="string"&&c.kind.length<60&&
