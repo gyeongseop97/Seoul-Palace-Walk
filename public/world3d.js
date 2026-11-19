@@ -602,9 +602,11 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     addDocks(root,dock=>dock.area==="west",southWorldSurfaceHeight);
     yield* addDiningFronts(root,"west");
   },()=>import("./west-district.js"));
+  let updateEscalators;
   const stationDistricts=stationBands.map(([minY,maxY],i)=>expansionDistrict({...stationBounds,minY,maxY},
     (x,y)=>y>=minY&&y<maxY&&(stationGround(x,y)!=null||approachAt(x,y)!=null),function*(root,localKit,{buildStationBand}){
-      yield* buildStationBand(T,root,localKit,i);
+      const animate=yield* buildStationBand(T,root,localKit,i);
+      if(animate)updateEscalators=animate;
       addDocks(root,dock=>dock.area==="station"&&dock.y>=minY&&dock.y<maxY,southWorldSurfaceHeight);
       yield* buildSubwayAccess(T,root,localKit,floorHeight,{stationBand:[minY,maxY]});
     },()=>import("./station-world.js")));
@@ -1232,6 +1234,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     if(hwangudan.root.parent===outdoors)updateHwangudan?.(night);
     if(!indoors&&cheonggye.root.parent===outdoors)updateCheonggye?.(now*.001,night,scene.fog.color,anchor,state.paperBoats,clock);
     const roster=[me,...peers],present=new Set(roster.map(player=>player.id));
+    if(!indoors&&Math.abs(anchor.x-20)<95&&Math.abs(anchor.y-1424)<95)updateEscalators?.(clock*.001);
     minigameWorld.begin(clock,indoors?null:anchor,state.minigames,state.minigameAction,state.minigameFree);
     if(!indoors){
       // Every pond shares one surface, so it keeps moving at Gyeongbokgung too.

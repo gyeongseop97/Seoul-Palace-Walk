@@ -4,6 +4,7 @@ import {southWorldSurfaceHeight as ground,southWorldTerrainHeight,gradePalaceMes
 import {standSign} from "./regional-stands.js";
 import {buildStationApproaches} from "./station-approach-world.js";
 import {stationRise} from "./station-levels.js";
+import {gatePose} from "./station-approach-plan.js";
 import {terminalPose} from "./rail-station-layout.js";
 import {districtTile} from "./district-material.js";
 
@@ -189,10 +190,9 @@ export function* buildStationBand(T,root,kit,band){
     const canopy=box(silver,0,17.6,7.4,span+2,.55,7,g);canopy.rotation.x=.14;
     for(const z of [-7,4.1])for(const x of [-20,-8,8,20])cylinder(0x98a6a5,x,7.9,z,.45,16,10,g);
     lettering(T,g,"서울역  Seoul Station",0,14.2,4.88,25,2.8);
-    buildStationApproaches(T,root,kit,ground);
   }
   function sungnyemun(){
-    const g=groupAt(340.7,867.1,-.733);g.name="숭례문";
+    const g=groupAt(gatePose.x,gatePose.y,gatePose.angle);g.name="숭례문";
     const stone=0xb0a593,tile=0x3c4143,green=0x4e7363,red=0x975344;
     // A genuine opening through the masonry vault, visible from either side.
     const shape=new T.Shape();shape.moveTo(-22,0);shape.lineTo(-3.65,0);shape.lineTo(-3.65,3.2);
@@ -241,18 +241,20 @@ export function* buildStationBand(T,root,kit,band){
     }
     standSign(T,g,"崇禮門",null,3.5,0,14.7,5.1,"#312f27","#e8dcc0",1.05);
   }
+  const dressed=new Set();
   for(const b of stationBuildings){
     const center=b.rings[0].reduce((p,[x,y],_,a)=>({x:p.x+x/a.length,y:p.y+y/a.length}),{x:0,y:0});
     if(bandOf(center.y)!==band)continue;
-    if(b.kind==="gate")sungnyemun();
+    if(b.kind==="gate"){if(!dressed.has(b.id))sungnyemun();}
     else if(b.kind==="terminal"||b.kind==="stationWing"){
-      stationFrontage(T,kit,{groupAt,beam,ground},b);
-      if(b.kind==="terminal")terminal();
+      stationFrontage(T,kit,{groupAt,beam,ground},b,!dressed.has(b.id));
+      if(b.kind==="terminal"&&!dressed.has(b.id))terminal();
     }else{
       const wall=b.kind==="historic"?brick:b.kind==="terminal"?facades[4]:b.kind==="squareOffice"?facades[5]:facades[Number(b.id)%5||0];
       shell(b,wall,b.kind==="historic"?0x495b59:b.kind==="terminal"?0x9aa8a7:0x858984,b.kind==="historic"?9.8:b.height);
       if(b.kind==="historic")oldStation();
     }
+    dressed.add(b.id);
     if(++count%6===0)yield;
   }
   if(band===2){
@@ -271,4 +273,5 @@ export function* buildStationBand(T,root,kit,band){
     const g=groupAt(x,y);cylinder(0x685746,0,2,0,.19,4,7,g);
     dome(g,0,3.2,0,2.1,3.2,2,0x849155);
   }
+  if(band===2)return buildStationApproaches(T,root,kit,ground);
 }

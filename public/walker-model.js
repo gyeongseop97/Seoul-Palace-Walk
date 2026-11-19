@@ -743,7 +743,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     group.traverse(mesh => { if (mesh.isMesh && mesh !== shadow) mesh.castShadow = true; });
     return {group,body,floorY:null,headwear,bag,varsity,tie,tieBlade,hoodie,knit,shirt,belt,dress,dressSkirt,overalls,shoesAside,skinParts:[collarbone,neck],skin:skinSet("light"),teeHem,pelvis,chest,torso,waist,face,garb,faceMesh,ears,headJoint,hairMesh,pin,overcoat,hem,pufferCollar,hanbokDetails,jacket,skirt,legs,arms,label,
       accessories,shadow,emote,chatSprite:null,chatMessage:null,itemPivots,tray,showTray,utensil:null,palette,offset,phase:(offset%100)/100,
-      stride:0,sprint:0,seatBlend:0,petBlend:0,appearance:"",lastX:null,lastY:null,bike:null,hat:null,charm:null,umbrella:null};
+      stride:0,sprint:0,seatBlend:0,groundBlend:0,petBlend:0,appearance:"",lastX:null,lastY:null,bike:null,hat:null,charm:null,umbrella:null};
   }
 
   const down = new T.Vector3(0,-1,0), forward = new T.Vector3(0,0,1);
@@ -966,8 +966,10 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     model.floorY = !vaulting && wasVisible && model.floorY !== null && Math.abs(floor-model.floorY) < 1.6
       ? mix(model.floorY,floor,1-Math.exp(-delta*17)) : floor;
     model.seatBlend = mix(model.seatBlend,Number(Boolean(seat)),smoothPose);
+    model.groundBlend = mix(model.groundBlend,Number(Boolean(seat?.ground)),smoothPose);
+    const folded = model.groundBlend;
     const standingY=model.floorY+lift, seatBase=seat?.base??0;
-    const bodyBase=(seat?.ground||seat?.footBath)?mix(standingY,seatBase,model.seatBlend):seat?seatBase:standingY;
+    const bodyBase=seat?.footBath?mix(standingY,seatBase,model.seatBlend):seat&&!seat.ground?seatBase:standingY-folded*FOOT_BATH_ROOT_DEPTH;
     group.position.set(wx(seat?.x ?? position.x),bodyBase,wz(seat?.y ?? position.y));
     const travel = model.lastX === null ? 0 : Math.hypot(position.x-model.lastX,position.y-model.lastY);
     model.lastX = position.x;
@@ -1042,12 +1044,12 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     }
     if (model.skirt.visible) {
       // At the water the hem is gathered up over the knees.
-      model.skirt.scale.set(1+seated*.12,1-seated*.10-crouch*.24-hemLift*.30,1+stride*.18+seated*.16);
+      model.skirt.scale.set(1+seated*.12+folded*.42,1-seated*.10-crouch*.24-hemLift*.30,1+stride*.18+seated*.16);
       model.skirt.rotation.set(-seated*.72-sprint*.085,pendulum*sway*.065,pendulum*sway*.059);
       for (const leg of legs) leg.bottom.visible = seated > .64;
     }
     if (model.dressSkirt.visible) {
-      model.dressSkirt.scale.set(.92*(1+seated*.10),.50*(1-seated*.16-hemLift*.20),.92*(1+stride*.14+seated*.20));
+      model.dressSkirt.scale.set(.92*(1+seated*.10+folded*.27),.50*(1-seated*.16-hemLift*.20),.92*(1+stride*.14+seated*.20));
       model.dressSkirt.rotation.set(-seated*.80-sprint*.085,pendulum*sway*.065,pendulum*sway*.059);
     }
     for (let i=0;i<2;i++) {
@@ -1067,14 +1069,21 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       const dance=acting?.kind==="dance"&&!walking?acting.weight*(1-seated):0;
       const danceStep=dance?Math.sin(acting.time*TAU*1.36+side*Math.PI*.5):0;
       const paddle = seat?.footBath ? seated*footBathSwing(footKickAge(position,clock),i) : 0;
-      const ankleY = SOLE+lift*(1-seated)+seated*(seat?.ground?(FOOT_BATH_ROOT_DEPTH-SEAT_LIFT)/BODY:seat?.footBath?-.174:.10)+Math.max(0,paddle)*.085
+      const ankleY = SOLE+lift*(1-seated)+seated*(seat?.footBath?-.174:.10)+Math.max(0,paddle)*.085
         +airborne*(.17+i*.05)+Math.max(0,danceStep)*dance*.081;
-      leg.target.set(side*(STANCE+(seat?.ground?.14*seated:0)+crouch*.033+dance*.044)-pelvis.position.x,ankleY-pelvis.position.y,
-        mix(step+crouch*.09,seat?.ground?.50:seat?.footBath?.22:.42,seated)+paddle*.085+airborne*(.10+i*.05)+danceStep*dance*.10);
-      solve(leg,leg.target,forward);
+      leg.target.set(side*(STANCE+crouch*.033+dance*.044)-pelvis.position.x,ankleY-pelvis.position.y,
+        mix(step+crouch*.09,seat?.footBath?.22:.42,seated)+paddle*.085+airborne*(.10+i*.05)+danceStep*dance*.10);
+      // Knees open outward while each ankle tucks across the opposite shin.
+      if(folded>.0001){
+        const ankle=(FOOT_BATH_ROOT_DEPTH-SEAT_LIFT)/BODY+SOLE+i*.043;
+        leg.target.lerp(target.set(-side*.076,ankle-pelvis.position.y,.18+i*.106),folded);
+      }
+      pole.set(side*folded*1.36,folded*.02,1-folded*.52);
+      solve(leg,leg.target,pole);
       const roll = (footPhase < stance ? 0 : Math.sin(swing*TAU)*.24*stride) * (1-seated);
       pitch.setFromAxisAngle(xAxis,roll+seated*.06-Math.max(0,paddle)*.35);
       leg.end.quaternion.copy(globalLower).invert().multiply(pitch);
+      leg.end.rotateY(-side*folded*1.25);
     }
 
     for (let i=0;i<2;i++) {

@@ -37,6 +37,7 @@ export function makeFirstPersonView(T,createItemProp){
   });
   const lap=new T.Group();lap.name="Seated lap";scene.add(lap);
   const knees=sides.map(()=>oval(lap,trouser,0,0,0,.14,.10,.15));
+  const foldedShins=sides.map(()=>oval(lap,trouser,0,0,0,.18,.06,.07));
   const handlebar=new T.Group();handlebar.name="Bicycle handlebars";scene.add(handlebar);
   const grips=sides.map(()=>make(handlebar,tube,rubber)),bars=sides.map(()=>make(handlebar,tube,metal));
   const stem=make(handlebar,tube,bikePaint),bell=oval(handlebar,metal,0,0,0,.029,.020,.029);
@@ -217,7 +218,16 @@ export function makeFirstPersonView(T,createItemProp){
         itemPivot.rotation.set(spark?.12:drink?-.76*use:.26*use,side*.09,.05*side);
       }
       show(item?.kind??null,serving?feedAge/1000:spark&&item.started?itemAge/1000:-1);
-      if(seated){frame(knees[i].position,side*.44,-1.12,.89);knees[i].scale.set(.125*size,.094*size,.142*size);}
+      foldedShins[i].visible=Boolean(seat?.ground);
+      if(seated){
+        frame(knees[i].position,side*(seat?.ground?.58:.44),seat?.ground?-1.0:-1.12,.89);
+        knees[i].scale.set(.125*size,.094*size,.142*size);
+        if(seat?.ground){
+          const shin=foldedShins[i];
+          frame(shin.position,side*.21,-1.04+i*.04,.85+i*.025);
+          shin.scale.set(.23*size,.062*size,.072*size);shin.rotation.y=side*.38;
+        }
+      }
     }
     if(driving){
       frame(joint,0,-.83,.94);frame(tip,0,-1.23,.81);segment(stem,joint,tip,.026*size);

@@ -1,6 +1,7 @@
 import {addZone,addLandmarks,addObstacle,addLoft} from "./layout.js";
 import {stationSurfaces,stationBuildings} from "./station-data.js";
 import {terminalPose,terminalPoint} from "./rail-station-layout.js";
+import {plazaCafeFront,outletFront} from "./station-approach-plan.js";
 import {approachAt,stationRise} from "./station-levels.js";
 import {cultureVenues} from "./culture-station-layout.js";
 import {groundIndex} from "./ground-index.js";
@@ -33,6 +34,8 @@ export function registerStation(){
   }
   // The projecting glass facade and its columns extend beyond the cadastral footprint.
   addObstacle(terminalPose.x,terminalPose.y,47,8,terminalPose.angle);
+  for(const {x,y,w,d,angle} of [plazaCafeFront,outletFront])
+    addObstacle(x-Math.sin(angle)*d/2,y-Math.cos(angle)*d/2,w,d,angle);
 
   for(const x of [-20,-8,8,20]){
     const p=terminalPoint(x,4.1);addObstacle(p.x,p.y,.55,.55);

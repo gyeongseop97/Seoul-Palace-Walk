@@ -1,48 +1,46 @@
-// Public approach centrelines © OpenStreetMap contributors, ODbL 1.0. Dimensions are in metres.
-export const eastDoor={x:4.2,y:1466.5};
-export const stationRise=5.85;
-export const stationApproaches=[
-  {a:[4.2,1463.2],b:[24.2,1489.5],w:8.8,h0:stationRise,h1:stationRise,kind:"deck"},
-  {a:[37.5,1443.3],b:[12.3,1443.9],w:12,h0:0,h1:stationRise,kind:"stairs"},
-  {a:[12.3,1443.9],b:[4.2,1466.5],w:14,h0:stationRise,h1:stationRise,kind:"deck"},
-  {a:[12.3,1443.9],b:[6.6,1442.3],w:11,h0:stationRise,h1:stationRise,kind:"deck"},
-  {a:[6.6,1442.3],b:[-16.4,1418.9],w:8,h0:stationRise,h1:stationRise,kind:"deck"},
-  {a:[-16.4,1418.9],b:[-26.9,1413.9],w:7,h0:stationRise,h1:stationRise,kind:"deck"},
-  {a:[-26.9,1413.9],b:[-99,1414.8],w:7,h0:stationRise,h1:stationRise,kind:"deck"},
-  {a:[-62.7,1414.35],b:[-62.7,1408.3],w:4.6,h0:stationRise,h1:stationRise,kind:"deck"},
-  {a:[-99,1414.8],b:[-106.4,1415],w:7,h0:stationRise,h1:stationRise,kind:"deck"},
-  {a:[-106.4,1415],b:[-119.6,1403.1],w:7,h0:stationRise,h1:stationRise,kind:"deck"},
-  {a:[-119.6,1403.1],b:[-131.6,1390],w:7,h0:stationRise,h1:stationRise,kind:"deck"},
-  {a:[-154.9,1390.5],b:[-131.6,1390],w:7,h0:0,h1:stationRise,kind:"stairs"},
-  {a:[-155,1390.5],b:[-162,1390.5],w:12,h0:0,h1:0,kind:"square"},
-  {a:[17.7,1415.4],b:[3.1,1422],w:4.2,h0:0,h1:stationRise,kind:"escalator"},
-  {a:[3.1,1422],b:[-9,1426],w:6,h0:stationRise,h1:stationRise,kind:"deck"},
-  {a:[32.3,1408.8],b:[17.7,1415.4],w:4.2,h0:-4.8,h1:0,kind:"escalator"},
-  {a:[34.7,1407.7],b:[32.3,1408.8],w:4.2,h0:-4.8,h1:-4.8,kind:"lowerLanding"},
-  {a:[37.5,1435.0],b:[12.3,1435.6],w:3.95,h0:0,h1:stationRise,kind:"escalator",open:true},
-  {a:[12.3,1435.6],b:[12.3,1443.9],w:4.3,h0:stationRise,h1:stationRise,kind:"deck"},
-  {a:[47.7,1478],b:[24.2,1489.5],w:8,h0:0,h1:stationRise,kind:"stairs"},
-  {a:[24.2,1489.5],b:[34.6,1501.8],w:10,h0:stationRise,h1:stationRise,kind:"deck"},
-  {a:[-198.2,1528.8],b:[-169.6,1517.8],w:11,h0:0,h1:stationRise,kind:"stairs"},
-  {a:[-169.6,1517.8],b:[-163.6,1515.5],w:11,h0:stationRise,h1:stationRise,kind:"deck"}
-];
+import {eastDoor,stationRise,stationApproaches} from "./station-approach-plan.js";
+import {stationTerraces} from "./station-terraces.js";
+import {groundIndex} from "./ground-index.js";
+export {eastDoor,stationRise,stationApproaches};
+const onTerrace=groundIndex(stationTerraces,20);
 export function segmentFrame(s){
   const dx=s.b[0]-s.a[0],dy=s.b[1]-s.a[1],len=Math.hypot(dx,dy);
   return {len,ux:dx/len,uy:dy/len};
 }
 for(const s of stationApproaches)Object.assign(s,segmentFrame(s));
+// Flat comb plates meet the moving steps at each end of the escalator.
+export const escalatorSpeed=.95;
+export function approachHeight(s,t){
+  const flat=s.kind==="escalator"?.8:0;
+  const f=Math.max(0,Math.min(1,(t-flat)/(s.len-flat*2)));
+  return s.h0+(s.h1-s.h0)*f;
+}
+export function escalatorDirection(at){
+  if(at?.s.kind!=="escalator"||Math.abs(at.side)<.15||Math.abs(at.side)>at.s.w/2-.15)return 0;
+  return at.side>0?1:-1;
+}
 export function approachAt(x,y){
-  if(x< -207||x>57||y<1378||y>1542)return null;
-  let result=null,best=Infinity;
+  if(x< -207||x>60||y<1378||y>1542)return null;
+  const deck=onTerrace(x,y);
+  let nearest=null,best=Infinity;
   for(const s of stationApproaches){
     const dx=x-s.a[0],dy=y-s.a[1],t=dx*s.ux+dy*s.uy,side=dy*s.ux-dx*s.uy;
-    if(t< -1.2||t>s.len+1.2||Math.abs(side)>s.w/2)continue;
-    const gap=Math.max(0,-t,t-s.len);
-    const score=gap*4+Math.abs(side)/s.w;
-    if(score>=best)continue;
-    best=score;result={s,t,side,height:s.h0+(s.h1-s.h0)*Math.max(0,Math.min(1,t/s.len))};
+    if(s.kind!=="deck"){
+      if(t>=-.008&&t<=s.len+.008&&Math.abs(side)<=s.w/2+.008)return {s,t,side,height:approachHeight(s,t)};
+    }else if(deck){
+      const dist=side*side+Math.max(0,-t,t-s.len)**2;
+      if(dist<best){nearest={s,t,side,height:stationRise};best=dist;}
+    }
   }
-  return result;
+  return nearest;
+}
+function clearTerraceLine(a,b){
+  const count=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)/.28));
+  for(let i=0;i<=count;i++){
+    const t=i/count,x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t;
+    if(!onTerrace(x,y)&&Math.abs((approachAt(x,y)?.height??0)-stationRise)>.06)return false;
+  }
+  return true;
 }
 // Route over the pedestrian bridges only through connected landings at the same elevation.
 let deckNetwork;
@@ -52,7 +50,7 @@ function approachNetwork(){
   for(const s of stationApproaches){
     const count=Math.ceil(s.len/2);
     for(let i=0;i<=count;i++){
-      const t=i/count,node={s,x:s.a[0]+s.ux*s.len*t,y:s.a[1]+s.uy*s.len*t,h:s.h0+(s.h1-s.h0)*t,edges:[]};
+      const t=i/count,node={s,x:s.a[0]+s.ux*s.len*t,y:s.a[1]+s.uy*s.len*t,h:approachHeight(s,s.len*t),edges:[]};
       for(const other of nodes){
         if(other.s===s&&other!==nodes.at(-1))continue;
         const d=Math.hypot(other.x-node.x,other.y-node.y);
@@ -72,9 +70,17 @@ export function approachRoute(from,to,groundPath){
   if(!onDeck&&!toDeck)return null;
   const {nodes,feet}=approachNetwork();
   const gap=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-  function closest(p,s){return nodes.filter(n=>n.s===s).reduce((a,b)=>gap(a,p)<gap(b,p)?a:b);}
-  if(onDeck&&toDeck&&start.s===end.s)return [to];
+  function closest(p,s){
+    const deck=s.kind==="deck";
+    const candidates=nodes.filter(n=>deck?n.s.kind==="deck":n.s===s).sort((a,b)=>gap(a,p)-gap(b,p));
+    return candidates.find(n=>!deck||clearTerraceLine(p,n));
+  }
+  if(onDeck&&toDeck){
+    if(start.s.kind==="deck"&&end.s.kind==="deck"&&clearTerraceLine(from,to))return [to];
+    if(start.s===end.s&&start.s.kind!=="deck")return [to];
+  }
   const first=onDeck?closest(from,start.s):null,last=toDeck?closest(to,end.s):null;
+  if(onDeck&&!first||toDeck&&!last)return [];
   const seeds=first?[first]:feet,dist=new Map(),previous=new Map(),before=new Map(),queue=new Set();
   for(const n of seeds){
     const path=first?[]:groundPath(from,{x:n.x,y:n.y});

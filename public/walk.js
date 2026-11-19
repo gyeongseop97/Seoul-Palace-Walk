@@ -45,7 +45,8 @@ import {canRideBikeSegment} from "./bike-movement.js";
 import {gbWallOutline,clipGbGround} from "./gyeongbok-perimeter.js";
 import {outsideGroundOffset} from "./gyeongbok-terrain.js";
 import {mmcaCourtyards,mmcaBuildings,mmcaLawns} from "./mmca-layout.js";
-import {approachAt,approachRoute,stationApproaches,partAt,concourseParts,hallOrigin,westExit,northBridgeExit,rearMarketExit,marketExit,subwayExit,metroInsidePoint,railPoint,railHeight,sameStation,liftAt,liftBanks,liftLanding,floorName,setStationClock} from "./station-levels.js";
+import {stationTerraces} from "./station-terraces.js";
+import {approachAt,approachRoute,escalatorSpeed,escalatorDirection,stationApproaches,partAt,concourseParts,hallOrigin,westExit,northBridgeExit,rearMarketExit,marketExit,subwayExit,metroInsidePoint,railPoint,railHeight,sameStation,liftAt,liftBanks,liftLanding,floorName,setStationClock} from "./station-levels.js";
 import {cultureFrontDoors,culturePart,cultureVenues} from "./culture-station-layout.js";
 import {stationHall,hallDoors,terminalDoors,railRooms,railRoomById,railCounters} from "./rail-station-layout.js";
 import {semaVenue,semaExhibits} from "./sema-layout.js";
@@ -2153,9 +2154,9 @@ function stationConveyor(dt){
     if(side>.60)move(me.x,me.y+(side>.80?1:-1)*dt*.95);
   }else if(!p){
     const at=approachAt(me.x,me.y);
-    if(at?.s.kind==="escalator"){
-      const dir=at.side>0?1:-1;
-      move(me.x+dir*at.s.ux*dt*.95,me.y+dir*at.s.uy*dt*.95);
+    const dir=escalatorDirection(at);
+    if(dir){
+      move(me.x+dir*at.s.ux*dt*escalatorSpeed,me.y+dir*at.s.uy*dt*escalatorSpeed);
     }
   }
 }
@@ -3473,7 +3474,12 @@ function drawMap(base,mini=false){
   for(const {a,b,kind} of palaceWalls){
     svg(base,"line",{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:kind==="outer"?"#929283":"#a07d62","stroke-width":kind==="outer"?1.35:1.12});
   }
+  for(const terrace of stationTerraces){
+    const d=terrace.rings.map(r=>"M"+r.map(p=>p.join(",")).join("L")+"Z").join("");
+    svg(base,"path",{d,fill:"#b6ac98",stroke:"#d1c6a7","stroke-width":.32,"fill-rule":"evenodd"});
+  }
   for(const s of stationApproaches){
+    if(s.kind==="deck")continue;
     const dx=s.uy*s.w/2,dy=-s.ux*s.w/2,[ax,ay]=s.a,[bx,by]=s.b;
     svg(base,"polygon",{points:[[ax+dx,ay+dy],[ax-dx,ay-dy],[bx-dx,by-dy],[bx+dx,by+dy]].map(p=>p.join(",")).join(" "),fill:s.kind==="stairs"?"#cbbc95":"#a99f88",stroke:"#d1c6a7","stroke-width":.32});
   }

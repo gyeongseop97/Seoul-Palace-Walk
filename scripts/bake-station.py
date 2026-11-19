@@ -5,6 +5,7 @@ The original geometry is © OpenStreetMap contributors, ODbL 1.0.
 import json
 import math
 import sys
+import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from shapely.geometry import LineString, Point, Polygon, box
@@ -29,6 +30,32 @@ def merge(shapes):
     return unary_union([set_precision(p,.02) for p in shapes if not p.is_empty])
 def dumped(value): return json.dumps(value,ensure_ascii=False,separators=(",",":"))
 
+# Use the same door, stair and facade coordinates as the renderer. A cadastral
+# outline includes outdoor terraces and overpasses in its plan projection.
+project=Path(__file__).resolve().parents[1]
+plan=json.loads(subprocess.check_output([
+    "node","--input-type=module","-e",
+    "import * as plan from './public/station-approach-plan.js';console.log(JSON.stringify(plan))"
+],cwd=project,encoding="utf8"))
+approaches=plan["stationApproaches"]
+def strip(s):
+    return LineString([s["a"],s["b"]]).buffer(s["w"]/2,cap_style="flat")
+def local_point(x,y,angle,u,v):
+    return (x+u*math.cos(angle)+v*math.sin(angle),y-u*math.sin(angle)+v*math.cos(angle))
+def local_box(x,y,angle,u0,u1,v0,v1):
+    return Polygon([local_point(x,y,angle,u,v) for u,v in [(u0,v0),(u1,v0),(u1,v1),(u0,v1)]])
+decks=merge([Polygon(plan["eastPlazaOutline"])]+[strip(s).buffer(.18,join_style="mitre") for s in approaches if s["kind"]=="deck"])
+flights=merge([strip(s) for s in approaches if s["kind"]!="deck"])
+decks=decks.difference(flights)
+door=plan["eastDoor"]
+cx,cy=local_point(door["x"],door["y"],2.22,-14,-2.5)
+decks=decks.difference(local_box(cx,cy,2.22,-23.5,23.5,-6,4.16))
+kiosks=[]
+for front in [plan["plazaCafeFront"],plan["outletFront"]]:
+    kiosk=local_box(front["x"],front["y"],front["angle"],-front["w"]/2,front["w"]/2,-front["d"],.12)
+    kiosks.append(kiosk)
+    decks=decks.difference(kiosk)
+clearance=merge([decks,flights,*kiosks]).buffer(1.05,join_style="mitre")
 spine=LineString([(485,380),(476,425),(381,748),(347,805),(291,858),(249,947),(106,1189),(105,1340),(104,1537)])
 scope=spine.buffer(66).union(box(-19,1201,206,1518)).intersection(box(-100,399,610,1530))
 # West taxi plaza, both sides of Hangang-daero and the approaches to exits 10–15.
@@ -55,7 +82,8 @@ for i,(t,pts) in ways.items():
         kind={759569673:"historic",216477743:"squareOffice"}.get(i,"block")
         h=t.get("height","").split(" ")[0];levels=t.get("building:levels","")
         height=float(h) if h.replace(".","",1).isdigit() else float(levels)*3.35 if levels.isdigit() else (12+min(16,int(pg.area/170)))
-        for part in parts(pg.simplify(.14,preserve_topology=True)):
+        body=pg.simplify(.14,preserve_topology=True)
+        for part in parts(body.difference(clearance) if body.intersects(clearance) else body):
             buildings.append(dict(id=i,name=t.get("name",""),kind=kind,height=round(height,1),rings=rings(part)))
             built.append(part)
         continue
@@ -93,10 +121,19 @@ for i,(t,pts) in ways.items():
 # OSM relation 7307085 has three closed outer ways: the north hall, main concourse and south wing.
 for i,kind,height in [(331969674,"stationWing",14.8),(331947843,"terminal",19.8),(170403784,"stationWing",16)]:
     outline=poly(i)
-    buildings.append(dict(id=i,name="서울역",kind=kind,height=height,rings=rings(outline)))
-    built.append(outline)
+    for part in parts(outline.difference(clearance) if outline.intersects(clearance) else outline):
+        buildings.append(dict(id=i,name="서울역",kind=kind,height=height,rings=rings(part)))
+        built.append(part)
 gate=Polygon(ways[233625717][1]+ways[1487802248][1][1:]).buffer(0)
-buildings.append(dict(id="gate",name="숭례문",kind="gate",height=20,rings=rings(gate)));built.append(gate)
+g=plan["gatePose"]
+def gate_box(u0,u1,v0,v1): return local_box(g["x"],g["y"],g["angle"],u0,u1,v0,v1)
+for side in [-1,1]:
+    spring,edge=sorted([side*g["opening"],side*22])
+    wing0,wing1=sorted([side*21,side*31])
+    pier=gate_box(spring,edge,-g["depth"]/2,g["depth"]/2).union(gate_box(wing0,wing1,-3.5,3.5))
+    buildings.append(dict(id="gate",name="숭례문",kind="gate",height=20,rings=rings(pier)))
+    built.append(pier)
+squares.append(gate_box(-g["opening"],g["opening"],-20,20))
 asphalt=merge(road)
 # Cover the public shoulders up to the facade, preserving all surveyed sides of each junction.
 walk.append(asphalt.buffer(5.7).difference(asphalt))
@@ -153,7 +190,10 @@ for shape,angle in cross:add("crossing",shape,angle)
 crossing_lines.extend([[[81,1168],[55,1199],5.2],[[151,1230],[156,1265],5]])
 # Keep vehicle access through pedestrian aprons, alleys and forecourt drop-off areas.
 # Only mapped zebra crossings get stripes; raised bus islands retain their own paving.
-add("shared",merge(walk+squares+taxi_aprons).intersection(merge(road_centres)))
+# Follow the entire kerb-to-kerb drop-off lane across the forecourt.
+apron=box(-6,1400,57,1504)
+shared_roads=merge(road_centres).difference(apron).union(asphalt.intersection(apron))
+add("shared",merge(walk+squares+taxi_aprons).intersection(shared_roads))
 add("stone",merge(platforms+squares))
 # Transit-only carriageways serve the islands even when general motor access is prohibited.
 # Pedestrians cross these lanes only at marked crossing sections.
@@ -167,6 +207,8 @@ add("grass",merge(grass+parks))
 add("path",scope.intersection(asphalt.buffer(10.5)))
 add("verge",scope)
 out=Path(__file__).resolve().parents[1]/"public"/"station-data.js"
+terraces=[{"kind":"deck","rings":rings(p)} for p in parts(decks)]
+out.with_name("station-terraces.js").write_text("// Generated by scripts/bake-station.py from the public approach plan.\nexport const stationTerraces="+dumped(terraces)+";\n",encoding="utf8")
 with out.open("w",encoding="utf8") as f, out.with_name("station-lanes.js").open("w",encoding="utf8") as lanes_file:
     lanes_file.write("// Geometry © OpenStreetMap contributors, ODbL 1.0. Generated by scripts/bake-station.py.\n")
     f.write("// Geometry © OpenStreetMap contributors, ODbL 1.0. Generated by scripts/bake-station.py.\n")
