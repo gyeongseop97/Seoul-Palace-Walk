@@ -1,3 +1,4 @@
+import {partAt} from "./station-levels.js";
 import {railRooms} from "./rail-station-layout.js";
 import {semaVenue} from "./sema-layout.js";
 import {museumBounds} from "./visit-layout.js";
@@ -13,6 +14,8 @@ export const interiorBounds={...Object.fromEntries(railRooms.map(v=>[v.id,v.boun
 const rooms=Object.entries(interiorBounds);
 
 export function interiorAt(x,y){
+  const station=partAt(x,y);
+  if(station)return station.id;
   for(const [id,{minX,maxX,minY,maxY}] of rooms){
     if(x>minX&&x<maxX&&y>minY&&y<maxY)return id;
   }

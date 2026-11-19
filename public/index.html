@@ -214,6 +214,7 @@
                   <button id="arcade-airHockey" type="button" class="quiet activity-button" hidden>에어하키</button>
                   <button id="arcade-racing" type="button" class="quiet activity-button" hidden>서울 랠리</button>
                   <button id="arcade-brickBreaker" type="button" class="quiet activity-button" hidden>벽돌 깨기</button>
+                  <button id="station-lift" type="button" class="quiet activity-button" hidden>승강기</button>
                   <button id="arcade-stairs" type="button" class="quiet activity-button" hidden>2층 올라가기</button>
                   <button id="fountain-show" type="button" class="quiet activity-button" hidden>분수쇼 시작</button>
                   <button id="picnic" type="button" class="quiet activity-button" aria-haspopup="dialog" hidden>돗자리 펴기</button>
@@ -353,6 +354,7 @@
             <option value="activity">즐길거리</option>
             <option value="bus">버스</option>
             <option value="subway">지하철</option>
+            <option value="railway">철도역</option>
             <option value="bike">따릉이</option>
             <option value="stamp">스탬프</option>
           </select>
@@ -386,7 +388,7 @@
             </button>
             <span class="map-north" aria-hidden="true">↑ N</span>
         </div>
-        <div class="map-footer" id="map-footer"><span class="map-key" id="map-key" aria-label="지도 범례"><span><i class="dot mine"></i>나</span><span><i class="dot theirs"></i>동행</span><span data-map-legend="heritage"><i class="dot map-swatch"></i>유적·전시</span><span data-map-legend="park"><i class="dot map-swatch"></i>정원·광장</span><span data-map-legend="shop"><i class="dot map-swatch"></i>상점·식당</span><span data-map-legend="activity"><i class="dot map-swatch"></i>즐길거리</span><span data-map-legend="bus"><i class="dot map-swatch"></i>버스</span><span data-map-legend="subway"><i class="dot map-swatch"></i>지하철</span><span data-map-legend="bike"><i class="dot map-swatch"></i>따릉이</span><span data-map-legend="stamp"><i class="dot map-swatch"></i>찍은 도장</span><span data-map-legend="stamp"><i class="dot stamp-dot unvisited"></i>미방문 도장</span></span><div class="map-links" id="map-links"><button id="model-credits" class="quiet" type="button" aria-haspopup="dialog">자료 출처</button><button data-shortcut class="quiet" type="button" aria-label="서울시립미술관 입구로 순간이동">시립미술관</button><button data-shortcut class="quiet" type="button" aria-label="중화전으로 순간이동">중화전</button><button data-shortcut class="quiet" type="button" hidden>정류장</button><button data-shortcut class="quiet" type="button" hidden>정류장</button><button data-shortcut class="quiet" type="button" hidden></button></div></div>
+        <div class="map-footer" id="map-footer"><span class="map-key" id="map-key" aria-label="지도 범례"><span><i class="dot mine"></i>나</span><span><i class="dot theirs"></i>동행</span><span data-map-legend="heritage"><i class="dot map-swatch"></i>유적·전시</span><span data-map-legend="park"><i class="dot map-swatch"></i>정원·광장</span><span data-map-legend="shop"><i class="dot map-swatch"></i>상점·식당</span><span data-map-legend="activity"><i class="dot map-swatch"></i>즐길거리</span><span data-map-legend="bus"><i class="dot map-swatch"></i>버스</span><span data-map-legend="railway"><i class="dot map-swatch"></i>철도역</span><span data-map-legend="subway"><i class="dot map-swatch"></i>지하철</span><span data-map-legend="bike"><i class="dot map-swatch"></i>따릉이</span><span data-map-legend="stamp"><i class="dot map-swatch"></i>찍은 도장</span><span data-map-legend="stamp"><i class="dot stamp-dot unvisited"></i>미방문 도장</span></span><div class="map-links" id="map-links"><button id="model-credits" class="quiet" type="button" aria-haspopup="dialog">자료 출처</button><button data-shortcut class="quiet" type="button" aria-label="서울시립미술관 입구로 순간이동">시립미술관</button><button data-shortcut class="quiet" type="button" aria-label="중화전으로 순간이동">중화전</button><button data-shortcut class="quiet" type="button" hidden>정류장</button><button data-shortcut class="quiet" type="button" hidden>정류장</button><button data-shortcut class="quiet" type="button" hidden></button></div></div>
       </article>
       <div class="desktop-room-controls" id="desktop-room-controls"></div>
       </aside>
@@ -540,7 +542,7 @@
       <li><a href="https://futureheritage.seoul.go.kr/futureHeritageMeet/futureHeritage/view.do?htNo=393" target="_blank" rel="noopener">서울미래유산 세종대왕상 사진 및 규격</a> · <a href="https://futureheritage.seoul.go.kr/futureHeritageMeet/futureHeritage/view.do?htNo=391" target="_blank" rel="noopener">이순신 장군상 규격</a></li>
       <li id="yi-stl-credit" hidden>이순신 장군상 · <a href="https://www.thingiverse.com/thing:233665" target="_blank" rel="noopener">Andrea / RenatoT 원본</a> · <a href="https://www.thingiverse.com/thing:234161" target="_blank" rel="noopener">downeym 수정본</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.ko" target="_blank" rel="noopener">CC BY-SA 4.0</a> · 받침 제거, 실물 비율 조정, 경량화 및 청동 재질 적용</li>
       <li><a href="https://mediahub.seoul.go.kr/archives/2001581" target="_blank" rel="noopener">서울시 세종대로 사람숲길</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap 기여자</a></li>
-      <li><a href="https://www.hanwhaconnect.co.kr/seoul/floor" target="_blank" rel="noopener">서울역 층별 매장 안내</a> · 서울역·숭례문 도로와 건물 윤곽 © OpenStreetMap contributors, <a href="https://www.openstreetmap.org/copyright">ODbL 1.0</a>. <a href="./station-data.js" download>게임용 지리 데이터</a> · <a href="./station-lanes.js" download>도로 중심선</a> · <a href="https://map.naver.com/p/search/서울역">네이버 지도·거리뷰</a> · <a href="https://smap.seoul.go.kr/smap/">서울시 S-Map</a> · <a href="https://www.seoul284.org/">문화역서울284</a></li>
+      <li><a href="https://www.hanwhaconnect.co.kr/seoul/floor" target="_blank" rel="noopener">서울역 층별 매장 안내</a> · <a href="https://www.airportrailroad.com/train/normal/info/010/0" target="_blank" rel="noopener">공항철도 환승 안내</a> · 서울역·숭례문 도로와 건물 윤곽 © OpenStreetMap contributors, <a href="https://www.openstreetmap.org/copyright">ODbL 1.0</a>. <a href="./station-data.js" download>게임용 지리 데이터</a> · <a href="./station-lanes.js" download>도로 중심선</a> · <a href="https://map.naver.com/p/search/서울역">네이버 지도·거리뷰</a> · <a href="https://smap.seoul.go.kr/smap/">서울시 S-Map</a> · <a href="https://www.seoul284.org/">문화역서울284</a></li>
       <li>정동길·경희궁 건물 윤곽 및 도로 데이터 © OpenStreetMap contributors, <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener">ODbL 1.0</a>. <a href="./west-district-data.js" download>게임용 지리 데이터</a> · <a href="https://sema.seoul.go.kr/kr/visit/seosomun" target="_blank" rel="noopener">서소문본관</a> · <a href="https://museum.seoul.go.kr/www/support/ghp/supportBranchGHPpalace.jsp" target="_blank" rel="noopener">경희궁 전각</a></li>
       <li>정전 앞 포장 참고 자료 · <a href="https://digital.khs.go.kr/buis/buisDetail.do?bizUid=13983502643880499112&amp;ctptNo=1111102230000&amp;ctptUid=13898859666526200071" target="_blank" rel="noopener">근정전 답도 및 삼도</a> · <a href="https://digital.khs.go.kr/heri/heriDetail.do?ctptNo=1121108190000&amp;ctptUid=13898859671361200471" target="_blank" rel="noopener">중화전 및 중화문</a></li>
       <li><a href="https://access.visitkorea.or.kr/ms/detail.do?cotId=b2b3e368-293e-4fc4-a719-90b0f1514385" target="_blank" rel="noopener">한국관광공사 세종로공원</a> · <a href="https://mediahub.seoul.go.kr/archives/2000721" target="_blank" rel="noopener">서울시 한글글자마당</a></li>
@@ -586,6 +588,11 @@
       <section><h3>잔디밭 피크닉과 우산</h3><p>광화문광장 육조마당 잔디밭에서 <strong>돗자리 펴기</strong>를 누르고 음식이나 음료를 한 몫씩 나눠 보세요. 비나 눈이 오면 가까운 친구에게 <strong>우산 같이 쓰기</strong>를 요청할 수 있어요. 친구가 수락하면 우산을 든 사람이 앞장서요.</p></section>
       <section><h3>친구와 함께</h3><p>오픈서버에서 다른 산책자와 만나거나 초대코드로 친구와 같은 방에 들어오세요. 가까이에서 손을 잡고 벤치에 나란히 앉거나, 둘 다 음료를 들고 <strong>건배하기</strong>를 눌러 보세요. 접속자 목록에서 친구 이름을 누르면 그 친구가 있는 방향을 볼 수 있어요.</p></section>
     </div>
+  </dialog>
+  <dialog id="station-lift-dialog" aria-labelledby="station-lift-title">
+    <form method="dialog"><div class="dialog-top"><h2 id="station-lift-title">승강기</h2><button class="quiet close" aria-label="닫기">×</button></div>
+      <p>갈 층을 고르면 문이 열릴 때 타고 내려요.</p><div id="station-lift-floors" class="choices"></div>
+    </form>
   </dialog>
   <dialog id="exhibit-dialog" aria-labelledby="exhibit-title">
     <div class="dialog-top"><span class="tag" id="exhibit-gallery"></span><button type="button" class="quiet close" aria-label="닫기">×</button></div>

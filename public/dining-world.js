@@ -171,12 +171,12 @@ export function* buildDiningInterior(T,root,kit,venue,walkerModels){
     }
   }
   part(modern?0xdfe8dc:cream,0,4.99,0,24,.19,24);
-  for(const [x,z,w,d] of diningWalls){
+  for(const [x,z,w,d] of venue.parent?[]:diningWalls){
     part(style.wall,x,2.46,z,w,4.90,d);
     part(frame,x,.133,z,w+.11,.27,d+.12);
     part(modern?0xa7b4a9:wood,x,4.74,z,w+.15,.24,d+.14);
   }
-  for(const x of [-11.68,11.68]){
+  for(const x of venue.parent?[]:[-11.68,11.68]){
     for(const z of [-9.3,-3.2,3.2,9.3])part(frame,x,2.30,z,.22,4.58,.19);
     for(const z of [-2.8,6.3]){
       const side=Math.sign(x);
@@ -201,6 +201,7 @@ export function* buildDiningInterior(T,root,kit,venue,walkerModels){
     }
     part(copper,side*.13,1.34,.12,.057,.19,.068,exit);
   }
+  if(venue.parent)exit.visible=false;
   standSign(T,exit,"나가는 문",venue.street,1.99,0,3.54,.11,"#494335","#fae6bd",.47);
   part(modern?0x4f7673:0x825549,0,.016,10.2,3.28,.028,2.79);
   part(modern?0xadc8b6:0xc3a172,0,.032,10.2,3.02,.029,2.54);

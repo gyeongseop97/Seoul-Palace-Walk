@@ -1,3 +1,4 @@
+import {railStepAllowed,sameStation} from "./station-levels.js";
 import {worldExtent} from "./world-extent.js";
 import {interiorAt,interiorBounds} from "./interior-layout.js";
 
@@ -239,6 +240,7 @@ export function addZone(zone){
   if(zone.connects)layeredZones.push(zone);
 }
 function layerConnects(ax,ay,bx,by){
+  if(!railStepAllowed({x:ax,y:ay},{x:bx,y:by}))return false;
   for(const zone of layeredZones){
     if(zone.contains(ax,ay)&&zone.contains(bx,by)&&!zone.connects({x:ax,y:ay},{x:bx,y:by}))return false;
   }
@@ -534,7 +536,7 @@ function takeCandidate(heap){
 export function planWalk(from,target,feet=0){
   if(!inWalkingBounds(from)||!inWalkingBounds(target))return [];
   const fromInterior=interiorAt(from.x,from.y),targetInterior=interiorAt(target.x,target.y);
-  if(fromInterior!==targetInterior)return [];
+  if(!sameStation(fromInterior,targetInterior))return [];
   const open=(x,y)=>walkable(x,y,platformAt(x,y)+.19),clear=(a,b,step,level)=>strideSegment(a,b,level);
   const exact=open(target.x,target.y);
   if(exact&&clear(from,target,.36,feet))return [target];

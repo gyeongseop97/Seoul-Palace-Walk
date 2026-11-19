@@ -1,6 +1,8 @@
 import {stationSurfaces,stationBuildings,stationTrees,seoulloDeck} from "./station-data.js";
 import {southWorldSurfaceHeight as ground,southWorldTerrainHeight,gradePalaceMeshes} from "./gyeongbok-terrain.js";
 import {standSign} from "./regional-stands.js";
+import {buildStationApproaches} from "./station-approach-world.js";
+import {stationRise} from "./station-levels.js";
 import {terminalPose} from "./rail-station-layout.js";
 import {districtTile} from "./district-material.js";
 
@@ -124,6 +126,8 @@ export function* buildStationBand(T,root,kit,band){
   }
   function terminal(){
     const g=groupAt(terminalPose.x,terminalPose.y,terminalPose.angle);g.name="서울역";
+    g.position.y+=stationRise;
+    box(0xa4aaa9,0,-stationRise/2,0,47,stationRise,8,g);
     const silver=0xc1c9c8,glaze=0x597b87;
     const span=47,half=span/2;
     box(glaze,0,9.4,0,span,18.8,8,g);
@@ -146,9 +150,9 @@ export function* buildStationBand(T,root,kit,band){
     }
     for(let h=2;h<19;h+=3.2)box(silver,0,h,4.16,span,.17,.22,g);
     const canopy=box(silver,0,17.6,7.4,span+2,.55,7,g);canopy.rotation.x=.14;
-    for(const z of [-7,10])for(const x of [-20,-8,8,20])cylinder(0x98a6a5,x,7.9,z,.45,16,10,g);
+    for(const z of [-7,4.1])for(const x of [-20,-8,8,20])cylinder(0x98a6a5,x,7.9,z,.45,16,10,g);
     standSign(T,g,"서울역","SEOUL STATION",11.6,0,14.2,4.4,"#274965","#ffffff",2.35);
-    for(let k=0;k<4;k++)for(const side of [-1,1])box(0x9fa6a3,side*12.4,.08+k*.09,9.8-k*.55,20.1,.16+k*.18,.65,g);
+    buildStationApproaches(T,root,kit,ground);
   }
   function sungnyemun(){
     const g=groupAt(340.7,867.1,-.733);g.name="숭례문";

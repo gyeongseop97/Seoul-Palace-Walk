@@ -4,7 +4,7 @@ import {makeRegionalItemProps} from "./regional-item-props.js";
 
 const navy=0x234967,blue=0x336990,silver=0xb5c2c5,ivory=0xeee8d9,slate=0x546576;
 export function* buildRailRoom(T,root,kit,venue){
-  const room=new T.Group();room.name=venue.name;room.position.set(kit.wx(venue.center.x),0,kit.wz(venue.center.y));root.add(room);
+  const room=new T.Group();room.name=venue.name;room.position.set(kit.wx(venue.center.x),venue===railPlatform?-6.3:0,kit.wz(venue.center.y));root.add(room);
   const box=(c,x,y,z,w,h,d,p=room)=>kit.box(c,x,y,z,w,h,d,p);
   const rod=(c,x,y,z,r,h,p=room)=>kit.cylinder(c,x,y,z,r,h,12,p);
   const group=(x,z,angle=0,parent=room)=>{const g=new T.Group();g.position.set(x,0,z);g.rotation.y=angle;parent.add(g);return g;};
@@ -18,21 +18,6 @@ export function* buildRailRoom(T,root,kit,venue){
     box(c,0,-.12,0,w,.24,d);
     for(let x=-w/2+step;x<w/2;x+=step)box(0xa19f92,x,.002,0,.016,.004,d);
     for(let z=-d/2+step;z<d/2;z+=step)box(0xaaa89c,0,.002,z,w,.004,.017);
-  }
-  function stair(p,up){
-    if(!up){
-      box(slate,0,.033,-.8,4.1,.065,2.7,p);
-      for(let i=0;i<8;i++)box(i%2?0xb6b8af:0x839093,0,.073,-i*.30,3.68,.035,.08,p);
-      for(const side of [-1,1]){box(silver,side*1.97,.48,-.8,.12,.93,2.85,p);}
-      sign(p,"↓ KTX 타는 곳","TRAINS  ·  1층 승강장",5.2,0,3.12,-1.24);return;
-    }
-    const colors=[0xa6acaa,0x8d989a];
-    for(let i=0;i<8;i++)box(colors[i%2],0,.069+i*.09,-i*.30,3.7,.14+i*.18,.31,p);
-    for(const side of [-1,1]){
-      for(let i=0;i<=7;i+=7)rod(silver,side*1.81,.61+i*.178,-i*.30,.048,1.1,p);
-      girder(p,[side*1.81,1.16,0],[side*1.81,2.42,-2.1],.09,silver);
-    }
-    sign(p,"3층 식당가","FOOD HALL",4.9,0,3.28,-1.1);
   }
   function seats(p,x,z,width,count,color){
     const g=group(x,z,0,p);
@@ -53,17 +38,19 @@ export function* buildRailRoom(T,root,kit,venue){
     ceilingLight(7,5,15,52,27);ceilingLight(0,7,-15,60,32);
     paving(42,58,2.2,0xd3cec0);
     for(const side of [-1,1]){
-      box(0xb7c6c9,side*21,4.25,0,.27,8.5,58);
-      box(0xd3d6d0,0,4.25,side*29,42,8.5,.27);
-      for(let z=-26;z<=26;z+=4)box(0x778d92,side*20.79,5.5,z,.14,4.6,.115);
+      for(const [z,len] of (side<0?[[20,18]]:[[-14,30],[20,18]]))box(0xb7c6c9,side*21,4.25,z,.27,8.5,len);
+      if(side>0)box(0xd3d6d0,0,4.25,29,42,8.5,.27);
+      else box(0xb4c6c8,0,7.6,-29,42,1.8,.22);
+      for(let z=-26;z<=26;z+=4)if(z<1||z>10)box(0x778d92,side*20.79,5.5,z,.14,4.6,.115);
       for(let z=-25;z<=25;z+=5){
+        if(z>=0&&z<=10)continue;
         box(0x9db7bd,side*20.84,6.35,z,.1,2.35,4.81);
         box(0xe0dcd1,side*20.8,3.1,z,.2,.28,5);
       }
     }
     // Curtain wall, tactile route and clerestory lights carry the eye to the platform entrance.
     for(let x=-19;x<=19;x+=3.8){
-      for(const z of [-28.79,28.79]){
+      for(const z of [28.79]){
         box(0x92afbb,x,5.75,z,3.63,4.05,.08);
         box(silver,x,5.75,z-Math.sign(z)*.07,.085,4.05,.07);
         box(silver,x,5.28,z-Math.sign(z)*.07,3.66,.08,.07);
@@ -102,8 +89,9 @@ export function* buildRailRoom(T,root,kit,venue){
     box(0x333d41,0,4.98,0,9.8,2.05,.31,departures);
     sign(departures,"열차 안내     KTX","승강장 ↓     정차 중     ·     서울역",9.52,0,4.98,.17,"#182d36","#f0cf84",1.88);
     for(const x of [-3.8,3.8])rod(silver,x,7.3,-16,.055,2.65);
-    const landing=group(0,-25.75);stair(landing,false);
-    const diningStair=group(-14.1,16,Math.PI/2);stair(diningStair,true);
+    sign(room,"1층  ↓  KTX 타는 곳","PLATFORMS",6,0,3.6,-28);
+    sign(room,"3층  ↑  식당가","FOOD HALL",5.2,-16,3.6,-28);
+    sign(room,"승강기  ↕","LIFT",2.5,-7.25,3.1,-28);
     const props=makeRegionalItemProps(T,kit);
     for(const p of railShopPlots){
       const g=group(p.x,p.z,p.angle),w=p.w,d=p.d;
@@ -135,12 +123,12 @@ export function* buildRailRoom(T,root,kit,venue){
     }
   }else if(venue===railPlatform){
     paving(8.7,97,1.3,0xbebbb1);
-    box(0x818981,0,-1.25,0,238,.26,258);
+    box(0x818981,0,-1.25,0,23,.26,115);
     for(const side of [-1,1]){
       box(0x999f9f,side*19,-.1,0,6.2,.38,130);
       box(0xaeb8b9,side*19,4.22,0,7.4,.22,121);
       for(let z=-55;z<60;z+=10){rod(silver,side*19,2,z,.13,4);}
-      for(let j=0;j<8;j++){
+      for(let j=0;j<4;j++){
         const z=-71+j*20,h=8+(j*7%15),x=side*(43+j%3*4);
         box(j%3===0?0xa3917e:0xa6a9a7,x,h/2-1,z,13,h,16);
         for(let level=2;level<h-1;level+=3)box(0x768790,x-side*6.53,level,z,.07,1.05,14.5);
@@ -165,7 +153,7 @@ export function* buildRailRoom(T,root,kit,venue){
     sign(room,"3  ·  KTX","열차 타는 곳",3.5,0,3.3,2);
     const returnSign=group(0,39.1,Math.PI);
     sign(returnSign,"↑ 나가는 곳","2층 맞이방",4.1,0,2.72,0);
-    for(let i=0;i<6;i++)box(i%2?silver:slate,0,.08+i*.10,38+i*.36,3.1,.16+i*.20,.38);
+
     yield;
     // Cross sections at successive longitudinal stations produce the rounded high-speed nose.
     const train=group(7.09,0);

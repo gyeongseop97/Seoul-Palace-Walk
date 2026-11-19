@@ -390,6 +390,8 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 :is([data-map-category="shop"],[data-map-legend="shop"]){--marker-color:#f2a6c7}
 :is([data-map-category="activity"],[data-map-legend="activity"]){--marker-color:#f38e65}
 :is([data-map-category="bus"],[data-map-legend="bus"]){--marker-color:#91c9f2}
+:is([data-map-category="railway"],[data-map-legend="railway"]){--marker-color:#f5ca69}
+#station-lift-floors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem}
 :is([data-map-category="subway"],[data-map-legend="subway"]){--marker-color:#b7a0ff}
 :is([data-map-category="bike"],[data-map-legend="bike"]){--marker-color:#74d4b7}
 :is([data-map-category="stamp"],[data-map-legend="stamp"]){--marker-color:#ffd07e}

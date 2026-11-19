@@ -1,3 +1,4 @@
+import {airportLift,railHeight,railPoint,railStepAllowed,liftLanding,liftCenter,liftAt,storeys,approachAt,approachRoute,subwayExit,stationApproaches} from "../public/station-levels.js";
 import assert from "node:assert/strict";
 import {addObstacle,planWalk,walkable} from "../public/layout.js";
 import {registerStation,stationGround,stationSites} from "../public/station-layout.js";
@@ -34,6 +35,23 @@ for(const bench of coachBenches)for(const slot of bench.slots){
   assert(walkable(slot.approach.x,slot.approach.y));
   reachable(ktxCoach.insideSpawn,slot.approach,"KTX 좌석 통로");
 }
+for(const [u,z,h] of [[0,0,0],[0,-38,-3.15],[0,-60,-6.3],[-16,-38,2.55],[-24,-59,5.1],[-20,-94,9.6],[-70,-40,-10.8]]){
+  const p=railPoint(u,z);assert(Math.abs(railHeight(p.x,p.y)-h)<.001);reachable(stationHall.insideSpawn,p,"연속 보행 "+u+","+z);
+}
+for(const floor of [1,2,3,4]){
+  const at=(floor-1)*7000+2000;assert.equal(liftAt(at).height,storeys[floor-1]);
+  assert(railStepAllowed(liftLanding(floor),liftCenter,at));assert(!railStepAllowed(liftLanding(floor),liftCenter,at+3200));
+}
+for(const [i,stop] of airportLift.stops.entries()){
+  const at=i*7000+2000-airportLift.offset+42000,landing=liftLanding(stop.floor,airportLift);
+  assert.equal(liftAt(at,airportLift).floor,stop.floor);
+  assert(railStepAllowed(landing,airportLift.center,at));
+}
+const steps=stationApproaches.find(s=>s.kind==="stairs");assert(approachAt(...steps.b).height>5);
+assert(walkable(subwayExit.outside.x,subwayExit.outside.y),"지하철 출구 보도");
+const eastRoute=approachRoute(square,stationHall.outsideDoor,planWalk);
+assert(eastRoute?.some(p=>Math.hypot(p.x-37.5,p.y-1443.3)<.5),"광장에서 계단을 거쳐 정문으로");
+assert.deepEqual(eastRoute.at(-1),stationHall.outsideDoor);
 const roadKinds=new Set(["road","crossing","shared"]);
 assert.equal(stationGround(45.6,1390),"shared","서울역 택시 승차장 진입로");
 for(let t=0;t<BUS_CYCLE_MS;t+=200){

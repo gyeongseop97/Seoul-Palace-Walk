@@ -1,3 +1,4 @@
+import {eastDoor,hallOrigin,railPoint} from "./station-levels.js";
 // Room coordinates are shared by the renderer, collision map, room server and minimap.
 const point=(x,y,heading=0)=>({x,y,heading});
 function room(id,name,x,y,w,d,outsideDoor,exit,spawn,enterLabel,exitLabel,parent=null){
@@ -6,18 +7,18 @@ function room(id,name,x,y,w,d,outsideDoor,exit,spawn,enterLabel,exitLabel,parent
     enterLabel,exitLabel,parent};
 }
 // The front steps and glass doors are on the northeast face of the main concourse.
-export const terminalPose={x:15,y:1485.4,angle:2.22};
+export const terminalPose={x:eastDoor.x-14*Math.cos(2.22)-2.5*Math.sin(2.22),y:eastDoor.y+14*Math.sin(2.22)-2.5*Math.cos(2.22),angle:2.22};
 export function terminalPoint(x,z){
   const {angle}=terminalPose,c=Math.cos(angle),s=Math.sin(angle);
   return {x:terminalPose.x+x*c+z*s,y:terminalPose.y-x*s+z*c};
 }
-export const terminalDoors=[-14,-7,0,7,14].map(x=>({...terminalPoint(x,6.2),heading:53}));
-export const stationHall=room("station-hall","서울역 2층 맞이방",1640,690,42,58,
+export const terminalDoors=[-14,-7,0,7,14].map(x=>({...terminalPoint(x,6.2),heading:53,up:true}));
+export const stationHall=room("station-hall","서울역 2층 맞이방",hallOrigin.x,hallOrigin.y,42,58,
   terminalDoors[2],[0,26.6,180],[0,23,0],"서울역 들어가기","서울역광장으로");
-export const railPlatform=room("ktx-platform","서울역 KTX 승강장",1750,690,8.7,97,
+export const railPlatform=room("ktx-platform","서울역 KTX 승강장",hallOrigin.x,hallOrigin.y-95.5,8.7,97,
   point(1640,666,180),[0,36,180],[0,32,0],"승강장 내려가기","맞이방 올라가기",stationHall.id);
 export const ktxCoach=room("ktx-coach","KTX 일반실",1810,690,3.9,23.8,
-  point(1753,702,270),[-1.05,9.5,90],[0,8.6,0],"KTX 타기","KTX 내리기",railPlatform.id);
+  {...railPoint(3,-83.5),heading:270},[-1.05,9.5,90],[0,8.6,0],"KTX 타기","KTX 내리기",railPlatform.id);
 export const railRooms=[stationHall,railPlatform,ktxCoach];
 export const railRoomById=Object.fromEntries(railRooms.map(v=>[v.id,v]));
 export const railShopPlots=[
@@ -36,7 +37,7 @@ export const seatRows=[-7.6,-5.65,-3.7,-1.75,.2,2.15,4.1,6.05];
 export const waitingRows=[[-9,1],[-9,-6],[1,1],[1,-6]];
 export const hallColumns=[[-17,-24],[17,-24],[-17,23],[17,23],[-17,3],[18,5]];
 export function registerRailFurniture(add,benches){
-  for(const r of railRooms){
+  for(const r of [ktxCoach]){
     const b=r.bounds,w=b.maxX-b.minX,d=b.maxY-b.minY;
     for(const x of [b.minX,b.maxX])add(x,r.center.y,.12,d);
     for(const y of [b.minY,b.maxY])add(r.center.x,y,w,.12);
@@ -45,7 +46,7 @@ export function registerRailFurniture(add,benches){
   for(const p of railShopPlots)add(stationHall.center.x+p.x,stationHall.center.y+p.z,p.w,p.d,p.angle);
   for(const [x,z] of hallColumns)hall(x,z,.62,.62);
   hall(-16,-13,6,9); // ticket counter enclosure
-  hall(0,-27,6,2);
+  // The north side opens directly into the two stair flights.
   for(const [x,z] of waitingRows){
     const cx=stationHall.center.x+x,cy=stationHall.center.y+z;
     hall(x,z,2.1,.67,.88);

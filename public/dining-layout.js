@@ -25,9 +25,9 @@ addLandmarks(diningVenues.map(venue=>({...venue.outsideDoor,name:venue.name})));
 export function registerDiningNavigation(benches,venues=diningVenues){
   for(const venue of venues){
     const {x,y,w,d,angle}=venue.plot;
-    addObstacle(x,y,w,d,angle);
+    if(!venue.parent)addObstacle(x,y,w,d,angle);
     const add=(x,z,w,d,height=Infinity)=>addObstacle(venue.center.x+x,venue.center.y+z,w,d,0,height);
-    for(const [x,z,w,d] of diningWalls)add(x,z,w,d);
+    if(!venue.parent)for(const [x,z,w,d] of diningWalls)add(x,z,w,d);
     for(const {x,z,w,d} of Object.values(diningFurniture))add(x,z,w,d);
     if(venue.kioskPoint)add(2.7,9.95,.92,.52,2.0);
     for(const [tableIndex,{x,z,chairs}] of diningTables.entries()){
