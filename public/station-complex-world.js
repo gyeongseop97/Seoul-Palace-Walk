@@ -1,4 +1,4 @@
-import {boardingIslands,roofBeds,escalatorSpeed,concourseParts,metroInsidePoint,hallOrigin,liftAt,liftBanks,floorName,partAt,railPoint,storeys} from "./station-levels.js";
+import {boardingIslands,ktxIsland,hallSpan,roofBeds,escalatorSpeed,concourseParts,slabEdges,openAir,outdoorFlight,metroInsidePoint,hallOrigin,liftAt,liftBanks,floorName,partAt,railPoint,storeys} from "./station-levels.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {stationHall,railPlatform} from "./rail-station-layout.js";
 import {stationDining} from "./dining-data.js";
@@ -24,57 +24,49 @@ export function* buildStationComplex(T,root,kit,venue,walkerModels){
     box(color,v.x+distance.x/2,v.y+distance.y/2,v.z+distance.z/2,width,distance.length(),width)
       .quaternion.setFromUnitVectors(new T.Vector3(0,1,0),distance.normalize());
   }
-  // Enclose the stepped halls in a common glazed atrium. A clear span remains above the tracks.
-  box(0x727978,-3,-12.1,-28,98,.8,245);
-  for(let z=-69;z<=-29;z+=5){
-    const ridge=12.4+.7*Math.cos((z+49)/24);
-    for(const [a,b] of [[-41,-17],[-12,10]]){
-      box(0xcdD7d5,(a+b)/2,ridge,z,b-a,.20,5.04);
-      box(0x72868b,(a+b)/2,ridge-.3,z,b-a,.24,.18);
-    }
-    box(0xbed4d6,-14.5,ridge+.25,z,5.2,.16,5.03);
-    for(const u of [-40,9]){
-      if(u===-40&&z>=-69&&z<=-64)continue;
-      box(0x9fbac0,u,2.7,z,.23,18.5,5.04);
-      box(0x667e85,u,3.05,z-2.48,.32,19.2,.14);
-      for(const level of [-4,-.4,3.2,6.8,10.4])box(0xd0d7d3,u+(u<0?.15:-.15),level,z,.13,.14,5);
-    }
-    for(const u of [-38,6])if(z%10===-9){
-      box(0x9aacac,u,2.3,z,.45,19,.45);
-      beam([u,10.3,z],[u+(u<0?4:-4),ridge-.35,z],.22,metal);
-    }
+  // The rail yard lies south of the concourse, one storey down. Tracks run on under the hall
+  // through dark portals and out past the platform ends.
+  const yard={x0:hallSpan.x0,x1:hallSpan.x1,z0:hallSpan.z1,z1:152},yardX=(yard.x0+yard.x1)/2,yardZ=(yard.z0+yard.z1)/2;
+  const yardW=yard.x1-yard.x0,yardD=yard.z1-yard.z0,rail=storeys[0];
+  box(0x8a8980,yardX,rail-1.54,yardZ,yardW,.62,yardD);
+  box(0x9a9f9b,yardX,rail/2-.8,yard.z0-.3,yardW,-rail+1.4,.6);
+  for(const x of [yard.x0,yard.x1]){
+    const inward=x===yard.x0?1:-1;
+    box(0x9daba9,x,rail+1.3,yardZ,.46,5.3,yardD);
+    for(let v=yard.z0+5;v<yard.z1-3;v+=7.5)box(0x7c9095,x+inward*.26,rail+2.9,v,.1,1.7,6.8);
   }
-  for(let z=-22;z<2;z+=4.4){
-    box(0xd4dbd5,-30,10.7,z,18,.18,4.45);
-    box(0xa0b2b4,-39.2,5.2,z,.20,10.5,4.46);
-    box(metal,-39.01,5.2,z-2.12,.13,10.5,.10);
-    for(const sill of [3.4,6.8])box(0xd0d5ce,-39.03,sill,z,.14,.16,4.45);
-    beam([-39,10.4,z],[-21,10.4,z],.19,metal);
+  box(0x909d9e,yardX,rail+1.1,yard.z1,yardW,5.8,.42);
+  const tracks=[...boardingIslands.map(s=>({x:s.x,gauge:6.4})),{x:ktxIsland.x,gauge:6.2}].flatMap(s=>[s.x-s.gauge,s.x+s.gauge]);
+  for(const x of tracks){
+    box(0x24292c,x,rail+1.55,yard.z0+.02,3.7,4.4,.1);
+    for(const u of [-1.95,1.95])box(0x7f8a8a,x+u,rail+1.4,yard.z0+.08,.26,4.9,.22);
+    box(0x7f8a8a,x,rail+3.9,yard.z0+.08,4.16,.3,.22);
   }
-  for(let z=-65;z<-45;z+=6)for(const u of [-34,-15]){
-    box(0xa3aeab,u,-.5,z,.72,11.2,.72);
-    beam([u,2.1,z],[u+(u< -25?2:-2),4.8,z],.24,metal);
+  // Roofs and service yards north of the hall hide the underground floors from the upper
+  // levels. The sheet is left open where the transfer stairs pass down through it.
+  const well=concourseParts.find(p=>p.style==="stairs"&&p.h< -9&&p.back===0);
+  for(const [ax,bx,az,bz] of [[-128,well.x0-.2,-172,hallSpan.z0-.2],[well.x1+.2,112,-172,hallSpan.z0-.2],
+    [well.x0-.2,well.x1+.2,-172,well.z0-.2],[well.x0-.2,well.x1+.2,well.z1+.2,hallSpan.z0-.2]]){
+    box(0x8f948f,(ax+bx)/2,-.5,(az+bz)/2,bx-ax,.2,bz-az);
   }
-  // At platform level the ballast covers the underground interchange. Its raised
-  // foundations remain visible from the track without exposing the lower rooms.
-  box(0x8a8980,-48,-7.84,49,139,.62,103);
-  box(0xa8aca7,-47,-3.82,1.5,96,7.42,.33);
-  for(const u of [-94,-79,-55,-25,-15]){
-    box(0xa3a8a4,u,-3.17,11,.9,6.0,.9);
-    beam([u,-2.3,11],[u+2.15,-.24,11],.23,metal);
+  // A skyline beyond the yard walls stands in for Yongsan and the Cheongpa-ro blocks.
+  let block=91;
+  const pick=()=>{block=(Math.imul(block,1103515245)+12345)>>>0;return block/4294967296;};
+  for(let i=0;i<14;i++){
+    const far=i<6,side=i%2?1:-1,height=14+pick()*(far?46:26),width=15+pick()*12,span=14+pick()*14;
+    const x=far?yard.x0+12+i*22:side>0?yard.x1+16+pick()*20:yard.x0-16-pick()*20,z=far?yard.z1+22+pick()*26:yard.z0+26+Math.floor((i-6)/2)*30;
+    box([0xa3a9a8,0xb1aa9c,0x97a3a8,0xa9b0ad][i%4],x,rail+height/2-1.2,z,width,height,span);
+    for(let floor=rail+2;floor<rail+height-3;floor+=3.2)box(0x7b8f97,x,floor,z+(far?-span/2-.05:0),far?width-1:width+.1,1.2,far?.1:span-1);
   }
-  for(const side of [-1,1]){
-    const x=side<0?-108:48;
-    box(0x9daba9,x,-3.10,56,.46,8.86,82);
-    for(let v=21;v<=88;v+=7.5)box(0x7c9095,x-side*.26,-1.6,v,.1,2.15,6.8);
-  }
-  box(0x909d9e,-45,-3.4,94,124,8.3,.42);
+  yield;
   const belts=[];
+  const open=openAir;
+  const headroom=p=>["retail","arcade","transfer","terminal","gates","metro","arexPlatform"].includes(p.style)?5.8:p.style==="dining"?4.9:4.4;
   for(const p of concourseParts){
     const {x0,x1,z0,z1,h,style}=p,w=x1-x0,d=z1-z0,x=(x0+x1)/2,z=(z0+z1)/2;
-    if(style==="lift")continue;
+    if(style==="lift"||p.flush)continue;
     if(style==="stairs"){
-      const n=Math.ceil(Math.abs(h-p.back)/.16),dz=d/n,rise=p.back-h;
+      const n=Math.ceil(Math.abs(h-p.back)/.16),dz=d/n,rise=p.back-h,slope=-Math.atan2(rise,d),run=Math.hypot(d,rise),middle=h+rise/2;
       for(let i=0;i<n;i++){
         const level=h+rise*(i+.5)/n,mid=z0+(i+.5)*dz;
         box(i%2?tiles:0xbab9ad,x-w*.2,level-.13,mid,w*.60,.26,dz+.012);
@@ -91,14 +83,32 @@ export function* buildStationComplex(T,root,kit,venue,walkerModels){
         belts.push({p,tread,nose,n,dz,dir,x:x1-escalatorWidth*(dir<0?.75:.25)});
       }
       for(const u of [x0+w*.60,x0+w*.80,x1]){
-        const bal=box(0x8faeb3,u,h+rise*.5+.44,z,.10,.83,Math.hypot(d,rise));bal.rotation.x=-Math.atan2(rise,d);
+        const bal=box(0x8faeb3,u,middle+.44,z,.10,.83,run);bal.rotation.x=slope;
         for(const t of [.03,.5,.97])box(rails,u,h+rise*t+.48,z0+d*t,.11,.96,.11);
+      }
+      // Truss under the flight, then either an open canopy over the platform stairs or an
+      // enclosed stairwell between floors of the building.
+      box(0x8d9795,x,middle-.52,z,w,.34,run).rotation.x=slope;
+      const outdoors=outdoorFlight(p);
+      if(outdoors){
+        box(0xb8c5c4,x,middle+4.28,z,w+.9,.18,run+.3).rotation.x=slope;
+        for(const u of [x0-.3,x1+.3]){
+          beam([u,h+4.12,z0],[u,p.back+4.12,z1],.16,metal);
+          for(const t of [.02,.34,.66,.98])box(rails,u,h+rise*t+1.96,z0+d*t,.13,4.3,.13);
+          const glass=box(0x9dbac0,u,middle+.52,z,.07,1.04,run);glass.rotation.x=slope;
+        }
+        box(0xa9aca5,x,storeys[0]-.17,z,w+.9,.34,d);box(0x9c9a90,x,storeys[0]-.82,z,w+.6,1.0,d);
+      }else{
+        const clear=4.4;
+        for(const u of [x0-.09,x1+.09]){const wall=box(0xd9d8cf,u,middle+clear/2-.2,z,.18,clear+.4,run);wall.rotation.x=slope;}
+        box(0xe4e4dc,x,middle+clear,z,w+.36,.2,run).rotation.x=slope;
+        for(const t of [.12,.37,.63,.88])box(0xffeed0,x-w*.2,h+rise*t+clear-.14,z0+d*t,Math.min(3,w*.4),.06,.22).rotation.x=slope;
       }
     }else if(!["hall","platform","dining"].includes(style)){
       box(style==="garden"?0xa8a994:style==="bridge"?0xbac5c2:tiles,x,h-.17,z,w,.34,d);
       if(style==="garden")for(let v=z0+2;v<z1;v+=2)box(0xa1a79f,x,h+.004,v,w,.008,.025);
       else graniteSlab(T,hall,x,h+.004,z,w,d);
-      if(["west","retail","transfer","arcade","terminal","gates","metro","arexPlatform"].includes(style)){
+      if(headroom(p)>5){
         box(0xdadbd3,x,h+5.8,z,w,.22,d);
         for(let v=z0+2;v<z1;v+=5)box(0xffeed0,x,h+5.63,v,Math.min(5,w*.65),.065,.22);
         for(const u of [x0+.25,x1-.25])for(const v of [z0+.4,z1-.4])box(metal,u,h+2.85,v,.28,5.7,.28);
@@ -107,43 +117,37 @@ export function* buildStationComplex(T,root,kit,venue,walkerModels){
             box(0x55717a,u,h+1.7,z0+.16,3.25,3.4,.2);box(0xd1aa76,u,h+3.68,z0+.27,3.32,.37,.43);
           }
         }
+      }else if(!open(p)&&style!=="island"){
+        box(0xe4e4dc,x,h+4.5,z,w,.2,d);
+        const along=d>w;
+        for(let v=(along?z0:x0)+1.6;v<(along?z1:x1)-.6;v+=4.2)box(0xffeed0,along?x:v,h+4.37,along?v:z,along?.22:1.6,.06,along?1.6:.22);
       }
     }
-    // Leave adjoining slabs open. Railings bound the actual drops, including on the mezzanine.
-    if(style!=="stairs"&&style!=="platform"&&style!=="island"){
-      const exterior=(u,v)=>{const at=railPoint(u,v),q=partAt(at.x,at.y);
-        if(!q)return true;if(q.style==="lift")return false;
-        const next=q.back==null?q.h:q.h+(q.back-q.h)*(v-q.z0)/(q.z1-q.z0);return Math.abs(next-h)>.65;};
-      for(const [ax,az,bx,bz,nx,nz] of [[x0,z0,x1,z0,0,-1],[x0,z1,x1,z1,0,1],[x0,z0,x0,z1,-1,0],[x1,z0,x1,z1,1,0]]){
-        const count=Math.ceil(Math.hypot(bx-ax,bz-az)/1.6);
-        let wallStart=-1;
-        for(let i=0;i<=count;i++){
-          const t=(i+.5)/count,u=ax+(bx-ax)*t,v=az+(bz-az)*t;
-          const closed=i<count&&exterior(u+nx*.28,v+nz*.28);
-          if(h< -9){
-            if(closed&&wallStart<0)wallStart=i;
-            if(!closed&&wallStart>=0){
-              const mid=(wallStart+i)/(2*count),fraction=(i-wallStart)/count,height=style==="passage"?3.25:5.3;
-              box(0xb1bab7,ax+(bx-ax)*mid,h+height/2,az+(bz-az)*mid,Math.max(.16,(bx-ax)*fraction),height,Math.max(.16,(bz-az)*fraction));
-              wallStart=-1;
-            }
-            continue;
-          }
-          if(!closed)continue;
-          box(rails,u,h+.55,v,.073,1.10,.073);
-          box(metal,u,h+1.09,v,Math.max(.095,(bx-ax)/count),.10,Math.max(.095,(bz-az)/count));
+    // Upper floors stand on the building below them rather than floating.
+    if(h>4&&style!=="stairs")box(0xa9aaa1,x,(h-.74)/2,z,w-.06,h+.06,d-.06);
+    if(!["hall","stairs","platform","island"].includes(style)){
+      for(const run of slabEdges(p)){
+        const cx=(run.x0+run.x1)/2,cz=(run.z0+run.z1)/2,lengthX=run.x1-run.x0,lengthZ=run.z1-run.z0;
+        if(run.kind==="wall"){
+          const height=h< -9?5.3:headroom(p);
+          box(h< -9?0xb1bab7:0xdcdad1,cx,h+height/2,cz,Math.max(.16,lengthX),height,Math.max(.16,lengthZ));
+          continue;
         }
+        const posts=Math.max(1,Math.round(Math.hypot(lengthX,lengthZ)/1.6));
+        for(let i=0;i<=posts;i++)box(rails,run.x0+lengthX*i/posts,h+.55,run.z0+lengthZ*i/posts,.073,1.10,.073);
+        box(metal,cx,h+1.09,cz,Math.max(.095,lengthX),.10,Math.max(.095,lengthZ));
       }
     }
     if(style==="island"){
-      const tracks=boardingIslands.find(s=>s.x===x).tracks;
+      const tracks=boardingIslands.find(s=>s.x===x).tracks,yardEnd=152,trackZ=(hallSpan.z1+yardEnd)/2,trackD=yardEnd-hallSpan.z1;
+      box(0x9c9a90,x,h-.82,z,w-.24,1.0,d);
       for(const side of [-1,1]){
         const edge=x+side*(w/2-.46),track=x+side*(w/2+2.1);
         box(0xe5ba54,edge,h+.018,z,.35,.028,d);
         box(0xe4dabb,edge+side*.30,h+.02,z,.10,.031,d);
-        box(0x747774,track,h-1.02,z,3.9,.22,d+5);
-        for(const offset of [-.72,.72])box(0xa2aaa9,track+offset,h-.79,z,.075,.15,d+5);
-        for(let v=z0-2;v<z1+2;v+=1.25)box(0x69675f,track,h-.91,v,2.4,.15,.20);
+        box(0x747774,track,h-1.02,trackZ,3.9,.22,trackD);
+        for(const offset of [-.72,.72])box(0xa2aaa9,track+offset,h-.79,trackZ,.075,.15,trackD);
+        for(let v=hallSpan.z1+1;v<yardEnd;v+=1.25)box(0x69675f,track,h-.91,v,2.4,.15,.20);
         const hood=box(0xb8c5c4,x+side*2.16,h+4.35,z,4.4,.20,d);
         hood.rotation.z=side*.052;
       }
@@ -154,30 +158,13 @@ export function* buildStationComplex(T,root,kit,venue,walkerModels){
       sign(x,h+3.20,z0+6,tracks+"   서울","SEOUL",Math.PI,3.45);
       sign(x,h+3.15,z1-4,"↑  맞이방","Way out",0,3.5);
     }
-    if(style==="balcony"&&x1===-21){
-      for(let v=z0+.9;v<z1;v+=1.95){
-        box(0xbac8c8,x1-.10,h+.32,v,.075,.46,1.89);
-        box(0xdfd6bd,x1-.10,h+.94,v,.17,.08,1.94);
-      }
-      sign(x,8.05,z0+2.2,"식당가 · 상가","FOOD HALL",0,4.3);
-    }
-    if(style==="passage"){
-      box(0xcdd3cd,x,h+3.25,z,w,.23,d);
-      if(w>d){
-        for(let u=x0+2;u<x1-1;u+=6)box(0xffedce,u,h+3.10,z,2.5,.06,.21);
-        sign(x0+6,h+2.40,z1-.12,"←  전철 환승","METRO",Math.PI,4.6);
-      }else{
-        for(let v=z0+2;v<z1;v+=7.5)box(0xffedce,x,h+3.10,v,.23,.06,2.8);
-        sign(x,h+2.34,z1-1.5,"전철  ↑","Metro",Math.PI,2);
-      }
-    }
     if(style==="parkLink"){
       const stripeZ=z-1.25;
       box(0xc4a969,x,h+.018,stripeZ,w,.025,.16);
       for(let u=x0+1;u<x1-.2;u+=2.7)box(0xeee6c9,u,h+.012,z+1.5,1.35,.019,.095);
       for(const u of [x0+.4,x1-.4])box(0xa1a6a2,u,h+2.15,z0+.32,.34,4.3,.34);
       box(0x84979b,x,h+4.26,z0+.32,w-.4,.22,.33);
-      if(h>0&&x0===-10)sign(x,h+2.88,z0+.8,"옥상정원  →","The Roof Atelier",0,5.2);
+      if(p.name.includes("주차동"))sign(x,h+2.88,z0+.8,"←  옥상정원","The Roof Atelier",0,5.2);
     }
     if(style==="arcade"){
       for(const [i,title] of ["카페","다이닝","아울렛"].entries())sign(x0+4.5+i*8.4,h+3.08,z0+.39,title,"4F",0,5.8);
@@ -191,29 +178,13 @@ export function* buildStationComplex(T,root,kit,venue,walkerModels){
       for(let u=x0+3;u<x1-2;u+=2.4)box(0x719192,u,h+.49,z0+2.6,.29,.98,1.85);
     }
     if(style==="arexPlatform"){
+      const landing=liftBanks.find(b=>b.id==="airport").center.y-hallOrigin.y;
       for(const u of [x0,x1])for(let v=z0+1.5;v<z1;v+=3){
-        if(u===x0&&Math.abs(v+81)<3)continue;
+        if(u===x0&&Math.abs(v-landing)<3)continue;
         box(0x899da0,u,h+1.45,v,.16,2.9,2.96);box(0x475d67,u,h+1.72,v,.23,1.43,2.68);
         box(0xe8c36f,u+(u===x0?.34:-.34),h+.014,v,.23,.026,3);
       }
       sign(x,h+3.4,z0+6,"공항철도 서울역","직통 · 일반열차",0,4);
-    }
-    if(style==="atrium"){
-      box(0xd9ddd7,x,10.85,z,w,.25,d);
-      for(let u=x0+2;u<x1;u+=5.4){
-        beam([u,8.8,z0],[u,10.45,z1],.24,0xf3f5f3);
-        for(let k=0;k<3;k++)beam([u,8.9+k*.49,z0+k*d/3],[u,10.52,z0+(k+1)*d/3],.16,0xe4e4db);
-      }
-      if(z1===19)for(let u=x0+1.75;u<x1-1.6;u+=3.5){
-        const opening=boardingIslands.some(s=>Math.abs(s.x-u)<5.5);
-        const low=opening?4.2:1.12;
-        box(0x9db7bf,u,(10.5+low)/2,z1-.1,3.43,10.5-low,.16);box(metal,u-1.71,(10.5+low)/2,z1-.14,.13,10.5-low,.25);
-      }
-      box(0xc2a56d,x,.023,z,w,.024,.32);
-    }
-    if(style==="atrium"&&x0===-56&&z0===10){
-      box(0x233e49,x,4.35,z1-.4,23,1.65,.24);
-      for(const [index,title] of ["KTX  타는 곳","열차 출발 안내","서부광장  →"].entries())sign(x+(index-1)*7.45,4.35,z1-.58,title,"SEOUL STATION",Math.PI,6.9);
     }
     if(style==="metro"){
       for(let v=z0+3;v<z1;v+=6){
@@ -232,7 +203,6 @@ export function* buildStationComplex(T,root,kit,venue,walkerModels){
       let seed=472;
       const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
       const trees=makeTreeBuilder(T,planting,{rand,clearance:{meshFits:()=>true,trim:()=>true}});
-      box(0xa9aaa1,x,h-7.45,z,w-.3,14.5,d-.3);
       for(const bed of roofBeds){
         box(0x9b9e93,bed.x,h+.27,bed.z,bed.w,.54,2.25);
         box(0x80916a,bed.x,h+.56,bed.z,bed.w-.20,.09,2.06);
@@ -247,28 +217,19 @@ export function* buildStationComplex(T,root,kit,venue,walkerModels){
     }
     yield;
   }
-  for(const {x,tracks} of boardingIslands){
-    sign(x,3.1,18.6,tracks+"    ↓  타는 곳","Tracks",Math.PI,5.8);
-    for(const side of [-1,1])box(rails,x+side*3.35,1.6,18.68,.10,3.2,.13);
-  }
-  sign(-34.9,3.05,1.7,"↑  3층  식당가 · 회랑","FOOD HALL",0,6);
-  sign(-23,3.1,6,"서부 맞이방  ·  공항철도","WEST EXIT   /   AIRPORT RAILROAD",Math.PI/2,6);
-  sign(35,3.1,6,"쇼핑 · 마트","MARKET", -Math.PI/2);
-  sign(44,2.95,10,"쇼핑동 데크 출입구","PLAZA EXIT",Math.PI);
-  sign(-72,3.15,-5.6,"↓ 공항철도 · 환승통로","AREX   /   METRO",0,6);
-  sign(-98,2.95,11,"서부 출입구","WEST EXIT",Math.PI/2);
-  sign(-72,-7.5,-44.8,"지하철 1 · 4호선   공항철도","환승통로",0,7.3);
-  sign(-101,-7.7,-42,"15번 출구","서부광장",0,3.7);
-  sign(45,3.2,0,"경의중앙선","지상 출입구",0,3.6);
-  sign(38,3,0,"마트 서쪽 출입구","WEST PLAZA",0,4.0);
-  sign(38,3,15,"북측 보행육교","PEDESTRIAN BRIDGE",Math.PI,3.8);
-  sign(-19,8.25,-49,"3F 식당가","FOOD HALL",0);
-  sign(-31,8.4,-70,"4F ↑ 옥상정원 · 상가","ROOF GARDEN",0);
-  sign(-21,12.8,-100,"옥상정원  →","THE ROOF ATELIER",0);
+  // Way-finding at the heads and feet of the stairs between floors.
+  sign(13,storeys[2]+3.2,-36.4,"3F  식당가","FOOD HALL",0);
+  sign(-2,storeys[2]+3.3,-60.4,"4F  ↑  옥상정원 · 상가","ROOF GARDEN",0,5.4);
+  sign(-23,3.1,-49.6,"쇼핑동 데크 출입구","PLAZA EXIT",0,5);
+  sign(-10.4,3.1,-34,"북측 보행육교","PEDESTRIAN BRIDGE",-Math.PI/2,3.8);
+  sign(-35.6,3.1,-34,"마트 서쪽 출입구","WEST PLAZA",Math.PI/2,4);
+  sign(-10.4,3.1,-46.2,"경의중앙선","지상 출입구",-Math.PI/2,3.4);
+  sign(-70,-7.5,-64.6,"←  공항철도        지하철 1 · 4호선  →","환승통로   TRANSFER",0,9);
+  sign(-101,-7.7,-66.6,"15번 출구","서부광장",0,3.7);
   const cars=[];
   for(const bank of liftBanks){
     const cx=bank.center.x-hallOrigin.x,cz=bank.center.y-hallOrigin.y;
-    const car=group(cx,0,cz,moving);
+    const car=group(cx,0,cz,moving),shown=[car];
     box(0x646e70,0,-.12,0,2.98,.24,2.98,car);box(0xc1cdcc,0,2.76,0,3,.16,3,car);
     box(0xffefd0,0,2.66,0,2,.045,1.8,car);
     const doors=[];
@@ -278,7 +239,7 @@ export function* buildStationComplex(T,root,kit,venue,walkerModels){
       for(const u of [-1.53,1.53])box(rails,u,1.44,0,.13,2.9,.15,frame);
       box(metal,0,2.86,0,3.16,.21,.26,frame);
       standSign(T,frame,floorName(floor)+"  승강기",stop.name,1.62,0,3.22,.12,"#294d61","#fff3c8",.57);
-      const mounts=group(frame.position.x,h,frame.position.z,moving);mounts.rotation.y=a;
+      const mounts=group(frame.position.x,h,frame.position.z,moving);mounts.rotation.y=a;shown.push(mounts);
       for(const side of [-1,1]){
         const leaf=group(side*.73,0,0,mounts);
         box(0x718892,0,.52,0,1.42,1.04,.09,leaf);
@@ -297,14 +258,18 @@ export function* buildStationComplex(T,root,kit,venue,walkerModels){
       const lo=Math.min(...bank.levels),hi=Math.max(...bank.levels)+2.9;
       box(metal,cx+u,(lo+hi)/2,cz+z,.12,hi-lo,.12);
     }
-    cars.push({car,doors,bank});
+    cars.push({car,doors,bank,shown});
   }
   const matrix=new T.Matrix4();
   let lastTreadFrame=-Infinity;
   return {afterBatch(){hall.add(moving);root.add(food);},update(clock,light,tickets,anchor){
     restaurant.update(clock,light,tickets,anchor);
     const now=clock;
-    for(const {car,doors,bank} of cars){
+    for(const {car,doors,bank,shown} of cars){
+      // Cars and door leaves are separate moving meshes, so a distant bank is not drawn.
+      const near=!anchor||Math.hypot(anchor.x-bank.center.x,anchor.y-bank.center.y)<85;
+      for(const part of shown)part.visible=near;
+      if(!near)continue;
       const lift=liftAt(clock,bank);car.position.y=lift.height;
       for(const {leaf,side,floor} of doors)leaf.position.x=side*(.73+(floor===lift.floor?lift.open:0)*1.37);
     }
@@ -312,7 +277,8 @@ export function* buildStationComplex(T,root,kit,venue,walkerModels){
     lastTreadFrame=now;
     for(const belt of belts){
       const {p,tread,nose,n,dz,x,dir}=belt;
-      const close=Math.abs(anchor.x-hallOrigin.x-x)<36&&Math.abs(anchor.y-hallOrigin.y-(p.z0+p.z1)/2)<36;
+      const offX=Math.abs(anchor.x-hallOrigin.x-x),offZ=Math.abs(anchor.y-hallOrigin.y-(p.z0+p.z1)/2),close=offX<36&&offZ<36;
+      tread.visible=nose.visible=offX<95&&offZ<95;
       if(belt.placed&&!close)continue;
       belt.placed=true;
       const phase=(now*.001*escalatorSpeed/dz)%1;

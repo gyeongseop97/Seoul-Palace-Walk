@@ -6,7 +6,9 @@ const travel=(bank,a,b)=>Math.round(1200+450*Math.abs(height(bank,a)-height(bank
 const initial=bank=>({floor:bank.stops.reduce((top,s)=>s.floor>top?s.floor:top,bank.stops[0].floor),at:0});
 const clamp=t=>Math.max(0,Math.min(1,t));
 function remaining(bank,schedule,now){
-  const stops=schedule?.length?schedule:[initial(bank)];
+  // Stops saved for a landing the bank no longer serves are dropped.
+  const known=schedule?.filter(s=>bank.stops.some(stop=>stop.floor===s.floor));
+  const stops=known?.length?known:[initial(bank)];
   let i=0;while(i+1<stops.length&&stops[i+1].at<=now)i++;
   return stops.slice(i);
 }

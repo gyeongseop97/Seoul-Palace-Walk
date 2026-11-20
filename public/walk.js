@@ -46,7 +46,7 @@ import {gbWallOutline,clipGbGround} from "./gyeongbok-perimeter.js";
 import {outsideGroundOffset} from "./gyeongbok-terrain.js";
 import {mmcaCourtyards,mmcaBuildings,mmcaLawns} from "./mmca-layout.js";
 import {stationTerraces} from "./station-terraces.js";
-import {approachAt,approachRoute,escalatorSpeed,escalatorDirection,stationApproaches,partAt,concourseParts,hallBow,boardingIslands,hallOrigin,westExit,northBridgeExit,rearMarketExit,marketExit,subwayExit,metroInsidePoint,railPoint,railHeight,sameStation,liftAt,liftBanks,liftLanding,floorName,setStationClock,setStationLifts,liftStopPending} from "./station-levels.js";
+import {approachAt,approachRoute,escalatorSpeed,escalatorDirection,stationApproaches,partAt,concourseParts,boardingIslands,ktxIsland,hallOrigin,westExit,northBridgeExit,rearMarketExit,marketExit,subwayExit,metroInsidePoint,railPoint,railHeight,sameStation,liftAt,liftBanks,liftLanding,floorName,setStationClock,setStationLifts,liftStopPending} from "./station-levels.js";
 import {cultureFrontDoors,culturePart,cultureVenues} from "./culture-station-layout.js";
 import {stationHall,hallDoors,terminalDoors,railRooms,railRoomById,railCounters} from "./rail-station-layout.js";
 import {semaVenue,semaExhibits} from "./sema-layout.js";
@@ -2091,7 +2091,7 @@ function portalNearby(){
   if(inside==="station-hall"||!inside){
     for(const door of hallDoors){
       if((inside||me.up)&&atIndoorStation(inside?door.inside:door.outside,2.5))return {inside:Boolean(inside),venue:stationHall,
-        destination:inside?door.outside:{x:door.inside.x,y:door.inside.y-2.4,heading:0},label:inside?"서울역광장으로":"서울역 들어가기"};
+        destination:inside?door.outside:door.arrive,label:inside?"서울역광장으로":"서울역 들어가기"};
     }
     for(const [link,label] of stationPortals){
       if(atIndoorStation(inside?link.inside:link.outside,2.2)&&(inside||Boolean(me.up)===Boolean(link.outside.up)))return {inside:Boolean(inside),venue:stationHall,
@@ -2434,7 +2434,7 @@ const transitDialog=$("transit-dialog"),transitOptions=$("transit-options");
 let riding=false,rideArrival,rideEnd;
 function nearbyTransit(){
   if(!world||!session||me.seat!=null||me.bus||isCycling(me)||queuedBus||queuedBike)return null;
-  if(Math.hypot(me.x-(hallOrigin.x-75),me.y-(hallOrigin.y-41))<2.6)return transitStops.find(s=>s.id==="station-exit-1");
+  if(Math.hypot(me.x-(hallOrigin.x-75),me.y-(hallOrigin.y-60))<2.6)return transitStops.find(s=>s.id==="station-exit-1");
   let closest=null,distance=4.5;
   for(const stop of transitStops){
     if(stop.mode!=="subway")continue;
@@ -3515,13 +3515,11 @@ function drawIndoorMap(base,venue,galleries,mini){
   indoorMaps.push({id:venue.id,layer});
   const {minX,maxX,minY,maxY}=venue.bounds;
   if(sameStation(venue.id,"station-hall")){
-    const glazedHall=hallBow.map(({x,z})=>{const p=railPoint(x,z);return p.x+","+p.y;}).join(" ");
-    svg(layer,"polygon",{points:glazedHall,fill:"#61736b",stroke:"#c7b888","stroke-width":.18});
     for(const p of concourseParts){
       const {x,y}=railPoint(p.x0,p.z0);
       svg(layer,"rect",{x,y,width:p.x1-p.x0,height:p.z1-p.z0,fill:p.style==="stairs"?"#b49b72":p.h<0?"#596872":p.h>0?"#897a60":"#61736b",stroke:"#c7b888","stroke-width":.18});
     }
-    for(const [u,z,text] of [[0,5,"2F 맞이방"],[0,-96,"1F KTX"],[-39,-158,"전철 직통환승"],...boardingIslands.map(s=>[s.x,53,s.tracks]),[-31,-26,"3F 회랑"],[-24,-59,"3F 식당가"],[-22,-94,"4F 다이닝"],[-28,-126,"옥상정원"],[-68,8,"서부 출구"],[-68,-39,"환승"],[-106,-65,"B2 공항터미널"],[-80,-117,"B7 공항철도"],[-7,-50,"↕"]]){
+    for(const [u,z,text] of [[-40,-8,"2F 맞이방"],[ktxIsland.x,88,"KTX "+ktxIsland.tracks],...boardingIslands.map(s=>[s.x,68,s.tracks]),[5,-47,"3F 식당가"],[1,-26,"3F 발코니"],[5.5,-82.5,"4F 다이닝"],[.5,-112.5,"옥상정원"],[-23,-39,"쇼핑·마트"],[-93,1,"서부 출구"],[14,1,"광장 출구"],[-69.5,-58,"환승"],[-47.5,-36,"지하철"],[-106,-85,"B2 공항터미널"],[-79,-124,"B7 공항철도"],...liftBanks.map(b=>[b.center.x-hallOrigin.x,b.center.y-hallOrigin.y+1.1,"↕"])]){
       const {x,y}=railPoint(u,z);svg(layer,"text",{x,y,"text-anchor":"middle","font-size":3.15,fill:"#fff3cf"},text);
     }
   }else if(cultureVenues.includes(venue)){
@@ -4140,7 +4138,7 @@ function updateMaps(self,others){
   for(const [id,mark] of markers)if(!others.has(id)){mark.big.remove();mark.mini.remove();markers.delete(id);}
 }
 
-const stationFloorView="1517 522 177 249";
+const stationFloorView="1518 524 152 304";
 const indoorViewBoxes=Object.fromEntries(Object.entries(interiorBounds).map(([id,{minX,maxX,minY,maxY}])=>
   [id,[minX-4,minY-4,maxX-minX+8,maxY-minY+8].join(" ")]));
 for(const exhibit of Object.values(museumExhibits)){
