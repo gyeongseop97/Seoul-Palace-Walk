@@ -418,7 +418,7 @@ export function loftStep(from,x,y){
   return Math.abs(platformAt(x,y)-here)<=.36?undefined:null;
 }
 const deoksugungNorthEdge=30;
-export function walkable(x,y,feet=0){
+export function walkable(x,y,feet=0,zonePassage){
   const interior=interiorAt(x,y);
   if(interior)return !solidAt(x,y,feetLevel(feet));
   const inDeoksugung=x>=45&&x<=560&&y>=deoksugungNorthEdge&&y<=420;
@@ -426,7 +426,7 @@ export function walkable(x,y,feet=0){
   let open=false;
   for(const zone of zones){
     if(!zone.contains(x,y))continue;
-    if(!open)open=zone.walkable(x,y);
+    if(!open)open=zone.walkable(x,y,zonePassage);
   }
   if(open)return true;
   if(!inDeoksugung)return false;
@@ -434,13 +434,13 @@ export function walkable(x,y,feet=0){
   return inEstate(x,y)||distance(spawn,x,y)<23||onForecourt||distance(fountain,x,y)<15||inVerge(x,y)||distance(garden,x,y)<9||
     onEntrance(x,y)||onStationWalk(x,y)||onStonewall(x,y)||onPalace(x,y);
 }
-export function clearSegment(from,to,step=.36,feet=0){
+export function clearSegment(from,to,step=.36,feet=0,zonePassage){
   const dx=to.x-from.x,dy=to.y-from.y;
   const count=Math.ceil(Math.hypot(dx,dy)/step);
   let ax=from.x,ay=from.y;
   for(let i=1;i<=count;i++){
     const x=from.x+dx*i/count,y=from.y+dy*i/count;
-    if(!walkable(x,y,feet)||!layerConnects(ax,ay,x,y))return false;
+    if(!walkable(x,y,feet,zonePassage)||!layerConnects(ax,ay,x,y))return false;
     ax=x;ay=y;
   }
   return !count||!crossesObstacle(from,to,feetLevel(feet));

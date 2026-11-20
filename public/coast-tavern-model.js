@@ -1,7 +1,8 @@
 import * as T from "three";
 import {coastPoint} from "./region-coordinates.js";
-import {front,tavernName,tavernYaw,tavernAxes,tavernTables} from "./coast-tavern-layout.js";
+import {front,tavernName,tavernYaw,tavernAxes,tavernTables,tavernPlateOffset} from "./coast-tavern-layout.js";
 import {makeDiningHuman} from "./dining-staff.js";
+import {tavernReply} from "./tavern-speech.js";
 
 const floor=1.97;
 function frame(parent){
@@ -52,16 +53,16 @@ export function buildTavernFront(parent,{box,post,oval,rod,sign}){
  sign(g,"활어회  ·  조개구이  ·  소주",0,2.81,-3.54,3.47,.39,"#863b2c");
  for(const t of tavernTables){
   const x=t.u,z=t.v;
-  box(g,wood,x,.75,z,1.35,.14,1.9);
-  for(const dx of [-.5,.5])for(const dz of [-.79,.79])box(g,steel,x+dx,.34,z+dz,.071,.68,.071);
-  post(g,0x393e3e,x,.84,z,.39,.062,.39);
-  for(let k=0;k<8;k++)box(g,0xacac9f,x-.29+k*.082,.883,z,.023,.022,.5);
-  box(g,0x403e37,x+.46,.847,z+.69,.22,.093,.19);
-  post(g,0xdba257,x+.46,.917,z+.69,.052,.034,.052);
-  box(g,0x846858,x+.46,.91,z-.69,.22,.22,.25);
-  for(let k=0;k<4;k++)rod(g,[x+.42+k*.025,.94,z-.69],[x+.41+k*.027,1.21,z-.67],.009,0xd0b780);
-  post(g,0xeee3c7,x-.47,.87,z+.66,.13,.055,.13);
-  post(g,0xad6147,x-.47,.902,z+.66,.092,.015,.092);
+  box(g,wood,x,.75,z,.94,.14,1.72);
+  for(const dx of [-.35,.35])for(const dz of [-.69,.69])box(g,steel,x+dx,.34,z+dz,.071,.68,.071);
+  post(g,0x393e3e,x,.84,z,.28,.062,.28);
+  for(let k=0;k<7;k++)box(g,0xacac9f,x-.22+k*.073,.883,z,.019,.022,.37);
+  box(g,0x403e37,x+.31,.847,z+.69,.17,.093,.16);
+  post(g,0xdba257,x+.31,.917,z+.69,.052,.034,.052);
+  box(g,0x846858,x+.32,.91,z-.69,.18,.22,.20);
+  for(let k=0;k<4;k++)rod(g,[x+.28+k*.024,.94,z-.69],[x+.27+k*.026,1.21,z-.67],.009,0xd0b780);
+  post(g,0xeee3c7,x-.31,.85,z+.66,.10,.055,.10);
+  post(g,0xad6147,x-.31,.882,z+.66,.072,.015,.072);
   for(const seat of t.seats){
    const q=tavernAxes(seat);
    post(g,red,q.u,.46,q.v,.30,.095,.30);
@@ -102,14 +103,22 @@ function piece(root,geometry,tint,x,y,z,w,h,d){
 }
 function dishSet(root,table){
  const tableware=new T.Group();root.add(tableware);tableware.position.set(table.u,.84,table.v);
- const tray=piece(tableware,cube,0x754e37,0,.038,-.59,.94,.055,.55);
- piece(tableware,ball,0xe1d9c2,-.14,.095,-.6,.31,.045,.174);
- const cuts=[],bottles=[],grill=[],raw=[];
+ const tray=piece(tableware,cube,0x754e37,-.07,.006,-.65,.55,.038,.30);
+ piece(tableware,ball,0xe1d9c2,-.07,.045,-.65,.24,.023,.13);
+ const cuts=[],portions=[],bottles=[],grill=[],raw=[];
  for(let i=0;i<6;i++){
-  const fillet=piece(tableware,ball,i%2?0xf5ccb0:0xda927c,-.34+i*.073,.148,-.60,.064,.027,.10);fillet.rotation.y=.44;cuts.push(fillet);
+  const fillet=piece(tableware,ball,i%2?0xf5ccb0:0xda927c,-.22+i*.057,.074,-.65,.036,.015,.068);fillet.rotation.y=.44;cuts.push(fillet);
+ }
+ for(let i=0;i<4;i++){
+  const {u,v}=tavernPlateOffset(i);
+  piece(tableware,ball,0xf3e6cd,u,.006,v,.108,.014,.087);
+  const bite=new T.Group();tableware.add(bite);bite.position.set(u,.033,v);
+  piece(bite,ball,0xe59883,0,0,0,.038,.010,.018);
+  for(const x of [-.015,.008])piece(bite,ball,0xffdbbe,x,.007,0,.0018,.002,.013).rotation.y=.33;
+  portions.push(bite);
  }
  for(let i=0;i<3;i++){
-  const bottle=new T.Group();tableware.add(bottle);bottle.position.set(.46,.008,-.35+i*.17);
+  const bottle=new T.Group();tableware.add(bottle);bottle.position.set(.05+i*.117,.008,.47);
   piece(bottle,round,0x30714b,0,.13,0,.053,.26,.053);piece(bottle,round,0x31794e,0,.29,0,.027,.083,.027);
   piece(bottle,round,0xe1ddb4,0,.14,0,.055,.087,.055);piece(bottle,round,0xd0c6a0,0,.344,0,.032,.032,.032);bottles.push(bottle);
  }
@@ -122,12 +131,18 @@ function dishSet(root,table){
   grill.push(shell(i%2?0xaa9b87:0xc2b39b,(i%3-1)*.19,(Math.floor(i/3)-.5)*.22));
   raw.push(shell(0x9a9684,(i%3-1)*.133,(Math.floor(i/3)-.5)*.15+.64));
  }
- return (order,now)=>{
+ return (order,now,diners)=>{
   tableware.visible=!!order&&(order.phase==="served"||order.soju>0||order.sashimi>0||order.grilledClam>0||order.rawClams>0||order.cookingClams>0);
   if(!tableware.visible)return;
   const clamReady=order.cookingClams>0&&now>=order.grillUntil;
-  cuts.forEach((m,i)=>m.visible=i<Math.min(6,(order.sashimi??0)*2));
-  bottles.forEach((b,i)=>b.visible=i<(order.soju??0));
+  const portionsLeft=order.sashimi??0;
+  cuts.forEach((m,i)=>m.visible=i<Math.min(6,portionsLeft));
+  for(const [i,bite] of portions.entries()){
+   const diner=diners.find(p=>p.coast?.mode==="table"&&p.coast.seat===table.index*4+i),taste=diner?.coast.tasting;
+   const age=taste?.kind==="sashimi"?now-taste.at:-1;
+   bite.visible=Boolean(diner)&&(age>=0&&age<1300?age<234:portionsLeft>0);
+  }
+  bottles.forEach((b,i)=>b.visible=i<Math.ceil((order.soju??0)/4));
   for(let i=0;i<6;i++){
    const cooking=order.cookingClams??0,done=order.grilledClam??0;
    grill[i].dish.visible=i<cooking+done;grill[i].top.rotation.x=i<done||clamReady?-1.22:-.14;
@@ -141,7 +156,7 @@ export function buildTavernService(parent,walkers,kit){
  const venue={id:"coast-tavern",name:tavernName,center:coastPoint(front),cuisine:"korean",service:"staff"};
  let last=0;
  const staff=[],dishes=tavernTables.map(t=>dishSet(room,t));
- return (now,orders,viewer)=>{
+ return (now,orders,viewer,diners=[])=>{
   const near=Math.hypot(viewer.x-front.x,viewer.z-front.z)<110;room.visible=near;
   if(!near)return;
   const delta=Math.min(.07,(now-last)/1000);last=now;
@@ -149,6 +164,12 @@ export function buildTavernService(parent,walkers,kit){
   for(const t of tavernTables){
    const order=active.find(o=>o.spot===t.index);
    const state=servicePose(t,order,now);
+   const reply=tavernReply(order,now);
+   if(reply){
+    const at=order.phase==="called"?order.called:order.phase==="ordering"?order.called+2600:
+      order.phase==="served"?order.served:now>=order.ready?order.ready:order.ordered;
+    state.chat={id:t.index+"-"+at,text:reply,at};
+   }
    if(order||t.index===0){
     if(!staff[t.index]){
      const group=new T.Group();room.add(group);
@@ -157,7 +178,7 @@ export function buildTavernService(parent,walkers,kit){
     staff[t.index].group.visible=true;
     staff[t.index].update(state,now,order,delta);
    }else if(staff[t.index])staff[t.index].group.visible=false;
-   dishes[t.index](order,now);
+   dishes[t.index](order,now,diners);
   }
  };
 }

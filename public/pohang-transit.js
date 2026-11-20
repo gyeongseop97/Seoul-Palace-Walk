@@ -1,5 +1,5 @@
 import {roads,lines} from "./pohang-transit-geography.js";
-import {expressBusCount,cityBusCount,busCount} from "./coast-fleet.js";
+import {expressCoaches,cityCoaches,busCount} from "./coast-fleet.js";
 export {busCount};
 
 const dist=(a,b)=>Math.hypot(b.x-a.x,b.z-a.z);
@@ -14,8 +14,8 @@ const stopRows=[
  [["north-market","북부시장","영일대·환호공원 방면"],["port","포항여객선터미널","환호공원 방면"],["beach-park","영일대해수욕장","환호공원 방면"],["duho-park","두호동행정복지센터","환호공원 방면"],["park","환호공원","영일대·북부시장 방면"],["duho-city","두호동행정복지센터","북부시장 방면"],["beach-city","영일대해수욕장","북부시장 방면"],["port-city","포항여객선터미널","북부시장 방면"]]
 ];
 export const busLines=[
- {id:"express",number:"급행",name:"포항역 급행",color:"#ae3538",count:expressBusCount,maxSpeed:24,acceleration:2.05,braking:2.6},
- {id:"city",number:"해안",name:"해안 시내버스",color:"#2c65aa",count:cityBusCount,maxSpeed:12.5,acceleration:1.55,braking:2.05}
+ {id:"express",number:"급행",name:"포항역 급행",color:"#ae3538",coaches:expressCoaches,maxSpeed:24,acceleration:2.05,braking:2.6},
+ {id:"city",number:"해안",name:"해안 시내버스",color:"#2c65aa",coaches:cityCoaches,maxSpeed:12.5,acceleration:1.55,braking:2.05}
 ];
 function carriageway(ref){
  const {a,b,width,oneWay}=transitRoads[Math.abs(ref)-1];
@@ -103,6 +103,7 @@ function makeLeg(refs,line){
 export const harborStops=[];
 const stopsById=new Map();
 for(const [i,line] of busLines.entries()){
+ line.count=line.coaches.length;
  line.stops=stopRows[i].map(r=>r[0]);line.legs=lines[i].map(refs=>makeLeg(refs,line));line.period=0;
  line.legs.forEach((leg,j)=>{
   const from=line.legs[(j+line.legs.length-1)%line.legs.length].lane.at(-1),to=leg.lane[0];
@@ -121,11 +122,13 @@ for(const [i,line] of busLines.entries()){
  });
 }
 export const stopById=id=>stopsById.get(id);
-export const busLine=index=>index<expressBusCount?busLines[0]:busLines[1];
+const assignments=[];
+for(const line of busLines)line.coaches.forEach((index,slot)=>{assignments[index]={line,slot};});
+export const busLine=index=>assignments[index].line;
 export const routeLength=busLines[0].legs[0].length,busTravel=busLines[0].legs[0].seconds,busPeriod=busLines[0].period;
 function phaseAt(line,index,seconds){
- const local=index-(line.id==="city"?expressBusCount:0);
- return ((seconds+local*line.period/line.count)%line.period+line.period)%line.period;
+ const offset=assignments[index].slot*line.period/line.coaches.length;
+ return ((seconds+offset)%line.period+line.period)%line.period;
 }
 function poseAt(lane,t){
  let lo=1,hi=lane.length-1;
@@ -145,8 +148,8 @@ export function busAt(index,seconds){
 export function arrivalsAt(id,seconds){
  const stop=stopById(id);if(!stop)return [];
  const line=busLines.find(l=>l.id===stop.line),start=line.legs[line.stops.indexOf(id)].start;
- return Array.from({length:line.count},(_,i)=>{
-  const index=i+(line.id==="express"?0:expressBusCount),phase=phaseAt(line,index,seconds);
+ return line.coaches.map(index=>{
+  const phase=phaseAt(line,index,seconds);
   const delta=phase-start;return {index,seconds:delta>=0&&delta<busDwell?0:Math.ceil((start-phase+line.period)%line.period)};
  }).sort((a,b)=>a.seconds-b.seconds||a.index-b.index);
 }

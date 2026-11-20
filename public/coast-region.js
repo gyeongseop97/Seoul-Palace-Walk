@@ -3,11 +3,13 @@ import {amenities,amenityObstacle} from "./beach-amenities.js";
 import {arrival} from "./pohang-station-layout.js";
 import {inPark,parkEntry,parkRoad} from "./space-walk-layout.js";
 import {spaceWalkRoute as stairRoute} from "./space-walk-navigation.js";
-import {pavilionObstacle,pavilionRoute,pavilionApproach,pavilionPoint,pavilionAxes,upperLevel} from "./pohang-pavilion-layout.js";
+import {pavilionObstacle,pavilionRoute,pavilionStep,pavilionApproach,pavilionPoint,pavilionAxes,upperLevel} from "./pohang-pavilion-layout.js";
 export const spaceWalkRoute=(from,to)=>pavilionRoute(from,to)??stairRoute(from,to);
 import {expansionWildlife} from "./expansion-wildlife.js";
-import {promenade} from "./pohang-layout.js";
-import {inCafeBounds,cafeCameraWall,cafeRoof} from "./coast-cafe.js";
+import {promenade,headland,onHeadland,canCrossBeachEdge} from "./pohang-layout.js";
+import {sandEdge,profileRows} from "./pohang-beach-profile.js";
+import {makeCoastPaths} from "./coast-walking-route.js";
+import {inCafeBounds,cafeCameraWall,cafeRoof,cafeStep} from "./coast-cafe.js";
 import {cafeBackdrop,cafeFootprint,onCafeApron} from "./pohang-cafe-site.js";
 import {addZone,addLandmarks} from "./layout.js";
 import {coastPoint,seaPoint,inCoastSpace} from "./region-coordinates.js";
@@ -49,12 +51,63 @@ export function coastObstacle(p,height){
  }
  return false;
 }
-export function coastWalkable(x,y){
- const p=seaPoint({x,y});
+function walkableSurface(p,allowBeachLip=false){
  if(inCafeBounds(p)||onCafeApron(p))return true;
  if(inPark(p))return true;
- if(!inBounds(p))return false;
+ if(!inBounds(p,allowBeachLip))return false;
  return onDock(p)||onPier(p)||!coastObstacle(p,2.1);
+}
+export const coastWalkable=(x,y,allowBeachLip=false)=>walkableSurface(seaPoint({x,y}),allowBeachLip);
+const dry=p=>Number.isFinite(p.x)&&Number.isFinite(p.z)&&(p.x<=shore(p.z)||onHeadland(p)||onDock(p)||onPier(p))&&walkableSurface(p);
+export const coastDrySpot=(x,y)=>dry(seaPoint({x,y}));
+function dryStep(a,b,level){
+ if(!canCrossBeachEdge(a,b))return false;
+ if(onDock(a)!==onDock(b)&&Math.max(a.x,b.x)>sandEdge(dock.z))return false;
+ return pavilionStep(a,b,level?.track)!==false&&cafeStep(a,b,level?.cafeFloor)!==false;
+}
+const coastPaths=makeCoastPaths(dry,dryStep);
+export const coastDryStep=(from,to)=>coastPaths.clear(seaPoint(from),seaPoint(to),from.coast);
+let walkingWorker,queryId=0;
+const walkingQueries=new Map();
+export function requestCoastWalkingRoute(from,to){
+ if(!walkingWorker){
+  try{
+   walkingWorker=new Worker(new URL("./coast-walking-worker.js",import.meta.url),{type:"module"});
+   walkingWorker.onmessage=({data:{id,steps}})=>{
+    walkingQueries.get(id)?.(steps);walkingQueries.delete(id);
+   };
+   walkingWorker.onerror=()=>{
+    for(const finish of walkingQueries.values())finish([]);
+    walkingQueries.clear();walkingWorker.terminate();walkingWorker=null;
+   };
+  }catch{return Promise.resolve([]);}
+ }
+ const id=++queryId;
+ return new Promise(resolve=>{
+  walkingQueries.set(id,resolve);
+  walkingWorker.postMessage({id,from:{x:from.x,y:from.y,coast:{track:from.coast?.track}},to:{x:to.x,y:to.y,trackNode:to.trackNode,coast:{track:to.coast?.track}}});
+ });
+}
+export function coastWalkingRoute(from,to){
+ if(!inCoastSpace(from)||!inCoastSpace(to)||!dry(seaPoint(from))||!dry(seaPoint(to)))return [];
+ // A cross-town trip can begin on the Space Walk stairs and end on the pavilion's upper deck.
+ const stops=[],steps=[];
+ let previous=from;
+ for(const landing of stairRoute(from,to)??[to]){
+  stops.push(...(pavilionRoute(previous,landing)??[landing]));previous=landing;
+ }
+ let start=from;
+ for(const stop of stops){
+  const a=seaPoint(start),b=seaPoint(stop);
+  const pierLeg=onPier(a)&&onPier(b)&&coastPaths.clear(a,b,{track:Math.max(start.coast?.track??0,stop.coast?.track??0)});
+  if(!pierLeg&&!(start.trackNode!=null&&stop.trackNode!=null)){
+   const leg=coastPaths.path(a,b);
+   if(!leg.length)return [];
+   for(const p of leg.slice(0,-1))steps.push(coastPoint(p));
+  }
+  steps.push(stop);start=stop;
+ }
+ return steps;
 }
 export function registerCoast(){
  addZone({contains:(x,y)=>inCoastSpace({x,y}),walkable:coastWalkable});
@@ -95,14 +148,17 @@ export function drawCoastMap(base,svg,drawMarker,mini=false){
  const pts=a=>a.map(p=>{const q=coastPoint(p);return q.x+","+q.y;}).join(" ");
  const path=(list,color,width)=>svg(base,"polyline",{points:pts(list),fill:"none",stroke:color,"stroke-width":width,"stroke-linejoin":"round"});
  svg(base,"rect",{x:4600,y:2500,width:7400,height:5200,fill:"#d5d0b4"});
- const edge=Array.from({length:160},(_,i)=>({z:-3400+i*32,x:shore(-3400+i*32)}));
+ const edge=[-3400,...profileRows,1800].map(z=>({z,x:shore(z)}));
  svg(base,"polygon",{points:pts([...edge,{x:2200,z:1800},{x:2200,z:-3400}]),fill:"#88b6c4"});
- path(edge,"#e9cf9e",9);path(parkRoad,"#9caa7e",16);
+ path(edge,"#e9cf9e",9);
+ svg(base,"polygon",{points:pts(headland.map(([x,z])=>({x,z}))),fill:"#d5d0b4"});
+ path(parkRoad,"#9caa7e",16);
  svg(base,"path",{d:sideStreets.map(({a,b})=>"M"+(10000+a.x)+" "+(6000+a.z)+"L"+(10000+b.x)+" "+(6000+b.z)).join(""),stroke:"#efe9d9","stroke-width":5,fill:"none"});
  for(const way of geo.coastRoads)path(way.map(([x,z])=>({x,z})),"#f4ebd6",7);
  svg(base,"path",{d:transitRoads.map(({a,b})=>"M"+(10000+a.x)+" "+(6000+a.z)+"L"+(10000+b.x)+" "+(6000+b.z)).join(""),stroke:"#eee5d8","stroke-width":10,fill:"none"});
  for(const {color,legs} of mappedLines)for(const leg of legs)path(leg,color,mini?1.7:2.2);
  path(pier,"#aa7958",4);
+ path([{x:promenade(dock.z),z:dock.z},dock],"#aa7958",4.4);
  const footprints=geo.blocks.map(([,ring])=>"M"+ring.map(([x,z])=>(10000+x).toFixed(1)+" "+(6000+z).toFixed(1)).join("L")+"Z").join("");
  svg(base,"path",{d:footprints,fill:"#bcb7a8",stroke:"#aea899","stroke-width":.8});
  svg(base,"polygon",{points:pts(cafeFootprint.map(([x,z])=>({x,z}))),fill:"#bcb7a8",stroke:"#aea899","stroke-width":.8});

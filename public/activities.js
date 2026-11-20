@@ -14,6 +14,10 @@ export function jumpLift(avatar,clock){
   return height*4*phase*(1-phase);
 }
 export function renderedJumpLift(avatar,clock,floor){
+  if(avatar.jump&&avatar.coast?.mode==="walk"&&Number.isFinite(avatar.coast.beachJumpY)){
+    const phase=(clock-avatar.jump)/JUMP_MS;
+    if(phase>=0&&phase<1.5)return Math.max(0,avatar.coast.beachJumpY-floor+4*JUMP_HEIGHT*phase*(1-phase));
+  }
   const lift=jumpLift(avatar,clock);
   if(!lift||avatar.vaultBase==null)return lift;
   return Math.max(0,avatar.vaultBase+lift-floor);

@@ -15,12 +15,28 @@ export const tavernStoolTop=1.97+.46+.095/2;
 export const tavernTables=[[-1.8,1.94],[1.8,1.94],[-1.8,-1.43],[1.8,-1.43]].map(([u,v],i)=>{
  const center=tavernPoint(u,v);
  const seats=Array.from({length:4},(_,s)=>{
-  const p=tavernPoint(u+(s<2?-1:1)*.99,v+(s%2?1:-1)*.46);
+  const p=tavernPoint(u+(s<2?-1:1)*.67,v+(s%2?1:-1)*.35);
   return {...p,heading:(Math.atan2(center.x-p.x,p.z-center.z)*180/Math.PI+360)%360};
  });
  return {...center,index:i,u,v,name:tavernName+" "+(i+1)+"번",seats,server:tavernPoint(u-Math.sign(u)*.87,v),kitchen:tavernPoint(Math.sign(u)*(i<2?1.75:.9),-6.05)};
 });
 export const tavernSeatSpot=(table,seat)=>tavernTables[table]?.seats[seat];
+export function tavernPlateOffset(seat){return {u:(seat<2?-1:1)*.33,v:(seat%2?1:-1)*.34};}
+export function tavernDiningPlate(seat){
+ const table=tavernTables[Math.floor(seat/4)];
+ if(!table||!Number.isInteger(seat))return null;
+ const {u,v}=tavernPlateOffset(seat%4);
+ return {...tavernPoint(table.u+u,table.v+v),h:1.97+.873,tableX:table.x,tableZ:table.z};
+}
+export const tavernSeatReach=1.65;
+export function nearestTavernSeat(p,occupied){
+ let best=null,reach=tavernSeatReach;
+ for(const table of tavernTables)for(const [seat,spot] of table.seats.entries()){
+  const id=table.index*4+seat,gap=Math.hypot(p.x-spot.x,p.z-spot.z);
+  if(!occupied.has(id)&&gap<reach){best={table:table.index,seat,id,spot};reach=gap;}
+ }
+ return best;
+}
 export const tavernSeatHeading=(table,seat)=>tavernSeatSpot(table,seat)?.heading;
 export function tavernTerrace(p){
  if(Math.abs(p.x-front.x)>17||Math.abs(p.z-front.z)>18)return false;
@@ -30,5 +46,5 @@ export function tavernTerrace(p){
 export function tavernObstacle(p,height){
  if(height>2.82||!tavernTerrace(p))return false;
  const {u,v}=tavernAxes(p);
- return tavernTables.some(t=>Math.abs(t.u-u)<.71&&Math.abs(t.v-v)<.98);
+ return tavernTables.some(t=>Math.abs(t.u-u)<.50&&Math.abs(t.v-v)<.89);
 }

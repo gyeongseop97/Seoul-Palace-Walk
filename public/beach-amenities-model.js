@@ -34,7 +34,6 @@ export function buildBeachAmenities(root,{box,post,rod,sign}){
     rod(g,[.49,.57,z],[.60,.48,z],.046,0xa5b1ad);
     post(g,pink,.08,1.088,z*.27,.044,.056,.044);
    }
-   sign(g,"발 씻는 곳",-.18,1.45,0,1.40,.35,"#496b70",Math.PI*.5);
    const drops=new T.InstancedMesh(dropGeom,streamMat,38);drops.frustumCulled=false;drops.renderOrder=2;drops.visible=false;g.add(drops);
    sprays.push({a,drops});
   }

@@ -17,6 +17,8 @@ export function makeDiningUtensil(T){
   const oval=new T.SphereGeometry(1,14,8),rod=new T.CylinderGeometry(1,1,1,10),block=new T.BoxGeometry(1,1,1);
   const metal=new T.MeshStandardMaterial({color:0xc7d2d4,roughness:.29,metalness:.54});
   const wood=new T.MeshStandardMaterial({color:0x703c27,roughness:.48});
+  const salmon=new T.MeshStandardMaterial({color:0xe59883,roughness:.55});
+  const grain=new T.MeshStandardMaterial({color:0xffdbbe,roughness:.56});
   function piece(parent,geometry,material,x,y,z,w,h,d){
     const mesh=new T.Mesh(geometry,material);parent.add(mesh);
     mesh.position.set(x,y,z);mesh.scale.set(w,h,d);return mesh;
@@ -30,14 +32,18 @@ export function makeDiningUtensil(T){
       const stick=piece(chopsticks,rod,wood,side*.010,0,.062,.0047,.265,.0047);
       stick.rotation.set(Math.PI/2,0,side*.035,"YXZ");
     }
+    const slice=new T.Group();slice.name="젓가락에 집은 회";chopsticks.add(slice);slice.position.z=.189;
+    piece(slice,oval,salmon,0,0,0,.038,.010,.018);
+    for(const x of [-.015,.008])piece(slice,oval,grain,x,.007,0,.0018,.002,.013).rotation.y=.33;
     piece(fork,block,metal,0,0,.038,.019,.009,.145);
     piece(fork,oval,metal,0,-.003,.112,.021,.008,.023);
     for(let tine=0;tine<4;tine++){
       const tip=piece(fork,block,metal,(tine-1.5)*.010,-.004,.143,.0055,.004,.031);
       tip.rotation.x=.095;
     }
-    return {group,show(kind){
+    return {group,slice,show(kind,carryingSlice=false){
       group.visible=Boolean(kind);spoon.visible=kind==="spoon";chopsticks.visible=kind==="chopsticks";fork.visible=kind==="fork";
+      slice.visible=carryingSlice;
     }};
   };
 }

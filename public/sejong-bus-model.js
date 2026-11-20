@@ -276,13 +276,30 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
     return {bus,doors,wheels,steer,previous:null,spin:0};
   }
 
-  const vehicles=Array.from({length:route?.count??BUS_COUNT},(_,i)=>model(i));
+  // Coastal services use the same livery and route signs on every run. Reuse
+  // offscreen models so a shorter headway doesn't build dozens of idle buses.
+  const vehicles=Array.from({length:route?.count??BUS_COUNT},(_,i)=>route?.vehicle?null:model(i));
+  const spares=new Map();
   function update(time,anchor){
-    for(const [index,entry] of vehicles.entries()){
-      const {bus,doors,wheels,steer,previous}=entry,state=schedule(index,time);
+    for(let index=0;index<vehicles.length;index++){
+      const state=schedule(index,time);
       const distance=state&&anchor?Math.hypot(anchor.x-state.x,anchor.y-state.y):Infinity;
-      bus.visible=distance<145;
-      if(!bus.visible){entry.previous=null;steer(0,time,false);continue;}
+      let entry=vehicles[index];
+      if(distance>=145){
+        if(entry?.bus.visible){
+          entry.bus.visible=false;entry.previous=null;entry.steer(0,time,false);
+          if(route?.vehicle){spares.get(entry.pool).push(entry);vehicles[index]=null;}
+        }
+        continue;
+      }
+      if(!entry){
+        const service=route.vehicle(index),pool=service.number+"/"+(index%driverLooks.length);
+        if(!spares.has(pool))spares.set(pool,[]);
+        entry=spares.get(pool).pop()??model(index);
+        entry.pool=pool;entry.bus.name=service.name+" "+(index+1)+"호";vehicles[index]=entry;
+      }
+      const {bus,doors,wheels,steer,previous}=entry;
+      bus.visible=true;
       bus.position.set(wx(state.x),height(state)+.015,wz(state.y));bus.rotation.y=(180-state.heading)*Math.PI/180;
       const moved=previous?Math.hypot(previous.x-state.x,previous.y-state.y):0;
       if(moved<14&&state.traveling)entry.spin=(entry.spin+moved/.465)%(Math.PI*2);

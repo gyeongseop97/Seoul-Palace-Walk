@@ -9,6 +9,12 @@ export const isKiss=id=>typeof id==="string"&&id.startsWith("kiss-");
 export const canKiss=(avatar,time)=>Boolean(avatar?.kissReady&&!avatar.groundSit&&avatar.seat==null&&
   !isCycling(avatar)&&!avatar.bus&&!avatar.arcade&&time-(avatar.jump??0)>=JUMP_MS);
 export const CLINK_REACH=1.35;
+export const TAVERN_CLINK_REACH=2.25;
+export function clinkReach(a,b){
+  if(a?.coast?.mode!=="table"&&b?.coast?.mode!=="table")return CLINK_REACH;
+  const diner=p=>p?.coast?.mode==="table"&&p.coast.tableGlass===true&&Number.isInteger(p.coast.seat);
+  return diner(a)&&diner(b)&&a.coast.seat!==b.coast.seat&&Math.floor(a.coast.seat/4)===Math.floor(b.coast.seat/4)?TAVERN_CLINK_REACH:0;
+}
 export const CLINK_INVITE_MS=15_000;
 export const CLINK_LEAD_MS=500;
 export const CLINK_DURATION_MS=2_200;
@@ -19,6 +25,8 @@ export const CLINK_DRINKS=Object.fromEntries(Object.entries(ITEMS)
 export function clinkItemSlot(avatar,time){
   if(!avatar||avatar.groundSit||avatar.seat!=null||time-(avatar.jump??0)<JUMP_MS||avatar.bus||isCycling(avatar)||
     ITEM_SLOTS.some(slot=>itemAnimating(avatar[slot],time)))return null;
+  if(avatar.coast?.mode==="table")return avatar.coast.tableGlass===true&&
+    (!avatar.coast.tasting||time-avatar.coast.tasting.at>=1500)?"item":null;
   return ITEM_SLOTS.find(slot=>avatar[slot]?.remaining>0&&Object.hasOwn(CLINK_DRINKS,avatar[slot].kind))??null;
 }
 export const canClink=(avatar,time)=>Boolean(clinkItemSlot(avatar,time));

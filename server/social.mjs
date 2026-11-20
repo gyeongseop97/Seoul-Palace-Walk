@@ -2,7 +2,7 @@ import {isCycling} from "../public/sejong-bike.js";
 import {JUMP_MS} from "../public/activities.js";
 import {ITEM_SLOTS} from "../public/held-items.js";
 import {museumBounds} from "../public/visit-layout.js";
-import {CLINK_DRINKS,CLINK_DURATION_MS,CLINK_INVITE_MS,CLINK_LEAD_MS,CLINK_REACH} from "../public/social-events.js";
+import {CLINK_DRINKS,CLINK_DURATION_MS,CLINK_INVITE_MS,CLINK_LEAD_MS,CLINK_REACH,TAVERN_CLINK_REACH} from "../public/social-events.js";
 import {plazaShowSpot,PLAZA_SHOW_DURATION_MS,PLAZA_SHOW_LEAD_MS,PLAZA_SHOW_REACH} from "../public/plaza-show.js";
 
 const onFoot=field=>`json_extract(${field},'$.bus') IS NULL AND json_extract(${field},'$.bikeRide') IS NULL AND (
@@ -26,7 +26,12 @@ export function startFountainShow(db,{room,id,key,now,online,show}){
 const drinkDurations=JSON.stringify(CLINK_DRINKS);
 const drinkSlot=(field,slot)=>`(json_extract(${field},'$.${slot}.remaining')>0
   AND json_extract(${field},'$.${slot}.started')<=? - json_extract(?, '$.' || json_extract(${field},'$.${slot}.kind')))`;
-const readyDrink=field=>`(${ITEM_SLOTS.map(slot=>drinkSlot(field,slot)).join(" OR ")})
+const atTable=field=>`COALESCE(json_extract(${field},'$.coast.mode'),'')='table'`;
+const stool=field=>`json_extract(${field},'$.coast.seat')`;
+const readyDrink=field=>`(CASE WHEN ${atTable(field)} THEN
+    json_extract(${field},'$.coast.tableGlass')=1 AND ${stool(field)} BETWEEN 0 AND 15
+    AND COALESCE(json_extract(${field},'$.coast.tasting.at'),0)<=? - 1500
+  ELSE (${ITEM_SLOTS.map(slot=>drinkSlot(field,slot)).join(" OR ")}) END)
   AND json_extract(${field},'$.seat') IS NULL
   AND COALESCE(json_extract(${field},'$.jump'),0)<=? - ${JUMP_MS}
   AND ${onFoot(field)}`;
@@ -39,7 +44,10 @@ const readyClinkPair=ready=>`
   a.player_key IS NOT NULL AND b.player_key IS NOT NULL AND a.updated>=? AND b.updated>=?
   AND ${ready("a.avatar")} AND ${ready("b.avatar")}
   AND ${squared(`${coordinate("a.avatar","x")}-${coordinate("b.avatar","x")}`)} +
-      ${squared(`${coordinate("a.avatar","y")}-${coordinate("b.avatar","y")}`)} <= ${CLINK_REACH**2}
+      ${squared(`${coordinate("a.avatar","y")}-${coordinate("b.avatar","y")}`)} <= ${ready===readyDrink?`CASE
+       WHEN ${atTable("a.avatar")} AND ${atTable("b.avatar")} AND ${stool("a.avatar")}<>${stool("b.avatar")}
+         AND (${stool("a.avatar")}/4)=(${stool("b.avatar")}/4) THEN ${TAVERN_CLINK_REACH**2}
+       WHEN ${atTable("a.avatar")} OR ${atTable("b.avatar")} THEN -1 ELSE ${CLINK_REACH**2} END`:CLINK_REACH**2}
   AND ${inMuseum("a.avatar")}=${inMuseum("b.avatar")}
   AND COALESCE(json_extract(a.avatar,'$.up'),0)=COALESCE(json_extract(b.avatar,'$.up'),0)
   AND NOT EXISTS (
@@ -50,7 +58,7 @@ const readyClinkPair=ready=>`
   )`;
 
 export function clinkStatement(db,{room,id,key,now,online,clink}){
-  const drinkArguments=[...ITEM_SLOTS.flatMap(()=>[now,drinkDurations]),now];
+  const drinkArguments=[now,...ITEM_SLOTS.flatMap(()=>[now,drinkDurations]),now];
   const kiss=clink.id.startsWith("kiss-"),requirements=kiss?[now]:drinkArguments;
   const pairArguments=[online,online,...requirements,...requirements,online,online];
   const ready=readyClinkPair(kiss?readyKiss:readyDrink);

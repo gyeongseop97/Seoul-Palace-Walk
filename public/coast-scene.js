@@ -1,7 +1,10 @@
-import {buildCoastScooters,scooterPose} from "./coast-scooter-model.js";
+import {buildCoastScooters,scooterGround} from "./coast-scooter-model.js";
+import {scooterFit} from "./coast-scooter-fit.js";
 import * as T from "three";
 import {buildTavernService} from "./coast-tavern-model.js";
-import {tavernStoolTop} from "./coast-tavern-layout.js";
+import {buildCoastStudio} from "./coast-studio-model.js";
+import {studioInRoom,studioWall,studioDoor,studioStorm} from "./coast-studio-layout.js";
+import {tavernStoolTop,tavernDiningPlate} from "./coast-tavern-layout.js";
 import {beachBenches} from "./coast-beach-seats.js";
 import {cafeBenches,cafeLevel,pickCafe} from "./coast-cafe.js";
 import {breaststroke,swimSeed,swimStroke} from "./beach-swimming.js";
@@ -20,6 +23,7 @@ import {createWake} from "./coast-wake.js";
 import {coastalGulls} from "./coast-gulls.js";
 import {buildSurfBuoys} from "./coast-surf-buoys.js";
 import {buildSurfSpray} from "./coast-surf-spray.js";
+import {buildCoastActionMarker} from "./coast-action-marker.js";
 import {fireworks} from "./pohang-festival.js";
 import {buildHarborStreet,harborBusRoute} from "./coast-streets.js";
 import {buildSejongBusModels} from "./sejong-bus-model.js";
@@ -35,24 +39,27 @@ export function createCoastScene(root,play,walkers,kit){
  const updateSurfSpray=buildSurfSpray(root,waterline);
  buildHarborStreet(root);const parkLights=buildSpaceWalk(root);
  const ship=cruiseModel();ship.scale.set(cruiseScale,1,cruiseScale);root.add(ship);
+ const updateActionMarker=buildCoastActionMarker(root,ship,p=>surface(coastPoint(p)));
  const buses=buildSejongBusModels(T,root,kit,walkers,()=>1.85,()=>1.85,harborBusRoute);
  const updateTavern=buildTavernService(root,walkers,kit);
+ const updateStudio=buildCoastStudio(root);
  const boards=new Map(),ripples=new Map(),ringGeometry=new T.RingGeometry(.76,.79,36).rotateX(-Math.PI/2);
  const swimmerHead=new T.Vector3();
  const hullEuler=new T.Euler(0,0,0,"YXZ"),seatTurn=new T.Quaternion(),up=new T.Vector3(0,1,0);
- function swimmingWake(player,p,t){
+ function swimmingWake(player,p,t,stroke){
   let rings=ripples.get(player.id);
   if(!rings){
    rings=[0,1].map(()=>{const mesh=new T.Mesh(ringGeometry,new T.MeshBasicMaterial({color:0xd9f4ed,transparent:true,depthWrite:false}));mesh.renderOrder=2;root.add(mesh);return mesh;});
    ripples.set(player.id,rings);
   }
   rings.forEach((ring,i)=>{
-   const phase=(t*(player.stepping?.89:.43)+i*.5)%1;
+   const phase=(stroke.phase+i*.5)%1;
    ring.visible=true;ring.position.set(p.x,waterAt(p.x,p.z,t)+.032,p.z);
    ring.scale.setScalar(.30+.92*phase);ring.material.opacity=.30*(1-phase);
   });
  }
  let lastClock=Date.now(),deckViewer=null,orbitShip=false,cafeViewerFloor;
+ let studioViewer={x:0,z:0};
  function setClock(clock){lastClock=clock;}
  function waterline(x,z){return waterAt(x,z,lastClock/1000%14400);}
  function pickDeck({origin:o,direction:d}){
@@ -71,6 +78,9 @@ export function createCoastScene(root,play,walkers,kit){
  }
  function cameraBlocked(point,height){
   const p=seaPoint(point);
+  if(studioInRoom(studioViewer)){
+   if(height<studioDoor.h+.08||height>studioDoor.h+2.73||!studioInRoom(p))return true;
+  }else if(Math.abs(p.z-studioWall.z)<studioWall.half&&Math.abs(p.x-studioWall.x)<.24&&height<studioWall.height)return true;
   if(!deckViewer)return coastObstacle(p,height);
   if(orbitShip)return false;
   const {deckX,deckZ,floor}=deckViewer;
@@ -93,37 +103,41 @@ export function createCoastScene(root,play,walkers,kit){
  }
  function surface(p){
   const local=seaPoint(p),s=p.coast,t=lastClock/1000%14400;
+  if(s?.mode==="scooter")return scooterGround(local)+scooterFit.deckTop;
   const cafe=cafeLevel(local,s?.cafeFloor);if(cafe!=null)return cafe;
   if(s?.mode==="deck"){
    const spot=Number.isFinite(s.deckX)&&Number.isFinite(s.deckZ)?{x:s.deckX,z:s.deckZ}:seaToDeck(play.ship,local,lastClock,s.floor);
    return deckToSea(play.ship,spot,lastClock,clamp(s.floor??deckHeight(spot)??mainFloor,mainFloor,7.85)).h;
   }
   if(s?.mode==="bus")return 3.12;
-  if(s?.mode==="scooter")return (parkFloor(local)??ground(local))+.229;
   const pierLevel=pavilionFloor(local,s?.track);if(pierLevel!=null)return pierLevel;
   const park=parkFloor(local,p.coast?.track);if(park!=null)return park;
   if(onDock(local))return 1.85;
   if(inWater(local))return waterAt(local.x,local.z,t)+(s?.mode==="surf"?.14:-1.035);
   return ground(local);
  }
- function update(state,night,camera,height){
-  const t=lastClock/1000%14400,b=play.ship,p=seaPoint(state.me);
+ function update(state,night,camera,height,reducedDetail=false){
+  const viewer=state.monitorFocus??state.me,t=lastClock/1000%14400,b=play.ship,p=seaPoint(viewer);
   const id=state.me.id,attitude=hullAttitude(b,lastClock);
   deckViewer=state.me.coast?.mode==="deck"?state.me.coast:null;orbitShip=Boolean(deckViewer&&play.boat.helm===id);
   cafeViewerFloor=state.me.coast?.cafeFloor;
   ship.position.set(b.x,attitude.heave,b.z);ship.rotation.set(attitude.pitch,b.yaw,attitude.roll,"YXZ");
   ship.userData.setGangwayOpen(play.gangwayOpen());
-  buses.update(lastClock,state.me);
+  updateActionMarker(state.photoCapture?null:state.coastMarker,camera);
+  buses.update(lastClock,viewer);
   const players=[state.me,...state.peers];
   updateScooters(players,p);
   sky.sky.position.copy(camera.position);sky.uniforms.night.value=night;
+  sky.uniforms.storm.value=water.storm.value=studioStorm(p);sky.uniforms.clock.value=t;
   lights(night,players,lastClock);parkLights(night);water.night.value=night;water.uTime.value=t;
+  water.reducedDetail.value=reducedDetail;
   updateSurfBuoys(t,p);
   updateSurfSpray(players,p,t,night,height);
   updateWake(b,lastClock,night,water);
   updateGulls(lastClock,p,b,camera.position);
   show.update(showAge(lastClock,play.boat.festival),p,t,height);
-  updateTavern(lastClock,play.tavernOrders,p);
+  updateTavern(lastClock,play.tavernOrders,p,players);
+  studioViewer=p;updateStudio(p,players,night);
   const visible=new Set([id,...state.peers.map(p=>p.id)]);
   for(const [key,rings] of ripples)if(!visible.has(key)){for(const ring of rings){ring.removeFromParent();ring.material.dispose();}ripples.delete(key);}
   for(const [key,board] of boards)if(!visible.has(key)){board.removeFromParent();boards.delete(key);}
@@ -138,16 +152,20 @@ export function createCoastScene(root,play,walkers,kit){
     model.group.quaternion.setFromEuler(hullEuler).multiply(seatTurn.setFromAxisAngle(up,seat.yaw));
    }else if(height!=null){
     const world=deckToSea(play.ship,local,lastClock,height),attitude=hullAttitude(play.ship,lastClock);
+    if(player.id===play.boat.helm)model.group.rotation.y=play.ship.yaw;
     const relative=model.group.rotation.y-play.ship.yaw;
     model.group.position.x=world.x;model.group.position.z=world.z;
+    model.group.position.y+=world.h-model.floorY;
     model.group.rotation.x=attitude.pitch*Math.cos(relative)-attitude.roll*Math.sin(relative);
     model.group.rotation.z=attitude.roll*Math.cos(relative)+attitude.pitch*Math.sin(relative);
    }
   }else{model.group.rotation.x=0;model.group.rotation.z=0;}
   if(wet||surf)model.shadow.visible=false;
-  if(wet)swimmingWake(player,p,t);else for(const ring of ripples.get(player.id)??[])ring.visible=false;
+  const stroke=wet?swimStroke(lastClock/1000,player.stepping,swimSeed(player),player.running,model.swimStroke):null;
+  model.swimStroke=stroke;
+  if(wet)swimmingWake(player,p,t,stroke);else for(const ring of ripples.get(player.id)??[])ring.visible=false;
   if(wet){
-   const stroke=swimStroke(t,player.stepping,swimSeed(player));breaststroke(model,stroke);
+   breaststroke(model,stroke);
    // Sample the actual wave under the moving face: the prone head can be almost a metre
    // ahead of the avatar origin. Keep the mouth clear on the inhale and near the surface in glide.
    model.face.getWorldPosition(swimmerHead);
@@ -157,7 +175,6 @@ export function createCoastScene(root,play,walkers,kit){
   }else if(surf)surferPose(model,s.surf,t);
   else{
    model.body.position.z=0;model.body.rotation.set(0,0,model.body.rotation.z,'XYZ');
-   if(s?.mode==="scooter")scooterPose(model);
   }
   let board=boards.get(player.id);
   if(!s?.board){if(board)board.visible=false;return;}
@@ -179,5 +196,5 @@ export function createCoastScene(root,play,walkers,kit){
    }
   }
  }
- return {benches:[...beachBenches,...cafeBenches],tavernStoolTop,cruiseSeatPose,setClock,waterline,surface,pose,update,pickTrack:ray=>pickDeck(ray)??pickCafe(ray,cafeViewerFloor)??pickSpaceWalk(ray)??pickPavilion(ray),cameraBlocked,watchLift:play.watchLift};
+ return {benches:[...beachBenches,...cafeBenches],stormAt:p=>studioStorm(seaPoint(p)),tavernStoolTop,tavernDiningPlate,cruiseSeatPose,setClock,waterline,surface,pose,update,pickTrack:ray=>pickDeck(ray)??pickCafe(ray,cafeViewerFloor)??pickSpaceWalk(ray)??pickPavilion(ray),cameraBlocked,watchLift:play.watchLift};
 }

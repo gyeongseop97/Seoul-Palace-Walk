@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {busAt,busLine,busLines,busCount,busDwell,harborStops,arrivalsAt,stopById,ground,inBounds} from "../public/pohang-layout.js";
+import {BUS_DEPARTURE_MS} from "../public/sejong-bus.js";
 import {coastObstacle,coastWalkable} from "../public/coast-region.js";
 import {coastPoint} from "../public/region-coordinates.js";
 import {beachAccess,sandEdge,shore,beachFloor,canCrossBeachEdge} from "../public/pohang-beach-profile.js";
@@ -9,11 +10,26 @@ import {scooterHubs,canScoot} from "../public/coast-scooters.js";
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const turn=(a,b)=>Math.abs(Math.atan2(Math.sin(a-b),Math.cos(a-b)));
 const walkable=p=>{const q=coastPoint(p);return coastWalkable(q.x,q.y);};
-assert.equal(busCount,10);
+assert.deepEqual(busLines.flatMap(line=>line.coaches).sort((a,b)=>a-b),Array.from({length:busCount},(_,i)=>i));
 assert.equal(harborStops.length,10);
 for(const line of busLines){
  const coach=line.id==="express"?0:5;
  assert.equal(busLine(coach),line);
+ const headway=line.period/line.coaches.length;
+ assert(headway<=BUS_DEPARTURE_MS/1000&&headway>busDwell);
+ assert(headway<(line.id==="express"?29:43));
+ for(const [slot,id] of line.coaches.entries()){
+  assert.equal(busLine(id),line);
+  if(id<10)assert(Math.abs(slot/line.coaches.length-(id-coach)/5)<1e-10);
+  for(const [i,leg] of line.legs.entries()){
+   const arrival=leg.start-slot*headway+.02;
+   assert.equal(busAt(id,arrival).stop,line.stops[i]);
+   const times=arrivalsAt(line.stops[i],arrival);
+   assert.deepEqual(times[0],{index:id,seconds:0});
+   assert(Math.abs(times[1].seconds-headway)<1);
+   assert(Math.abs(arrivalsAt(line.stops[i],arrival+busDwell)[0].seconds-(headway-busDwell))<1);
+  }
+ }
  for(const [i,leg] of line.legs.entries()){
   const stop=stopById(line.stops[i]),pose=busAt(coach,leg.start+.001);
   assert.equal(pose.stop,stop.id);assert.equal(pose.speed,0);

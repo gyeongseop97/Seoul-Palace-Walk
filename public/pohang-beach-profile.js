@@ -73,6 +73,17 @@ export function wallSolid(z){
 export function atBeachWall(p){
  return p.z>=beachLimits[0]&&p.z<=beachLimits[1]&&Math.abs(p.x-sandEdge(p.z))<.21&&wallSolid(p.z);
 }
+export function atPromenadeLip(p){
+ const inset=sandEdge(p.z)-p.x;
+ return p.z>=beachLimits[0]&&p.z<=beachLimits[1]&&inset>=0&&inset<=6;
+}
+export function beachDropStep(a,b,airborne){
+ if(!atBeachWall(a)&&!atBeachWall(b)&&canCrossBeachEdge(a,b))return false;
+ const from=a.x-sandEdge(a.z),to=b.x-sandEdge(b.z);
+ if(airborne&&to>from)return true;
+ // A walker who stopped on the lip can step back onto the same side after landing.
+ return atBeachWall(a)&&(from>=0?to>from:to<from);
+}
 export function canCrossBeachEdge(a,b){
  if(Math.max(a.z,b.z)<beachLimits[0]||Math.min(a.z,b.z)>beachLimits[1])return true;
  const ax=a.x-sandEdge(a.z),bx=b.x-sandEdge(b.z);

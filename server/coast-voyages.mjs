@@ -2,6 +2,7 @@ import {nearHelm,inWheelhouse,seaToDeck,deckToSea,deckHeight} from "../public/co
 import {cruiseSeatById,cruiseSeatInReach} from "../public/coast-vessel-seats.js";
 import {inSailingArea,voyageAt} from "../public/coast-voyage.js";
 import {clamp,mooring,distance} from "../public/pohang-layout.js";
+import {studioMooring} from "../public/coast-studio-layout.js";
 
 export const voyageSchema="CREATE TABLE IF NOT EXISTS coast_voyages(room TEXT PRIMARY KEY,kind TEXT,started INTEGER,ox REAL,oz REAL,angle REAL,speed REAL)";
 export const deckSeatSchema="CREATE TABLE IF NOT EXISTS coast_deck_seats(room TEXT NOT NULL,seat TEXT NOT NULL,id TEXT NOT NULL,updated INTEGER NOT NULL,PRIMARY KEY(room,seat),UNIQUE(room,id))";
@@ -12,7 +13,7 @@ export function vesselSnapshot(row,now){
  const {kind,started,ox,oz,angle,speed,...boat}=row;
  const voyage=kind&&kind!=="manual"&&!boat.helm?{kind,started,ox,oz,angle,speed}:null;
  const sample=voyage?voyageAt(voyage,now):{speed:boat.helm?speed??0:0};
- return {...boat,...sample,voyage};
+ return {...boat,...sample,voyage,sampleAt:boat.helm&&kind==="manual"?started:boat.updated};
 }
 function canTakeSeat(seat,p,boat,now){
  if(!Number.isFinite(p.floor))return false;
@@ -24,8 +25,8 @@ function canTakeSeat(seat,p,boat,now){
  const allowance=boat.helm?6+Math.abs(boat.speed)*1.1:.75+Math.abs(boat.speed)*.6;
  return distance(projected,p)<=allowance;
 }
-const save=`INSERT INTO coast_voyages(room,kind,started,ox,oz,angle,speed)
- SELECT room,?,?,x,z,yaw,COALESCE(?,(SELECT speed FROM coast_voyages WHERE room=coast_harbor.room),0) FROM coast_harbor WHERE room=? AND helm=?
+const save=(guard="")=>`INSERT INTO coast_voyages(room,kind,started,ox,oz,angle,speed)
+ SELECT room,?,?,x,z,yaw,COALESCE(?,(SELECT speed FROM coast_voyages WHERE room=coast_harbor.room),0) FROM coast_harbor WHERE room=? AND helm=? ${guard}
  ON CONFLICT(room) DO UPDATE SET kind=excluded.kind,started=excluded.started,ox=excluded.ox,oz=excluded.oz,angle=excluded.angle,speed=excluded.speed`;
 export async function appendVesselOps(ops,read,room,id,p,coast,now){
  const cmd=coast.action,b=coast.boat;
@@ -37,14 +38,20 @@ export async function appendVesselOps(ops,read,room,id,p,coast,now){
  // Base the release on the last accepted driving position and speed, in the same write transaction.
  if(b&&[b.x,b.z,b.yaw].every(Number.isFinite)&&inSailingArea(b)){
   ops.push(read("UPDATE coast_harbor SET x=?,z=?,yaw=?,updated=? WHERE room=? AND helm=? AND abs(x-?)<=8+.022*max(0,?-updated) AND abs(z-?)<=8+.022*max(0,?-updated)",b.x,b.z,b.yaw,now,room,id,b.x,now,b.z,now));
-  ops.push(read(save,"manual",now,clamp(Number(b.speed)||0,-4,16),room,id));
+  // The lease uses server receipt time. Observers place the pose on the room
+  // clock at which the skipper actually sampled it, independently of uplink jitter.
+  const at=Number.isFinite(b.at)?clamp(Math.round(b.at),now-2500,now):now;
+  ops.push(read(save("AND updated=?"),"manual",at,clamp(Number(b.speed)||0,-4,16),room,id,now));
  }
  if(cmd==="release"||cmd==="returnTrip"||cmd==="leave"){
-  ops.push(read(save,cmd==="returnTrip"?"return":"drift",now,Number.isFinite(b?.speed)?clamp(b.speed,-4,16):null,room,id));
+  ops.push(read(save(),cmd==="returnTrip"?"return":"drift",now,Number.isFinite(b?.speed)?clamp(b.speed,-4,16):null,room,id));
   ops.push(read("UPDATE coast_harbor SET helm=NULL,updated=? WHERE room=? AND helm=?",now,room,id));
- }else if(cmd==="moor"&&distance(p,mooring)<25){
-  ops.push(read("DELETE FROM coast_voyages WHERE room=? AND EXISTS(SELECT 1 FROM coast_harbor WHERE room=? AND helm=? AND abs(x-?)<17 AND abs(z-?)<17)",room,room,id,mooring.x,mooring.z));
-  ops.push(read("UPDATE coast_harbor SET helm=NULL,x=?,z=?,yaw=0,updated=? WHERE room=? AND helm=? AND abs(x-?)<17 AND abs(z-?)<17",mooring.x,mooring.z,now,room,id,mooring.x,mooring.z));
+ }else if(cmd==="moor"){
+  const berth=[mooring,studioMooring].find(q=>distance(p,q)<25);
+  if(berth){
+   ops.push(read("DELETE FROM coast_voyages WHERE room=? AND EXISTS(SELECT 1 FROM coast_harbor WHERE room=? AND helm=? AND abs(x-?)<17 AND abs(z-?)<17)",room,room,id,berth.x,berth.z));
+   ops.push(read("UPDATE coast_harbor SET helm=NULL,x=?,z=?,yaw=?,updated=? WHERE room=? AND helm=? AND abs(x-?)<17 AND abs(z-?)<17",berth.x,berth.z,berth.yaw??0,now,room,id,berth.x,berth.z));
+  }
  }else if(p.mode==="deck"&&(cmd==="helm"||cmd==="tour"||cmd==="deckSit")){
   const old=(await read(harborSnapshot,room).all()).results[0];
   const current=old?vesselSnapshot(old,now):{...mooring,yaw:0,speed:0,helm:null};
@@ -66,7 +73,7 @@ export async function appendVesselOps(ops,read,room,id,p,coast,now){
      AND COALESCE((SELECT started FROM coast_voyages WHERE room=?),0)=?
      AND NOT EXISTS(SELECT 1 FROM coast_deck_seats WHERE room=? AND id=? AND updated>?)`,
      current.x,current.z,current.yaw,now,id,room,room,stamp,room,id,now-deckSeatLease));
-    ops.push(read(save,cmd==="helm"?"manual":"tour",now,current.speed,room,id));
+    ops.push(read(save(),cmd==="helm"?"manual":"tour",now,current.speed,room,id));
     if(cmd==="tour")ops.push(read("UPDATE coast_harbor SET helm=NULL WHERE room=? AND helm=? AND updated=?",room,id,now));
    }
   }
@@ -77,6 +84,7 @@ export async function appendVesselOps(ops,read,room,id,p,coast,now){
  ops.push(read("UPDATE coast_harbor SET helm=NULL WHERE room=? AND helm IS NOT NULL AND updated<?",room,now-18000));
  ops.push(read(`UPDATE coast_harbor SET x=?,z=?,yaw=0,updated=? WHERE room=? AND helm IS NULL AND updated<? AND
   NOT EXISTS(SELECT 1 FROM coast_voyages WHERE room=? AND (kind IN ('tour','return') OR started>? AND abs(speed)>.05)) AND
-  NOT EXISTS(SELECT 1 FROM coast_visitors WHERE room=? AND updated>? AND json_extract(pose,'$.mode')='deck')`,mooring.x,mooring.z,now,room,now-18000,room,now-100000,room,now-15000));
+  NOT EXISTS(SELECT 1 FROM coast_visitors WHERE room=? AND updated>? AND json_extract(pose,'$.mode')='deck') AND
+  (abs(x-?)>.65 OR abs(z-?)>.65)`,mooring.x,mooring.z,now,room,now-18000,room,now-100000,room,now-15000,studioMooring.x,studioMooring.z));
  ops.push(read("DELETE FROM coast_voyages WHERE room=? AND kind='drift' AND EXISTS(SELECT 1 FROM coast_harbor WHERE room=? AND helm IS NULL AND x=? AND z=? AND updated=?) AND started<?",room,room,mooring.x,mooring.z,now,now-18000));
 }

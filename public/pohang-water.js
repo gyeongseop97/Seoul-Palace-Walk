@@ -1,5 +1,5 @@
 import * as T from "three";
-import {spectrum} from "./pohang-layout.js";
+import {spectrum,swellScale} from "./pohang-layout.js";
 import {createOceanGrid} from "./pohang-ocean-grid.js";
 import {surfVertexShader} from "./pohang-surf-waves.js";
 let grid;
@@ -11,7 +11,19 @@ export function ocean(scene){
  grid??=createOceanGrid();
  const g=new T.BufferGeometry();g.setAttribute("position",new T.Float32BufferAttribute(grid.positions,3));g.setAttribute("uv",new T.Float32BufferAttribute(grid.uv,2));g.setIndex(grid.indices);
  g.setAttribute("surfField",new T.Float32BufferAttribute(grid.fields,4));
- const uniforms={uTime:{value:0},night:{value:0},glow:{value:0},
+ const scaleAttribute=new Float32Array(grid.positions.length/3);
+ for(let i=0;i<scaleAttribute.length;i++)scaleAttribute[i]=swellScale(grid.positions[i*3],grid.positions[i*3+2]);
+ g.setAttribute("swellScale",new T.BufferAttribute(scaleAttribute,1));
+ // All ripple layers sample the same periodic noise field with hardware interpolation.
+ const size=256,noise=new Uint8Array(size*size);
+ for(let z=0;z<size;z++)for(let x=0;x<size;x++){
+  const hash=Math.sin(x*127.1+z*311.7)*43758.5453;
+  noise[z*size+x]=Math.round((hash-Math.floor(hash))*255);
+ }
+ const noiseMap=new T.DataTexture(noise,size,size,T.RedFormat);
+ noiseMap.wrapS=noiseMap.wrapT=T.RepeatWrapping;
+ noiseMap.magFilter=noiseMap.minFilter=T.LinearFilter;noiseMap.needsUpdate=true;
+ const uniforms={noiseMap:{value:noiseMap},reducedDetail:{value:false},storm:{value:0},uTime:{value:0},night:{value:0},glow:{value:0},
   burst:{value:Array.from({length:3},()=>new T.Color(0))},
   lightSite:{value:Array.from({length:3},()=>new T.Vector2())},
   wake:{value:new T.Vector3()},speed:{value:0},turn:{value:0}};
@@ -19,33 +31,39 @@ export function ocean(scene){
  const normals=spectrum.map(([a,kx,kz,s,p])=>"phase=dot(w.xz,vec2("+kx+","+kz+"))+uTime*"+s+"+"+p+";slope+=vec2("+kx+","+kz+")*"+a+"*cos(phase)*(1.+.68*sin(phase));").join("\n");
  const vertexShader=`
  invariant gl_Position;
- varying vec3 w,breaker; varying float depth; uniform float uTime; attribute vec4 surfField;
- void main(){w=position;depth=uv.x;
+ varying vec3 w,breaker; varying float depth,seaScale; uniform float uTime; attribute vec4 surfField; attribute float swellScale;
+ void main(){w=position;depth=uv.x;seaScale=swellScale;
  float wave=0.,q=0.;
  ${swell}
- w.y=wave*smoothstep(-5.,10.,depth);breaker=vec3(0.);
+ w.y=wave*seaScale*smoothstep(-5.,10.,depth);breaker=vec3(0.);
  ${surfVertexShader}
  gl_Position=projectionMatrix*modelViewMatrix*vec4(w,1.);}
  `;
  const waterNoise=`
- float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
- float noise2(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}
- float rip(vec2 p){float limit=1.-smoothstep(38.,320.,length(cameraPosition.xz-w.xz));
+ uniform sampler2D noiseMap; uniform bool reducedDetail;
+ float noise2(vec2 p){vec2 f=fract(p);return texture2D(noiseMap,(floor(p)+f*f*(3.-2.*f)+.5)/256.).r;}
+ float rip(vec2 p){
+ if(reducedDetail)return .70*noise2(p*.68+vec2(uTime*.34,0.))+.30*noise2(p*.19-vec2(0.,uTime*.19));
+ float limit=1.-smoothstep(38.,320.,length(cameraPosition.xz-w.xz));
  vec2 warp=vec2(noise2(p*.069+uTime*.045),noise2(p*.087-uTime*.036))*2.3;
  return .63*noise2(p*.65+warp+vec2(uTime*.38,0.))+.24*noise2(p*1.82-warp+vec2(0.,uTime*.55))+limit*.13*noise2(p*4.1+warp*2.);}
  float shoreline(vec2 p,float r){return depth+2.9*sin(uTime*.89+p.y*.038+2.*noise2(p*.026))+.82*r;}
  `;
  const material=new T.ShaderMaterial({uniforms,transparent:true,depthWrite:false,side:T.DoubleSide,forceSinglePass:true,vertexShader,fragmentShader:`
- varying vec3 w,breaker; varying float depth; uniform float uTime,night,glow,speed,turn;
+ varying vec3 w,breaker; varying float depth,seaScale; uniform float uTime,night,glow,speed,turn,storm;
  uniform vec3 burst[3],wake; uniform vec2 lightSite[3];
  ${waterNoise}
 
  void main(){
  vec2 p=w.xz;float fine=rip(p);float r=(fine-.5)*5.;
- vec2 slope=breaker.xy;float phase;
+ vec2 slope=vec2(0.);float phase;
  ${normals}
+ slope=slope*seaScale+breaker.xy;
  vec3 geometric=normalize(vec3(-slope.x,1.,-slope.y));
- vec2 slopes=vec2(rip(p+vec2(.22,0.))-fine,rip(p+vec2(0.,.22))-fine);
+ // Recover the ripple gradient in sea coordinates from neighbouring raster samples.
+ vec2 dx=dFdx(p),dy=dFdy(p),df=vec2(dFdx(fine),dFdy(fine));
+ float area=dx.x*dy.y-dx.y*dy.x;
+ vec2 slopes=abs(area)>.000001?clamp(.22*vec2(df.x*dy.y-df.y*dx.y,dx.x*df.y-dy.x*df.x)/area,-.35,.35):vec2(0.);
  vec3 normal=normalize(geometric+vec3(slopes.x*.51,0.,slopes.y*.51));
  vec3 eye=normalize(cameraPosition-w);float fres=pow(1.-max(dot(eye,normal),0.),3.);
  float sand=noise2(p*.45+vec2(r*1.3,.2))* .12;
@@ -88,11 +106,14 @@ export function ocean(scene){
  float lateral=dot(dp,across),fore=dot(dp,dir)*(speed<0.?-1.:1.);
  float back=(speed<0.?22.8:26.)-fore;
  float shoulder=(speed<0.?4.35:.35)+min(1.,max(back,0.)/15.)*(speed<0.?2.:5.95);
+ float wakeLine=0.;
+ if(abs(speed)>.001 && abs(lateral)<20. && back>-.8 && back<49.){
  float edge=abs(abs(lateral)-shoulder),chop=noise2(p*1.12+vec2(uTime*.41,-uTime*.25));
  float bow=exp(-edge*(1.0-.28*abs(speed)))*smoothstep(-.8,1.2,back)*(1.-smoothstep(17.,29.,back));
  float hullFoam=.38*exp(-abs(abs(lateral)-6.22)*1.6)*smoothstep(14.,23.,back)*(1.-smoothstep(40.,49.,back));
- float wakeLine=(bow+hullFoam)*abs(speed)*(.54+.59*chop)*(1.+.35*turn*sign(lateral));
+ wakeLine=(bow+hullFoam)*abs(speed)*(.54+.59*chop)*(1.+.35*turn*sign(lateral));}
  base=mix(base,mix(vec3(.85,.97,.94),vec3(.39,.57,.65),night),clamp(foam+wakeLine,0.,.9));
+ base=mix(base,base*vec3(.44,.56,.63)+vec3(.025,.033,.04),storm*.9);
  float offshore=smoothstep(1.,100.,depth);
  float transmission=mix(.25,.73,offshore)+.20*fres;
  float alpha=mix(transmission,.94,clamp(foam+wakeLine,0.,1.));
@@ -107,21 +128,33 @@ export function ocean(scene){
    ${waterNoise}
    void main(){if(depth<5. && shoreline(w.xz,(rip(w.xz)-.5)*5.)< -2.)discard;gl_FragColor=vec4(0.);}
   `});
- const waterDepth=new T.Mesh(g,depthMaterial),mesh=new T.Mesh(g,material);
- waterDepth.renderOrder=-8;mesh.renderOrder=-7;waterDepth.frustumCulled=mesh.frustumCulled=false;
- scene.add(waterDepth,mesh);return uniforms;
+ for(const tile of grid.tiles){
+  const geometry=new T.BufferGeometry();
+  for(const [name,attribute] of Object.entries(g.attributes))geometry.setAttribute(name,attribute);
+  geometry.setIndex(g.index);geometry.setDrawRange(tile.start,tile.count);
+  const center=new T.Vector3((tile.minX+tile.maxX)/2,0,(tile.minZ+tile.maxZ)/2);
+  geometry.boundingSphere=new T.Sphere(center,Math.hypot(tile.maxX-center.x,6,tile.maxZ-center.z));
+  const depth=new T.Mesh(geometry,depthMaterial),water=new T.Mesh(geometry,material);
+  depth.renderOrder=-8;water.renderOrder=-7;scene.add(depth,water);
+ }
+ return uniforms;
 }
 export function skyDome(scene){
- const uniforms={night:{value:0}};
+ const uniforms={night:{value:0},storm:{value:0},clock:{value:0}};
  const mat=new T.ShaderMaterial({side:T.BackSide,depthWrite:false,uniforms,vertexShader:`varying vec3 dir;void main(){dir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
- fragmentShader:`varying vec3 dir;uniform float night;
+ fragmentShader:`varying vec3 dir;uniform float night,storm,clock;
  void main(){vec3 d=normalize(dir);float h=max(d.y,0.);
  vec3 day=mix(vec3(.78,.88,.93),vec3(.12,.46,.80),pow(h,.55));
  vec3 dark=mix(vec3(.026,.039,.067),vec3(.0018,.0045,.018),pow(h,.46));
  float sun=dot(d,normalize(vec3(.56,.32,-.60)));vec3 c=mix(day,dark,night);
  c+=mix(vec3(1.,.78,.39),vec3(.64,.76,.87),night)*(smoothstep(.9996,.99995,sun)+.17*pow(max(sun,0.),130.));
  vec2 st=floor(d.xz/(h+.08)*280.);float star=fract(sin(dot(st,vec2(12.9898,78.233)))*43758.5453);
- c+=night*step(.997,star)*smoothstep(.03,.32,h)*.45;gl_FragColor=vec4(c,1.);
+ c+=night*step(.997,star)*smoothstep(.03,.32,h)*.45;
+ if(storm>.001){
+  vec2 p=d.xz/(.22+h);float cloud=.5+.25*sin(p.x*3.1+p.y*1.7+clock*.09)+.20*sin(p.y*5.3+sin(p.x*4.)-clock*.12);
+  vec3 overcast=mix(vec3(.083,.108,.15),vec3(.31,.36,.40),clamp(cloud*.64+(1.-h)*.28,0.,1.));
+  c=mix(c,overcast*(1.-.42*night),storm);
+ }gl_FragColor=vec4(c,1.);
  #include <colorspace_fragment>
  }`});
  const sky=new T.Mesh(new T.SphereGeometry(3000,40,24),mat);sky.renderOrder=-20;scene.add(sky);return {sky,uniforms};

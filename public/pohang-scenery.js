@@ -62,17 +62,18 @@ function facades(root){
  const surface=new T.MeshStandardMaterial({vertexColors:true,side:T.DoubleSide});
  for(const blocks of chunks.values()){
  const pos=[],colors=[];const palette=[0xd8c6aa,0xecdfd1,0xabb9bc,0xae9e91,0xbbb9a9].map(n=>new T.Color(n)),glass=new T.Color(0x526f79);
- function quad(a,b,c,d,col){for(const p of [a,b,c,a,c,d]){pos.push(...p);colors.push(col.r,col.g,col.b);}}
+ function face(points,col){for(const p of points){pos.push(...p);colors.push(col.r,col.g,col.b);}}
+ function quad(a,b,c,d,col){face([a,b,c,a,c,d],col);}
  for(let j=0;j<blocks.length;j++){
   const [h,ring]=blocks[j];if(ring.length<3)continue;const col=palette[j%5],top=1.85+h;
   const vs=ring.map(([x,z])=>new T.Vector2(x,z));
-  for(const [a,b,c] of T.ShapeUtils.triangulateShape(vs,[]))quad([vs[a].x,top,vs[a].y],[vs[b].x,top,vs[b].y],[vs[c].x,top,vs[c].y],[vs[c].x,top,vs[c].y],col);
+  const outward=T.ShapeUtils.isClockWise(vs)?-1:1;
+  for(const [a,b,c] of T.ShapeUtils.triangulateShape(vs,[]))face([[vs[a].x,top,vs[a].y],[vs[b].x,top,vs[b].y],[vs[c].x,top,vs[c].y]],col);
   for(let i=0;i<ring.length;i++){const [x,z]=ring[i],[u,v]=ring[(i+1)%ring.length];const groundOpening=ring===geo.blocks[tavernBlockIndex][1]&&i===tavernEdge;const sill=groundOpening?5.68:1.84;quad([x,sill,z],[u,sill,v],[u,top,v],[x,top,z],col);
    const len=Math.hypot(u-x,v-z);if(len<3)continue;const n=Math.min(18,Math.max(1,Math.floor(len/3.7)));
    for(let y=groundOpening?6.65:3.3;y+1.45<top;y+=3.35)for(let k=0;k<n;k++){
-    const a=(k+.14)/n,b=(k+.84)/n,dx=(v-z)/len*.035,dz=(x-u)/len*.035;
-    // Both sides of arbitrarily wound OSM outlines share the same window band.
-    for(const side of [1,-1]){const X=x+dx*side,Z=z+dz*side;quad([X+(u-x)*a,y,Z+(v-z)*a],[X+(u-x)*b,y,Z+(v-z)*b],[X+(u-x)*b,y+1.45,Z+(v-z)*b],[X+(u-x)*a,y+1.45,Z+(v-z)*a],glass);}
+    const a=(k+.14)/n,b=(k+.84)/n,X=x+outward*(v-z)/len*.035,Z=z+outward*(x-u)/len*.035;
+    quad([X+(u-x)*a,y,Z+(v-z)*a],[X+(u-x)*b,y,Z+(v-z)*b],[X+(u-x)*b,y+1.45,Z+(v-z)*b],[X+(u-x)*a,y+1.45,Z+(v-z)*a],glass);
    }
   }
  }
@@ -129,9 +130,7 @@ export function buildCoast(scene){
  const pavilionLights=buildYeongildae(root,architecture);
  street(root,{x:promenade(dock.z),z:dock.z},dock,4.4,.45,1.62,0xa07b57);
  for(let x=promenade(dock.z)+2;x<=dock.x;x+=5)for(const z of [dock.z-1.8,dock.z+1.8])post(root,0x64594b,x,.52,z,.15,2.7,.15);
- sign(root,"영일만 크루즈",promenade(dock.z)+4,3.05,dock.z-2.3,3.1,.49,"#31515b",Math.PI/2);
  for(let i=0;i<5;i++){const s=surfboard(i);s.position.set(boardRack.x+i*.56,3.04,boardRack.z);s.rotation.x=1.36;root.add(s);}
- sign(root,"서핑보드 대여",boardRack.x,3.95,boardRack.z,3.8,.6);
  buildTavernFront(root,architecture);
  const chairCount=beachParasols.reduce((n,p)=>n+p.chairs.length,0);
  const seatPads=new T.InstancedMesh(boxGeo,mat(0xe2c99b),chairCount);
@@ -143,13 +142,15 @@ export function buildCoast(scene){
   chairPart.updateMatrix();mesh.setMatrixAt(index,chairPart.matrix);
  }
  let chairIndex=0,legIndex=0;
+ const canopyPositions=[],canopyColors=[];
  for(const {index:i,x,z,floor:base,chairs} of beachParasols){
   post(root,0x80654d,x,base+1.24,z,.042,2.48,.042);
   const shades=[0xdca674,0x759c95,0xd58475],edge=i%3;
   for(let k=0;k<10;k++){
    const a=k*Math.PI/5,b=(k+1)*Math.PI/5,r=1.74,va=[x,base+2.74,z,x+Math.sin(a)*r,base+2.2,z+Math.cos(a)*r,x+Math.sin(b)*r,base+2.2,z+Math.cos(b)*r];
-   const g=new T.BufferGeometry();g.setAttribute("position",new T.Float32BufferAttribute(va,3));g.computeVertexNormals();
-   const m=mat(k%2?shades[edge]:0xe8d8b7);m.side=T.DoubleSide;root.add(new T.Mesh(g,m));
+   canopyPositions.push(...va);
+   const color=mat(k%2?shades[edge]:0xe8d8b7).color;
+   for(let corner=0;corner<3;corner++)canopyColors.push(color.r,color.g,color.b);
   }
   post(root,0xaf825b,x,base+.65,z,.58,.075,.58);
   for(const {x:cx,z:cz,floor,top} of chairs){
@@ -162,6 +163,11 @@ export function buildCoast(scene){
   post(root,0x87b8b5,x+.19,base+.78,z+.16,.051,.17,.051);
  }
  root.add(seatPads,seatBacks,seatLegs);
+ const canopies=new T.BufferGeometry();
+ canopies.setAttribute("position",new T.Float32BufferAttribute(canopyPositions,3));
+ canopies.setAttribute("color",new T.Float32BufferAttribute(canopyColors,3));
+ canopies.computeVertexNormals();
+ root.add(new T.Mesh(canopies,new T.MeshStandardMaterial({side:T.DoubleSide,vertexColors:true,roughness:.76})));
  // Industrial silhouette across the bay, seen behind the moving water.
  for(let i=0;i<33;i++){const x=440+i*28,z=680+Math.sin(i)*29;
   box(root,i%3?0x8d9b9d:0xb1a29a,x,6,z,18+i%7,12+i%9,17);post(root,0x8d8281,x+8,15+i%9,z,1.2,34+i%14,1.2);post(root,0xc99579,x+8,28+i%9,z,1.23,3,1.23);}

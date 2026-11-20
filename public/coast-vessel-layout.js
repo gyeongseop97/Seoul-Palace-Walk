@@ -1,5 +1,6 @@
 import {clamp,dock,mooring,wave} from "./pohang-layout.js";
 import {cruiseFurnitureBlocks} from "./coast-vessel-seats.js";
+import {studioDock,studioMooring} from "./coast-studio-layout.js";
 
 export const bridge={aft:2.75,front:8.65,half:2.55,door:.83,floor:7.85};
 export const cruiseScale=1.35,mainFloor=2.46;
@@ -34,13 +35,16 @@ export function nearCruiseExit(p){
  return Boolean(p&&Math.abs(p.h-mainFloor)<.15&&Math.abs(p.z-exitGate.z)<exitGate.half+.15&&
   p.x< -salonSideHalfWidth(p.z)-.24&&p.x> -mainDeckRailHalfWidth(p.z,.26));
 }
-export function cruiseAtBerth(ship){
- if(!ship||Math.abs(ship.speed??0)>=.01||Math.cos(ship.yaw)<.985)return false;
+export function cruiseBerth(ship){
+ if(!ship||Math.abs(ship.speed??0)>=.01)return null;
  // The foot of the lowered gangway must land on the pier, clear of its outer posts.
  const span=(exitGate.x-exitGate.run)*cruiseScale;
  const x=ship.x+span*Math.cos(ship.yaw),z=ship.z-span*Math.sin(ship.yaw);
- return x>=dock.x-1.40&&x<=dock.x-.06&&Math.abs(z-dock.z)<.85;
+ if(Math.cos(ship.yaw)>.985&&x>=dock.x-1.40&&x<=dock.x-.06&&Math.abs(z-dock.z)<.85)return dock;
+ if(Math.cos(ship.yaw)<-.985&&x>=studioDock.x+.06&&x<=studioDock.x+1.40&&Math.abs(z-studioDock.z)<.85)return studioDock;
+ return null;
 }
+export const cruiseAtBerth=ship=>cruiseBerth(ship)!==null;
 export const helmStation={x:-.46,z:6.15};
 export const serviceSpot={x:-1.56,z:-8.24};
 export const nearHelm=p=>p&&(p.h==null||p.h>7.7)&&Math.hypot(p.x-helmStation.x,p.z-helmStation.z)<1.15;
@@ -85,7 +89,8 @@ export function hullAttitude(ship,at){
  const s=Math.sin(ship.yaw),c=Math.cos(ship.yaw),t=at/1000%14400;
  const w=(x,z)=>wave(ship.x+x*c+z*s,ship.z-x*s+z*c,t);
  const fore=w(0,10),aft=w(0,-10),star=w(3.5,0),port=w(-3.5,0);
- const exposure=.075+.925*clamp((Math.hypot(ship.x-mooring.x,ship.z-mooring.z)-5)/58,0,1);
+ const berthDistance=Math.min(Math.hypot(ship.x-mooring.x,ship.z-mooring.z),Math.hypot(ship.x-studioMooring.x,ship.z-studioMooring.z));
+ const exposure=.075+.925*clamp((berthDistance-5)/58,0,1);
  return {heave:(fore+aft+port+star)*.085*exposure,
   pitch:clamp((aft-fore)/20,-.038,.038)*exposure,roll:clamp((star-port)/7,-.052,.052)*exposure};
 }

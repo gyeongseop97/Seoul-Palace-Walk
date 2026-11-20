@@ -56,6 +56,8 @@ const validItem=item=>item==null||typeof item.kind==="string"&&Object.hasOwn(ITE
 const lastBenchIndex=1023;
 const coastModes=new Set(["scooter","walk","swim","surf","deck","bus","table"]);
 const validCoast=s=>s==null||coastModes.has(s.mode)&&typeof s.board==="boolean"&&
+  (s.beachJumpY==null||s.beachJumpY===1.85)&&
+  (s.tableGlass==null||typeof s.tableGlass==="boolean")&&
   (s.surf==null||s.mode==="surf"&&s.board&&finite(s.surf.speed,0,11)&&finite(s.surf.rise,0,1)&&finite(s.surf.bank,-1,1))&&
   (s.swimwear==null||["navy","tide","coral"].includes(s.swimwear))&&
   (s.rinse==null||["north-rinse","south-rinse"].includes(s.rinse.site)&&validTime(s.rinse.at))&&

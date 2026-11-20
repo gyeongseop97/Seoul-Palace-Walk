@@ -123,6 +123,12 @@ export function makeRegionalItemProps(T,{box,cylinder,shape}){
   const tumbler=new T.LatheGeometry([[0,-.101],[.058,-.101],[.064,-.092],[.072,.105],[.070,.109],
     [.068,.106],[.060,-.089],[0,-.089]].map(([radius,y])=>new T.Vector2(radius,y)),24);
   const tumblerRim=new T.TorusGeometry(.069,.002,6,24);tumblerRim.rotateX(-Math.PI/2);
+  const shotGlass=new T.LatheGeometry([[0,-.034],[.027,-.034],[.029,-.030],[.035,.033],
+    [.034,.036],[.031,.035],[.026,-.024],[0,-.024]].map(([r,y])=>new T.Vector2(r,y)),24);
+  const shotRim=new T.TorusGeometry(.033,.0018,6,24).rotateX(-Math.PI/2);
+  const shotBase=new T.TorusGeometry(.027,.002,6,24).rotateX(-Math.PI/2);
+  const clearSoju=new T.MeshStandardMaterial({color:0xe2f5eb,roughness:.16,transparent:true,opacity:.54,depthWrite:false});
+  const pour=new T.CylinderGeometry(.031,.026,.042,24);
   const plumCup=new T.LatheGeometry([[0,-.068],[.039,-.068],[.043,-.055],[.060,-.031],[.066,.018],
     [.063,.067],[.060,.067],[.059,.057],[.061,.021],[.054,-.029],[0,-.044]].map(([r,y])=>new T.Vector2(r,y)),24);
   const limeGeometry=new T.CylinderGeometry(.037,.037,.008,18,1,false,0,Math.PI);
@@ -162,10 +168,9 @@ export function makeRegionalItemProps(T,{box,cylinder,shape}){
       for(const [x,z] of [[-.034,.022],[.021,.007],[.029,-.02]])berry(parent,0xc78e35,x,.049,z,.009,.002,.008);
     },
     soju(parent){
-      cylinder(0x38845e,0,-.013,0,.041,.16,14,parent);
-      cylinder(0x477d57,0,.075,0,.039,.027,14,parent,.55);
-      cylinder(0x336747,0,.118,0,.022,.06,14,parent);
-      cylinder(0xf0e9cd,0,-.011,0,.042,.058,14,parent);
+      const glass=new T.Mesh(shotGlass,clearGlass),liquid=new T.Mesh(pour,clearSoju);
+      glass.name="소주잔";glass.renderOrder=2;liquid.position.y=-.003;liquid.renderOrder=1;
+      parent.add(glass,liquid);shape(shotRim,0xd7e8e2,0,.035,0,parent);shape(shotBase,0xc1d9d4,0,-.031,0,parent);
     },
     sashimi(parent){
       cylinder(0xe9e3ce,0,-.035,0,.11,.014,18,parent);

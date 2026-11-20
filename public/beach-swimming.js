@@ -10,16 +10,19 @@ export const swimwearOptions={
  navy:{name:"네이비 탱키니·쇼츠",top:0x324f73,accent:0xece7d3,shorts:0x293e56,cut:"tank"}
 };
 export const swimSeed=p=>((p.id??p.nickname??"").charCodeAt(0)||0)%17/17;
-export function swimStroke(seconds,moving,seed=0){
- const p=((seconds*(moving?.64:.39)+seed)%1+1)%1;
+export const swimSpeed=fast=>fast?2.05:1.30;
+export function swimStroke(seconds,moving,seed=0,fast=false,previous=null){
+ const rate=moving?(fast?1:.64):.39;
+ const phase=previous&&seconds>=previous.at?previous.phase+(seconds-previous.at)*rate:seconds*rate+seed;
+ const p=((phase%1)+1)%1;
  if(!moving){
   const scull=(Math.sin(2*Math.PI*p)+1)*.5;
-  return {phase:p,sweep:.58+.25*scull,fold:.16+.13*(1-scull),tuck:.40+.17*scull,breath:.80+.12*scull,glide:0,idle:true};
+  return {phase:p,at:seconds,sweep:.58+.25*scull,fold:.16+.13*(1-scull),tuck:.40+.17*scull,breath:.80+.12*scull,glide:0,idle:true};
  }
  const i=frames.findIndex((r,i)=>i>0&&r[0]>=p),a=frames[i-1],b=frames[i];
  let u=(p-a[0])/(b[0]-a[0]);u*=u*(3-2*u);
  const get=j=>a[j]+u*(b[j]-a[j]);
- return {phase:p,sweep:get(1),fold:get(2),tuck:get(3),breath:get(4),glide:1-get(2),idle:false};
+ return {phase:p,at:seconds,sweep:get(1),fold:get(2),tuck:get(3),breath:get(4),glide:1-get(2),idle:false};
 }
 export function breaststroke(model,stroke){
  const {sweep,fold,tuck,breath,idle}=stroke;

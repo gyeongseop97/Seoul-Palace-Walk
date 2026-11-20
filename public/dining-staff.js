@@ -187,8 +187,9 @@ export function makeDiningHuman(T,room,kit,venue,walkerModels,staffIndex){
     const kind=carrying&&!serviceTray?ticket?.kind:null;
     const time=clock/1000;
     walkerModels.update(model,{x:venue.center.x+x,y:venue.center.y+z,heading:180-face*180/Math.PI,
-      look:uniform,character:uniform.character,stepping:walking,item:kind?{kind,remaining:1}:null},
-      {now:clock,clock,delta,turnEase:Math.min(1,delta*20)});
+      look:uniform,character:uniform.character,stepping:walking,chat:state.chat,item:kind?{kind,remaining:1}:null},
+      {now:clock,clock,delta,chatTexture:kit.chatTexture,turnEase:Math.min(1,delta*20)});
+    if(model.chatSprite)model.chatSprite.position.set(0,2.16,0);
     // The shared rig gets world coordinates for its stride; the room already carries the world transform.
     model.group.position.set(x,0,z);
     if(serviceTray){

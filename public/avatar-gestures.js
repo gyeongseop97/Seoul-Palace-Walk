@@ -1,3 +1,4 @@
+import {isCycling} from "./sejong-bike.js";
 export const GESTURE_DURATIONS=Object.freeze({wave:2450,clap:2250,punch:2100,dance:3600,heart:2500,cheer:2450,peace:2700});
 export const SICK_DURATION_MS=2150;
 export const MAX_ALCOHOL_LEVEL=8;
@@ -36,6 +37,27 @@ export function alcoholLevel(avatar,clock){
 
 export function alcoholGlasses(avatar,clock){
   return avatar.blushUntil>clock?clamp(avatar.alcoholGlasses??0,0,MAX_ALCOHOL_DRINKS):0;
+}
+
+export function alcoholGait(avatar,clock,fast){
+  const level=alcoholLevel(avatar,clock);
+  if(!level||avatar.bus||isCycling(avatar)||avatar.seat!=null||avatar.groundSit||
+    avatar.coast?.mode&&avatar.coast.mode!=="walk"&&avatar.coast.mode!=="deck")return null;
+  const left=avatar.blushUntil-clock;
+  if(left>ALCOHOL_DURATION_MS)return null;
+  const strength=(.25+.75*level/MAX_ALCOHOL_LEVEL)*ease(left/4000);
+  const phase=clock*.0027,sway=strength*(.76*Math.sin(phase)+.24*Math.sin(phase*2+.55));
+  return {speedScale:1-strength*(fast?.56:.42),turn:sway*.28,lean:sway*.14};
+}
+
+// Try the staggered direction through the same collision checks as the intended step.
+// A wall or a narrow path can leave room for the user's original direction.
+export function staggeredStep(from,x,y,gait,advance){
+  if(gait?.turn){
+    const dx=x-from.x,dy=y-from.y,c=Math.cos(gait.turn),s=Math.sin(gait.turn);
+    if(advance(from.x+dx*c-dy*s,from.y+dx*s+dy*c))return true;
+  }
+  return advance(x,y);
 }
 
 export function finishAlcoholSip(avatar,clock,empty){

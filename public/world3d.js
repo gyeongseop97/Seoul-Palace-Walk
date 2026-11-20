@@ -98,14 +98,20 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   selfChat.className="self-chat";selfChat.hidden=true;selfChat.setAttribute("aria-hidden","true");
   container.append(renderer.domElement,selfEmote,selfChat);
   let baseFov=57;
+  let viewport=container;
   const resize=()=>{
-    if(!container.clientWidth||!container.clientHeight)return;
-    camera.aspect=container.clientWidth/container.clientHeight;
+    if(!viewport.clientWidth||!viewport.clientHeight)return;
+    camera.aspect=viewport.clientWidth/viewport.clientHeight;
     baseFov=camera.aspect<.78?68:57;
     camera.updateProjectionMatrix();
-    renderer.setSize(container.clientWidth,container.clientHeight);
+    renderer.setSize(viewport.clientWidth,viewport.clientHeight);
   };
-  new ResizeObserver(resize).observe(container);
+  const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(container);
+  function attachViewport(target=container){
+    if(viewport===target)return;
+    resizeObserver.unobserve(viewport);viewport=target;viewport.append(renderer.domElement);
+    resizeObserver.observe(viewport);resize();
+  }
   resize();
   const skyUniforms={
     horizon:{value:new T.Color(0xcce4f0)},zenith:{value:new T.Color(0x367ec5)},
@@ -221,7 +227,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   if(!coast)addDocks(corridorRoot,dock=>dock.y<28&&dock.y>-280&&dock.area!=="cheonggye"&&dock.area!=="west",southWorldSurfaceHeight);
   const createItemProp=makeItemProps(T,kit);
   const walkerModels=makeWalkerModels(T,scene,kit,createItemProp);
-  const seaside=coast?.create(outdoors,coast.play,walkerModels,kit);
+  const seaside=coast?.create(outdoors,coast.play,walkerModels,{...kit,chatTexture});
   if(seaside){heavens.visible=false;camera.far=3900;camera.updateProjectionMatrix();}
   const outdoorWalkers={...walkerModels,create(...args){
     const model=walkerModels.create(...args);
@@ -344,7 +350,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   const museum={outsideDoor:museumOutsideDoor,insideDoor:museumInsideDoor,insideSpawn:museumInsideSpawn,
     id:"museum",name:"덕수궁 전시관",outsideName:"석조전 서관",isInside:isInsideMuseum,floorAt:stairHeight,exhibits:[]};
   const amenity=(point,label)=>({...point,kind:"activity",label});
-  const interactionMarkers=makeInteractionMarkers(T,scene,{wx,wz,floorHeight},[
+  const interactionMarkers=coast?null:makeInteractionMarkers(T,scene,{wx,wz,floorHeight},[
     ...COOKING_STALLS.map(stall=>amenity(stall,stall.kind==="hotteok"?"호떡 굽기":"붕어빵 굽기")),
     ...stations.map(station=>({...station,kind:"food",label:station.kind==="churu"?"츄르 사기":ITEMS[station.kind].name+" 받기"})),
     ...[museum,mmcaVenue,semaVenue,ARCADE_SITE,...diningVenues.filter(v=>v!==stationDining),...railRooms.filter(v=>v.id!=="ktx-platform")].flatMap(venue=>[
@@ -876,7 +882,11 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     }
     const bus=position.bus&&busAt(position.bus.index,clock),pose=bus&&busSeatPose(bus,position.bus.seat);
     if(pose)return {...pose,base:BUS_FLOOR+.015+busGround(bus)};
-    if(seaside&&position.coast?.mode==="table")return {x:position.x,y:position.y,heading:position.heading,base:footBathSeatBase(seaside.tavernStoolTop)};
+    if(seaside&&position.coast?.mode==="table"){
+      const dish=seaside.tavernDiningPlate(position.coast.seat);
+      return {x:position.x,y:position.y,heading:position.heading,base:footBathSeatBase(seaside.tavernStoolTop),
+        plate:dish&&{x:dish.x+origin.x,y:dish.z+origin.y,h:dish.h,tableX:dish.tableX+origin.x,tableY:dish.tableZ+origin.y}};
+    }
     if(coast&&position.coast?.mode==="bus")return {x:position.x,y:position.y,heading:position.heading,base:2.72};
     const seat=benches[position.seat]?.slots[position.seatSide??0];
     if(seat?.beach||seat?.cafeFloor!=null)return {...seat,base:footBathSeatBase(seat.top)};
@@ -1036,7 +1046,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     if(!profile)return;
     quality.mode=mode;
     quality.max=Math.min(devicePixelRatio,profile.max);
-    quality.min=Math.min(quality.max,profile.min);
+    quality.min=Math.min(quality.max,coast&&!quality.pinned?(mode==="low"?.60:.75):profile.min);
     quality.ratio=quality.max;
     quality.shadows=mode!=="low";
     quality.frame=16.7;quality.calm=0;quality.raiseAfter=0;quality.checkAt=performance.now()+2500;
@@ -1047,8 +1057,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   function govern(now){
     const elapsed=now-(governedAt||now);
     governedAt=now;
-    if(quality.pinned||elapsed<=0||elapsed>250)return;
-    quality.frame+=(elapsed-quality.frame)*.06;
+    if(quality.pinned||document.hidden||elapsed<=0||elapsed>(coast?2000:250))return;
+    quality.frame+=(Math.min(elapsed,160)-quality.frame)*.06;
     if(now<quality.checkAt)return;
     quality.checkAt=now+1300;
     if(quality.frame>23){
@@ -1105,7 +1115,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const {me,peers,view,firstPerson,fountainShow,parkedBikes=[],clock=Date.now()}=state,delta=Math.min(.064,(now-(prevTime||now))/1000);
     seaside?.setClock(clock);
     prevTime=now;
-    const anchor=me,angle=view.pan*Math.PI/180,insideId=interiorAt(anchor.x,anchor.y),indoors=Boolean(insideId),
+    const anchor=state.monitorFocus??me,angle=view.pan*Math.PI/180,insideId=state.monitorFocus?null:interiorAt(anchor.x,anchor.y),indoors=Boolean(insideId),
       atPlaza=inGwanghwamunPlaza(anchor.x,anchor.y);
     const interior=indoorsById[insideId];
     const service=diningById[insideId]?state.diningService??[]:[];
@@ -1114,9 +1124,13 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const blocked=waiting&&(indoors||cameraAnchor==null||Math.hypot(anchor.x-300-pivot.x,anchor.y-225-pivot.z)>65);
     loading?.classList?.toggle("loading-transition",blocked);
     if(blocked)return;
-    interactionMarkers.update(state.photoCapture||anchor.bus?null:anchor,now);
+    interactionMarkers?.update(state.photoCapture||anchor.bus?null:anchor,now);
     picnicWorld.update(indoors?null:anchor,state.picnics);
-    const weather=state.environment&&resolveSeoulEnvironment(state.environment,clock);
+    let weather=state.environment&&resolveSeoulEnvironment(state.environment,clock);
+    const seaStorm=seaside?.stormAt(anchor)??0;
+    if(weather&&seaStorm>0)weather={...weather,rain:Math.max(weather.rain,seaStorm),snow:weather.snow*(1-seaStorm),
+      cloud:Math.max(weather.cloud,seaStorm),fog:Math.max(weather.fog,seaStorm*.76),
+      windX:weather.windX+seaStorm*2.6,windZ:weather.windZ-seaStorm*1.1};
     const ease=environmentShown?Math.min(1,delta*4.2):1;
     const targetNight=weather?.night??Number(Boolean(view.night));
     night+=(targetNight-night)*ease;
@@ -1144,7 +1158,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       .lerp(fogHorizon,fog).lerp(nightFog,night);
     scene.background=sameStation(insideId,"station-hall")||insideId==="ktx-coach"?skyUniforms.horizon.value:null;
     scene.fog.density=indoors?.0039:.0039+cloud*.00065+fog*.016;
-    if(seaside)scene.fog.density=.00049+fog*.002;
+    if(seaside)scene.fog.density=.00049+fog*.002+seaStorm*.009;
     hemi.color.copy(ambientDay).lerp(overcastAmbient,cloud*.58).lerp(ambientNight,night);
     hemi.groundColor.copy(season==="winter"?winterGround:ordinaryGround);
     sun.color.copy(sunlightDay).lerp(sunlightWarm,twilight*.84);
@@ -1295,8 +1309,11 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const diners=new Map(service.map(ticket=>[ticket.player,ticket]));
     function diningPose(player){
       const taste=player.coast?.tasting;
-      if(player.coast?.mode==="table"&&taste&&["soju","sashimi","grilledClam"].includes(taste.kind)&&clock>=taste.at&&clock-taste.at<1500){
-        return {...player,item:{kind:taste.kind,remaining:0,started:taste.at},itemUse:"item"};
+      if(player.coast?.mode==="table"){
+        if(taste?.kind==="grilledClam"&&clock>=taste.at&&clock-taste.at<1500)
+          return {...player,item:{kind:taste.kind,remaining:0,started:taste.at},itemUse:"item"};
+        if(player.coast.tableGlass||taste&&clock>=taste.at&&clock-taste.at<1500)
+          return {...player,item:null,secondItem:null};
       }
       const ticket=diners.get(player.id);
       if(!ticket?.kind||!(ticket.phase==="carrying"||ticket.phase==="served"&&ticket.table.seat===player.seat&&
@@ -1376,6 +1393,9 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const coastBus=coast&&anchor.coast?.mode==="bus";
     const atCoastHelm=coast&&anchor.coast?.mode==="deck"&&coast.play.boat.helm===anchor.id;
     const surfing=seaside&&anchor.coast?.mode==="surf";
+    const ridingScooterView=firstPerson&&anchor.coast?.mode==="scooter"&&!state.photoCamera;
+    const tavernView=firstPerson&&anchor.coast?.mode==="table"&&!state.photoCamera;
+    const bodyView=ridingScooterView||tavernView;
     const shipOrbit=atCoastHelm&&!firstPerson;
     const outsideBus=(bus||coastBus)&&!firstPerson;
     const floor=seat?0:footing(anchor.bikeDriverPosition??anchor);
@@ -1386,11 +1406,13 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       (firstPerson?1.28:1.20)+floor+renderedJumpLift(anchor,clock,floor)+(isCycling(anchor)?.12:0)-fallWeight*.87;
     const cameraPoint=outsideBus&&bus?bus:seat??anchor;
     anchorPoint.set(wx(cameraPoint.x),eyeHeight+(seaside?.watchLift()??0),wz(cameraPoint.y));
+    if(tavernView)models.get(anchor.id)?.headJoint.localToWorld(anchorPoint.set(0,.266,.22));
+    if(ridingScooterView){anchorPoint.x+=.08*Math.sin(angle);anchorPoint.z-=.08*Math.cos(angle);}
     if(surfing)anchorPoint.y-=(firstPerson?.87:.42)*(1-(anchor.coast.surf?.rise??0));
     if(shipOrbit)anchorPoint.set(coast.play.ship.x,5.1,coast.play.ship.z);
     const anchorKey=bus?`${anchor.id}-${bus.index}-${firstPerson}`:anchor.bikeRide?.driver??anchor.id;
     const changed=cameraAnchor!==anchorKey||pivot.distanceToSquared(anchorPoint)>144;
-    if(changed||anchor.coast?.deckSeat||firstPerson&&(bus||isBikePassenger(anchor)))pivot.copy(anchorPoint);
+    if(changed||bodyView||anchor.coast?.mode==="deck"||firstPerson&&(bus||isBikePassenger(anchor)))pivot.copy(anchorPoint);
     else pivot.lerp(anchorPoint,1-Math.exp(-delta*20));
     cameraAnchor=anchorKey;
     const streamLevel=cheonggyeLevel(anchor);
@@ -1408,7 +1430,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       camera.fov+=(zoomFov-camera.fov)*(1-Math.exp(-delta*12));
       camera.updateProjectionMatrix();
     }
-    const viewPitch=firstPerson?Math.max(-87,Math.min(65,view.tilt)):
+    const viewPitch=firstPerson?Math.max(-87,Math.min(65,view.tilt+(tavernView?15:0))):
       Math.max(-83,Math.min(62,(shipOrbit?24:outsideBus?23:14)+(view.tilt<0?view.tilt*1.22:view.tilt)));
     const bathView=!firstPerson&&seat?.footBath;
     const pitch=tightStreamView?Math.max(20,Math.min(41,viewPitch)):bathView?Math.max(23,viewPitch):viewPitch;
@@ -1559,6 +1581,13 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     if(anchorModel?.emote.visible||anchorModel?.chatSprite)camera.updateMatrixWorld();
     showLocalSprite(anchorModel,anchorModel?.emote,selfEmote,me.emote?.emoji);
     showLocalSprite(anchorModel,anchorModel?.chatSprite,selfChat,anchorModel?.chatSprite?chatText(me.chat.text):"");
+    if(anchorModel){
+      anchorModel.headJoint.visible=!bodyView;
+      if(bodyView){
+        anchorModel.group.visible=true;
+        if(anchorModel.label)anchorModel.label.visible=false;
+      }
+    }
     for(const player of roster){
       if(player.id===anchor.id)continue;
       const group=models.get(player.id)?.group;
@@ -1618,14 +1647,14 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       walkerX:wx(shelter?.x??anchor.x),walkerZ:wz(shelter?.y??anchor.y),walkerFloor,clock,atmosphere,
       sheltered:Boolean(shelter||anchor.umbrella),sharedShelter:Boolean(shelter),inside:indoors||Boolean(anchor.bus&&firstPerson),
       sparse:quality.sparse,pixelRatio:quality.pinned?quality.max:quality.ratio,night});
-    seaside?.update(state,night,camera,renderer.domElement.height);
+    seaside?.update(state,night,camera,renderer.domElement.height,quality.sparse||quality.ratio<.9);
     renderer.render(scene,camera);
-    if(firstPerson&&!state.bungeoMode){
+    if(firstPerson&&!state.bungeoMode&&!bodyView){
       firstPersonView??=makeFirstPersonView(T,createItemProp);
       const mole=state.arcade?.kind==="mole"?state.arcade:null;
       const hole=mole&&MOLE_HOLES[mole.swingHole],table=ARCADE_GAMES.mole.machine;
       const swing=mole&&{swingAt:mole.swingAt,point:hole?new T.Vector3(wx(table.x+hole.z),MOLE_BOARD.top+.12,wz(table.y-hole.x)):null};
-      firstPersonView.render(renderer,camera,diningPose(me),{now,clock,delta,seat,clink:me.clink,night,mole:swing});
+      firstPersonView.render(renderer,camera,diningPose(me),{now,clock,delta,seat,clink:me.clink,night,mole:swing,stroke:models.get(me.id)?.swimStroke});
     }
   }
   const ray=new T.Raycaster(),sample=new T.Vector3();
@@ -1689,7 +1718,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   const renderStats=()=>({...renderer.info.render,quality:quality.mode,pixelRatio:quality.ratio,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,
     areas:{...Object.fromEntries(stationDistricts.map((d,i)=>["station-"+i,Boolean(d.chunks)])),west:Boolean(west.chunks),plaza:Boolean(plaza.chunks),palace:Boolean(palace.chunks),cheonggye:Boolean(cheonggye.chunks),songhyeon:Boolean(songhyeon.chunks),
       ...Object.fromEntries(Object.entries(indoorsById).map(([id,district])=>[id,Boolean(district.chunks)]))}});
-  return {render,setQuality,setVisitorRoom:cityVisitors.setRoom,pick,pickBungeo,pickMole,pickBaseballAim,pickClassicTap,previewWalker,clearChat,floorHeight,groundHeight,renderStats,capturePhoto,
+  return {render,setQuality,attachViewport,setVisitorRoom:cityVisitors.setRoom,pick,pickBungeo,pickMole,pickBaseballAim,pickClassicTap,previewWalker,clearChat,floorHeight,groundHeight,renderStats,capturePhoto,
     benches,stations,parkLife,birds,palacePeople,museum,underDoldamAwning};
 }
 

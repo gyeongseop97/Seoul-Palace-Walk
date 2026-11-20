@@ -1,11 +1,11 @@
 import {FEED_MS,avatarHands,jumpLift} from "./activities.js";
 import {isBikeDriver,isBikePassenger,isCycling} from "./sejong-bike.js";
 import {CLINK_DURATION_MS} from "./social-events.js";
-import {gestureHands,peaceHandParts} from "./avatar-gestures.js";
+import {alcoholGait,gestureHands,peaceHandParts} from "./avatar-gestures.js";
 import {DINING_TRAY_WIDTH,diningGesture,makeDiningUtensil} from "./dining-dishes.js";
 import {LOOK_OPTIONS,SKIN_TONES} from "./look-options.js";
 import {moleSwing} from "./arcade-mole.js";
-import {swimwearOptions,swimSeed,swimStroke} from "./beach-swimming.js";
+import {swimwearOptions} from "./beach-swimming.js";
 
 const clamp=(value,min=0,max=1)=>Math.max(min,Math.min(max,value));
 const ease=value=>{const t=clamp(value);return t*t*(3-2*t);};
@@ -72,7 +72,7 @@ export function makeFirstPersonView(T,createItemProp){
     mesh.scale.set(radius,length+overlap,radius);
   }
 
-  function update(position,worldCamera,{now,clock,delta=1/60,seat,clink,night=0,mole=null}){
+  function update(position,worldCamera,{now,clock,delta=1/60,seat,clink,night=0,mole=null,stroke=null}){
     if(camera.fov!==worldCamera.fov||camera.aspect!==worldCamera.aspect){
       camera.fov=worldCamera.fov;camera.aspect=worldCamera.aspect;camera.updateProjectionMatrix();
     }
@@ -83,7 +83,6 @@ export function makeFirstPersonView(T,createItemProp){
     const suit=swimwearOptions[position.coast?.swimwear],swimming=position.coast?.mode==="swim";
     const surfing=position.coast?.mode==="surf",seconds=clock/1000%14400;
     const ride=position.coast?.surf,standing=clamp(ride?.rise??0),bank=clamp(ride?.bank??0,-1,1);
-    const stroke=swimming?swimStroke(seconds,position.stepping,swimSeed(position)):null;
     const outfit=suit?"swimsuit":position.look?.outfit==="hoodie"?"puffer":position.look?.outfit??"coat";
     const tone=LOOK_OPTIONS.skin.includes(position.look?.skin)?position.look.skin:"light";
     const coat=suit?.top??position.coat??0xab5947,keyForLook=`${outfit}/${coat}/${tone}`;
@@ -100,7 +99,8 @@ export function makeFirstPersonView(T,createItemProp){
     const walking=Boolean(position.stepping&&!seated&&!riding&&!surfing&&jumpLift(position,clock)<.06);
     const motion=walking?(position.blocked?.40:1):0;
     stride=mix(stride,motion,1-Math.exp(-delta*11));
-    phase+=delta*(position.running?16:10.4);
+    const gait=walking?alcoholGait(position,clock,position.running):null;
+    phase+=delta*(position.running?16:10.4)*(gait?.speedScale??1);
     const hands=avatarHands(position,clock,{riding,seated,walking});
     const {claspSide,feedAge,petAge,petting,petSide,itemFor,feedingSide,tray}=hands;
     const carryingTray=Boolean(tray&&!seated&&!riding&&!surfing);
@@ -155,7 +155,7 @@ export function makeFirstPersonView(T,createItemProp){
       }else if(holdingUmbrella){x=side*.58;y=-.53;z=.76;}
       else if(petting&&avatarSide===petSide){x=side*.36;y=-.68+Math.sin(petAge*.017)*.06;z=.93;}
       else if(performanceHand){x=mix(x,performanceHand.x,weight);y=mix(y,performanceHand.y,weight);z=mix(z,performanceHand.z,weight);}
-      else if(walking){y+=step*(position.running?.15:.095);z+=step*.048;}
+      else if(walking){x+=(gait?.lean??0)*.38;y+=step*(position.running?.15:.095);z+=step*.048;}
       if(acting?.kind==="dance"&&!performanceHand)y+=Math.sin(acting.time*Math.PI*5.44)*.048*acting.weight;
       frame(shoulder,side*1.16,-1.56,.55);
       frame(elbow,side*(riding?.86:.93),-1.13+(performanceHand?Math.max(0,y+.55)*.46*weight:0),.68);

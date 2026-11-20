@@ -139,8 +139,6 @@ export function buildPohangStation(root,{box,post,rod,sign,street}){
  sign(front,"포항역",7,plazaHeight+2.2,1.56,1.53,.61,"#31546b",Math.PI);
  sign(front,"KTX  ↑",7,plazaHeight+1.49,1.56,1.52,.46,"#31546b",Math.PI);
  // Ticketing, information and waiting seats stay on the circulation level of the station.
- sign(st,"KTX   타는 곳  →",3.9,hallHeight+3.6,7.5,6.2,.9,"#295c82",-.72);
- sign(st,"나가는 곳  ·  버스  ↗",-46,hallHeight+3.55,20,6.7,.84,"#436251",1.4);
  const tactile=[[frontDoorLocal.x,frontDoorLocal.z],[-43,18],[5.8,18],[5.8,.5],[.5,-62.5]];
  for(let i=1;i<tactile.length;i++){
   const [x,z]=tactile[i-1],[u,v]=tactile[i];
@@ -167,7 +165,6 @@ export function buildPohangStation(root,{box,post,rod,sign,street}){
   box(st,0x476878,u,hallHeight+.82,36,1.1,1.64,.66);
   box(st,0xaac5c5,u,hallHeight+1.18,35.64,.81,.43,.06);
  }
- sign(st,"열차 시간표   KTX    서울행  →",-33,hallHeight+3.22,36.35,8.8,1.02,"#263e4b",Math.PI);
  // Two surveyed island platforms and the Donghae Line continue beneath the glazed bridge.
  for(const r of platformRings){
   surface(st,r,platformHeight,1.88,0xbfbbb2);
@@ -199,8 +196,6 @@ export function buildPohangStation(root,{box,post,rod,sign,street}){
   rod(st,[3.5,hallHeight+1.04,v],[25.5,platformHeight+1.04,v],.065,steel);
   for(let i=0;i<=6;i++)post(st,steel,3.5+22*i/6,hallHeight+.53-(hallHeight-platformHeight)*i/6,v,.045,1.04,.045);
  }
- sign(st,"서울행 KTX   ↓",-1,hallHeight+3.22,-60,6.4,.68,"#214d79");
- sign(st,"대합실 · 나가는 곳  ↑",24,platformHeight+3.68,-66.7,4.5,.68,"#315f57",Math.PI/2);
  const rolling=group(st,39,-74.8,Math.PI/2,platformHeight);
  const railGroup=(x,z,angle,parent)=>group(parent,x,z,angle);
  buildKtx(T,rolling,{

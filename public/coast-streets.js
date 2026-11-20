@@ -72,7 +72,9 @@ export function buildHarborStreet(scene){
  const batches=new Map(),unit=new T.BoxGeometry(),object=new T.Object3D();
  function box(color,x,y,z,w,h,d,angle=0){
   object.position.set(x,y,z);object.scale.set(w,h,d);object.rotation.set(0,angle,0);object.updateMatrix();
-  if(!batches.has(color))batches.set(color,[]);batches.get(color).push(object.matrix.clone());
+  const cell=Math.floor(x/200)+","+Math.floor(z/200);
+  if(!batches.has(cell))batches.set(cell,[]);
+  batches.get(cell).push({matrix:object.matrix.clone(),color});
  }
  buildParkShore(scene);
  const network=streetNetwork(),roadBed=[],walkBed=[],corners=new Map();
@@ -137,8 +139,10 @@ export function buildHarborStreet(scene){
   front([0x835750,0x667964,0x697c87,0xb28e65][idx%4],.42,4.52,.94,.18,Math.min(len-.3,8.4));
   front(0xc1b7a7,.08,height+1.77,.25,.22,len);
  }
- for(const [color,matrices] of batches){
-  const mesh=new T.InstancedMesh(unit,new T.MeshStandardMaterial({color,roughness:.88}),matrices.length);
-  matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.receiveShadow=true;scene.add(mesh);
+ const streetMaterial=new T.MeshStandardMaterial({roughness:.88}),tint=new T.Color();
+ for(const instances of batches.values()){
+  const mesh=new T.InstancedMesh(unit,streetMaterial,instances.length);
+  instances.forEach(({matrix,color},i)=>{mesh.setMatrixAt(i,matrix);mesh.setColorAt(i,tint.setHex(color));});
+  mesh.computeBoundingSphere();mesh.receiveShadow=true;scene.add(mesh);
  }
 }

@@ -13,7 +13,7 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 // Subdivide only the breaker patch. Border cells share its extra edge vertices,
 // so no gaps open between the steep surf and the low-resolution offshore water.
 export function createOceanGrid() {
-  const positions = [], uv = [], fields = [], indices = [], scales = [];
+  const positions = [], uv = [], fields = [], indices = [], scales = [], tiles = [];
   const corners = new Map(), borders = new Map();
   function vertex(col, row) {
     const key = row * columns + col;
@@ -31,7 +31,7 @@ export function createOceanGrid() {
     corners.set(key, id);
     return id;
   }
-  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+  function indexCell(i,j) {
     const col = i * divisions, row = j * divisions;
     const horizontal = dense(i, j-1) || dense(i, j+1), vertical = dense(i-1, j) || dense(i+1, j);
     if (!dense(i,j) && (horizontal || vertical)) {
@@ -48,13 +48,23 @@ export function createOceanGrid() {
       const center = vertex(col + divisions/2, row + divisions/2);
       for (let k = 0; k < ring.length; k++) indices.push(center,ring[k].id,ring[(k+1)%ring.length].id);
       borders.set(j*nx+i, {center,ring});
-      continue;
+      return;
     }
     const step = dense(i,j) ? 1 : divisions;
     for (let y = 0; y < divisions; y += step) for (let x = 0; x < divisions; x += step) {
       const a = vertex(col+x,row+y), b = vertex(col+x+step,row+y);
       const c = vertex(col+x,row+y+step), d = vertex(col+x+step,row+y+step);
       indices.push(c,d,b,c,b,a);
+    }
+  }
+  // The depth and colour passes share vertices. Each tile can be culled independently.
+  for(let row=0;row<nz;row+=30){
+    const endRow=Math.min(row+30,nz),edge=coast.slice(row,endRow+1);
+    for(let col=0;col<nx;col+=28){
+      const endCol=Math.min(col+28,nx),start=indices.length;
+      for(let j=row;j<endRow;j++)for(let i=col;i<endCol;i++)indexCell(i,j);
+      tiles.push({start,count:indices.length-start,minX:Math.min(...edge)+ranges[col],
+        maxX:Math.max(...edge)+ranges[endCol],minZ:startZ+row*dz,maxZ:startZ+endRow*dz});
     }
   }
   function vertexHeight(id, seconds) {
@@ -84,5 +94,5 @@ export function createOceanGrid() {
     return fx+fz<=1 ? h(corners.get(base))*(1-fx-fz)+br*fx+tl*fz
       : h(corners.get(base+step+step*columns))*(fx+fz-1)+tl*(1-fx)+br*(1-fz);
   }
-  return {positions,uv,fields,indices,height};
+  return {positions,uv,fields,indices,tiles,height};
 }

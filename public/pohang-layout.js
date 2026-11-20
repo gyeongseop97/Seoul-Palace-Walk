@@ -4,6 +4,7 @@ import {tavernTables as tables,tavernSeatSpot as seatSpot,tavernTerrace} from ".
 export {tables,seatSpot};
 import {onPavilion,pavilionFloor} from "./pohang-pavilion-layout.js";
 import {cityBlocks,headland} from "./pohang-transit-geography.js";
+import {studioFloor,studioStorm} from "./coast-studio-layout.js";
 import {transitWalkable} from "./pohang-transit.js";
 import {shore,promenade,beachFloor,atBeachWall} from "./pohang-beach-profile.js";
 export {shore,promenade,canCrossBeachEdge} from "./pohang-beach-profile.js";
@@ -33,6 +34,7 @@ export function segmentDistance(p,a,b){
 export const pier=geo.pier.map(point),pavilion=point(geo.pavilion);
 export const onPier=onPavilion;
 export function ground(p){
+ const studio=studioFloor(p);if(studio!=null)return studio;
  const pierLevel=pavilionFloor(p);if(pierLevel!==null)return pierLevel;
  if(onHeadland(p))return 1.85;
  const stationY=stationFloor(p);if(stationY!==null)return stationY;
@@ -66,10 +68,11 @@ export const dock={x:shore(beachStop.z-47)+21,z:beachStop.z-47};
 export const mooring={x:dock.x+8.05,z:dock.z};
 export function onDock(p){return p.z>dock.z-2.2&&p.z<dock.z+2.2&&p.x>=promenade(dock.z)&&p.x<=dock.x+1;}
 export const spectrum=[[0.55,0.043,0.019,0.67,1.2],[0.29,0.079,-0.031,0.93,2.75],[0.22,0.126,0.053,1.23,3.6],[0.14,0.17,-0.077,1.56,5.2],[0.09,0.245,0.14,1.92,0.4],[0.05,0.325,-0.174,2.19,2.7]];
+export const swellScale=(x,z)=>1+1.25*studioStorm({x,z});
 export function wave(x,z,t){
  let h=0;
  for(const [a,kx,kz,s,phase] of spectrum){const q=Math.sin(x*kx+z*kz+t*s+phase);h+=a*(q+.17*(2*q*q-1));}
- return h;
+ return h*swellScale(x,z);
 }
 export function inWater(p){return ground(p)<-.81&&!onDock(p)&&!onPier(p);}
 export const festivalDuration=180;
@@ -77,8 +80,9 @@ export function showAge(now,started){
  const age=(now-started)/1000;
  return started>0&&age>=0&&age<festivalDuration?age:-1;
 }
-export function inBounds(p){
- if(atBeachWall(p))return false;
+export function inBounds(p,allowBeachLip=false){
+ if(studioFloor(p)!=null)return true;
+ if(!allowBeachLip&&atBeachWall(p))return false;
  if(tavernTerrace(p)||onRetailApron(p))return true;
  if(p.z>=-937&&p.z<=300&&p.x>=promenade(p.z)-42&&p.x<shore(p.z)+530)return true;
  const access=stationAccess(p);if(access!==null)return access;
