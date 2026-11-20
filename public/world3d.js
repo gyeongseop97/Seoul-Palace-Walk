@@ -1656,6 +1656,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       const swing=mole&&{swingAt:mole.swingAt,point:hole?new T.Vector3(wx(table.x+hole.z),MOLE_BOARD.top+.12,wz(table.y-hole.x)):null};
       firstPersonView.render(renderer,camera,diningPose(me),{now,clock,delta,seat,clink:me.clink,night,mole:swing,stroke:models.get(me.id)?.swimStroke});
     }
+    return true;
   }
   const ray=new T.Raycaster(),sample=new T.Vector3();
   function pointRay(clientX,clientY){

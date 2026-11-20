@@ -39,8 +39,8 @@ export function makeStudioMonitor({world,ship,onClose}){
    status.hidden=true;world.attachViewport(host);
   }else{
    world.attachViewport();
-   if(frame){frame.hidden=false;return;}
    status.hidden=false;status.textContent="서울 카메라 연결 중…";
+   if(frame){frame.hidden=false;return;}
    frame=document.createElement("iframe");frame.title="서울 실시간 관제 화면";frame.tabIndex=-1;
    const content=document.querySelector('script[type="importmap"]').textContent;
    frame.srcdoc=`<!doctype html><html lang="ko"><meta charset="utf-8"><style>html,body,#feed{width:100%;height:100%;margin:0;overflow:hidden;background:#18262a}canvas{display:block}</style><div id="feed"></div><script type="importmap">${content}</script><script type="module" src="./coast-monitor-feed.js"></script></html>`;
@@ -97,7 +97,7 @@ export function makeStudioMonitor({world,ship,onClose}){
   const feed={...state,monitorFocus:focus,view:{...state.view,pan:camera.pan,tilt:camera.tilt},photoCamera:camera,photoCapture:true,firstPerson:false,coastMarker:null};
   if(region==="pohang")world.render(feed,now);
   else if(frame?.contentWindow.drawStudioFeed){
-   frame.contentWindow.drawStudioFeed(feed);status.hidden=true;
+   status.hidden=Boolean(frame.contentWindow.drawStudioFeed(feed));
   }else if(frame?.contentWindow.studioFeedError){status.textContent="서울 화면을 열 수 없어요. 다른 카메라를 선택해 주세요.";}
  }};
 }
