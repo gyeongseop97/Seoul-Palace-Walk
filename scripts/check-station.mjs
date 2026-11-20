@@ -3,11 +3,11 @@ import {boardingIslands,liftBanks,setStationLifts,outdoorRailBlocks,railHeight,r
 import assert from "node:assert/strict";
 import {gatePose} from "../public/station-approach-plan.js";
 import {stationTerraces} from "../public/station-terraces.js";
-import {stationBuildings} from "../public/station-data.js";
+import {stationBuildings} from "../public/station-survey.js";
 import {groundIndex} from "../public/ground-index.js";
 import {addObstacle,clearSegment,loftStep,planWalk,walkable} from "../public/layout.js";
 import {registerStation,stationGround,stationSites} from "../public/station-layout.js";
-import {ktxCoach,railCounters,railPlatform,railRooms,registerRailFurniture,seatRows,stationHall,terminalDoors} from "../public/rail-station-layout.js";
+import {ktxCoach,plazaCafe,railCounters,railPlatform,railRooms,registerRailFurniture,seatRows,stationHall,terminalDoors} from "../public/rail-station-layout.js";
 import {interiorAt} from "../public/interior-layout.js";
 import {registerDiningNavigation} from "../public/dining-layout.js";
 import {stationDining} from "../public/dining-data.js";
@@ -89,8 +89,8 @@ for(const {rings} of stationTerraces){
     for(let y=Math.min(...ys);y<Math.max(...ys);y+=.75)if(deck(x,y))assert(!walls(x,y),"광장을 덮는 건물 "+x+","+y);
   }
 }
-let walker={x:40,y:1443.3,up:false};
-for(const [x,y] of [[37.5,1445.3],[12.3,1445.9],[10,1450],...terminalDoors.slice().reverse().map(p=>[p.x,p.y]),[27,1487.2],[33.5,1499.8]]){
+let walker={x:36,y:1441,up:false};
+for(const [x,y] of [[30.6,1441],[14.6,1441.4],[6.4,1448],[6.4,1478],...terminalDoors.slice().reverse().map(p=>[p.x,p.y]),[terminalDoors[2].x,terminalDoors[2].y],[11.7,1487.7],[16,1476],[plazaCafe.x,plazaCafe.y]]){
   const start=walker,n=Math.ceil(Math.hypot(start.x-x,start.y-y)/.15);
   for(let i=1;i<=n;i++){
     const px=start.x+(x-start.x)*i/n,py=start.y+(y-start.y)*i/n,step=loftStep(walker,px,py);
@@ -102,7 +102,8 @@ assert(walker.up);
 const steps=stationApproaches.find(s=>s.kind==="stairs");assert(approachAt(...steps.b).height>5);
 assert(walkable(subwayExit.outside.x,subwayExit.outside.y),"지하철 출구 보도");
 const eastRoute=approachRoute(square,stationHall.outsideDoor,planWalk);
-assert(eastRoute?.some(p=>Math.hypot(p.x-37.5,p.y-1443.3)<3.3),"광장에서 계단을 거쳐 정문으로");
+const eastFeet=stationApproaches.filter(s=>s.h0===0&&s.h1>5&&s.a[0]>0);
+assert(eastRoute?.some(p=>eastFeet.some(s=>Math.hypot(p.x-s.a[0],p.y-s.a[1])<s.w/2+1.2)),"광장에서 계단을 거쳐 정문으로");
 assert.deepEqual(eastRoute.at(-1),stationHall.outsideDoor);
 for(const venue of cultureVenues){
   for(const r of venue.rooms){
