@@ -1,11 +1,11 @@
-import {worldExtent} from "../public/world-extent.js";
+import {inGameWorld} from "../public/world-extent.js";
 import {cleanArcadeActivity} from "./room-arcade.mjs";
 import {ensureSocialTables} from "../database/social-schema.mjs";
 
 const within=(v,lo,hi)=>Number.isFinite(v)&&v>=lo&&v<=hi;
 const authenticated="SELECT 1 FROM walkers WHERE room=? AND id=? AND player_key=? AND updated>=?";
 export async function exchangeMotion(db,{room,id,key,motion},now){
-  if(!key||!motion||!within(motion.x,worldExtent.minX,worldExtent.maxX)||!within(motion.y,worldExtent.minY,worldExtent.maxY))return null;
+  if(!key||!motion||!Number.isFinite(motion.x)||!Number.isFinite(motion.y)||!inGameWorld(motion))return null;
   const {x,y,frame}=motion,queryArgs=[room,id,key,now-15000];
   const operations=[];
   await ensureSocialTables(db);

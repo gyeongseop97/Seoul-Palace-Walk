@@ -74,7 +74,7 @@ import { CHEONGGYE_WATER_LEVEL,cheonggyeSeats } from "./cheonggye-seats.js";
 import { songhyeonBounds,songhyeonWalkable,songhyeonGroundHeight,registerSonghyeonNavigation } from "./songhyeon-layout.js";
 import { decodeWishFace, WISH_WIDTH, WISH_HEIGHT, WISH_COLORS, WISH_FLIGHT_MS } from "./wish-art.js";
 
-export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
+export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=null}={}) {
   const scene=new T.Scene();
   const arcadeFloors=new Set([ARCADE_SITE,ARCADE_UPPER_SITE,ARCADE_THIRD_SITE].map(venue=>venue.id));
   scene.matrixAutoUpdate=false;
@@ -165,8 +165,9 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   const moonLight=new T.DirectionalLight(0xabc9ff,0);
   moonLight.position.set(-145,94,33);
   scene.add(hemi,sun,sun.target,moonLight);
-  const wx=x=>x-300,wz=y=>y-225;
-  const drawPalaceSky=addPalaceSky(T,heavens,{
+  const origin=coast?.origin??{x:300,y:225};
+  const wx=x=>x-origin.x,wz=y=>y-origin.y;
+  const drawPalaceSky=coast?null:addPalaceSky(T,heavens,{
     sunDirection:sunDirection.clone().multiplyScalar(142),landscape:outdoors,
     cityOrigin:{x:wx(plazaSites.sejong.x)-21,z:wz(plazaSites.sejong.y)+14},
     cityExclusions:[stationBounds,westBounds,corridorBounds,plazaBounds,gbBounds,bukchonBounds,hwangudanBounds,cheonggyeBounds,songhyeonBounds,
@@ -203,23 +204,25 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     for(const venue of diningVenues)if(venue.area===area)yield* buildDiningFacade(T,root,makeKit(root),venue,southWorldSurfaceHeight);
   }
   const {benches,trees,catWalls,fountains,lampMaterial,classical,middleModel,hallModel,drawPond,pavilionModels,buildGyeongbokDistrict}=
-    buildJeongdong(T,deoksRoot,makeKit(deoksRoot),{deferGyeongbok:true});
-  buildSejongCorridor(T,corridorRoot,makeKit(corridorRoot));
+    coast?{benches:[],trees:[],catWalls:[],fountains:[],lampMaterial:matte(0xffffff),pavilionModels:new Map()}:buildJeongdong(T,deoksRoot,makeKit(deoksRoot),{deferGyeongbok:true});
+  if(!coast)buildSejongCorridor(T,corridorRoot,makeKit(corridorRoot));
   registerJeongdongExtension();
   registerWestDistrict();
   registerStation();
   registerHwangudanNavigation();
   registerCheonggyeNavigation();
   registerSonghyeonNavigation(benches);
-  buildJeongdongExtension(T,deoksRoot,makeKit(deoksRoot));
+  if(!coast)buildJeongdongExtension(T,deoksRoot,makeKit(deoksRoot));
   const corridorGround=corridorRoot.children.slice();
   const deoksExtras=new T.Group();
   registerBikeDocks();
   const addDocks=(root,where,height)=>buildBikeDocks(T,root,makeKit(root),{docks:bikeDocks.filter(where),register:false,height});
-  addDocks(deoksExtras,dock=>dock.y>=28&&dock.area!=="west"&&dock.area!=="station",southWorldSurfaceHeight);
-  addDocks(corridorRoot,dock=>dock.y<28&&dock.y>-280&&dock.area!=="cheonggye"&&dock.area!=="west",southWorldSurfaceHeight);
+  if(!coast)addDocks(deoksExtras,dock=>dock.y>=28&&dock.area!=="west"&&dock.area!=="station",southWorldSurfaceHeight);
+  if(!coast)addDocks(corridorRoot,dock=>dock.y<28&&dock.y>-280&&dock.area!=="cheonggye"&&dock.area!=="west",southWorldSurfaceHeight);
   const createItemProp=makeItemProps(T,kit);
   const walkerModels=makeWalkerModels(T,scene,kit,createItemProp);
+  const seaside=coast?.create(outdoors,coast.play,walkerModels,kit);
+  if(seaside){heavens.visible=false;camera.far=3900;camera.updateProjectionMatrix();}
   const outdoorWalkers={...walkerModels,create(...args){
     const model=walkerModels.create(...args);
     outdoors.add(model.group);
@@ -228,10 +231,10 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   const bungeoCustomer=makeBungeoCustomer(outdoorWalkers,{floorHeight,labelSprite,chatTexture});
   const busInBukchon=point=>point.x>=680&&point.y< -890;
   const busGround=point=>busInBukchon(point)?sampleMeshHeight(bukchonSurfaceGrade,point):southWorldSurfaceHeight(point);
-  const buses=buildSejongBusModels(T,transportRoot,kit,walkerModels,busGround,
+  const buses=coast?null:buildSejongBusModels(T,transportRoot,kit,walkerModels,busGround,
     point=>busInBukchon(point)?bukchonGroundHeight(point)??busGround(point):busGround(point));
   registerPlazaNavigation(benches);
-  const drawWater=addWater(T,deoksExtras,fountains,{...makeKit(deoksExtras),terrain:southWorldSurfaceHeight});
+  const drawWater=coast?null:addWater(T,deoksExtras,fountains,{...makeKit(deoksExtras),terrain:southWorldSurfaceHeight});
   registerRegionalStands();
   registerBungeoStall();
   registerArcade();
@@ -241,7 +244,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   const minigameProps=registerMinigameProps(floorHeight);
   const minigameWorld=makeMinigameWorld(T,outdoors,kit,floorHeight);
   const transportCount=transportRoot.children.length;
-  const stations=[...addStands(T,transportRoot,makeKit(transportRoot)),...regionalStations,...railCounters,plazaCafe];
+  const stations=coast?coast.stations:[...addStands(T,transportRoot,makeKit(transportRoot)),...regionalStations,...railCounters,plazaCafe];
   const transportGround=transportRoot.children.slice(transportCount);
   outdoors.add(transportRoot);
   const picnicWorld=makePicnicWorld(T,outdoors,kit,floorHeight,createItemProp);
@@ -309,7 +312,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     lanterns.delete(id);
   }
 
-  const surveyedPavilions=[["jeonggwanheon","정관헌"],["hamnyeongjeon","함녕전"],["seogeodang","석어당"]].map(([model,label])=>{
+  const surveyedPavilions=coast?[]:[["jeonggwanheon","정관헌"],["hamnyeongjeon","함녕전"],["seogeodang","석어당"]].map(([model,label])=>{
     const {spec,groups}=pavilionModels.get(label);
     return {model,point:spec,groups,angle:spec.angle};
   });
@@ -366,11 +369,13 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   const birds=addPalaceBirds(T,outdoors,{...kit,floorHeight},{trees,walls:catWalls,seed:catSeed,deferNorth:true,deferPopulation:true});
   const parkLife=addParkLife(T,outdoors,{...kit,trees,floorHeight,terrainHeight:outsideGroundOffset,catWalls,benches,onCatFlee,catSeed,birds,
     deferNorth:true,deferPopulation:true});
-  const cityVisitors=addCityVisitors(T,kit,walkerModels,{benches,stations,parkLife,floorHeight,seatAt,room:catSeed,showMeal:updateTableTray,
+  const cityVisitors=addCityVisitors(T,kit,walkerModels,{benches,stations,parkLife,floorHeight,seatAt,room:catSeed,neighborhood:coast?.visitors,showMeal:updateTableTray,
     water(id,now,seat,pose,clock){
       const point=seat?.waterPoint;
       drawRipples(id,now,point?{...point,level:outsideGroundOffset(seat)+CHEONGGYE_WATER_LEVEL+.016,seat,kick:footKickAge(pose,clock)}:null);
     }});
+  const coastWildlife=coast?(function*(){yield* birds.loadExpansion("pohang");yield* parkLife.loadExpansion("pohang");})():null;
+  let coastWildlifeReady=false;
   let landmarkLoaders,surveyLoading=false;
   const surveyQueue=[];
   // Doorways cut through the surveyed shells so the furnished rooms inside can be entered.
@@ -866,6 +871,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   function seatAt(position,clock){
     const bus=position.bus&&busAt(position.bus.index,clock),pose=bus&&busSeatPose(bus,position.bus.seat);
     if(pose)return {...pose,base:BUS_FLOOR+.015+busGround(bus)};
+    if(coast&&position.coast?.mode==="table")return {x:position.x,y:position.y,heading:position.heading,base:1.9};
+    if(coast&&position.coast?.mode==="bus")return {x:position.x,y:position.y,heading:position.heading,base:2.72};
     const seat=benches[position.seat]?.slots[position.seatSide??0];
     if(!seat&&position.groundSit&&!isCycling(position))return {x:position.x,y:position.y,heading:position.heading,
       base:footBathSeatBase(floorHeight(position)),ground:true};
@@ -875,6 +882,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   }
   // Low kerbs, benches and ledges can be stood on after a jump, so they raise the floor too.
   function floorHeight(position){
+    if(seaside)return seaside.surface(position);
     const rail=railHeight(position.x,position.y);
     if(rail!=null)return rail+platformAt(position.x,position.y,true);
     const culture=cultureHeight(position.x,position.y);if(culture!=null)return culture;
@@ -950,6 +958,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     });
   }
   function groundHeight(position) {
+    if(seaside)return seaside.surface(position);
     const rail=railHeight(position.x,position.y);
     if(rail!=null)return rail;
     if(interiorAt(position.x,position.y))return cultureHeight(position.x,position.y)??stairHeight(position)??0;
@@ -1086,6 +1095,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
   }
   function render(state,now){
     if(container.hidden)return;
+    if(coastWildlife&&!coastWildlifeReady)coastWildlifeReady=coastWildlife.next().done;
     const {me,peers,view,firstPerson,fountainShow,parkedBikes=[],clock=Date.now()}=state,delta=Math.min(.064,(now-(prevTime||now))/1000);
     prevTime=now;
     const anchor=me,angle=view.pan*Math.PI/180,insideId=interiorAt(anchor.x,anchor.y),indoors=Boolean(insideId),
@@ -1093,7 +1103,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     const interior=indoorsById[insideId];
     const service=diningById[insideId]?state.diningService??[]:[];
     const baking=state.bungeoMode&&(cookingStallById(state.bungeoMode.stall)??BUNGEO_STALL);
-    const waiting=advanceWorld(anchor,interior);
+    const waiting=!coast&&advanceWorld(anchor,interior);
     const blocked=waiting&&(indoors||cameraAnchor==null||Math.hypot(anchor.x-300-pivot.x,anchor.y-225-pivot.z)>65);
     loading?.classList?.toggle("loading-transition",blocked);
     if(blocked)return;
@@ -1101,7 +1111,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     picnicWorld.update(indoors?null:anchor,state.picnics);
     const weather=state.environment&&resolveSeoulEnvironment(state.environment,clock);
     const ease=environmentShown?Math.min(1,delta*4.2):1;
-    const targetNight=weather?.night??Number(Boolean(view.night));
+    const targetNight=seaside?.festival(clock)&&Math.abs(wx(anchor.x))<1500&&state.environment?.time==="auto"?1:weather?.night??Number(Boolean(view.night));
     night+=(targetNight-night)*ease;
     environmentShown=true;
     for(const key of ["cloud","rain","snow","windX","windZ","fog","twilight"]){
@@ -1127,6 +1137,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
       .lerp(fogHorizon,fog).lerp(nightFog,night);
     scene.background=sameStation(insideId,"station-hall")||insideId==="ktx-coach"?skyUniforms.horizon.value:null;
     scene.fog.density=indoors?.0039:.0039+cloud*.00065+fog*.016;
+    if(seaside)scene.fog.density=.00049+fog*.002;
     hemi.color.copy(ambientDay).lerp(overcastAmbient,cloud*.58).lerp(ambientNight,night);
     hemi.groundColor.copy(season==="winter"?winterGround:ordinaryGround);
     sun.color.copy(sunlightDay).lerp(sunlightWarm,twilight*.84);
@@ -1219,7 +1230,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
       light.intensity=lightDay[i]*(1-night)+night*lightPower[i];
       light.visible=!indoors&&light.intensity>0;
     });
-    buses.update(clock,indoors?null:anchor);
+    buses?.update(clock,indoors?null:anchor);
     if(palaceRoot.parent===outdoors)for(const {material,rest,strength} of gbNightGlow)material.emissiveIntensity=rest+night*strength;
     if(plazaRoot.parent===outdoors){
       const viewer=indoors?null:anchor;
@@ -1239,10 +1250,10 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     minigameWorld.begin(clock,indoors?null:anchor,state.minigames,state.minigameAction,state.minigameFree);
     if(!indoors){
       // Every pond shares one surface, so it keeps moving at Gyeongbokgung too.
-      drawPond(now*.001,night);
+      drawPond?.(now*.001,night);
       if(deoksRoot.parent===outdoors&&distanceToDistrict(anchor,deoksBounds)<120)drawWater(now*.001,night,anchor);
       nightSky(night*(1-cloud*.91)*(1-fog*.89));
-      drawPalaceSky(clock,night,{cloud,fog,twilight,direction:weather?skyUniforms.solar.value:undefined,haze:scene.fog.color});
+      drawPalaceSky?.(clock,night,{cloud,fog,twilight,direction:weather?skyUniforms.solar.value:undefined,haze:scene.fog.color});
       birds.update(clock,delta,roster);
     }
     const parkedNearby=new Set();
@@ -1260,8 +1271,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     for(const {id,feed} of roster)if(feed&&feed.at<=clock&&feed.at+FEED_MS>clock)parkLife.feed(feed.id,feed.at,id);
     for(const {pet} of roster)if(pet&&pet.at<=clock&&pet.at+PET_MS>clock)parkLife.pet(pet.id,pet.at);
     parkLife.update(clock,indoors?null:anchor,roster,season==="autumn");
-    palacePeople.update(clock,now,delta,indoors?null:anchor,roster,Boolean(quality.sparse));
-    streetPeople.update(clock,now,delta,indoors?null:anchor,Boolean(quality.sparse));
+    if(!coast)palacePeople.update(clock,now,delta,indoors?null:anchor,roster,Boolean(quality.sparse));
+    if(!coast)streetPeople.update(clock,now,delta,indoors?null:anchor,Boolean(quality.sparse));
     cityVisitors.update(clock,now,delta,anchor,insideId,roster,Boolean(quality.sparse));
     for(const [id,model] of models){
       if(present.has(id))continue;
@@ -1296,6 +1307,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
       updateTableTray(player,tableSeat,clock);
       walkerModels.update(model,diningPose(player),{now,clock,delta,seat:tableSeat,floor,jump:renderedJumpLift(player,clock,floor),emojiTexture,chatTexture,
         turnEase:player===me?1-Math.exp(-delta*22):1});
+      seaside?.pose(player,model);
       minigameWorld.pose(player,model,state.photoCapture);
       if(arcadeFloors.has(insideId)){
         let activity=player===me?state.arcade:player.arcade;
@@ -1350,15 +1362,16 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     });
     minigameWorld.live(models,indoors||state.photoCapture?null:state.minigameAimPreview);
     const seat=seatAt(anchor,clock),bus=anchor.bus&&busAt(anchor.bus.index,clock);
-    const outsideBus=bus&&!firstPerson;
+    const coastBus=coast&&anchor.coast?.mode==="bus";
+    const outsideBus=(bus||coastBus)&&!firstPerson;
     const floor=seat?0:footing(anchor.bikeDriverPosition??anchor);
     const fallWeight=firstPerson?(bikeFallAt(anchor,clock)?.weight??0):0;
     // In a train seat the lens rides above the headrests, so the rows behind never cover it.
     const coachSeat=insideId==="ktx-coach"&&Boolean(seat)&&!firstPerson;
-    const eyeHeight=outsideBus?2.115+busGround(bus):seat?(firstPerson?1.30:coachSeat?1.5:1.22)+(seat.base??0):
+    const eyeHeight=outsideBus?2.115+(coastBus?1.85:busGround(bus)):seat?(firstPerson?1.30:coachSeat?1.5:1.22)+(seat.base??0):
       (firstPerson?1.28:1.20)+floor+renderedJumpLift(anchor,clock,floor)+(isCycling(anchor)?.12:0)-fallWeight*.87;
-    const cameraPoint=outsideBus?bus:seat??anchor;
-    anchorPoint.set(wx(cameraPoint.x),eyeHeight,wz(cameraPoint.y));
+    const cameraPoint=outsideBus&&bus?bus:seat??anchor;
+    anchorPoint.set(wx(cameraPoint.x),eyeHeight+(seaside?.watchLift()??0),wz(cameraPoint.y));
     const anchorKey=bus?`${anchor.id}-${bus.index}-${firstPerson}`:anchor.bikeRide?.driver??anchor.id;
     const changed=cameraAnchor!==anchorKey||pivot.distanceToSquared(anchorPoint)>144;
     if(changed||firstPerson&&(bus||isBikePassenger(anchor)))pivot.copy(anchorPoint);
@@ -1400,7 +1413,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
       // Shorten the orbit arm at walls and let it ease back out as space opens.
       for(let sample=1,count=Math.ceil(distance/.20);sample<=count;sample++){
         const step=distance*sample/count;
-        const point={x:pivot.x+300+arm.x*step,y:pivot.z+225+arm.z*step};
+        const point={x:pivot.x+origin.x+arm.x*step,y:pivot.z+origin.y+arm.z*step};
         const terrain=indoors?cultureHeight(point.x,point.y)??railHeight(point.x,point.y)??0:outsideGroundOffset(point)+Math.min(0,approachAt(point.x,point.y)?.height??0);
         const y=pivot.y+arm.y*step;
         const roof=lowerStream?cheonggyeCameraCeiling(point.x,point.y):null;
@@ -1409,7 +1422,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
         // Seats do not stop the lens there. Only the car body and the luggage shelves do.
         const coachHit=coachSeat&&(Math.abs(point.x-coach.center.x)>1.72||Math.abs(point.y-coach.center.y)>11.55||
           y>1.9&&Math.abs(point.x-coach.center.x)>1.05);
-        if(roofCollision||streamWall||(coachSeat?coachHit:solidAt(point.x,point.y,y-.17-terrain))){
+        if(roofCollision||streamWall||(coachSeat?coachHit:seaside?seaside.cameraBlocked(point,y):solidAt(point.x,point.y,y-.17-terrain))){
           available=Math.max(.34,step-.24);break;
         }
       }
@@ -1587,6 +1600,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
       walkerX:wx(shelter?.x??anchor.x),walkerZ:wz(shelter?.y??anchor.y),walkerFloor,clock,atmosphere,
       sheltered:Boolean(shelter||anchor.umbrella),sharedShelter:Boolean(shelter),inside:indoors||Boolean(anchor.bus&&firstPerson),
       sparse:quality.sparse,pixelRatio:quality.pinned?quality.max:quality.ratio,night});
+    seaside?.update(state,night,camera,renderer.domElement.height);
     renderer.render(scene,camera);
     if(firstPerson&&!state.bungeoMode){
       firstPersonView??=makeFirstPersonView(T,createItemProp);
@@ -1633,7 +1647,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     if(showMarker.visible&&ray.intersectObject(showMarker,false).length)return {x:plazaShowSpot.x,y:plazaShowSpot.y};
     for(let step=.25;step<=105;step+=.25){
       ray.ray.at(step,sample);
-      const point={x:sample.x+300,y:sample.z+225,up:cameraOnBridge};
+      const point={x:sample.x+origin.x,y:sample.z+origin.y,up:cameraOnBridge};
       const deck=approachAt(point.x,point.y);
       if(deck?.s.kind==="deck")point.up=ray.ray.direction.y<0&&ray.ray.origin.y>=outsideGroundOffset(point)+deck.height;
       // Below street level the retaining-wall gap and the channel have no street floor.

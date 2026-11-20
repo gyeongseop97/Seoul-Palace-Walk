@@ -15,7 +15,7 @@ export function ocean(scene){
  const uniforms={uTime:{value:0},night:{value:0},burst:{value:new T.Color(0)},lightX:{value:280},lightZ:{value:-170},wake:{value:new T.Vector3()},speed:{value:0}};
  const swell=spectrum.map(([a,kx,kz,s,p])=>"q=sin(dot(w.xz,vec2("+kx+","+kz+"))+uTime*"+s+"+"+p+");wave+="+a+"*(q+.17*(2.*q*q-1.));").join("\n");
  const normals=spectrum.map(([a,kx,kz,s,p])=>"phase=dot(w.xz,vec2("+kx+","+kz+"))+uTime*"+s+"+"+p+";slope+=vec2("+kx+","+kz+")*"+a+"*cos(phase)*(1.+.68*sin(phase));").join("\n");
- const material=new T.ShaderMaterial({uniforms,side:T.DoubleSide,vertexShader:`
+ const material=new T.ShaderMaterial({uniforms,transparent:true,depthWrite:false,side:T.DoubleSide,vertexShader:`
  varying vec3 w; varying float depth; uniform float uTime;
  void main(){w=position;depth=uv.x;
  float wave=0.,q=0.;
@@ -62,7 +62,10 @@ export function ocean(scene){
  vec2 axis=vec2(sin(wake.z),cos(wake.z)),v=p-wake.xy;float behind=-dot(v,axis);
  float wakeLine=exp(-abs(abs(dot(v,vec2(axis.y,-axis.x)))-(.17*behind+3.1))*.9)*step(0.,behind)*exp(-max(behind,0.)*.024)*speed;
  base=mix(base,mix(vec3(.85,.97,.94),vec3(.39,.57,.65),night),clamp(foam+wakeLine,0.,.9));
- gl_FragColor=vec4(base,1.);
+ float offshore=smoothstep(1.,100.,depth);
+ float transmission=mix(.25,.73,offshore)+.20*fres;
+ float alpha=mix(transmission,.94,clamp(foam+wakeLine,0.,1.));
+ gl_FragColor=vec4(base,alpha);
  #include <colorspace_fragment>
  }`});
  const mesh=new T.Mesh(g,material);mesh.frustumCulled=false;scene.add(mesh);return uniforms;

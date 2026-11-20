@@ -11,7 +11,7 @@ import {acceptBikeRide,bikePassenger,closeBikeOffer,dismountBikePassenger,dropBi
 import {HEADWEAR,KEEPSAKES} from "./public/wearable-options.js";
 import {LOOK_OPTIONS} from "./public/look-options.js";
 import {GITHUB_PAGES_ORIGIN} from "./public/hosting.js";
-import {worldExtent} from "./public/world-extent.js";
+import {inGameWorld} from "./public/world-extent.js";
 import {exchangeMotion} from "./server/motion.mjs";
 import {ensureLiftTables,readLifts,roomLifts,validLift} from "./server/station-lifts.mjs";
 import {ensureSocialTables} from "./database/social-schema.mjs";
@@ -37,7 +37,7 @@ const json = (data, status = 200) => Response.json(data,{status,headers:{"Cache-
 const validId = (value) => typeof value==="string" && /^[a-f0-9]{32}$/.test(value);
 const finite = (value,min,max) => typeof value==="number" && value>=min && value<=max;
 // The shared map keeps Deoksugung's original origin. The route and palace extend north of it.
-const validPoint = (point) => point && finite(point.x,worldExtent.minX,worldExtent.maxX) && finite(point.y,worldExtent.minY,worldExtent.maxY);
+const validPoint = (point) => point && Number.isFinite(point.x) && Number.isFinite(point.y) && inGameWorld(point);
 const validTime = (value) => finite(value,0,9999999999999);
 const reactions = new Set(["😊","😂","❤️","👍","😮","😢","😠","✨"]);
 // Hair, eyes and outfit are required; choices added later are optional so older clients still pass.
@@ -51,7 +51,11 @@ const validItem=item=>item==null||typeof item.kind==="string"&&Object.hasOwn(ITE
   Number.isInteger(item.remaining)&&finite(item.remaining,0,ITEMS[item.kind].uses)&&validTime(item.started);
 // Benches, dining chairs and the places along the Cheonggyecheon water's edge.
 const lastBenchIndex=1023;
-const validAvatar = (a) => validPoint(a) && [a.groundSit,a.kissReady].every(v=>v===undefined||typeof v==="boolean") &&
+const coastModes=new Set(["walk","swim","surf","deck","bus","table"]);
+const validCoast=s=>s==null||coastModes.has(s.mode)&&typeof s.board==="boolean"&&
+  (s.track==null||finite(s.track,0,62))&&(s.floor==null||finite(s.floor,5.45,7.86))&&
+  (s.mode!=="bus"||Number.isInteger(s.coach)&&finite(s.coach,0,4)&&Number.isInteger(s.chair)&&finite(s.chair,0,7));
+const validAvatar = (a) => validPoint(a) && validCoast(a.coast) && [a.groundSit,a.kissReady].every(v=>v===undefined||typeof v==="boolean") &&
   (a.bagClaim==null||validId(a.bagClaim)) &&
   (a.character===undefined || a.character==="man" || a.character==="woman") &&
   validLook(a.look) &&

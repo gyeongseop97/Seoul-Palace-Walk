@@ -709,7 +709,7 @@ export function addParkLife(T,scene,kit){
   }
   function* loadExpansion(id){
     const area=expanded.find(value=>value.id===id);
-    yield* populateCats(northLoaded);
+    if(id!=="pohang")yield* populateCats(northLoaded);
     yield* populateExpansion(area);
     area.ready=true;
   }

@@ -6,7 +6,7 @@ export function createMotionStream(request){
   return {
     healthy:now=>now<healthyUntil,
     tick({visit,people,me,now,clock,active,arcadePacket}){
-      if(owner!==visit){owner=visit;next=0;inflight=sequence=0;lastKey="";healthyUntil=0;lastSend=-Infinity;}
+      if(owner!==visit){owner=visit;next=0;inflight=0;sequence=Date.now()*1000;lastKey="";healthyUntil=0;lastSend=-Infinity;}
       if(now<next||inflight>=2||!people.size)return;
       let nearby=false,remoteActive=false;
       for(const peer of people.values()){

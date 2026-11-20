@@ -1,4 +1,8 @@
 import * as T from "three";
+import {buildKtx} from "./ktx-model.js";
+import {standSign} from "./regional-stands.js";
+import {stationHall,stationDoor,platformDoor,stationShop,beachShop} from "./pohang-layout.js";
+import {hill,hillFloor,parkRoad} from "./space-walk-layout.js";
 import {makeTreeBuilder,treePalettes} from "./lowpoly-trees.js";
 import {geo,shore,promenade,route,station,train,beachStop,boardRack,pier,pavilion,tables,seatSpot,dock,mooring,segmentDistance} from "./pohang-layout.js";
 const boxGeo=new T.BoxGeometry(),ovalGeo=new T.SphereGeometry(1,14,9),tubeGeo=new T.CylinderGeometry(1,1,1,12),coneGeo=new T.ConeGeometry(1,1,12),mats=new Map();
@@ -79,7 +83,16 @@ export function buildCoast(scene){
    float detail=1.-smoothstep(2.,26.,length(cameraPosition.xz-beachPos.xz));
    diffuseColor.rgb*=mix(vec3(1.03,.98,.90),vec3(.52,.56,.51),wet)*(.98+detail*((grain-.5)*.13+.035*ripples));`);
  };
- ribbon(root,row(z=>shore(z),-.18),row(z=>shore(z)+25,-3.5),0xbaac89);
+ // Continuous seabed colour through the wading zone; the water transmits these colours.
+ const bedStops=[[0,-.18,0xc4ab83],[5,-.85,0xa5a78c],[15,-2.18,0x789d92],[32,-4.05,0x407e83],[65,-5.9,0x285f70],[140,-8.1,0x235266],[1950,-33,0x204d5f]];
+ const verts=[],tints=[],faces=[];
+ for(let j=0;j<zList.length;j++)for(let i=0;i<bedStops.length;i++){
+  const [off,h,color]=bedStops[i],z=zList[j],c=new T.Color(color);
+  verts.push(shore(z)+off,h,z);tints.push(c.r,c.g,c.b);
+  if(i&&j){const n=j*bedStops.length+i,m=n-bedStops.length;faces.push(n-1,n,m,n-1,m,m-1);}
+ }
+ const bed=new T.BufferGeometry();bed.setAttribute("position",new T.Float32BufferAttribute(verts,3));bed.setAttribute("color",new T.Float32BufferAttribute(tints,3));
+ bed.setIndex(faces);bed.computeVertexNormals();root.add(new T.Mesh(bed,new T.MeshStandardMaterial({vertexColors:true,roughness:.94,side:T.DoubleSide})));
  const beachZ=zList.filter(z=>z>=-1000&&z<=390),strip=(offset,h)=>beachZ.map(z=>[promenade(z)+offset,h,z]);
  const walk=ribbon(root,strip(-5,1.89),strip(4,1.89),0xc4b6a4);
  walk.material.onBeforeCompile=shader=>{
@@ -108,16 +121,41 @@ export function buildCoast(scene){
   trees.grow(x,z,{height:4.8+random()*1.8,spread:3.9+random()*1.5,palette:treePalettes.pine,style:random()<.6?"cloud":"branchy"});
   if(z%3===0){post(root,0x465a59,x+2,y+2,z, .07,4,.07);oval(root,0xffdda1,x+2,y+4,z,.24,.28,.24);}
  }
- function shelter(p,name){
-  const x=p.x,z=p.z;box(root,0x25696c,x,4.7,z,5.8,.19,2.2);for(const dx of [-2.6,2.6])post(root,0x486267,x+dx,3.25,z-.7,.09,2.8,.09);
-  box(root,0x8eafae,x,3.23,z-.8,5.1,2,.12);box(root,0xab764b,x,2.4,z,3.4,.15,.55);sign(root,name,x,4.4,z+.3,4.7,.66);
+ // Terraced woodland frames the open central clearing and the coastal footpath.
+ for(let i=0;i<92;i++){
+  const angle=i*2.39996,r=43+random()*86,x=hill.x+Math.cos(angle)*r,z=hill.z+Math.sin(angle)*r*.69;
+  if(Math.abs(x-hill.x)<34&&Math.abs(z-hill.z)<33)continue;
+  if(parkRoad.some((p,j)=>j&&segmentDistance({x,z},parkRoad[j-1],p)<9))continue;
+  const first=green.children.length;
+  trees.grow(x,z,{height:3.5+random()*4.7,spread:3.0+random()*3.4,palette:treePalettes.pine,style:i%3?"cloud":"branchy"});
+  for(let k=first;k<green.children.length;k++)green.children[k].position.y+=hillFloor({x,z})-green.position.y-.07;
  }
- shelter({x:arrivalSide().x,z:arrivalSide().z-4},"포항역  ·  영일대행");shelter({x:beachStop.x+7,z:beachStop.z},"영일대해수욕장");
- function arrivalSide(){return {x:station.x-6,z:station.z+3};}
- const sr=geo.station,center=sr.reduce((a,[x,z])=>({x:a.x+x/sr.length,z:a.z+z/sr.length}),{x:0,z:0});
- const st=new T.Group();st.position.set(center.x,1.85,center.z);st.rotation.y=-1.99;root.add(st);
- box(st,0xdae0dc,0,5,0,91,10,38);box(st,0x47707e,0,5.8,-19.15,84,6,.25);
- for(let x=-42;x<=42;x+=4)box(st,0xc6d3d3,x,5.8,-19.4,.23,6.5,.3);
+ function kiosk(x,z,title,awning){
+  const g=new T.Group();g.position.set(x,1.85,z);root.add(g);
+  box(g,0xad9a81,0,1.4,-1.65,3.9,2.8,2.3);box(g,0x415652,0,1.32,-.47,3.6,1.72,.09);
+  box(g,0x967757,0,.86,-.25,3.65,.18,.63);box(g,awning,0,2.5,-.24,4.17,.21,1.52);
+  for(const dx of [-1.72,1.72])box(g,0x584f42,dx,1.6,-.09,.13,1.91,.13);
+  for(let i=0;i<6;i++)box(g,[0xc98961,0xc9b47f,0x8fa195][i%3],-.99+i*.39,1.13,-.33,.21,.34,.18);
+  sign(g,title,0,2.78,-.39,3.3,.49,"#35564d");
+ }
+ kiosk(stationShop.x,stationShop.z,"포항역 매점",0x46665a);
+ kiosk(beachShop.x,beachShop.z,"영일대 커피",0xb78b67);
+ const st=new T.Group();st.position.set(stationHall.x,1.85,stationHall.z);st.rotation.y=-1.99;root.add(st);
+ box(st,0xc9c7b9,0,.21,0,95,.42,42);box(st,0xe0d9c7,0,4.7,18.6,91,9.4,1);
+ for(const side of [-1,1]){
+  box(st,0xc4c3b9,side*44.8,4.77,0,1,9.54,38);
+  box(st,0x4a6670,side*26.5,4.9,-19.15,36.5,7.6,.25);
+  box(st,0xb5b5a8,side*27,1.09,-19.37,36,1.4,.44);
+  for(let bay=0;bay<6;bay++){
+   const x=side*(9.8+bay*5.9);
+   box(st,0xd6d2c4,x,5.1,-19.56,.22,8.25,.38);
+   box(st,0x9badaf,x,3.9,-19.57,5.7,.11,.33);
+   box(st,0x657674,x,2.6,13.3,2.4,.9,1.15);
+  }
+ }
+ box(st,0xb5b5aa,0,8.6,-19.3,20,.62,.94);box(st,0x344b53,0,8.03,-19.81,10.8,.63,.12);
+ box(st,0xbca36c,0,.46,-17,1.05,.035,25);
+ for(let x=-42;x<=42;x+=4)if(Math.abs(x)>7)box(st,0xc6d3d3,x,5.8,-19.4,.23,6.5,.3);
  for(let x=-47;x<48;x+=3.6){
   const height=10.4+1.85*Math.cos(x/50*Math.PI/2);
   box(st,0x9eacb1,x,height,0,3.66,.58,45.5);
@@ -130,10 +168,41 @@ export function buildCoast(scene){
  for(const side of [-1,1]){
   for(let i=0;i<4;i++)post(entrance,0x72848b,side*3.25,2.7,-1+i*2.1,.09,5.4,.09);
   rod(entrance,[side*3.02,1.07,-.2],[side*3.02,3.36,4],.076,0xc29162);
-  box(entrance,0x668899,side*3.4,3.05,3.2,.12,5.35,6.1);
+  const glass=new T.MeshStandardMaterial({color:0x9cc0c9,transparent:true,opacity:.3,depthWrite:false,roughness:.26});
+  box(entrance,glass,side*3.4,3.05,3.2,.12,5.35,6.1);
+  for(const dz of [.22,3.20,6.17])box(entrance,0x6b8086,side*3.41,3.05,dz,.18,5.42,.10);
+  box(entrance,0x6b8086,side*3.41,.47,3.2,.19,.17,6.15);
  }
  box(entrance,0xb9c7cd,0,5.6,2.7,8.2,.32,9.7);
  sign(entrance,"포항역  ·  KTX 서울행",0,4.95,-1.1,6.25,.74,"#294e76",Math.PI);
+ // The northern forecourt connects the arrival steps, the platform and the main concourse.
+ const plaza={x:station.x+11,z:station.z+22};
+ street(root,plaza,stationDoor,9.0,.14,1.88,0xc9c4b7);
+ for(const dx of [-3.6,3.6])street(root,{x:plaza.x+dx,z:plaza.z},{x:stationDoor.x+dx,z:stationDoor.z},.12,.025,1.97,0xad9f8c);
+ const slab=4.268,sz=train.z+17;
+ box(root,0xa7a8a2,train.x,3.0,sz,6.36,slab-1.73,16.2);
+ box(root,0xd7b764,train.x-2.77,slab+.012,sz,.28,.03,16.2);
+ const rolling=new T.Group();rolling.position.set(train.x-5.52,slab-.02,platformDoor.z+12);rolling.rotation.y=Math.PI;root.add(rolling);
+ const railGroup=(x,z,angle,parent)=>{const g=new T.Group();g.position.set(x,0,z);g.rotation.y=angle;parent.add(g);return g;};
+ buildKtx(T,rolling,{
+  box:(color,x,y,z,w,h,d,parent)=>box(parent,color,x,y,z,w,h,d),
+  rod:(color,x,y,z,r,h,parent)=>post(parent,color,x,y,z,r,h,r),
+  group:railGroup,girder:(p,a,b,gauge,color)=>rod(p,a,b,gauge*.5,color),
+  paintMap:(w,h,draw)=>{const c=document.createElement("canvas");c.width=w;c.height=h;draw(c.getContext("2d"),w,h);const texture=new T.CanvasTexture(c);texture.colorSpace=T.SRGBColorSpace;return texture;}
+ });
+ const railDoor=railGroup(-1.76,12,-Math.PI/2,rolling);
+ standSign(T,railDoor,"서울행 KTX","2호차  ·  일반실",2.3,0,2.77,0,"#1d4f91","#ffffff",.46);
+ box(rolling,0x26333b,-1.71,1.05,12,.05,2.26,1.04);
+ box(rolling,0xa3b2b2,-1.88,-.02,12,.5,.06,1.2);
+ for(const dx of [-.76,.76])box(root,0x626769,rolling.position.x+dx,slab-1.42,sz+7,.085,.15,108);
+ for(let j=-45;j<60;j+=1.5)box(root,0x69675e,rolling.position.x,slab-1.55,sz+j,2.63,.16,.24);
+ box(root,0xa69b83,rolling.position.x,2.16,sz+7,3.2,.91,108);
+ for(const side of [-1,1])for(let j=0;j<4;j++){
+  const z=sz-5+j*3.6;
+  if(side<0&&Math.abs(z-platformDoor.z)<2.7)continue;
+  post(root,0x738282,train.x+side*3.06,slab+.55,z,.055,1.1,.055);
+ }
+ for(const step of [-1,1])box(root,0x808986,train.x+3.03,slab+.85,sz+step*3.87,.07,.09,7.86);
  // A timber bridge follows the surveyed diagonal between the seawall and pavilion.
  const a=pier[0],b=pavilion;street(root,a,b,4.8,.4,2.06,0xa28b71);
  const len=Math.hypot(b.x-a.x,b.z-a.z),nx=(b.z-a.z)/len,nz=(a.x-b.x)/len;

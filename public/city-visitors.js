@@ -1,5 +1,5 @@
 import {clearSegment} from "./layout.js";
-import {stops,createVisitorWalks,streetLine,onLine} from "./visitor-walks.js";
+import {stops as seoulStops,createVisitorWalks,streetLine,onLine} from "./visitor-walks.js";
 import {diningVenues} from "./dining-data.js";
 import {buskingSpot} from "./street-people.js";
 import {PET_MS} from "./activities.js";
@@ -79,9 +79,10 @@ function busPlaces(parties,players,clock){
   return places;
 }
 
-export function addCityVisitors(T,kit,models,{benches,stations,parkLife,floorHeight,seatAt,showMeal,water,room}){
+export function addCityVisitors(T,kit,models,{benches,stations,parkLife,floorHeight,seatAt,showMeal,water,room,neighborhood}){
+  const stops=neighborhood?.stops??seoulStops,makeWalks=neighborhood?.createWalks??createVisitorWalks;
   const visitors=new Map();
-  let walks=createVisitorWalks(room);
+  let walks=makeWalks(room);
   const restaurants=new Map(diningVenues.map(venue=>[venue.id,venue]));
   const tables=new Map(diningVenues.map(v=>[v.id,benches.filter(b=>b.venueId===v.id)]));
   function actor(p,side){
@@ -267,7 +268,7 @@ export function addCityVisitors(T,kit,models,{benches,stations,parkLife,floorHei
   }
   function setRoom(id){
     if(room===id)return;
-    room=id;walks=createVisitorWalks(id);
+    room=id;walks=makeWalks(id);
     for(const v of visitors.values()){hide(v,Infinity);v.visit=null;v.catCycle=null;}
   }
   return {update,setRoom};

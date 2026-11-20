@@ -137,6 +137,20 @@ export function makeRegionalItemProps(T,{box,cylinder,shape}){
     shape(tumblerRim,0xdfebe4,0,.106,0,parent);
   }
   return {
+    soju(parent){
+      cylinder(0x38845e,0,-.013,0,.041,.16,14,parent);
+      cylinder(0x477d57,0,.075,0,.039,.027,14,parent,.55);
+      cylinder(0x336747,0,.118,0,.022,.06,14,parent);
+      cylinder(0xf0e9cd,0,-.011,0,.042,.058,14,parent);
+    },
+    sashimi(parent){
+      cylinder(0xe9e3ce,0,-.035,0,.11,.014,18,parent);
+      for(let i=0;i<4;i++)berry(parent,i%2?0xf9cbad:0xe59b88,(i-1.5)*.039,-.014,0,.027,.016,.062).rotation.y=.38;
+    },
+    grilledClam(parent){
+      berry(parent,0xb99978,0,-.024,0,.082,.021,.069);
+      berry(parent,0xf1bc78,0,-.013,0,.059,.019,.043);
+    },
     yakgwa(parent){
       shape(pastryGeometry,0xb5632a,0,-.010,0,parent);
       shape(flowerStamp,0x8d441e,0,.014,0,parent);

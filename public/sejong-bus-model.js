@@ -1,7 +1,8 @@
 import {addObstacle} from "./layout.js";
 import {BUS_COUNT, BUS_FLOOR, BUS_LENGTH, BUS_SEATS, BUS_WIDTH, busAt, busLocalPose, busSeatOffset, busStops} from "./sejong-bus.js";
 
-export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelterHeight=height){
+export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelterHeight=height,route=null){
+  const schedule=route?.at??busAt;
   const {wx,wz,box,matte}=kit;
   const stopGroup=new T.Group();stopGroup.name="세종대로 순환버스 정류장";scene.add(stopGroup);
   const busGroup=new T.Group();busGroup.name="세종대로 순환버스";scene.add(busGroup);
@@ -26,7 +27,7 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
 
   const shelterGlass=new T.MeshStandardMaterial({color:0x92b4bd,transparent:true,opacity:.27,roughness:.42,depthWrite:false});
   const shade=0x5f686b,roofColor=0xb1b6b8,blue=0x305ca8;
-  for(const stop of busStops){
+  for(const stop of route?.stops??busStops){
     const shelter=new T.Group();shelter.name=stop.name;
     shelter.position.set(wx(stop.shelter.x),shelterHeight(stop.shelter),wz(stop.shelter.y));shelter.rotation.y=(180-stop.shelter.heading)*Math.PI/180;
     stopGroup.add(shelter);
@@ -46,7 +47,7 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
     part(blue,2.26,2.23,.03,.57,.56,.20);
     const type=placard("버스",.49,.30,{background:"#305ca8",ink:"#fff9e7"});type.position.set(2.26,2.23,.136);shelter.add(type);
     const name=placard(stop.name,4.24,.42,{sub:stop.direction});name.position.set(-.37,2.40,.925);shelter.add(name);
-    const routes=placard("세종대로 순환버스",1.33,.59,{sub:"서울역 · 시청 · 광화문 · 삼청동"});
+    const routes=placard(route?.name??"세종대로 순환버스",1.33,.59,{sub:route?.line??"서울역 · 시청 · 광화문 · 삼청동"});
     routes.position.set(1.35,1.53,-.45);shelter.add(routes);
     const obstacle=(side,forward,width,depth,height)=>{
       const p=busLocalPose(stop.shelter,side,forward);
@@ -58,12 +59,14 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
   }
 
   // The east end of Sajik-ro widens beside the north edge of the existing bus island.
+  if(!route){
   box(0x42464b,wx(648.2),-.019,wz(-826.4),64,.023,4.9,stopGroup);
   box(0x42464b,wx(668.3),-.022,wz(-834.2),15.8,.019,17.8,stopGroup);
   for(const [x,y] of [[625,-827.9],[631,-827.0],[638,-826.9],[656,-826.9],[663,-827.2]]){
     box(0xd0cec2,wx(x),-.0003,wz(y),3.2,.016,.083,stopGroup);
   }
 
+  }
   const transform=new T.Object3D(),unit=new T.BoxGeometry(1,1,1);
   const tireShape=new T.CylinderGeometry(.465,.465,.28,15).rotateZ(Math.PI/2);
   const wheelHub=new T.CylinderGeometry(.258,.258,.294,12).rotateZ(Math.PI/2);
@@ -146,7 +149,7 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
   }
 
   function model(index){
-    const bus=new T.Group();bus.name=`세종대로 순환버스 ${index+1}호`;
+    const bus=new T.Group();bus.name=(route?.name??"세종대로 순환버스")+" "+(index+1)+"호";
     bus.visible=false;busGroup.add(bus);
     const frame=0x26333e,roof=0xe0e4e3,coat=index%2===0?0x3677b8:0x2f6fae,body=0x2d597f;
     const trim=0x9cabb4,seatBlue=0x4d7395,cushion=0x587f9f,aisle=0x696b66;
@@ -264,18 +267,18 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
       wheels.push(wheel);
     }
     const number=`순환 0${index+1}`;
-    fixedSign(placard(number,1.97,.29,{sub:"덕수궁 · 경복궁"}),0,2.70,front+.021);
+    fixedSign(placard(number,1.97,.29,{sub:route?.line??"덕수궁 · 경복궁"}),0,2.70,front+.021);
     fixedSign(placard(number,1.19,.28),0,2.68,-front-.016,Math.PI);
-    fixedSign(placard(number,1.25,.32,{sub:"세종대로"}),-wide-.018,2.52,3.00,-Math.PI/2);
+    fixedSign(placard(number,1.25,.32,{sub:route?.name??"세종대로"}),-wide-.018,2.52,3.00,-Math.PI/2);
     const steer=driverRig(bus,index);
     bus.traverse(object=>{if(object.isMesh)object.userData.dynamic=true;});
     return {bus,doors,wheels,steer,previous:null,spin:0};
   }
 
-  const vehicles=Array.from({length:BUS_COUNT},(_,i)=>model(i));
+  const vehicles=Array.from({length:route?.count??BUS_COUNT},(_,i)=>model(i));
   function update(time,anchor){
     for(const [index,entry] of vehicles.entries()){
-      const {bus,doors,wheels,steer,previous}=entry,state=busAt(index,time);
+      const {bus,doors,wheels,steer,previous}=entry,state=schedule(index,time);
       const distance=state&&anchor?Math.hypot(anchor.x-state.x,anchor.y-state.y):Infinity;
       bus.visible=distance<145;
       if(!bus.visible){entry.previous=null;steer(0,time,false);continue;}
@@ -283,7 +286,7 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
       const moved=previous?Math.hypot(previous.x-state.x,previous.y-state.y):0;
       if(moved<14&&state.traveling)entry.spin=(entry.spin+moved/.465)%(Math.PI*2);
       for(const wheel of wheels)wheel.rotation.x=entry.spin;
-      const ahead=state.traveling?busAt(index,time+400):null;
+      const ahead=state.traveling?schedule(index,time+400):null;
       const turn=ahead?.traveling?((ahead.heading-state.heading+540)%360-180)*Math.PI/180:0;
       steer(Math.max(-.46,Math.min(.46,turn*1.35)),time,distance<82);
       const open=state.stopId?Math.max(0,Math.min(1,state.elapsed/650,state.remaining/700)):0;

@@ -49,6 +49,9 @@ export function makeCruise(){
  piece(cyl,cream,0,8.65,1,.19,1.8,.19);piece(box,navy,0,9.55,1,2.8,.12,.34);piece(ball,cream,-1.1,8.49,-.9,.66,.65,.66);
  for(const x of [-1.8,1.8])piece(ball,cream,x,8.16,4,.31,.27,.31);
  for(let i=0;i<3;i++)piece(box,cream,-2+i*2,2.75,-15,1.35,.45,.89);
+ // Open companionway from the aft promenade to the flybridge helm.
+ for(let i=0;i<11;i++)piece(box,wood,1.7,5.48+i*.233,-9.45+i*.38,1.18,.15,.48);
+ beam([2.32,6.32,-9.65],[2.32,8.63,-5.55],.045,brass);
  // A raised helm, upholstered loungers and low tables give the upper decks a human scale.
  piece(box,cream,0,8.25,7.5,2.85,.78,.61);piece(box,glass,0,8.72,7.52,2.32,.31,.25,-.28);
  piece(box,navy,0,8.48,6.77,.7,.18,.55);piece(box,cream,0,8.72,6.47,.7,.54,.13);

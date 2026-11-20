@@ -1,4 +1,4 @@
-import {worldExtent} from "../public/world-extent.js";
+import {inGameWorld} from "../public/world-extent.js";
 import {interiorAt,interiorBounds} from "../public/interior-layout.js";
 import {PHOTO_REACH} from "../public/photo-mode.js";
 
@@ -11,7 +11,7 @@ const inRange=(value,min,max)=>Number.isFinite(value)&&value>=min&&value<=max;
 export function validPhoto(photo){
   const c=photo?.camera;
   return typeof photo?.id==="string"&&/^[a-f0-9]{32}$/.test(photo.id)&&c&&
-    inRange(c.x,worldExtent.minX,worldExtent.maxX)&&inRange(c.y,worldExtent.minY,worldExtent.maxY)&&
+    Number.isFinite(c.x)&&Number.isFinite(c.y)&&inGameWorld(c)&&
     inRange(c.height,.65,5.5)&&
     inRange(c.pan,0,360)&&inRange(c.tilt,-70,70)&&inRange(c.fov,32,82);
 }
