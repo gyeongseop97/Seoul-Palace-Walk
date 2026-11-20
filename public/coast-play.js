@@ -1,10 +1,9 @@
 import {voyageAt,inSailingArea} from "./coast-voyage.js";
-import {serviceSpot} from "./coast-vessel-layout.js";
 import {cruiseSeats,cruiseSeatById,cruiseSeatInReach,cruiseSeatHeading,cruiseSeatSpot} from "./coast-vessel-seats.js";
 import {nearScooterHub,canScoot} from "./coast-scooters.js";
 import {cafeLevel,cafeStep,cafeCounter,inCafeBounds,cafeGround} from "./coast-cafe.js";
 import {nearbyAmenity,changingRoom,rinseDuration} from "./beach-amenities.js";
-import {deckHeight,deckToSea,seaToDeck,nearHelm,helmStation,boardingSpot,mainFloor} from "./coast-vessel-layout.js";
+import {deckHeight,deckToSea,seaToDeck,nearHelm,helmStation,boardingSpot,mainFloor,serviceSpot,inWheelhouse,nearCruiseExit,cruiseAtBerth} from "./coast-vessel-layout.js";
 export {deckHeight} from "./coast-vessel-layout.js";
 import {busSeatPose} from "./sejong-bus.js";
 import {inPark,parkStep,hillFloor} from "./space-walk-layout.js";
@@ -32,6 +31,10 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
  const seatPending=()=>pending.some(c=>c.action==="deckSit"||c.action==="deckStand");
  const state=()=>me.coast??={mode:"walk",board:false};
  const clock=()=>now()/1000%14400;
+ const touring=()=>Boolean(boat.voyage&&boat.voyage.kind!=="drift"&&!ship.done);
+ const gangwayOpen=()=>ready&&!boat.helm&&!touring()&&cruiseAtBerth(ship);
+ const canDisembark=()=>state().mode==="deck"&&!state().deckSeat&&!seatPending()&&gangwayOpen()&&nearCruiseExit(deck);
+ const canStartTour=()=>state().mode==="deck"&&!state().deckSeat&&!seatPending()&&!boat.helm&&!touring()&&inWheelhouse(deck);
  function mark(){changed();}
  function relocate(p,heading){
   Object.assign(me,coastPoint(p),{vx:0,vy:0,blocked:false,running:false,up:false,groundSit:false});
@@ -99,11 +102,12 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
   }finally{inFlight=false;nextPoll=now()+(pending.length?250:boat.helm?450:1500);}
  }
  function enterDeck(){
+  if(state().mode!=="walk"||!gangwayOpen()||distance(seaPoint(me),dock)>=6)return;
   const s=state();s.mode="deck";s.floor=mainFloor;deck={...boardingSpot,h:mainFloor};speed=0;
   relocate(deckToSea(ship,deck,now()),180);nextPoll=0;
  }
  function leaveDeck(){
-  if(state().deckSeat||seatPending())return;
+  if(!canDisembark())return;
   state().mode="walk";deck=null;relocate({x:dock.x-1,z:dock.z});nextPoll=0;
  }
  function riderPose(s,time){
@@ -206,7 +210,7 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
  function menu(){
   const p=seaPoint(me),s=state(),v=visit(),t=now();actions=new Map();let hint="";
   if(!v)return {actions,hint};
-  const add=(id,label,run)=>actions.set(id,{label,run});
+  const add=(id,label,run,target)=>actions.set(id,{label,run,target});
   if(s.mode==="walk"&&inCafeBounds(p)&&(me.seat!=null||distance(p,cafeCounter)<2.6&&s.cafeFloor<cafeGround+.45)){
    add("cafeCoffee","커피 주문하기",()=>receiveFood("coffee"));
   }
@@ -243,32 +247,30 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
     command("exitBus");relocate(here,here.heading);
    });
   }else if(sailing){
-   const touring=boat.voyage&&boat.voyage.kind!=="drift"&&!ship.done;
-   const moored=!touring&&Math.abs(ship.speed??0)<.45&&distance(ship,mooring)<10;
    if(boat.helm===v.id){
     hint="앞뒤로 속도 조절 · 좌우로 조타";
     add("release","조타 놓기",()=>command("release"));
-    if(moored)add("moor","부두에 계류",()=>command("moor"));
-    else add("return","선착장으로 자동 귀항",()=>command("returnTrip"));
+    if(Math.abs(ship.speed??0)<.45&&distance(ship,mooring)<10)add("moor","정박하기",()=>command("moor"));
+    else add("return","자동 귀항",()=>command("returnTrip"));
    }else if(s.deckSeat){
     hint=cruiseSeatById.get(s.deckSeat)?.name??"크루즈 좌석";
-    add("deckStand","의자에서 일어나기",()=>command("deckStand"));
+    add("deckStand","일어나기",()=>command("deckStand"));
    }else{
     if(deck&&!seatPending()){
      const nearby=cruiseSeats.filter(seat=>cruiseSeatInReach(seat,deck.x,deck.z,deck.h)&&!deckSeats.some(row=>row.seat===seat.id));
      nearby.sort((a,b)=>distance(deck,a.approach)-distance(deck,b.approach));
      const seat=nearby[0];
-     if(seat)add("deckSit",seat.name+"에 앉기",()=>{
+     if(seat)add("deckSit","앉기",()=>{
       if(cruiseSeatInReach(seat,deck?.x,deck?.z,deck?.h))command("deckSit",{seat:seat.id});
-     });
+     },seat.id);
     }
-    if(!boat.helm&&!touring)add("tour","영일만 자동 유람",()=>command("tour"));
+    if(canStartTour())add("tour","자동 유람",()=>{if(canStartTour())command("tour");});
     if(deck&&Math.abs((deck.h??s.floor)-5.46)<.4&&distance(deck,serviceSpot)<2.0){
      add("wine","와인 받기",()=>receiveFood("wine"));
      add("cheese","치즈 받기",()=>receiveFood("cheese"));
     }
     if(!boat.helm&&nearHelm(deck))add("helm","조타 맡기",()=>{if(nearHelm(deck))command("helm");});
-    if(moored&&!boat.helm)add("disembark","부두로 내리기",leaveDeck);
+    if(canDisembark())add("disembark","내리기",leaveDeck);
    }
   }else if(s.mode==="table"&&tableSeat!=null){
    const table=Math.floor(tableSeat/4),order=orders.find(o=>o.spot===table);
@@ -284,7 +286,7 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
    }
    if(order?.rawClams>0&&!order.cookingClams)add("grill","조개 굽기",()=>command("tavernGrill",{table}));
    if(order?.cookingClams)hint="조개 굽는 중 · "+Math.max(0,Math.ceil((order.grillUntil-t)/1000))+"초";
-   add("stand","야장에서 일어나기",()=>command("stand"));
+   add("stand","일어나기",()=>command("stand"));
   }else{
    const platforms=s.mode==="walk"?harborStops.filter(h=>distance(h,p)<5.8).sort((a,b)=>distance(a,p)-distance(b,p)):[];
    const messages=[];
@@ -314,11 +316,11 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
      surfRide=mount?newSurfRide():null;delete s.surf;me.jump=0;me.vaultBase=null;mark();
     });
    }
-   if(ready&&distance(p,dock)<6&&distance(ship,mooring)<10&&Math.abs(ship.speed??0)<.45&&(!boat.voyage||boat.voyage.kind==="drift"||ship.done))add("embark","크루즈 승선",enterDeck);
+   if(s.mode==="walk"&&distance(p,dock)<6&&gangwayOpen())add("embark","크루즈 타기",enterDeck);
    if(ready){
     let nearest=null,best=3.6;
     for(const table of tables){const gap=distance(table,p);if(gap<best){nearest=table;best=gap;}}
-    if(nearest)add("table",(nearest.index+1)+"번 야장에 앉기",()=>command("sit",{table:nearest.index}));
+    if(nearest)add("table","앉기",()=>command("sit",{table:nearest.index}),nearest.index);
    }
   }
   const age=showAge(t,boat.festival);
@@ -335,7 +337,7 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
   }
   return {actions,hint};
  }
- return {ship,boat,menu,tick,canStep,afterMove,rideBoard,riderPose,selectSeat:(coach,seat,stop)=>command("board",{coach,seat,stop}),
+ return {ship,boat,menu,tick,canStep,afterMove,rideBoard,riderPose,gangwayOpen,selectSeat:(coach,seat,stop)=>command("board",{coach,seat,stop}),
   seatMap:(coach)=>({line:busLine(coach),bus:busAt(coach,now()/1000),occupied:riders.filter(row=>row.coach===coach).map(r=>r.seat)}),trigger:id=>actions.get(id)?.run(),get grills(){return grills;},get tavernOrders(){return orders;},
   speedScale:()=>state().mode==="swim"?.83:1,
   locked:()=>["bus","table"].includes(state().mode)||state().mode==="deck"&&Boolean(boat.helm===visit()?.id||state().deckSeat||seatPending()),

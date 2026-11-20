@@ -112,6 +112,7 @@ export function createCoastScene(root,play,walkers,kit){
   deckViewer=state.me.coast?.mode==="deck"?state.me.coast:null;orbitShip=Boolean(deckViewer&&play.boat.helm===id);
   cafeViewerFloor=state.me.coast?.cafeFloor;
   ship.position.set(b.x,attitude.heave,b.z);ship.rotation.set(attitude.pitch,b.yaw,attitude.roll,"YXZ");
+  ship.userData.setGangwayOpen(play.gangwayOpen());
   buses.update(lastClock,state.me);
   const players=[state.me,...state.peers];
   updateScooters(players,p);

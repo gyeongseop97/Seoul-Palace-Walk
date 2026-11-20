@@ -66,7 +66,7 @@ try{
  const seated=claims[0].id,waiting=ids.find(id=>id!==seated);
  assert.deepEqual((await sit(seated,otherAisle,opposite)).deckSeats,claims);
  assert.equal((await ask(seated,deck,"helm")).boat.helm,null);
- assert.equal((await ask(seated,aisle,"tour")).boat.voyage,null);
+ assert.equal((await ask(seated,deck,"tour")).boat.voyage,null);
  assert.equal((await sit(waiting,otherAisle,opposite)).deckSeats.length,2);
  assert.deepEqual((await ask(seated,aisle,"deckStand")).deckSeats.map(s=>s.id),[waiting]);
  assert.deepEqual((await ask(waiting,dock)).deckSeats,[]);
@@ -79,6 +79,9 @@ try{
  await ask(seated,aisle,"deckStand");
  const bow=onboard({x:0,z:19.15},2.46);
  assert.equal((await ask(ids[0],bow)).people.find(p=>p.id===ids[0]).deckZ,bow.deckZ);
+ for(const spot of [bow,aisle,onboard({x:0,z:4},2.46),onboard({x:0,z:2.6},7.85)]){
+  assert.equal((await ask(ids[0],spot,"tour")).boat.voyage,null);
+ }
  assert.equal((await ask(ids[0],{...deckToSea({...mooring,yaw:0},boardingSpot,clock),mode:"deck",floor:2.46},"helm")).boat.helm,null);
  assert.equal((await ask(ids[0],deck,"helm")).boat.helm,ids[0]);
  assert.deepEqual((await sit(ids[0],aisle)).deckSeats,[]);

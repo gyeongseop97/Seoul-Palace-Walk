@@ -1,4 +1,4 @@
-import {clamp,mooring,wave} from "./pohang-layout.js";
+import {clamp,dock,mooring,wave} from "./pohang-layout.js";
 import {cruiseFurnitureBlocks} from "./coast-vessel-seats.js";
 
 export const bridge={aft:2.75,front:8.65,half:2.55,door:.83,floor:7.85};
@@ -28,10 +28,26 @@ export function mainDeckRailHalfWidth(z,clearance=0){
  }
  return Math.max(0,half);
 }
-export const boardingSpot={x:-4.48,z:0};
+export const exitGate={x:-mainDeckRail.half,z:0,half:.85,run:1.30,drop:.62};
+export const boardingSpot={x:exitGate.x+.57,z:exitGate.z};
+export function nearCruiseExit(p){
+ return Boolean(p&&Math.abs(p.h-mainFloor)<.15&&Math.abs(p.z-exitGate.z)<exitGate.half+.15&&
+  p.x< -salonSideHalfWidth(p.z)-.24&&p.x> -mainDeckRailHalfWidth(p.z,.26));
+}
+export function cruiseAtBerth(ship){
+ if(!ship||Math.abs(ship.speed??0)>=.01||Math.cos(ship.yaw)<.985)return false;
+ // The foot of the lowered gangway must land on the pier, clear of its outer posts.
+ const span=(exitGate.x-exitGate.run)*cruiseScale;
+ const x=ship.x+span*Math.cos(ship.yaw),z=ship.z-span*Math.sin(ship.yaw);
+ return x>=dock.x-1.40&&x<=dock.x-.06&&Math.abs(z-dock.z)<.85;
+}
 export const helmStation={x:-.46,z:6.15};
 export const serviceSpot={x:-1.56,z:-8.24};
 export const nearHelm=p=>p&&(p.h==null||p.h>7.7)&&Math.hypot(p.x-helmStation.x,p.z-helmStation.z)<1.15;
+export function inWheelhouse(p){
+ return Boolean(p&&Math.abs(p.h-bridge.floor)<.15&&p.z>bridge.aft+.23&&p.z<=bridge.front-.27&&
+  Math.abs(p.x)<=bridge.half-.25&&deckHeight(p,p.h)===bridge.floor);
+}
 function lowerDeck(p){
  const x=Math.abs(p.x);
  if(p.z< -16.55||x>=mainDeckRailHalfWidth(p.z,.26))return null;

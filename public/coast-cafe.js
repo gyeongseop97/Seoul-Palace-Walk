@@ -9,7 +9,7 @@ export const cafeSeats=[cafeGround,cafeRoof].flatMap(floor=>[-13,-6.8,6.4].map(x
 })));
 export const cafeBenches=cafeSeats.map(({x,z,floor,yaw})=>{
  const seatPoint=(dx,dz)=>coastPoint(cafePoint(x+Math.cos(yaw)*dx+Math.sin(yaw)*dz,z-Math.sin(yaw)*dx+Math.cos(yaw)*dz));
- return {...seatPoint(0,0),cafe:floor===cafeRoof?"테라스에 앉기":"창가에 앉기",
+ return {...seatPoint(0,0),
   slots:[-.64,.64].map(dx=>({...seatPoint(dx,0),heading:(180-(cafeFace.yaw+yaw)*180/Math.PI+360)%360,
    cafeFloor:floor,top:floor+.49,approach:seatPoint(dx,-.78)}))};
 });

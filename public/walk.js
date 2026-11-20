@@ -1554,7 +1554,7 @@ function benchNearby(){
       for(const {avatar} of people.values()){
         if(avatar.seat===index&&(avatar.seatSide??0)===side&&inCoastSpace(avatar)===onCoast)return;
       }
-      choice={bench:index,side,approach:slot.approach,footBath:slot.footBath,beach:bench.beach,cafe:bench.cafe};gap=distance;
+      choice={bench:index,side,approach:slot.approach,footBath:slot.footBath};gap=distance;
     });
   });
   return {choice,nearby};
@@ -2659,7 +2659,11 @@ function tasteCoastFood(kind){
 }
 function updateCoastActivities(){
  const {actions,hint}=coastPlay.menu();
- for(const id of coastModule.coastActions)setActivity("coast-"+id,actions.get(id)?.label);
+ for(const id of coastModule.coastActions){
+  const action=actions.get(id),buttonId="coast-"+id;
+  setActivity(buttonId,action?.label);
+  if(action?.target!=null)attr($(buttonId),"data-action-target",action.target);
+ }
  setText($("location"),region.coastName(me));
  const caption=$("coast-status");caption.hidden=!hint;if(hint)setText(caption,hint);
 }
@@ -3145,7 +3149,7 @@ function updateActivities(time,guideNearby){
   }
   $("gesture-open").disabled=!gestureReady(time);
   $("ground-sit").disabled=$("gesture-open").disabled||Boolean(arcade.kind||bungeoMode||me.seat!=null||seatClaim||me.coast?.deckSeat);
-  setText($("ground-sit"),me.groundSit?"일어나기":"제자리에 앉기");
+  setText($("ground-sit"),me.groundSit?"일어나기":"앉기");
   if(!$("gesture-menu").hidden)for(const button of gestureButtons)button.disabled=!gestureReady(time,button.dataset.gesture);
   const eligible=world&&session&&!me.bus&&!isCycling(me)&&!queuedBus&&!queuedBike;
   updateSocial(time,eligible);
@@ -3490,7 +3494,7 @@ function frame(now){
     const eating=mealBiteLocked(time);
     const seatLabel=me.seat!=null?(eating?"식사 중":"일어나기"):seatClaim?"자리 확인 중":pendingSeat?
       (pendingSeat.footBath?"물가로 이동 중":diningById[interiorAt(me.x,me.y)]?"식탁으로 이동 중":"벤치로 이동 중"):
-      bench?.choice?(bench.choice.cafe??(bench.choice.footBath?"발 담그고 앉기":bench.choice.beach?"파라솔 의자에 앉기":"앉기")):bench?.nearby?"빈자리 없음":null;
+      bench?.choice?"앉기":bench?.nearby?"빈자리 없음":null;
     setActivity("sit",seatEnabled?seatLabel:null,eating||me.seat==null&&!bench?.choice);
     const seatTarget=me.seat!=null?"leave-"+me.seat:bench?.choice?"sit-"+bench.choice.bench:"pending";
     attr($("sit"),"data-action-target",seatTarget);

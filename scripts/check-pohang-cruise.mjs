@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {deckHeight,deckToSea,seaToDeck,boardingSpot,mainFloor,serviceSpot,helmStation,nearHelm,hullAttitude} from "../public/coast-vessel-layout.js";
+import {deckHeight,deckToSea,seaToDeck,boardingSpot,mainFloor,serviceSpot,helmStation,nearHelm,hullAttitude,nearCruiseExit,cruiseAtBerth,inWheelhouse,bridge} from "../public/coast-vessel-layout.js";
 import {cruiseSeats} from "../public/coast-vessel-seats.js";
 import {mooring} from "../public/pohang-layout.js";
 
@@ -44,6 +44,17 @@ assert.equal(deckHeight(at(-1.74,2.75),7.85),null);
 assert.equal(deckHeight(at(0,7.35),7.85),null);
 assert.equal(nearHelm({...helmStation,h:mainFloor}),false);
 assert.equal(nearHelm({...helmStation,h:7.85}),true);
+assert(nearCruiseExit({...boardingSpot,h:mainFloor}));
+for(const p of [boardingSpot,{...boardingSpot,h:5.46},{x:0,z:0,h:mainFloor},{...boardingSpot,z:2,h:mainFloor},{x:-boardingSpot.x,z:0,h:mainFloor}]){
+ assert.equal(nearCruiseExit(p),false);
+}
+assert(inWheelhouse({x:0,z:4,h:bridge.floor}));
+assert.equal(inWheelhouse({x:0,z:bridge.aft-.1,h:bridge.floor}),false);
+assert.equal(inWheelhouse({x:0,z:4,h:mainFloor}),false);
+assert(cruiseAtBerth({...mooring,yaw:0,speed:0}));
+for(const ship of [{...mooring,yaw:Math.PI},{...mooring,yaw:0,z:mooring.z+3},{...mooring,yaw:0,speed:.2}]){
+ assert.equal(cruiseAtBerth(ship),false);
+}
 const docked=hullAttitude({...mooring,yaw:0},clock);
 assert(Math.abs(docked.pitch)<.003&&Math.abs(docked.roll)<.004);
 console.log("Verified all three bow routes in both directions, rail and window collision, every chair approach, three connected decks, helm and hull motion.");

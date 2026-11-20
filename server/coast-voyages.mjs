@@ -1,4 +1,4 @@
-import {nearHelm,seaToDeck,deckToSea,deckHeight} from "../public/coast-vessel-layout.js";
+import {nearHelm,inWheelhouse,seaToDeck,deckToSea,deckHeight} from "../public/coast-vessel-layout.js";
 import {cruiseSeatById,cruiseSeatInReach} from "../public/coast-vessel-seats.js";
 import {inSailingArea,voyageAt} from "../public/coast-voyage.js";
 import {clamp,mooring,distance} from "../public/pohang-layout.js";
@@ -56,9 +56,9 @@ export async function appendVesselOps(ops,read,room,id,p,coast,now){
      WHERE NOT EXISTS(SELECT 1 FROM coast_harbor WHERE room=? AND helm=?)`,room,seat.id,id,now,room,id));
    }
   }else{
-   const local=seaToDeck(current,p,now,p.floor),height=deckHeight(local,p.floor);
-   const helmReach=nearHelm({...local,h:p.floor})&&(!Number.isFinite(p.floor)||Math.abs(p.floor-7.85)<.45);
-   const allowed=cmd==="helm"?helmReach:height!=null&&(!current.voyage||current.voyage.kind==="drift"||current.done);
+   const local={...seaToDeck(current,p,now,p.floor),h:p.floor};
+   const helmReach=nearHelm(local)&&(!Number.isFinite(p.floor)||Math.abs(p.floor-7.85)<.45);
+   const allowed=cmd==="helm"?helmReach:inWheelhouse(local)&&(!current.voyage||current.voyage.kind==="drift"||current.done);
    if(!current.helm&&allowed){
     // Concurrent passengers see one pilot or one tour, with a continuous handover position.
     const stamp=old?.started??0;

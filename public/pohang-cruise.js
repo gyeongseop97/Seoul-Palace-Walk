@@ -1,5 +1,5 @@
 import * as T from "three";
-import {bridge,cruiseHullStations,helmStation,mainDeckRail,salonBowDoor,salonSideHalfWidth,salonTaperStart} from "./coast-vessel-layout.js";
+import {bridge,cruiseHullStations,exitGate,helmStation,mainDeckRail,mainFloor,salonBowDoor,salonSideHalfWidth,salonTaperStart} from "./coast-vessel-layout.js";
 import {cruiseSeats,cruiseTables} from "./coast-vessel-seats.js";
 // Three connected decks aboard a 51 m excursion yacht.
 export function makeCruise(){
@@ -77,13 +77,61 @@ export function makeCruise(){
   for(let i=0;i<4;i++)piece(box,cream,side*3.36,6.7,-3.5+i*1.55,.15,1.55,.16,.15);
   for(let i=0;i<12;i++){const m=0.78+.22*Math.sin((i+1)/14*Math.PI);piece(ball,0x7c9cab,side*5.01*m,1.18,-13+i*2.04,.17,.23,.39);}
   for(const [height,w,z0,z1] of [[2.48,mainDeckRail.half,mainDeckRail.aft,mainDeckRail.front],[5.44,4.26,-13.05,12.75]]){
-   const edge=outline(w,z0,z1);for(let i=1;i<edge.length;i++){const [x,z]=edge[i-1],[u,v]=edge[i],a=x*side,b=u*side;
-    for(const dy of [.49,1])beam([a,height+dy,z],[b,height+dy,v],dy===1?.057:.032,dy===1?brass:cream);
-    const n=Math.ceil((v-z)/1.8);for(let k=0;k<n;k++){const f=k/n;piece(cyl,cream,a+(b-a)*f,height+.5,z+(v-z)*f,.035,1,.035);}
+   const edge=outline(w,z0,z1);for(let i=1;i<edge.length;i++){const [x,z]=edge[i-1],[u,v]=edge[i];
+    const railX=at=>side*(x+(u-x)*(at-z)/(v-z));
+    const spans=side===-1&&w===mainDeckRail.half?
+     [[z,Math.min(v,exitGate.z-exitGate.half)],[Math.max(z,exitGate.z+exitGate.half),v]]:[[z,v]];
+    for(const [start,end] of spans){
+     if(start>=end)continue;
+     for(const dy of [.49,1])beam([railX(start),height+dy,start],[railX(end),height+dy,end],dy===1?.057:.032,dy===1?brass:cream);
+     const bays=Math.ceil((end-start)/1.8);
+     for(let k=0;k<bays;k++){
+      const at=start+(end-start)*k/bays;
+      if(side===-1&&w===mainDeckRail.half&&at===exitGate.z+exitGate.half)continue;
+      piece(cyl,cream,railX(at),height+.5,at,.035,1,.035);
+     }
+    }
    }}
   beam([side*2.9,5.52,-5.1],[side*2.65,7.9,-6.4],.12,cream);
   piece(box,0xe1b77c,side*4.23,2.52,-5,.09,.1,11);
  }
+ // The port gangway bridges the drop to the pier and folds up across the opening at sea.
+ const {x:gateX,z:gateZ,half:gateHalf,run,drop}=exitGate,portalTop=mainFloor+2.14;
+ const uprightHeight=portalTop-mainFloor-.215;
+ for(const side of [-1,1]){
+  piece(box,cream,gateX,mainFloor+uprightHeight/2,gateZ+side*gateHalf,.10,uprightHeight,.10);
+  piece(box,brass,gateX,mainFloor+.54,gateZ+side*gateHalf,.14,.12,.14);
+ }
+ const green=0x185743;
+ piece(box,green,gateX,portalTop,gateZ,.10,.43,gateHalf*2+.12);
+ piece(box,green,gateX+.35,portalTop,gateZ+gateHalf,.79,.37,.07);
+ if(typeof document!=="undefined"){
+  const label=document.createElement("canvas");label.width=384;label.height=128;
+  const ink=label.getContext("2d");ink.fillStyle="#185743";ink.fillRect(0,0,label.width,label.height);
+  ink.strokeStyle="#99c6ad";ink.lineWidth=3;ink.strokeRect(6,6,372,116);
+  ink.fillStyle="#fffdf2";ink.font='bold 86px "Malgun Gothic", sans-serif';ink.textAlign="center";ink.textBaseline="middle";
+  ink.fillText("출구",192,67);
+  const map=new T.CanvasTexture(label);map.colorSpace=T.SRGBColorSpace;
+  const face=new T.MeshBasicMaterial({map});
+  function placard(x,z,width,height,yaw){
+   const m=new T.Mesh(panePlane,face);m.position.set(x,portalTop,z);m.scale.set(width,height,1);m.rotation.y=yaw;root.add(m);
+  }
+  for(const side of [-1,1]){
+   placard(gateX+side*.052,gateZ,1.54,.401,side*Math.PI/2);
+   placard(gateX+.35,gateZ+gateHalf+side*.037,.76,.353,side===1?0:Math.PI);
+  }
+ }
+ const gangway=new T.Group(),length=Math.hypot(run,drop);
+ gangway.name="port-gangway";gangway.position.set(gateX,mainFloor,gateZ);root.add(gangway);
+ function gangwayPart(m,x,y,z,w,h,d){
+  const layer=new T.Mesh(box,m);layer.position.set(x,y,z);layer.scale.set(w,h,d);gangway.add(layer);
+ }
+ const tread=material(0x566365),trim=material(0xc9ab69);
+ gangwayPart(tread,-length/2,-.04,0,length,.08,gateHalf*2-.16);
+ for(const side of [-1,1])gangwayPart(trim,-length/2,.009,side*(gateHalf-.105),length,.014,.043);
+ for(let i=1;i<=6;i++)gangwayPart(trim,-length*i/7,.013,0,.027,.016,gateHalf*2-.31);
+ root.userData.setGangwayOpen=open=>{gangway.rotation.z=open?Math.atan2(drop,run):-Math.PI/2;};
+ root.userData.setGangwayOpen(false);
  // Close the handrail across the narrow stem and behind the aft deck seats.
  for(const [z,half] of [[mainDeckRail.front,mainDeckRail.half*stations.at(-1)[1]],
                         [mainDeckRail.aft,mainDeckRail.half*stations[0][1]]]){
