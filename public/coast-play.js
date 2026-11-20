@@ -1,6 +1,6 @@
 import {voyageAt,inSailingArea} from "./coast-voyage.js";
 import {serviceSpot} from "./coast-vessel-layout.js";
-import {cruiseSeats,cruiseSeatById,cruiseSeatInReach,cruiseSeatHeading} from "./coast-vessel-seats.js";
+import {cruiseSeats,cruiseSeatById,cruiseSeatInReach,cruiseSeatHeading,cruiseSeatSpot} from "./coast-vessel-seats.js";
 import {nearScooterHub,canScoot} from "./coast-scooters.js";
 import {cafeLevel,cafeStep,cafeCounter,inCafeBounds,cafeGround} from "./coast-cafe.js";
 import {nearbyAmenity,changingRoom,rinseDuration} from "./beach-amenities.js";
@@ -62,7 +62,7 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
     const assigned=cruiseSeatById.get(deckSeats.find(row=>row.id===v.id)?.seat);
     const previous=cruiseSeatById.get(s.deckSeat);
     if(assigned!==previous){
-     const seat=assigned??previous,spot=assigned??previous.approach;
+     const seat=assigned??previous,spot=assigned?cruiseSeatSpot(assigned):previous.approach;
      deck={x:spot.x,z:spot.z,h:seat.floor};
      Object.assign(s,{deckX:deck.x,deckZ:deck.z,floor:deck.h});
      if(assigned)s.deckSeat=seat.id;else delete s.deckSeat;

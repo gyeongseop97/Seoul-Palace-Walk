@@ -7,7 +7,7 @@ import {cafeBenches,cafeLevel,pickCafe} from "./coast-cafe.js";
 import {breaststroke,swimSeed,swimStroke} from "./beach-swimming.js";
 import {surferPose,boardAttitude} from "./coast-surfing.js";
 import {hullAttitude,deckToSea,seaToDeck,deckHeight,cruiseScale,mainFloor,salonBowDoor,salonSideHalfWidth} from "./coast-vessel-layout.js";
-import {cruiseSeatById,cruiseSeatHeading} from "./coast-vessel-seats.js";
+import {cruiseSeatById,cruiseSeatHeading,cruiseSeatSpot} from "./coast-vessel-seats.js";
 export {coastVisitors} from "./coast-visitors.js";
 import {coastObstacle} from "./coast-region.js";
 import {pickSpaceWalk} from "./space-walk-navigation.js";
@@ -88,7 +88,7 @@ export function createCoastScene(root,play,walkers,kit){
  function cruiseSeatPose(id){
   const seat=cruiseSeatById.get(id);
   if(!seat)return null;
-  const top=deckToSea(play.ship,seat,lastClock,seat.floor+seat.seatHeight);
+  const top=deckToSea(play.ship,cruiseSeatSpot(seat),lastClock,seat.floor+seat.seatHeight);
   return {...coastPoint(top),top:top.h,heading:cruiseSeatHeading(play.ship,seat)};
  }
  function surface(p){

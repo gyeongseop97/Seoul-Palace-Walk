@@ -51,6 +51,11 @@ export function cruiseFurnitureBlocks(p, floor) {
 }
 
 export const cruiseSeatById = new Map(cruiseSeats.map(s => [s.id, s]));
+export function cruiseSeatSpot(seat) {
+  // Keep the hips on the cushion with the lower legs clear of its front edge.
+  const forward = seat.depth / 2 - .11;
+  return {x: seat.x + Math.sin(seat.yaw) * forward, z: seat.z + Math.cos(seat.yaw) * forward};
+}
 export function cruiseSeatInReach(seat, x, z, floor) {
   return Boolean(seat && Math.abs(floor - seat.floor) < .22 &&
     Math.hypot(x - seat.approach.x, z - seat.approach.z) < 1.05);
