@@ -340,6 +340,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   benches.push(...cheonggyeSeats);
   registerDiningNavigation(benches,[stationDining]);
   registerRailFurniture(addObstacle,benches);
+  if(seaside)benches.splice(0,benches.length,...seaside.benches);
   const museum={outsideDoor:museumOutsideDoor,insideDoor:museumInsideDoor,insideSpawn:museumInsideSpawn,
     id:"museum",name:"덕수궁 전시관",outsideName:"석조전 서관",isInside:isInsideMuseum,floorAt:stairHeight,exhibits:[]};
   const amenity=(point,label)=>({...point,kind:"activity",label});
@@ -871,9 +872,10 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   function seatAt(position,clock){
     const bus=position.bus&&busAt(position.bus.index,clock),pose=bus&&busSeatPose(bus,position.bus.seat);
     if(pose)return {...pose,base:BUS_FLOOR+.015+busGround(bus)};
-    if(coast&&position.coast?.mode==="table")return {x:position.x,y:position.y,heading:position.heading,base:1.9};
+    if(seaside&&position.coast?.mode==="table")return {x:position.x,y:position.y,heading:position.heading,base:footBathSeatBase(seaside.tavernStoolTop)};
     if(coast&&position.coast?.mode==="bus")return {x:position.x,y:position.y,heading:position.heading,base:2.72};
     const seat=benches[position.seat]?.slots[position.seatSide??0];
+    if(seat?.beach||seat?.cafeFloor!=null)return {...seat,base:footBathSeatBase(seat.top)};
     if(!seat&&position.groundSit&&!isCycling(position))return {x:position.x,y:position.y,heading:position.heading,
       base:footBathSeatBase(floorHeight(position)),ground:true};
     if(seat?.footBath)return {...seat,base:footBathSeatBase(outsideGroundOffset(seat)+seat.base)};
@@ -1111,7 +1113,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     picnicWorld.update(indoors?null:anchor,state.picnics);
     const weather=state.environment&&resolveSeoulEnvironment(state.environment,clock);
     const ease=environmentShown?Math.min(1,delta*4.2):1;
-    const targetNight=seaside?.festival(clock)&&Math.abs(wx(anchor.x))<1500&&state.environment?.time==="auto"?1:weather?.night??Number(Boolean(view.night));
+    const targetNight=weather?.night??Number(Boolean(view.night));
     night+=(targetNight-night)*ease;
     environmentShown=true;
     for(const key of ["cloud","rain","snow","windX","windZ","fog","twilight"]){
@@ -1287,6 +1289,10 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     }
     const diners=new Map(service.map(ticket=>[ticket.player,ticket]));
     function diningPose(player){
+      const taste=player.coast?.tasting;
+      if(player.coast?.mode==="table"&&taste&&["soju","sashimi","grilledClam"].includes(taste.kind)&&clock>=taste.at&&clock-taste.at<1500){
+        return {...player,item:{kind:taste.kind,remaining:0,started:taste.at},itemUse:"item"};
+      }
       const ticket=diners.get(player.id);
       if(!ticket?.kind||!(ticket.phase==="carrying"||ticket.phase==="served"&&ticket.table.seat===player.seat&&
         ticket.table.side===(player.seatSide??0)*2-1))return player;
@@ -1363,6 +1369,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     minigameWorld.live(models,indoors||state.photoCapture?null:state.minigameAimPreview);
     const seat=seatAt(anchor,clock),bus=anchor.bus&&busAt(anchor.bus.index,clock);
     const coastBus=coast&&anchor.coast?.mode==="bus";
+    const atCoastHelm=coast&&anchor.coast?.mode==="deck"&&coast.play.boat.helm===anchor.id;
+    const shipOrbit=atCoastHelm&&!firstPerson;
     const outsideBus=(bus||coastBus)&&!firstPerson;
     const floor=seat?0:footing(anchor.bikeDriverPosition??anchor);
     const fallWeight=firstPerson?(bikeFallAt(anchor,clock)?.weight??0):0;
@@ -1372,6 +1380,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       (firstPerson?1.28:1.20)+floor+renderedJumpLift(anchor,clock,floor)+(isCycling(anchor)?.12:0)-fallWeight*.87;
     const cameraPoint=outsideBus&&bus?bus:seat??anchor;
     anchorPoint.set(wx(cameraPoint.x),eyeHeight+(seaside?.watchLift()??0),wz(cameraPoint.y));
+    if(shipOrbit)anchorPoint.set(coast.play.ship.x,5.1,coast.play.ship.z);
     const anchorKey=bus?`${anchor.id}-${bus.index}-${firstPerson}`:anchor.bikeRide?.driver??anchor.id;
     const changed=cameraAnchor!==anchorKey||pivot.distanceToSquared(anchorPoint)>144;
     if(changed||firstPerson&&(bus||isBikePassenger(anchor)))pivot.copy(anchorPoint);
@@ -1387,16 +1396,16 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       pivot.y=Math.min(pivot.y,anchorGrade+anchorRoof-.20);
     }
     const tightStreamView=!firstPerson&&approachRoof!=null&&anchorPoint.y<anchorGrade+approachRoof-.05;
-    const zoomFov=baseFov-view.zoom*(firstPerson?6:1.7);
+    const zoomFov=atCoastHelm?(firstPerson?78:67)-view.zoom*2:baseFov-view.zoom*(firstPerson?6:1.7);
     if(Math.abs(zoomFov-camera.fov)>.01){
       camera.fov+=(zoomFov-camera.fov)*(1-Math.exp(-delta*12));
       camera.updateProjectionMatrix();
     }
     const viewPitch=firstPerson?Math.max(-87,Math.min(65,view.tilt)):
-      Math.max(-83,Math.min(62,(outsideBus?23:14)+(view.tilt<0?view.tilt*1.22:view.tilt)));
+      Math.max(-83,Math.min(62,(shipOrbit?24:outsideBus?23:14)+(view.tilt<0?view.tilt*1.22:view.tilt)));
     const bathView=!firstPerson&&seat?.footBath;
     const pitch=tightStreamView?Math.max(20,Math.min(41,viewPitch)):bathView?Math.max(23,viewPitch):viewPitch;
-    const orbitPitch=firstPerson?pitch:Math.max(outsideBus?4:coachSeat?9:-10,pitch);
+    const orbitPitch=firstPerson?pitch:Math.max(shipOrbit?8:outsideBus?4:coachSeat?9:-10,pitch);
     const elevation=orbitPitch*Math.PI/180;
     const horizontal=Math.cos(elevation);
     arm.set(-Math.sin(angle)*horizontal,Math.sin(elevation),Math.cos(angle)*horizontal);
@@ -1407,7 +1416,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       cameraDistance=0;
     }else{
       const ceiling=insideId==="ktx-coach"?2.4:sameStation(insideId,"station-hall")?(railHeight(anchor.x,anchor.y)??0)+8:arcadeFloors.has(insideId)?3.74:diningById[insideId]?4.5:4.97;
-      const distance=Math.min(outsideBus?11.8-view.zoom*1.15:4.55-view.zoom*.42,
+      const distance=Math.min(shipOrbit?42-view.zoom*3:outsideBus?11.8-view.zoom*1.15:4.55-view.zoom*.42,
         indoors&&arm.y>0?(ceiling-pivot.y)/arm.y:Infinity,tightStreamView?2.36:bathView?3.3:Infinity);
       let available=distance;
       // Shorten the orbit arm at walls and let it ease back out as space opens.
@@ -1645,7 +1654,9 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     if(!pointRay(clientX,clientY))return null;
     if(guideMarker.visible&&ray.intersectObject(guideMarker,false).length)return {...ticketGuide.approach,guide:true};
     if(showMarker.visible&&ray.intersectObject(showMarker,false).length)return {x:plazaShowSpot.x,y:plazaShowSpot.y};
+    const trackHit=seaside?.pickTrack(ray.ray);
     for(let step=.25;step<=105;step+=.25){
+      if(trackHit&&step>=trackHit.distance)return trackHit.point;
       ray.ray.at(step,sample);
       const point={x:sample.x+origin.x,y:sample.z+origin.y,up:cameraOnBridge};
       const deck=approachAt(point.x,point.y);

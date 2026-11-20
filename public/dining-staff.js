@@ -112,6 +112,7 @@ export function buildDiningKitchen(T,room,kit,venue){
 }
 
 const uniforms={
+  "coast-tavern":{character:"woman",hair:"bob",eyes:"soft",outfit:"tee",shirt:0xeadac2,apron:0x375f64,hat:0xdfcaaa},
   "station-foodhall":{character:"woman",hair:"bob",eyes:"soft",outfit:"tee",shirt:0xd4e1de,apron:0x385565,hat:0xe9dcc8},
   "bukchon-dining":{character:"woman",hair:"bob",eyes:"soft",outfit:"tee",shirt:0xc1a988,apron:0x425a4d,hat:0xefdec1},
   "jeongdong-dining":{character:"man",hair:"short",eyes:"round",outfit:"tee",shirt:0x687c6b,apron:0x2b504a,hat:0xe1d6c3},
@@ -153,14 +154,23 @@ function addUniform(T,kit,model,uniform,venue){
   }
 }
 
-function makeHuman(T,room,kit,venue,walkerModels){
+export function makeDiningHuman(T,room,kit,venue,walkerModels,staffIndex){
   const {box,cylinder,shape}=kit;
   const uniform=uniforms[venue.id];
-  const model=walkerModels.create(uniform.shirt,null,null,venue.id);
+  const model=walkerModels.create(uniform.shirt,null,null,staffIndex==null?venue.id:venue.id+"-"+staffIndex);
   model.group.name=venue.name+" 직원";
   room.add(model.group);
   addUniform(T,kit,model,uniform,venue);
   const [left,right]=model.arms;
+  let serviceTray=null;
+  if(venue.id==="coast-tavern"){
+    serviceTray=new T.Group();serviceTray.position.set(0,.92,.44);model.group.add(serviceTray);
+    box(0x77503a,0,0,0,.53,.036,.37,serviceTray);
+    cylinder(0xe8dac1,-.092,.032,.02,.111,.026,12,serviceTray);
+    for(let i=0;i<3;i++)box(0xe3a183,-.15+i*.052,.058,0,.04,.039,.084,serviceTray);
+    cylinder(0x3f7651,.135,.104,-.018,.039,.18,12,serviceTray);
+    cylinder(0x407554,.135,.216,-.018,.020,.06,12,serviceTray);
+  }
   const notice=new T.Group();notice.position.set(.06,-.035,.091);left.end.add(notice);
   box(0x67503b,0,0,0,.221,.018,.242,notice);
   box(0xf1dfb8,0,.012,0,.188,.009,.212,notice);
@@ -174,13 +184,19 @@ function makeHuman(T,room,kit,venue,walkerModels){
 
   function update(state,clock,ticket,delta){
     const {x,z,face,walking,cooking,writing,carrying}=state;
-    const kind=carrying?ticket?.kind:null;
+    const kind=carrying&&!serviceTray?ticket?.kind:null;
     const time=clock/1000;
     walkerModels.update(model,{x:venue.center.x+x,y:venue.center.y+z,heading:180-face*180/Math.PI,
       look:uniform,character:uniform.character,stepping:walking,item:kind?{kind,remaining:1}:null},
       {now:clock,clock,delta,turnEase:Math.min(1,delta*20)});
     // The shared rig gets world coordinates for its stride; the room already carries the world transform.
     model.group.position.set(x,0,z);
+    if(serviceTray){
+      serviceTray.visible=Boolean(carrying);
+      if(carrying)for(const [i,arm] of model.arms.entries()){
+        arm.upper.rotation.set(-.89,0,i?-.12:.12);arm.lower.rotation.x=-.73;
+      }
+    }
     if(kind&&ticket.phase==="returning")model.showTray(kind,-1,0);
     notice.visible=pencil.visible=writing;spoon.visible=cooking;
     if(writing){
@@ -242,7 +258,7 @@ function makeRobot(T,root,kit){
 }
 
 export function makeDiningStaff(T,room,kit,venue,walkerModels){
-  const human=makeHuman(T,room,kit,venue,walkerModels);
+  const human=makeDiningHuman(T,room,kit,venue,walkerModels);
   const robot=venue.service==="robot"?makeRobot(T,room,kit):null;
   const dishes=robot?makeDiningDishes(T,kit):null;
   const servings=new Map();

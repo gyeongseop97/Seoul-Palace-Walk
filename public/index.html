@@ -110,7 +110,11 @@
           <label class="graphics-setting">그래픽 품질
             <select id="graphics-quality"><option value="high">고품질</option><option value="medium">중간</option><option value="low">저품질</option></select>
           </label>
-          <button id="sound" class="quiet" type="button" aria-pressed="true" title="소리 켜기와 끄기">소리</button>
+          <div id="sound-setting" class="sound-setting" data-native-touch>
+            <button id="sound" class="quiet" type="button" aria-label="게임 소리" aria-pressed="true">소리 켜짐</button>
+            <label for="sound-volume">음량 <output id="sound-level" for="sound-volume">55%</output></label>
+            <input id="sound-volume" type="range" min="0" max="100" step="1" value="55">
+          </div>
           <button id="night" class="quiet" type="button" aria-haspopup="dialog" aria-controls="environment-dialog">시간·날씨</button>
           <button id="character" class="quiet" type="button" aria-haspopup="dialog" aria-controls="character-dialog">캐릭터</button>
           <button id="photo-mode-open" class="quiet" type="button" aria-controls="photo-controls">사진 모드<small>화면을 톡 누르면 도구 열기</small></button>
@@ -447,6 +451,25 @@
     </form>
     <div id="boat-letter" hidden><p id="boat-author"></p><blockquote id="boat-message"></blockquote></div>
   </dialog>
+  <dialog id="beach-changing" aria-labelledby="beach-changing-title">
+    <div class="dialog-top"><h2 id="beach-changing-title">해변 탈의실</h2><button class="quiet close" type="button" aria-label="닫기">×</button></div>
+    <div id="beach-swimwear"></div>
+  </dialog>
+  <dialog id="tavern-menu" aria-labelledby="tavern-menu-title">
+    <div class="dialog-top"><h2 id="tavern-menu-title">바다야장 차림표</h2>
+      <button class="quiet close" type="button" aria-label="닫기">×</button>
+    </div>
+    <p>한 상에 함께 받을 음식을 골라 주세요.</p>
+    <div id="tavern-selection"></div>
+    <button class="primary" id="tavern-submit" type="button">한 번에 주문하기</button>
+  </dialog>
+  <dialog id="coast-shop-dialog" aria-labelledby="coast-shop-title">
+    <div class="dialog-top">
+      <h2 id="coast-shop-title">편의점</h2>
+      <button class="quiet close" type="button" aria-label="닫기">×</button>
+    </div>
+    <div id="coast-shop-stock"></div>
+  </dialog>
   <dialog id="bus-seat-dialog" aria-labelledby="bus-seat-title" aria-describedby="bus-seat-time">
     <div class="dialog-top">
       <h2 id="bus-seat-title">버스 좌석 고르기</h2>
@@ -545,9 +568,9 @@
       <li id="yi-stl-credit" hidden>이순신 장군상 · <a href="https://www.thingiverse.com/thing:233665" target="_blank" rel="noopener">Andrea / RenatoT 원본</a> · <a href="https://www.thingiverse.com/thing:234161" target="_blank" rel="noopener">downeym 수정본</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.ko" target="_blank" rel="noopener">CC BY-SA 4.0</a> · 받침 제거, 실물 비율 조정, 경량화 및 청동 재질 적용</li>
       <li><a href="https://mediahub.seoul.go.kr/archives/2001581" target="_blank" rel="noopener">서울시 세종대로 사람숲길</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap 기여자</a></li>
       <li>구서울역사 공간과 평면 · <a href="https://www.kcdf.or.kr/cms/content/view/217" target="_blank" rel="noopener">문화역서울284 층별 관람 안내</a> · <a href="https://www.mcst.go.kr/servlets/eduport/front/upload/UplDownloadFile?pFileName=plan.pdf&amp;pPath=0312010000&amp;pRealName=20240601693_14184_2.pdf" target="_blank" rel="noopener">문화체육관광부 공개 평면도</a></li>
-      <li><a href="https://www.hanwhaconnect.co.kr/seoul/floor" target="_blank" rel="noopener">서울역 층별 매장 안내</a> · <a href="https://data.kric.go.kr/rips/vr/index.do" target="_blank" rel="noopener">철도산업정보센터 승강장 이동경로</a> · <a href="https://info.korail.com/info/selectBbsNttView.do?bbsNo=199&amp;key=911&amp;nttNo=6633" target="_blank" rel="noopener">코레일 4번 승강장 전철 직통환승 안내</a> · <a href="https://www.airportrailroad.com/train/normal/info/010/0" target="_blank" rel="noopener">공항철도 환승 안내</a> · 서울역·숭례문 도로와 건물 윤곽 © OpenStreetMap contributors, <a href="https://www.openstreetmap.org/copyright">ODbL 1.0</a>. <a href="./station-data.js" download>게임용 지리 데이터</a> · <a href="./station-lanes.js" download>도로 중심선</a> · <a href="https://map.naver.com/p/search/서울역">네이버 지도·거리뷰</a> · <a href="https://smap.seoul.go.kr/smap/">서울시 S-Map</a> · <a href="https://www.seoul284.org/">문화역서울284</a></li>
-      <li>포항역·영일대 도로와 건물 윤곽 © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap 기여자</a> · <a href="./pohang-geography.js" download>게임용 지리 데이터</a> · <a href="https://cn.pohang.go.kr/dept/contents.do?mid=0603030000">포항시 스페이스워크 작품 정보</a> · <a href="https://cn.pohang.go.kr/dept/contents.do?mid=0603050000">환호공원 관람 동선</a></li>
-      <li>정동길·경희궁 건물 윤곽 및 도로 데이터 © OpenStreetMap contributors, <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener">ODbL 1.0</a>. <a href="./west-district-data.js" download>게임용 지리 데이터</a> · <a href="https://sema.seoul.go.kr/kr/visit/seosomun" target="_blank" rel="noopener">서소문본관</a> · <a href="https://museum.seoul.go.kr/www/support/ghp/supportBranchGHPpalace.jsp" target="_blank" rel="noopener">경희궁 전각</a></li>
+      <li><a href="https://www.hanwhaconnect.co.kr/seoul/floor" target="_blank" rel="noopener">서울역 층별 매장 안내</a> · <a href="https://data.kric.go.kr/rips/vr/index.do" target="_blank" rel="noopener">철도산업정보센터 승강장 이동경로</a> · <a href="https://info.korail.com/info/selectBbsNttView.do?bbsNo=199&amp;key=911&amp;nttNo=6633" target="_blank" rel="noopener">코레일 4번 승강장 전철 직통환승 안내</a> · <a href="https://www.airportrailroad.com/train/normal/info/010/0" target="_blank" rel="noopener">공항철도 환승 안내</a> · 서울역·숭례문 도로와 건물 윤곽 © OpenStreetMap contributors, <a href="https://www.openstreetmap.org/copyright">ODbL 1.0</a>. <a href="./station-data.js" download>게임용 지리 데이터</a> · <a href="./pohang-transit-geography.js" download>해안로·버스 노선 데이터</a> · <a href="https://map.naver.com/p/entry/place/13491276" target="_blank" rel="noopener">영일대 위성지도·거리뷰</a> · <a href="https://korean.visitkorea.or.kr/detail/ms_detail.do?cotid=5c41872b-747e-4f80-9c83-d74ab662b296" target="_blank" rel="noopener">오션뷰 카페 위치 자료</a> · <a href="https://m.booking.naver.com/booking/6/bizes/642298" target="_blank" rel="noopener">해안로 횟집 위치 자료</a> · <a href="./station-lanes.js" download>도로 중심선</a> · <a href="https://map.naver.com/p/search/서울역">네이버 지도·거리뷰</a> · <a href="https://smap.seoul.go.kr/smap/">서울시 S-Map</a> · <a href="https://www.seoul284.org/">문화역서울284</a></li>
+      <li>포항역·영일대 도로와 건물 윤곽 © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap 기여자</a> · <a href="./pohang-geography.js" download>게임용 지리 데이터</a> · <a href="./pohang-transit-geography.js" download>해안로·버스 노선 데이터</a> · <a href="https://map.naver.com/p/entry/place/13491276" target="_blank" rel="noopener">영일대 위성지도·거리뷰</a> · <a href="https://korean.visitkorea.or.kr/detail/ms_detail.do?cotid=5c41872b-747e-4f80-9c83-d74ab662b296" target="_blank" rel="noopener">오션뷰 카페 위치 자료</a> · <a href="https://m.booking.naver.com/booking/6/bizes/642298" target="_blank" rel="noopener">해안로 횟집 위치 자료</a> · <a href="https://cn.pohang.go.kr/dept/contents.do?mid=0603030000">포항시 스페이스워크 작품 정보</a> · <a href="https://cn.pohang.go.kr/dept/contents.do?mid=0603050000">환호공원 관람 동선</a></li>
+      <li>정동길·경희궁 건물 윤곽 및 도로 데이터 © OpenStreetMap contributors, <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener">ODbL 1.0</a>. <a href="./west-district-data.js" download>게임용 지리 데이터</a> · <a href="./pohang-transit-geography.js" download>해안로·버스 노선 데이터</a> · <a href="https://map.naver.com/p/entry/place/13491276" target="_blank" rel="noopener">영일대 위성지도·거리뷰</a> · <a href="https://korean.visitkorea.or.kr/detail/ms_detail.do?cotid=5c41872b-747e-4f80-9c83-d74ab662b296" target="_blank" rel="noopener">오션뷰 카페 위치 자료</a> · <a href="https://m.booking.naver.com/booking/6/bizes/642298" target="_blank" rel="noopener">해안로 횟집 위치 자료</a> · <a href="https://sema.seoul.go.kr/kr/visit/seosomun" target="_blank" rel="noopener">서소문본관</a> · <a href="https://museum.seoul.go.kr/www/support/ghp/supportBranchGHPpalace.jsp" target="_blank" rel="noopener">경희궁 전각</a></li>
       <li>정전 앞 포장 참고 자료 · <a href="https://digital.khs.go.kr/buis/buisDetail.do?bizUid=13983502643880499112&amp;ctptNo=1111102230000&amp;ctptUid=13898859666526200071" target="_blank" rel="noopener">근정전 답도 및 삼도</a> · <a href="https://digital.khs.go.kr/heri/heriDetail.do?ctptNo=1121108190000&amp;ctptUid=13898859671361200471" target="_blank" rel="noopener">중화전 및 중화문</a></li>
       <li><a href="https://access.visitkorea.or.kr/ms/detail.do?cotId=b2b3e368-293e-4fc4-a719-90b0f1514385" target="_blank" rel="noopener">한국관광공사 세종로공원</a> · <a href="https://mediahub.seoul.go.kr/archives/2000721" target="_blank" rel="noopener">서울시 한글글자마당</a></li>
       <li><a href="https://mediahub.seoul.go.kr/archives/2011545" target="_blank" rel="noopener">서울시 의정부지 역사유적광장</a> · <a href="https://mediahub.seoul.go.kr/archives/2019760" target="_blank" rel="noopener">서울시 유적전시관</a></li>

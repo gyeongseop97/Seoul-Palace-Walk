@@ -1,4 +1,5 @@
 import {FEED_MS, PET_MS, JUMP_HEIGHT, avatarHands} from "./activities.js";
+import {swimwearOptions} from "./beach-swimming.js";
 import {createPlush} from "./plush-model.js";
 import {plushItems} from "./plush-items.js";
 import {bikeFit,bikePedal,bikeRearFit,makeRidingBike} from "./sejong-bike-model.js";
@@ -476,6 +477,8 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
   const garmentMaps = Object.fromEntries(textileStyles.map(style => [style,garmentTexture(T,style)]));
   const faces = new Map(), clothes = new Map();
   const matte = (color, roughness = .84) => new T.MeshStandardMaterial({color,roughness});
+  const beachFabric=new Map();
+  function swimFabric(color){if(!beachFabric.has(color))beachFabric.set(color,matte(color,.70));return beachFabric.get(color);}
   const details = new T.MeshStandardMaterial({vertexColors:true,roughness:.86});
   // Each skin tone has a plain material, and a multiplier for parts whose colour is baked in.
   const skinBase = new T.Color(0xf0bc99), skinSets = new Map();
@@ -777,12 +780,13 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const tone = LOOK_OPTIONS.skin.includes(look?.skin) ? look.skin : "light";
     const hairColor = Object.hasOwn(HAIR_COLORS,look?.hairColor) ? look.hairColor : HAIR_SHADES[model.offset % HAIR_SHADES.length];
     const woman = position.character === "woman";
-    const outfit = OUTFITS.includes(look?.outfit) ? look.outfit : "coat";
+    const suitKey=position.coast?.swimwear,suit=Object.hasOwn(swimwearOptions,suitKey)?swimwearOptions[suitKey]:null;
+    const outfit = suit?"shorts":OUTFITS.includes(look?.outfit) ? look.outfit : "coat";
     const chima = outfit === "hanbok" && position.character === "woman";
     const headwear=Object.hasOwn(wearables.headwear,look?.headwear)?look.headwear:"none";
     const keepsake=Object.hasOwn(wearables.keepsakes,look?.keepsake)?look.keepsake:"none";
     const glasses=look?.glasses??"none", beard=look?.beard??"none";
-    const key = `${hair}/${eyes}/${outfit}/${chima}/${headwear}/${keepsake}/${woman}/${tone}/${hairColor}/${glasses}/${beard}/${bathing}`;
+    const key = `${hair}/${eyes}/${outfit}/${chima}/${headwear}/${keepsake}/${woman}/${tone}/${hairColor}/${glasses}/${beard}/${bathing}/${suitKey??""}`;
     if (key !== model.appearance) {
       model.appearance = key;
       model.hairMesh.geometry = hairGeometry(hair);
@@ -862,6 +866,30 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
         arm.bottom.scale.set(lowerRadius,ARM[1],lowerRadius);
         arm.cuff.visible = !bare;
         arm.shortSleeve.visible = bare;
+        arm.shortSleeve.material=model.palette.sleeve;
+      }
+      model.teeHem.material=model.palette.sleeve;
+      if(model.swimTrim)model.swimTrim.visible=Boolean(suit);
+      if(suit){
+        const top=swimFabric(suit.top),accent=swimFabric(suit.accent),shorts=swimFabric(suit.shorts);
+        model.torso.material=top;model.waist.material=shorts;model.teeHem.visible=false;
+        if(!model.swimTrim){
+          model.swimTrim=joint(model.garb);
+          part(model.swimTrim,neckRib,accent,0,.461,0,.94,.76,.96);
+          part(model.swimTrim,sphere,accent,0,-.070,0,.242,.031,.180);
+          for(const side of SIDE)part(model.swimTrim,sphere,accent,side*.167,.283,.124,.019,.133,.023).rotation.z=-side*.22;
+        }
+        model.swimTrim.visible=true;for(const mesh of model.swimTrim.children)mesh.material=accent;
+        if(model.hat)model.hat.visible=false;if(model.charm)model.charm.visible=false;
+        for(const leg of model.legs){
+          leg.foot.geometry=bareFootGeometry;leg.foot.material=model.skin.baked;leg.roll.visible=false;
+          leg.top.material=suit.cut==="suit"?model.skin.plain:shorts;leg.bottom.material=model.skin.plain;
+          if(suit.cut==="suit")leg.top.scale.set(LIMB.leg[0]*.88,LEG[0],LIMB.leg[0]*.86);
+        }
+        for(const arm of model.arms){
+          arm.shortSleeve.visible=false;arm.cuff.visible=false;
+          arm.top.material=arm.bottom.material=suit.cut==="rash"?top:model.skin.plain;
+        }
       }
     }
     const expression=sick?"sick":woozy?"woozy":eyes;

@@ -5,6 +5,7 @@ import {gestureHands,peaceHandParts} from "./avatar-gestures.js";
 import {DINING_TRAY_WIDTH,diningGesture,makeDiningUtensil} from "./dining-dishes.js";
 import {LOOK_OPTIONS,SKIN_TONES} from "./look-options.js";
 import {moleSwing} from "./arcade-mole.js";
+import {swimwearOptions,swimSeed,swimStroke} from "./beach-swimming.js";
 
 const clamp=(value,min=0,max=1)=>Math.max(min,Math.min(max,value));
 const ease=value=>{const t=clamp(value);return t*t*(3-2*t);};
@@ -79,9 +80,11 @@ export function makeFirstPersonView(T,createItemProp){
     const size=clamp(Math.min(1,camera.aspect/.72)*viewHeight/.54,.59,1.17);
     const frame=(vector,x,y,depth)=>vector.set(x*viewWidth*depth,y*viewHeight*depth,-depth);
     ambient.intensity=2.12-.84*night;key.intensity=1.10-.48*night;
-    const outfit=position.look?.outfit==="hoodie"?"puffer":position.look?.outfit??"coat";
+    const suit=swimwearOptions[position.coast?.swimwear],swimming=position.coast?.mode==="swim";
+    const stroke=swimming?swimStroke(clock/1000%14400,position.stepping,swimSeed(position)):null;
+    const outfit=suit?"swimsuit":position.look?.outfit==="hoodie"?"puffer":position.look?.outfit??"coat";
     const tone=LOOK_OPTIONS.skin.includes(position.look?.skin)?position.look.skin:"light";
-    const coat=position.coat??0xab5947,keyForLook=`${outfit}/${coat}/${tone}`;
+    const coat=suit?.top??position.coat??0xab5947,keyForLook=`${outfit}/${coat}/${tone}`;
     if(lookKey!==keyForLook){
       lookKey=keyForLook;
       fabric.color.set(coat).lerp(sand,.19);trim.color.copy(fabric.color).multiplyScalar(.76);
@@ -155,6 +158,12 @@ export function makeFirstPersonView(T,createItemProp){
       frame(shoulder,side*1.16,-1.56,.55);
       frame(elbow,side*(riding?.86:.93),-1.13+(performanceHand?Math.max(0,y+.55)*.46*weight:0),.68);
       frame(wrist,x,y+bob*.020,z);
+      if(stroke){
+        const {sweep,fold,idle}=stroke;
+        frame(shoulder,side*.93,-1.13,.38);
+        frame(elbow,side*(.64+.66*sweep),idle?-.82:-.64-.44*fold,.51+.25*(1-fold));
+        frame(wrist,side*(.20+.87*sweep+.19*fold),idle?-.71+.22*sweep:-.45-.47*fold,1.08-.37*fold);
+      }
       if(carryingTray){
         wrist.copy(trayPivot.position);
         wrist.x+=side*DINING_TRAY_WIDTH*.465*trayScale;
@@ -190,7 +199,8 @@ export function makeFirstPersonView(T,createItemProp){
         mallet.quaternion.setFromUnitVectors(up,malletDirection);
         mallet.rotateY(Math.PI/2);
       }
-      const short=outfit==="tee",padded=outfit==="puffer";
+      const short=outfit==="tee"||suit&&suit.cut!=="rash",padded=outfit==="puffer";
+      sleeve.material=short&&suit?skin:fabric;
       lower.material=short?skin:fabric;cuff.material=outfit==="hanbok"?ivory:trim;cuff.visible=!short;
       segment(sleeve,shoulder,elbow,(padded?.072:.060)*size);
       segment(lower,elbow,wrist,(short?.041:padded?.065:.054)*size);
@@ -210,7 +220,7 @@ export function makeFirstPersonView(T,createItemProp){
       const gripping=mole||driving||holding||holdingUmbrella||carryingTray||seeingMeal&&side===1;
       mitten.scale.y=gripping?.042:mix(.058,performanceHand?.curl<-.8?.043:.058,weight);
       const {pivot:itemPivot,show}=props[i];
-      itemPivot.visible=holding&&!mole;
+      itemPivot.visible=holding&&!mole&&!swimming;
       if(holding){
         itemPivot.position.copy(wrist);itemPivot.position.x-=side*(spec.snack?.035:.050)*size;
         itemPivot.position.y+=(spec.snack?.022:.002)*size;itemPivot.position.z-=(spec.snack?.023:.036)*size;

@@ -1,10 +1,19 @@
 import * as T from "three";
-import {buildKtx} from "./ktx-model.js";
-import {standSign} from "./regional-stands.js";
-import {stationHall,stationDoor,platformDoor,stationShop,beachShop} from "./pohang-layout.js";
+import {beachParasols} from "./coast-beach-seats.js";
+import {cafeBackdrop} from "./pohang-cafe-site.js";
+import {profileRows,sandCrest,seabedStops} from "./pohang-beach-profile.js";
+import {buildBeachFront,plantedSpot} from "./pohang-beach-front.js";
+import {buildBeachAmenities} from "./beach-amenities-model.js";
+import {buildCoastalRetail} from "./coast-retail-model.js";
+import {buildPohangStation,buildCoastMarket,buildWaterfrontCafe} from "./pohang-station-model.js";
+import {buildTavernFront} from "./coast-tavern-model.js";
+import {tavernBlockIndex,tavernEdge,tavernPoint} from "./coast-tavern-layout.js";
+import {buildYeongildae} from "./pohang-pavilion-model.js";
+import {buildFestivalBooth} from "./pohang-festival-site-model.js";
+
 import {hill,hillFloor,parkRoad} from "./space-walk-layout.js";
 import {makeTreeBuilder,treePalettes} from "./lowpoly-trees.js";
-import {geo,shore,promenade,route,station,train,beachStop,boardRack,pier,pavilion,tables,seatSpot,dock,mooring,segmentDistance} from "./pohang-layout.js";
+import {geo,shore,promenade,beachStop,boardRack,pier,pavilion,dock,mooring,segmentDistance} from "./pohang-layout.js";
 const boxGeo=new T.BoxGeometry(),ovalGeo=new T.SphereGeometry(1,14,9),tubeGeo=new T.CylinderGeometry(1,1,1,12),coneGeo=new T.ConeGeometry(1,1,12),mats=new Map();
 function mat(color){if(!mats.has(color))mats.set(color,new T.MeshStandardMaterial({color,roughness:.76}));return mats.get(color);}
 export function part(parent,g,color,x,y,z,w,h,d){
@@ -32,7 +41,7 @@ function street(parent,a,b,w,h,y,color){
 }
 function consolidate(root){
  root.updateMatrixWorld(true);const groups=new Map(),items=[];
- root.traverse(o=>{if(!o.isMesh||o.material.map||o.geometry.type==="BufferGeometry")return;
+ root.traverse(o=>{if(!o.isMesh||o.isInstancedMesh||o.material.map||o.geometry.type==="BufferGeometry")return;
  const k=o.geometry.uuid+o.material.uuid;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(o);});
  for(const meshes of groups.values()){
   if(meshes.length<3)continue;
@@ -43,7 +52,7 @@ function consolidate(root){
 }
 function facades(root){
  const chunks=new Map();
- for(const block of geo.blocks){const ring=block[1];
+ for(const block of [...geo.blocks,cafeBackdrop]){const ring=block[1];
   const cx=ring.reduce((v,p)=>v+p[0],0)/ring.length,cz=ring.reduce((v,p)=>v+p[1],0)/ring.length;
   if(Math.hypot(cx-pavilion.x,cz-pavilion.z)<32||cx>shore(cz)-.5)continue;
   const key=Math.floor(ring[0][0]/250)+","+Math.floor(ring[0][1]/250);
@@ -56,9 +65,9 @@ function facades(root){
   const [h,ring]=blocks[j];if(ring.length<3)continue;const col=palette[j%5],top=1.85+h;
   const vs=ring.map(([x,z])=>new T.Vector2(x,z));
   for(const [a,b,c] of T.ShapeUtils.triangulateShape(vs,[]))quad([vs[a].x,top,vs[a].y],[vs[b].x,top,vs[b].y],[vs[c].x,top,vs[c].y],[vs[c].x,top,vs[c].y],col);
-  for(let i=0;i<ring.length;i++){const [x,z]=ring[i],[u,v]=ring[(i+1)%ring.length];quad([x,1.84,z],[u,1.84,v],[u,top,v],[x,top,z],col);
+  for(let i=0;i<ring.length;i++){const [x,z]=ring[i],[u,v]=ring[(i+1)%ring.length];const groundOpening=ring===geo.blocks[tavernBlockIndex][1]&&i===tavernEdge;const sill=groundOpening?5.68:1.84;quad([x,sill,z],[u,sill,v],[u,top,v],[x,top,z],col);
    const len=Math.hypot(u-x,v-z);if(len<3)continue;const n=Math.min(18,Math.max(1,Math.floor(len/3.7)));
-   for(let y=3.3;y+1.45<top;y+=3.35)for(let k=0;k<n;k++){
+   for(let y=groundOpening?6.65:3.3;y+1.45<top;y+=3.35)for(let k=0;k<n;k++){
     const a=(k+.14)/n,b=(k+.84)/n,dx=(v-z)/len*.035,dz=(x-u)/len*.035;
     // Both sides of arbitrarily wound OSM outlines share the same window band.
     for(const side of [1,-1]){const X=x+dx*side,Z=z+dz*side;quad([X+(u-x)*a,y,Z+(v-z)*a],[X+(u-x)*b,y,Z+(v-z)*b],[X+(u-x)*b,y+1.45,Z+(v-z)*b],[X+(u-x)*a,y+1.45,Z+(v-z)*a],glass);}
@@ -70,10 +79,10 @@ function facades(root){
  }
 }
 export function buildCoast(scene){
- const root=new T.Group();scene.add(root);const zList=[...new Set([...Array.from({length:171},(_,i)=>-3700+i*32),...geo.beach.map(p=>p[1]),...geo.pier.map(p=>p[1])])].sort((a,b)=>a-b);
+ const root=new T.Group();scene.add(root);const zList=[...new Set([...Array.from({length:171},(_,i)=>-3700+i*32),...profileRows,...geo.beach.map(p=>p[1]),...geo.pier.map(p=>p[1])])].sort((a,b)=>a-b);
  const row=(x,y)=>zList.map(z=>[x(z),y,z]);
  ribbon(root,row(()=>-6100,1.85),row(z=>promenade(z)+4,1.85),0x9da88a);
- const sand=ribbon(root,row(z=>promenade(z)+4,1.85),row(z=>shore(z),-.18),0xc4ab83);
+ const sand=ribbon(root,zList.map(z=>[promenade(z)+4,sandCrest(z),z]),row(z=>shore(z),-.18),0xc4ab83);
  sand.material.onBeforeCompile=shader=>{
   shader.vertexShader="varying vec3 beachPos;\n"+shader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nbeachPos=position;");
   shader.fragmentShader="varying vec3 beachPos;\n"+shader.fragmentShader.replace("#include <color_fragment>",`#include <color_fragment>
@@ -84,7 +93,7 @@ export function buildCoast(scene){
    diffuseColor.rgb*=mix(vec3(1.03,.98,.90),vec3(.52,.56,.51),wet)*(.98+detail*((grain-.5)*.13+.035*ripples));`);
  };
  // Continuous seabed colour through the wading zone; the water transmits these colours.
- const bedStops=[[0,-.18,0xc4ab83],[5,-.85,0xa5a78c],[15,-2.18,0x789d92],[32,-4.05,0x407e83],[65,-5.9,0x285f70],[140,-8.1,0x235266],[1950,-33,0x204d5f]];
+ const bedStops=seabedStops;
  const verts=[],tints=[],faces=[];
  for(let j=0;j<zList.length;j++)for(let i=0;i<bedStops.length;i++){
   const [off,h,color]=bedStops[i],z=zList[j],c=new T.Color(color);
@@ -93,33 +102,14 @@ export function buildCoast(scene){
  }
  const bed=new T.BufferGeometry();bed.setAttribute("position",new T.Float32BufferAttribute(verts,3));bed.setAttribute("color",new T.Float32BufferAttribute(tints,3));
  bed.setIndex(faces);bed.computeVertexNormals();root.add(new T.Mesh(bed,new T.MeshStandardMaterial({vertexColors:true,roughness:.94,side:T.DoubleSide})));
- const beachZ=zList.filter(z=>z>=-1000&&z<=390),strip=(offset,h)=>beachZ.map(z=>[promenade(z)+offset,h,z]);
- const walk=ribbon(root,strip(-5,1.89),strip(4,1.89),0xc4b6a4);
- walk.material.onBeforeCompile=shader=>{
-  shader.vertexShader="varying vec2 walkPos;\n"+shader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nwalkPos=position.xz;");
-  shader.fragmentShader="varying vec2 walkPos;\n"+shader.fragmentShader.replace("#include <color_fragment>",`#include <color_fragment>
-   vec2 uv=walkPos/vec2(.54,.31);uv.x+=.5*mod(floor(uv.y),2.);vec2 joint=min(fract(uv),1.-fract(uv))/max(fwidth(uv),.003);
-   float detail=1.-smoothstep(6.,26.,length(cameraPosition.xz-walkPos));diffuseColor.rgb*=.98+.02*sin(floor(uv.x)*11.+floor(uv.y)*7.)-.23*(1.-smoothstep(0.,1.,min(joint.x,joint.y)))*detail;`);
- };ribbon(root,strip(-2.1,1.90),strip(-.7,1.90),0xbd806b);
- for(let i=1;i<route.length;i++){
-  const a=route[i-1],b=route[i];street(root,a,b,13,.09,1.90,0x555d60);
-  const l=Math.hypot(a.x-b.x,a.z-b.z),n=Math.max(1,Math.floor(l/16));
-  for(let k=0;k<n;k++){const u=(k+.18)/n,v=(k+.55)/n;street(root,{x:a.x+(b.x-a.x)*u,z:a.z+(b.z-a.z)*u},{x:a.x+(b.x-a.x)*v,z:a.z+(b.z-a.z)*v},.15,.018,1.96,0xe7c17d);}
- }
- // The beachfront carriageway continues past the bus terminus to the pavilion.
- for(const way of geo.coastRoads)for(let i=1;i<way.length;i++){
-  const a={x:way[i-1][0],z:way[i-1][1]},b={x:way[i][0],z:way[i][1]},mid={x:(a.x+b.x)/2,z:(a.z+b.z)/2};
-  if(mid.z< -1090||mid.z>400||route.some((v,j)=>j&&segmentDistance(mid,route[j-1],v)<4.9))continue;
-  street(root,a,b,12,.06,1.90,0x525b60);street(root,a,b,.22,.012,1.945,0xe0bf77);
- }
+ buildBeachFront(root,zList,{box,post});
  facades(root);
  let seed=9423;const random=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
  const green=new T.Group();green.position.y=1.85;root.add(green);
  const trees=makeTreeBuilder(T,green,{rand:random,clearance:{meshFits:()=>true,trim:()=>true}});
- for(let z=-880;z<280;z+=16){
-  const x=promenade(z)-3.5,y=1.86;
+ for(let z=-814;z<268;z+=32){
+  const site=plantedSpot(z);if(!site||Math.abs(z+805)<6)continue;const {x}=site;
   trees.grow(x,z,{height:4.8+random()*1.8,spread:3.9+random()*1.5,palette:treePalettes.pine,style:random()<.6?"cloud":"branchy"});
-  if(z%3===0){post(root,0x465a59,x+2,y+2,z, .07,4,.07);oval(root,0xffdda1,x+2,y+4,z,.24,.28,.24);}
  }
  // Terraced woodland frames the open central clearing and the coastal footpath.
  for(let i=0;i<92;i++){
@@ -130,122 +120,28 @@ export function buildCoast(scene){
   trees.grow(x,z,{height:3.5+random()*4.7,spread:3.0+random()*3.4,palette:treePalettes.pine,style:i%3?"cloud":"branchy"});
   for(let k=first;k<green.children.length;k++)green.children[k].position.y+=hillFloor({x,z})-green.position.y-.07;
  }
- function kiosk(x,z,title,awning){
-  const g=new T.Group();g.position.set(x,1.85,z);root.add(g);
-  box(g,0xad9a81,0,1.4,-1.65,3.9,2.8,2.3);box(g,0x415652,0,1.32,-.47,3.6,1.72,.09);
-  box(g,0x967757,0,.86,-.25,3.65,.18,.63);box(g,awning,0,2.5,-.24,4.17,.21,1.52);
-  for(const dx of [-1.72,1.72])box(g,0x584f42,dx,1.6,-.09,.13,1.91,.13);
-  for(let i=0;i<6;i++)box(g,[0xc98961,0xc9b47f,0x8fa195][i%3],-.99+i*.39,1.13,-.33,.21,.34,.18);
-  sign(g,title,0,2.78,-.39,3.3,.49,"#35564d");
- }
- kiosk(stationShop.x,stationShop.z,"포항역 매점",0x46665a);
- kiosk(beachShop.x,beachShop.z,"영일대 커피",0xb78b67);
- const st=new T.Group();st.position.set(stationHall.x,1.85,stationHall.z);st.rotation.y=-1.99;root.add(st);
- box(st,0xc9c7b9,0,.21,0,95,.42,42);box(st,0xe0d9c7,0,4.7,18.6,91,9.4,1);
- for(const side of [-1,1]){
-  box(st,0xc4c3b9,side*44.8,4.77,0,1,9.54,38);
-  box(st,0x4a6670,side*26.5,4.9,-19.15,36.5,7.6,.25);
-  box(st,0xb5b5a8,side*27,1.09,-19.37,36,1.4,.44);
-  for(let bay=0;bay<6;bay++){
-   const x=side*(9.8+bay*5.9);
-   box(st,0xd6d2c4,x,5.1,-19.56,.22,8.25,.38);
-   box(st,0x9badaf,x,3.9,-19.57,5.7,.11,.33);
-   box(st,0x657674,x,2.6,13.3,2.4,.9,1.15);
-  }
- }
- box(st,0xb5b5aa,0,8.6,-19.3,20,.62,.94);box(st,0x344b53,0,8.03,-19.81,10.8,.63,.12);
- box(st,0xbca36c,0,.46,-17,1.05,.035,25);
- for(let x=-42;x<=42;x+=4)if(Math.abs(x)>7)box(st,0xc6d3d3,x,5.8,-19.4,.23,6.5,.3);
- for(let x=-47;x<48;x+=3.6){
-  const height=10.4+1.85*Math.cos(x/50*Math.PI/2);
-  box(st,0x9eacb1,x,height,0,3.66,.58,45.5);
-  if(Math.abs(x%7.2)<.2)rod(st,[x,4.6,-17.9],[x,height-.24,-21],.13,0xc0cccb);
- }
- sign(st,"포항역   POHANG",0,9,-19.8,26,2, "#265162",Math.PI);
- // The forecourt gallery opens toward the bus bays. The stair and glazing remain visible from outside.
- const entrance=new T.Group();entrance.position.set(train.x,1.85,train.z+5);root.add(entrance);
- for(let i=0;i<13;i++)box(entrance,0xa9a9a3,0,(i+1)*.093,i*.32,6.35,(i+1)*.186,.33);
- for(const side of [-1,1]){
-  for(let i=0;i<4;i++)post(entrance,0x72848b,side*3.25,2.7,-1+i*2.1,.09,5.4,.09);
-  rod(entrance,[side*3.02,1.07,-.2],[side*3.02,3.36,4],.076,0xc29162);
-  const glass=new T.MeshStandardMaterial({color:0x9cc0c9,transparent:true,opacity:.3,depthWrite:false,roughness:.26});
-  box(entrance,glass,side*3.4,3.05,3.2,.12,5.35,6.1);
-  for(const dz of [.22,3.20,6.17])box(entrance,0x6b8086,side*3.41,3.05,dz,.18,5.42,.10);
-  box(entrance,0x6b8086,side*3.41,.47,3.2,.19,.17,6.15);
- }
- box(entrance,0xb9c7cd,0,5.6,2.7,8.2,.32,9.7);
- sign(entrance,"포항역  ·  KTX 서울행",0,4.95,-1.1,6.25,.74,"#294e76",Math.PI);
- // The northern forecourt connects the arrival steps, the platform and the main concourse.
- const plaza={x:station.x+11,z:station.z+22};
- street(root,plaza,stationDoor,9.0,.14,1.88,0xc9c4b7);
- for(const dx of [-3.6,3.6])street(root,{x:plaza.x+dx,z:plaza.z},{x:stationDoor.x+dx,z:stationDoor.z},.12,.025,1.97,0xad9f8c);
- const slab=4.268,sz=train.z+17;
- box(root,0xa7a8a2,train.x,3.0,sz,6.36,slab-1.73,16.2);
- box(root,0xd7b764,train.x-2.77,slab+.012,sz,.28,.03,16.2);
- const rolling=new T.Group();rolling.position.set(train.x-5.52,slab-.02,platformDoor.z+12);rolling.rotation.y=Math.PI;root.add(rolling);
- const railGroup=(x,z,angle,parent)=>{const g=new T.Group();g.position.set(x,0,z);g.rotation.y=angle;parent.add(g);return g;};
- buildKtx(T,rolling,{
-  box:(color,x,y,z,w,h,d,parent)=>box(parent,color,x,y,z,w,h,d),
-  rod:(color,x,y,z,r,h,parent)=>post(parent,color,x,y,z,r,h,r),
-  group:railGroup,girder:(p,a,b,gauge,color)=>rod(p,a,b,gauge*.5,color),
-  paintMap:(w,h,draw)=>{const c=document.createElement("canvas");c.width=w;c.height=h;draw(c.getContext("2d"),w,h);const texture=new T.CanvasTexture(c);texture.colorSpace=T.SRGBColorSpace;return texture;}
- });
- const railDoor=railGroup(-1.76,12,-Math.PI/2,rolling);
- standSign(T,railDoor,"서울행 KTX","2호차  ·  일반실",2.3,0,2.77,0,"#1d4f91","#ffffff",.46);
- box(rolling,0x26333b,-1.71,1.05,12,.05,2.26,1.04);
- box(rolling,0xa3b2b2,-1.88,-.02,12,.5,.06,1.2);
- for(const dx of [-.76,.76])box(root,0x626769,rolling.position.x+dx,slab-1.42,sz+7,.085,.15,108);
- for(let j=-45;j<60;j+=1.5)box(root,0x69675e,rolling.position.x,slab-1.55,sz+j,2.63,.16,.24);
- box(root,0xa69b83,rolling.position.x,2.16,sz+7,3.2,.91,108);
- for(const side of [-1,1])for(let j=0;j<4;j++){
-  const z=sz-5+j*3.6;
-  if(side<0&&Math.abs(z-platformDoor.z)<2.7)continue;
-  post(root,0x738282,train.x+side*3.06,slab+.55,z,.055,1.1,.055);
- }
- for(const step of [-1,1])box(root,0x808986,train.x+3.03,slab+.85,sz+step*3.87,.07,.09,7.86);
- // A timber bridge follows the surveyed diagonal between the seawall and pavilion.
- const a=pier[0],b=pavilion;street(root,a,b,4.8,.4,2.06,0xa28b71);
- const len=Math.hypot(b.x-a.x,b.z-a.z),nx=(b.z-a.z)/len,nz=(a.x-b.x)/len;
- for(const s of [-1,1]){
-  rod(root,[a.x+nx*s*2.25,3.15,a.z+nz*s*2.25],[b.x+nx*s*2.25,3.15,b.z+nz*s*2.25],.085,0x815d47);
-  for(let k=0;k<=22;k++){const u=k/22;post(root,0xb29b83,a.x+(b.x-a.x)*u+nx*s*2.25,2.61,a.z+(b.z-a.z)*u+nz*s*2.25,.09,1.15,.09);}
- }
- const pg=new T.Group();pg.position.set(b.x,2.25,b.z);pg.rotation.y=.84;root.add(pg);
- box(pg,0xdac7ad,0,-.23,0,17,.47,15);
- for(const x of [-6,-2,2,6])for(const z of [-4.7,4.7]){post(pg,0xad5840,x,2,z,.3,4,.3);box(pg,0x398076,x,3.9,z,1.5,.58,1.1);}
- for(let layer=0;layer<2;layer++){const u=layer? .66:1,y=4+layer*2.8;
-  box(pg,0x985444,0,y,0,15*u,.45,12*u);
-  const vv=[],idx=[];for(let i=0;i<=18;i++){const x=(i/18-.5)*18*u,lift=Math.pow(Math.abs(i/9-1),5)*.92*u;
-   for(const z of [-1,-.5,0,.5,1])vv.push(x,y+.42+Math.pow(1-Math.abs(z),1.45)*2.8*u+lift*Math.abs(z),z*7.4*u);
-   if(i)for(let k=0;k<4;k++){const n=i*5+k;idx.push(n-5,n,n+1,n-5,n+1,n-4);}
-  }const g=new T.BufferGeometry();g.setAttribute("position",new T.Float32BufferAttribute(vv,3));g.setIndex(idx);g.computeVertexNormals();pg.add(new T.Mesh(g,new T.MeshStandardMaterial({color:0x374c56,side:T.DoubleSide})));
-  box(pg,0x40545b,0,y+3.15*u,0,15*u,.24,.34);
- }
- sign(pg,"迎 日 臺",0,4.27,-5.9,2.3,.76,"#374537",Math.PI);
+ const architecture={box,post,oval,rod,sign,street};
+ const updateRinses=buildBeachAmenities(root,architecture);
+ buildCoastalRetail(root,architecture);
+ buildPohangStation(root,architecture);buildWaterfrontCafe(root,architecture);buildCoastMarket(root,architecture);buildFestivalBooth(root,architecture);
+ const pavilionLights=buildYeongildae(root,architecture);
  street(root,{x:promenade(dock.z),z:dock.z},dock,4.4,.45,1.62,0xa07b57);
  for(let x=promenade(dock.z)+2;x<=dock.x;x+=5)for(const z of [dock.z-1.8,dock.z+1.8])post(root,0x64594b,x,.52,z,.15,2.7,.15);
  sign(root,"영일만 크루즈",promenade(dock.z)+4,3.05,dock.z-2.3,3.1,.49,"#31515b",Math.PI/2);
  for(let i=0;i<5;i++){const s=surfboard(i);s.position.set(boardRack.x+i*.56,3.04,boardRack.z);s.rotation.x=1.36;root.add(s);}
  sign(root,"서핑보드 대여",boardRack.x,3.95,boardRack.z,3.8,.6);
- tables.forEach((t,i)=>{
-  const g=new T.Group();root.add(g);g.position.set(t.x,1.87,t.z);
-  box(g,0xab8863,0,-.28,0,6.2,.55,6.2);
-  for(const x of [-2.3,2.3])for(const z of [-2.7,2.7])post(g,0x6e5b46,x,1.35,z,.048,2.7,.048);
-  for(let k=0;k<8;k++){let m=box(g,k%2?0xecad7b:0xaf5341,0,2.77,-2.7+k*.74,5.1,.1,.75);m.rotation.z=.09;}
-  for(let k=0;k<6;k++)oval(g,0xffdb92,2.3,2.47,-2.5+k,.09,.13,.09);
-  for(const x of [-.48,.48])for(const z of [-.98,.98])box(g,0x694f40,x,.34,z,.095,.68,.095);
-  rod(g,[2.3,2.63,-2.7],[2.3,2.63,2.7],.016,0x685746);
-  for(let k=0;k<6;k++)post(g,0x54493f,2.3,2.565,-2.5+k,.029,.15,.029);
-  box(g,0x965f42,0,.73,0,1.25,.17,2.36);box(g,0x575450,0,.84,0,.65,.06,.62);
-  for(let k=0;k<6;k++)box(g,0xb8a38a,-.25+k*.10,.885,0,.025,.025,.56);
-  for(let k=0;k<4;k++){const s=seatSpot(i,k);post(root,0xab5443,s.x,2.33,s.z,.33,.095,.33);
-   for(const dx of [-.17,.17])for(const dz of [-.17,.17])rod(root,[s.x+dx*1.35,1.88,s.z+dz*1.35],[s.x+dx,2.3,s.z+dz],.046,0x965342);}
-  oval(g,0xf3e7d6,0,.86,-.75,.37,.045,.24);for(let k=0;k<5;k++){const f=oval(g,k%2?0xf9d7bd:0xe9a09a,-.23+k*.11,.92,-.74,.095,.035,.16);f.rotation.y=.45;}
-  post(g,0x348457,.32,1,.76,.075,.38,.075);post(g,0x276940,.32,1.22,.76,.038,.12,.038);
-  if(!i)sign(g,"영일대 바다야장",0,2.45,2.73,4,.52,"#973f32");
- });
- for(let i=0;i<18;i++){
-  const z=-520+i*39,x=(shore(z)+promenade(z))/2,base=.84;
+ buildTavernFront(root,architecture);
+ const chairCount=beachParasols.reduce((n,p)=>n+p.chairs.length,0);
+ const seatPads=new T.InstancedMesh(boxGeo,mat(0xe2c99b),chairCount);
+ const seatBacks=new T.InstancedMesh(boxGeo,mat(0xc6ad81),chairCount);
+ const seatLegs=new T.InstancedMesh(boxGeo,mat(0x826d54),chairCount*4);
+ const chairPart=new T.Object3D();
+ function placeChairPart(mesh,index,x,y,z,w,h,d,tilt=0){
+  chairPart.position.set(x,y,z);chairPart.scale.set(w,h,d);chairPart.rotation.z=tilt;
+  chairPart.updateMatrix();mesh.setMatrixAt(index,chairPart.matrix);
+ }
+ let chairIndex=0,legIndex=0;
+ for(const {index:i,x,z,floor:base,chairs} of beachParasols){
   post(root,0x80654d,x,base+1.24,z,.042,2.48,.042);
   const shades=[0xdca674,0x759c95,0xd58475],edge=i%3;
   for(let k=0;k<10;k++){
@@ -254,23 +150,30 @@ export function buildCoast(scene){
    const m=mat(k%2?shades[edge]:0xe8d8b7);m.side=T.DoubleSide;root.add(new T.Mesh(g,m));
   }
   post(root,0xaf825b,x,base+.65,z,.58,.075,.58);
-  for(const side of [-1,1]){box(root,0xb3936b,x+side*.94,base+.4,z,.49,.07,.53);const back=box(root,0xc6ae85,x+side*1.17,base+.68,z,.055,.55,.54);back.rotation.z=side*-.17;}
+  for(const {x:cx,z:cz,floor,top} of chairs){
+   placeChairPart(seatPads,chairIndex,cx,top-.045,cz,.61,.09,.59);
+   placeChairPart(seatBacks,chairIndex++,cx-.31,top+.24,cz,.085,.57,.59,.13);
+   for(const side of [-1,1])for(const end of [-1,1]){
+    placeChairPart(seatLegs,legIndex++,cx+.23*end,floor+.225,cz+.24*side,.045,.48,.045,end*.11);
+   }
+  }
   post(root,0x87b8b5,x+.19,base+.78,z+.16,.051,.17,.051);
  }
+ root.add(seatPads,seatBacks,seatLegs);
  // Industrial silhouette across the bay, seen behind the moving water.
  for(let i=0;i<33;i++){const x=440+i*28,z=680+Math.sin(i)*29;
   box(root,i%3?0x8d9b9d:0xb1a29a,x,6,z,18+i%7,12+i%9,17);post(root,0x8d8281,x+8,15+i%9,z,1.2,34+i%14,1.2);post(root,0xc99579,x+8,28+i%9,z,1.23,3,1.23);}
  consolidate(root);
  const lamps=[],colors=[];
  const dot=(x,y,z,c)=>{lamps.push(x,y,z);const col=new T.Color(c);colors.push(col.r,col.g,col.b);};
- for(let z=-880;z<280;z+=16)if(z%3===0)dot(promenade(z)-1.5,5.86,z,0xffda96);
- for(const t of tables)for(let k=0;k<6;k++)dot(t.x+2.3,4.34,t.z-2.5+k,0xffce80);
+ for(let z=-814;z<268;z+=96){const site=plantedSpot(z);if(site)dot(site.x+1.27,6.09,z,0xffda96);}
+ for(let i=-3;i<=3;i++){const p=tavernPoint(i,3.65);dot(p.x,4.64,p.z,0xffce80);}
  for(let i=0;i<130;i++)dot(360+i*8.6,3+(i%6===0?17:0),680+Math.sin(i)*25,i%8?0xffd28b:0xd69173);
  const lp=new T.BufferGeometry();lp.setAttribute("position",new T.Float32BufferAttribute(lamps,3));lp.setAttribute("color",new T.Float32BufferAttribute(colors,3));
  const disk=document.createElement("canvas");disk.width=disk.height=32;const ctx=disk.getContext("2d"),fade=ctx.createRadialGradient(16,16,0,16,16,16);
  fade.addColorStop(0,"#fff");fade.addColorStop(.18,"rgba(255,245,224,.8)");fade.addColorStop(1,"rgba(255,238,200,0)");ctx.fillStyle=fade;ctx.fillRect(0,0,32,32);
  const lightMat=new T.PointsMaterial({map:new T.CanvasTexture(disk),size:.52,vertexColors:true,transparent:true,depthWrite:false,blending:T.AdditiveBlending});
- scene.add(new T.Points(lp,lightMat));return night=>{lightMat.opacity=.08+night*.92;};
+ scene.add(new T.Points(lp,lightMat));return (night,players=[],clock=0)=>{lightMat.opacity=.08+night*.92;pavilionLights(night);updateRinses(players,clock);};
 }
 export function surfboard(index=0){
  const g=new T.Group();oval(g,[0xf3b76d,0x58b8ae,0xe28680][index%3],0,0,0,.37,.088,1.2);

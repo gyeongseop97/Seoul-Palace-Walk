@@ -92,6 +92,8 @@ export function makeHotteokProps(T,{shape}){
 }
 
 export function makeRegionalItemProps(T,{box,cylinder,shape}){
+  const wedge=new T.Shape();wedge.moveTo(-.075,-.052);wedge.lineTo(.076,-.052);wedge.lineTo(.024,.066);wedge.closePath();
+  const cheeseWedge=new T.ExtrudeGeometry(wedge,{depth:.05,bevelEnabled:false});
   const bungeoppang=makeBungeoppangProps(T,{box,shape});
   const hotteok=makeHotteokProps(T,{shape});
   const berryGeometry=new T.SphereGeometry(1,10,7);
@@ -137,6 +139,28 @@ export function makeRegionalItemProps(T,{box,cylinder,shape}){
     shape(tumblerRim,0xdfebe4,0,.106,0,parent);
   }
   return {
+    cannedBeer(parent){
+      cylinder(0xd7b767,0,-.003,0,.058,.165,20,parent);
+      cylinder(0x496d76,0,.005,0,.0589,.068,20,parent);
+      cylinder(0xc7cfc9,0,.082,0,.054,.01,20,parent);
+      cylinder(0xaab5b4,0,-.085,0,.054,.008,20,parent);
+      box(0x414d50,-.013,.088,0,.019,.003,.028,parent);
+      box(0xb0b8b3,.007,.09,-.001,.018,.005,.024,parent);
+    },
+    cupNoodles(parent){
+      cylinder(0xc3664f,0,-.006,0,.083,.134,22,parent,.75);
+      cylinder(0xf1dfb8,0,.060,0,.085,.013,22,parent);
+      cylinder(0xbe7840,0,.068,0,.077,.006,22,parent);
+      for(let i=0;i<6;i++){
+        const angle=i*2.39;
+        berry(parent,i%2?0x78a269:0xeec16c,Math.sin(angle)*.044,.073,Math.cos(angle)*.043,.017,.005,.009);
+      }
+      for(const x of [.029,.041])box(0xc59e75,x,.127,-.035,.006,.143,.006,parent).rotation.x=-.30;
+    },
+    cheese(parent){
+      const piece=shape(cheeseWedge,0xe9b654,0,-.006,0,parent);piece.rotation.x=-Math.PI/2;
+      for(const [x,z] of [[-.034,.022],[.021,.007],[.029,-.02]])berry(parent,0xc78e35,x,.049,z,.009,.002,.008);
+    },
     soju(parent){
       cylinder(0x38845e,0,-.013,0,.041,.16,14,parent);
       cylinder(0x477d57,0,.075,0,.039,.027,14,parent,.55);

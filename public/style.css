@@ -28,6 +28,10 @@ button:not(:disabled):hover{filter:brightness(1.13)}
 }
 .mobile-settings:not([open]) .mobile-settings-actions{display:none}
 .mobile-settings-actions button{min-height:44px;text-align:left}
+.sound-setting{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr;align-items:center;gap:0 9px}
+.sound-setting button{grid-row:1/3}
+.sound-setting label{display:flex;justify-content:space-between;align-self:end;color:var(--lettering);font-size:12px}
+.sound-setting input{display:block;align-self:start;width:100%;min-width:0;height:25px;margin:0;accent-color:var(--gold);touch-action:none}
 .graphics-setting{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:5px;color:var(--lettering);font-size:12px;white-space:nowrap}
 .graphics-setting select{font:inherit;min-height:40px;padding:4px;border:1px solid var(--carving);border-radius:6px;background:var(--deep-lacquer);color:var(--lettering)}
 .mobile-settings-actions #settings-leave{color:#ffc197;border-color:#825336}
@@ -933,7 +937,10 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 }
 
 #dining-menu-dialog{max-width:420px}
-#dining-menu-options{display:grid;gap:8px}
+#dining-menu-options,#coast-shop-stock,#beach-swimwear{display:grid;gap:8px}
+#beach-swimwear button{text-align:left}
+#beach-swimwear button[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--gold,#d6b376)}
+#coast-shop-dialog{width:min(325px,90vw)}
 .dining-dish{display:grid;gap:2px;padding:10px 14px;text-align:left;white-space:normal}
 .dining-dish strong{color:var(--gold-2)}
 .dining-dish span{color:var(--muted);font-size:13px;font-weight:400}
@@ -1044,3 +1051,8 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
     .chat-composer :is(input,button){pointer-events:auto}
   }
 }
+
+#tavern-menu{width:min(350px,90vw)}
+.tavern-menu-row{display:grid;grid-template-columns:1fr 44px 55px 44px;align-items:center;gap:4px;margin-block:.4rem}
+.tavern-menu-row output{text-align:center;font-variant-numeric:tabular-nums}
+#tavern-submit{width:100%;margin-block-start:12px}

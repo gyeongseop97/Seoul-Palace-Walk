@@ -1,18 +1,35 @@
 import * as T from "three";
-import {shore,spectrum} from "./pohang-layout.js";
+import {shore,spectrum,wave} from "./pohang-layout.js";
+const nx=140,nz=350,startZ=-1650,dz=3000/nz;
+const coastRows=Array.from({length:nz+1},(_,j)=>shore(startZ+j*dz));
+const ranges=Array.from({length:nx+1},(_,i)=>-7+Math.pow(i/nx,1.65)*1900);
+const amplitudes=ranges.map(d=>{const t=Math.max(0,Math.min(1,(d+5)/15));return t*t*(3-2*t);});
+// Match the shader's actual displaced triangles. Analytic wave peaks between vertices
+// can otherwise put the mouth a few centimetres on the wrong side of the visible water.
+export function oceanSurface(x,z,t){
+ const q=Math.max(0,Math.min(nz-.00001,(z-startZ)/dz)),j=Math.floor(q),v=q-j;
+ const d=x-coastRows[j]*(1-v)-coastRows[j+1]*v;
+ const i=Math.max(0,Math.min(nx-1,Math.floor(nx*Math.pow(Math.max(0,(d+7)/1900),1/1.65))));
+ const u=Math.max(0,Math.min(1,(d-ranges[i])/(ranges[i+1]-ranges[i])));
+ const h=(r,k)=>wave(coastRows[r]+ranges[k],startZ+r*dz,t)*amplitudes[k];
+ const br=h(j,i+1),tl=h(j+1,i);
+ return u+v<=1?h(j,i)*(1-u-v)+br*u+tl*v:h(j+1,i+1)*(u+v-1)+tl*(1-u)+br*(1-v);
+}
 export function ocean(scene){
  const positions=[],uv=[],indices=[];
- const nx=140,nz=350;
  for(let j=0;j<=nz;j++){
-  const z=-1650+3000*j/nz;
+  const z=startZ+dz*j;
   for(let i=0;i<=nx;i++){
-   const d=-7+Math.pow(i/nx,1.65)*1900;
-   positions.push(shore(z)+d,0,z);uv.push(d,z);
+   const d=ranges[i];
+   positions.push(coastRows[j]+d,0,z);uv.push(d,z);
    if(i&&j){const n=j*(nx+1)+i;indices.push(n-1,n,n-nx-1,n-1,n-nx-1,n-nx-2);}
   }
  }
  const g=new T.BufferGeometry();g.setAttribute("position",new T.Float32BufferAttribute(positions,3));g.setAttribute("uv",new T.Float32BufferAttribute(uv,2));g.setIndex(indices);
- const uniforms={uTime:{value:0},night:{value:0},burst:{value:new T.Color(0)},lightX:{value:280},lightZ:{value:-170},wake:{value:new T.Vector3()},speed:{value:0}};
+ const uniforms={uTime:{value:0},night:{value:0},glow:{value:0},
+  burst:{value:Array.from({length:3},()=>new T.Color(0))},
+  lightSite:{value:Array.from({length:3},()=>new T.Vector2())},
+  wake:{value:new T.Vector3()},speed:{value:0},turn:{value:0}};
  const swell=spectrum.map(([a,kx,kz,s,p])=>"q=sin(dot(w.xz,vec2("+kx+","+kz+"))+uTime*"+s+"+"+p+");wave+="+a+"*(q+.17*(2.*q*q-1.));").join("\n");
  const normals=spectrum.map(([a,kx,kz,s,p])=>"phase=dot(w.xz,vec2("+kx+","+kz+"))+uTime*"+s+"+"+p+";slope+=vec2("+kx+","+kz+")*"+a+"*cos(phase)*(1.+.68*sin(phase));").join("\n");
  const material=new T.ShaderMaterial({uniforms,transparent:true,depthWrite:false,side:T.DoubleSide,vertexShader:`
@@ -22,7 +39,8 @@ export function ocean(scene){
  ${swell}
  w.y=wave*smoothstep(-5.,10.,depth);gl_Position=projectionMatrix*modelViewMatrix*vec4(w,1.);}
  `,fragmentShader:`
- varying vec3 w; varying float depth; uniform float uTime,night,lightX,lightZ,speed; uniform vec3 burst,wake;
+ varying vec3 w; varying float depth; uniform float uTime,night,glow,speed,turn;
+ uniform vec3 burst[3],wake; uniform vec2 lightSite[3];
  float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
  float noise2(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}
  float rip(vec2 p){float limit=1.-smoothstep(38.,320.,length(cameraPosition.xz-w.xz));
@@ -42,7 +60,7 @@ export function ocean(scene){
  vec3 reflected=reflect(-eye,normal);vec3 skyColor=mix(vec3(.52,.67,.76),vec3(.14,.38,.56),clamp(reflected.y*1.6,0.,1.));
  base=mix(base,skyColor,.12+fres*.84);
  vec2 dir=vec2(sin(wake.z),cos(wake.z)),across=vec2(dir.y,-dir.x),dp=p-wake.xy;
- vec2 hullP=vec2(dot(dp,across)/5.1,dot(dp,dir)/18.2);
+ vec2 hullP=vec2(dot(dp,across)/6.89,dot(dp,dir)/24.57);
  vec2 rr=reflect(-eye,normal).xz;vec2 rp=dp+rr*(3.7/max(.14,abs(reflected.y)));
  float hullMirror=1.-smoothstep(.82,1.14,length(vec2(dot(rp,across)/4.95,dot(rp,dir)/16.7)));
  base=mix(base,vec3(.026,.081,.099),hullMirror*(.38+.26*fres));
@@ -57,10 +75,23 @@ export function ocean(scene){
  float foam=(1.-smoothstep(.15,3.6,abs(front-.35)))*smoothstep(.23,.58,lace);
  foam+=.38*(1.-smoothstep(.2,1.25,abs(front-4.-r)))*smoothstep(.32,.62,lace);
  foam+=.14*smoothstep(.59,.82,w.y)*smoothstep(.62,.73,lace);
- float streak=exp(-abs(w.z-mix(cameraPosition.z,lightZ,clamp((w.x-cameraPosition.x)/max(5.,lightX-cameraPosition.x),0.,1.)))*.048);
- base+=burst*streak*pow(clamp(.50+.28*r,0.,1.),3.)*.92;
- vec2 axis=vec2(sin(wake.z),cos(wake.z)),v=p-wake.xy;float behind=-dot(v,axis);
- float wakeLine=exp(-abs(abs(dot(v,vec2(axis.y,-axis.x)))-(.17*behind+3.1))*.9)*step(0.,behind)*exp(-max(behind,0.)*.024)*speed;
+ if(glow>.5){
+  vec2 toWater=w.xz-cameraPosition.xz;
+  float glints=pow(clamp(.50+.28*r,0.,1.),3.)*.90;
+  for(int i=0;i<3;i++){
+   vec2 ray=lightSite[i]-cameraPosition.xz;
+   float u=clamp(dot(toWater,ray)/max(1.,dot(ray,ray)),0.,1.);
+   float streak=exp(-length(toWater-u*ray)/mix(3.,32.,u));
+   base+=burst[i]*streak*glints*smoothstep(4.,25.,length(toWater));
+  }
+ }
+ float lateral=dot(dp,across),fore=dot(dp,dir)*(speed<0.?-1.:1.);
+ float back=(speed<0.?22.8:26.)-fore;
+ float shoulder=(speed<0.?4.35:.35)+min(1.,max(back,0.)/15.)*(speed<0.?2.:5.95);
+ float edge=abs(abs(lateral)-shoulder),chop=noise2(p*1.12+vec2(uTime*.41,-uTime*.25));
+ float bow=exp(-edge*(1.0-.28*abs(speed)))*smoothstep(-.8,1.2,back)*(1.-smoothstep(17.,29.,back));
+ float hullFoam=.38*exp(-abs(abs(lateral)-6.22)*1.6)*smoothstep(14.,23.,back)*(1.-smoothstep(40.,49.,back));
+ float wakeLine=(bow+hullFoam)*abs(speed)*(.54+.59*chop)*(1.+.35*turn*sign(lateral));
  base=mix(base,mix(vec3(.85,.97,.94),vec3(.39,.57,.65),night),clamp(foam+wakeLine,0.,.9));
  float offshore=smoothstep(1.,100.,depth);
  float transmission=mix(.25,.73,offshore)+.20*fres;

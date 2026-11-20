@@ -1,5 +1,5 @@
 import {seaPoint,inCoastSpace} from "./region-coordinates.js";
-import {shore,promenade} from "./pohang-layout.js";
+import {shore,promenade} from "./pohang-beach-profile.js";
 import {inKiteLawn} from "./plaza-layout.js";
 
 export const PICNIC_WIDTH=2.64;
@@ -11,7 +11,7 @@ export const PICNIC_SLOTS=[
   [-.91,.52],[-.31,.52],[.31,.52],[.91,.52]
 ];
 
-export const picnicKinds=["soju","sashimi","grilledClam","coffee","crepe","parfait","beer","yakgwa","cake","bingsu","bungeoppang","riceCake",
+export const picnicKinds=["cannedBeer","cupNoodles","cheese","soju","sashimi","grilledClam","coffee","crepe","parfait","beer","yakgwa","cake","bingsu","bungeoppang","riceCake",
   "makgeolli","wine","fruitWine","highball","bungeoppangCustard","bungeoppangBurnt","bungeoppangTorn","hotteok","hotteokBurnt","hotteokTorn"];
 export const isPicnicItem=kind=>picnicKinds.includes(kind);
 export const picnicGap=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);

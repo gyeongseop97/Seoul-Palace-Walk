@@ -1,3 +1,4 @@
+import {busCount as coastBusCount} from "./public/coast-fleet.js";
 import {validWishArt, WISH_FLIGHT_MS} from "./public/wish-art.js";
 import {FEED_MS, ITEMS} from "./public/activities.js";
 import {validItemSlot} from "./public/held-items.js";
@@ -51,10 +52,14 @@ const validItem=item=>item==null||typeof item.kind==="string"&&Object.hasOwn(ITE
   Number.isInteger(item.remaining)&&finite(item.remaining,0,ITEMS[item.kind].uses)&&validTime(item.started);
 // Benches, dining chairs and the places along the Cheonggyecheon water's edge.
 const lastBenchIndex=1023;
-const coastModes=new Set(["walk","swim","surf","deck","bus","table"]);
+const coastModes=new Set(["scooter","walk","swim","surf","deck","bus","table"]);
 const validCoast=s=>s==null||coastModes.has(s.mode)&&typeof s.board==="boolean"&&
-  (s.track==null||finite(s.track,0,62))&&(s.floor==null||finite(s.floor,5.45,7.86))&&
-  (s.mode!=="bus"||Number.isInteger(s.coach)&&finite(s.coach,0,4)&&Number.isInteger(s.chair)&&finite(s.chair,0,7));
+  (s.swimwear==null||["navy","tide","coral"].includes(s.swimwear))&&
+  (s.rinse==null||["north-rinse","south-rinse"].includes(s.rinse.site)&&validTime(s.rinse.at))&&
+  (s.track==null||finite(s.track,0,62))&&(s.floor==null||finite(s.floor,2.45,7.86))&&
+  (s.deckX==null||finite(s.deckX,-5,5))&&(s.deckZ==null||finite(s.deckZ,-18,18))&&
+  (s.cafeFloor==null||finite(s.cafeFloor,1.84,6.11))&&
+  (s.mode!=="bus"||Number.isInteger(s.coach)&&finite(s.coach,0,coastBusCount-1)&&Number.isInteger(s.chair)&&finite(s.chair,0,7));
 const validAvatar = (a) => validPoint(a) && validCoast(a.coast) && [a.groundSit,a.kissReady].every(v=>v===undefined||typeof v==="boolean") &&
   (a.bagClaim==null||validId(a.bagClaim)) &&
   (a.character===undefined || a.character==="man" || a.character==="woman") &&
@@ -289,6 +294,7 @@ function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeA
         SELECT 1 FROM walkers peer
         WHERE peer.room=? AND peer.id<>? AND peer.updated>=?
         AND json_extract(peer.avatar,'$.seat')=?
+        AND (json_type(peer.avatar,'$.coast.mode') IS NOT NULL)=?
         AND COALESCE(json_extract(peer.avatar,'$.seatSide'),0)=slot
       ) ORDER BY slot=? DESC LIMIT 1
     ), json_set(?, '$.seat', NULL, '$.seatSide', NULL))`;
@@ -297,7 +303,7 @@ function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeA
     view=?
     WHERE room=? AND id=? AND player_key IS ?
       AND json_extract(avatar,'$.feed.claim') IS NOT ? ${picnicGuard} ${bungeoGuard}
-  `).bind(now,snapshot,preferred,1-preferred,room,id,active,avatar.seat,preferred,snapshot,inheritWish,now-chatLifetime,
+  `).bind(now,snapshot,preferred,1-preferred,room,id,active,avatar.seat,Number(Boolean(avatar.coast)),preferred,snapshot,inheritWish,now-chatLifetime,
     bagClaim??null,acknowledgedFeed,picnicClaim??null,bungeoClaim??null,bikeCutoff,active,JSON.stringify(view),room,id,key,pendingFeed,...picnicArgs,...bungeoArgs);
 }
 

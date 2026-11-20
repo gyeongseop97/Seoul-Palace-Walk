@@ -1,7 +1,9 @@
 import {streetLine} from "./visitor-walks.js";
 import {coastPoint} from "./region-coordinates.js";
 import {parkRoad} from "./space-walk-layout.js";
-import {arrival,stationShop,stationDoor,beachShop,promenade,beachStop} from "./pohang-layout.js";
+import {stationShop,promenade} from "./pohang-layout.js";
+import {stationPoint} from "./pohang-station-layout.js";
+import {cafePoint} from "./coast-cafe.js";
 
 const stops=[],routes=[];
 const pathPoint=z=>({x:promenade(z)+1.2,z});
@@ -17,8 +19,9 @@ function circuit(points){
  }
  routes.push({legs,end});
 }
-circuit([{x:arrival.x+1.5,z:arrival.z+2.8},{...stationShop,z:stationShop.z+.8,ref:0},{x:stationShop.x+1.8,z:stationShop.z+4},stationDoor,{x:stationShop.x+2,z:stationShop.z+5}]);
-circuit([pathPoint(beachStop.z+31),pathPoint(beachStop.z+4),{...beachShop,z:beachShop.z+.9,ref:1},pathPoint(beachStop.z+3),pathPoint(beachStop.z-19)]);
+circuit([stationPoint(-42,18),stationPoint(-24,23),{...stationShop,ref:0},stationPoint(-10,23),stationPoint(4,17),stationPoint(-24,15)]);
+// Guests approach the cafe along its own frontage, including after the venue moves.
+circuit([cafePoint(-3.6,2),cafePoint(-1.5,1.7),{...cafePoint(0,1.4),ref:1},cafePoint(1.6,1.7),cafePoint(4,2.1)]);
 for(const z of [-240,-455,-680])circuit([pathPoint(z),pathPoint(z+12),pathPoint(z+29),pathPoint(z+16)]);
 circuit([...parkRoad.slice(-3),...parkRoad.slice(-2,-1)]);
 export const coastVisitors={stops,createWalks(room){

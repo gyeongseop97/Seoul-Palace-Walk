@@ -1,17 +1,24 @@
-import {busAt,busCount,station,beachStop,distance,tables,dock,mooring,limits,festivalDuration,scheduledFestivalStart} from "../public/pohang-layout.js";
+import {tavernOps,tavernSchema} from "./coast-tavern.mjs";
+import {voyageSchema,harborSnapshot,vesselSnapshot,appendVesselOps} from "./coast-voyages.mjs";
+import {inCoastSpace,seaPoint} from "../public/region-coordinates.js";
+import {scooterSchema,scooterOps,rentalState} from "./coast-scooter-rentals.mjs";
+import {canStartFestival,festivalBooth} from "../public/pohang-festival-site.js";
+import {busAt,busCount,stopById,distance,tables,dock,mooring,limits,festivalDuration} from "../public/pohang-layout.js";
 const reply=(data,status=200)=>Response.json(data,{status,headers:{"Cache-Control":"no-store"}});
 const initialized=new WeakMap();
 function ensure(db){
  if(!initialized.has(db))initialized.set(db,db.batch([
+  ...tavernSchema,voyageSchema,scooterSchema,
   "CREATE TABLE IF NOT EXISTS coast_visitors(room TEXT,id TEXT,updated INTEGER,pose TEXT,seat INTEGER,PRIMARY KEY(room,id))",
   "CREATE INDEX IF NOT EXISTS coast_active ON coast_visitors(room,updated)",
   "CREATE TABLE IF NOT EXISTS coast_harbor(room TEXT PRIMARY KEY,x REAL,z REAL,yaw REAL,helm TEXT,updated INTEGER,festival INTEGER DEFAULT 0)",
   "CREATE TABLE IF NOT EXISTS coast_bus_seats(room TEXT,coach INTEGER,seat INTEGER,id TEXT,updated INTEGER,PRIMARY KEY(room,coach,seat),UNIQUE(room,id))",
-  "CREATE TABLE IF NOT EXISTS coast_grills(room TEXT,spot INTEGER,started INTEGER,PRIMARY KEY(room,spot))"
+
  ].map(sql=>db.prepare(sql).bind())).catch(e=>{initialized.delete(db);throw e;}));
  return initialized.get(db);
 }
-const modes=new Set(["walk","swim","surf","bus","table","deck"]);
+const clampDeck=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
+const modes=new Set(["scooter","walk","swim","surf","bus","table","deck"]);
 export async function coastRequest(db,{room,id,key,coast},now){
  if(!key||!coast||typeof coast!=="object")return reply({error:"승차 정보를 확인해 주세요."},400);
  const read=(sql,...args)=>db.prepare(sql).bind(...args);
@@ -20,21 +27,25 @@ export async function coastRequest(db,{room,id,key,coast},now){
  await ensure(db);
  const cmd=coast.action||"",p=coast.pose;
  if(cmd==="leave"){
-  await db.batch([read("DELETE FROM coast_bus_seats WHERE room=? AND id=?",room,id),read("DELETE FROM coast_visitors WHERE room=? AND id=?",room,id),read("UPDATE coast_harbor SET helm=NULL,updated=? WHERE room=? AND helm=?",now,room,id)]);
+  const sailing=[];await appendVesselOps(sailing,read,room,id,{mode:"walk"},coast,now);
+  await db.batch([...sailing,read("DELETE FROM coast_scooters WHERE room=? AND id=?",room,id),read("DELETE FROM coast_bus_seats WHERE room=? AND id=?",room,id),read("DELETE FROM coast_visitors WHERE room=? AND id=?",room,id),read("UPDATE coast_harbor SET helm=NULL,updated=? WHERE room=? AND helm=?",now,room,id)]);
   return reply({ok:true});
  }
  if(!p||![p.x,p.z,p.yaw].every(Number.isFinite)||p.x<limits.minX||p.x>limits.maxX||p.z<limits.minZ||p.z>limits.maxZ||!modes.has(p.mode))return reply({error:"포항 위치를 확인해 주세요."},400);
  const avatar=JSON.parse(owner.avatar),pose=JSON.stringify({x:p.x,z:p.z,yaw:p.yaw,mode:p.mode,walk:!!p.walk,hasBoard:!!p.hasBoard,
   character:avatar.character,look:avatar.look,chat:typeof p.chat==="string"?p.chat.trim().slice(0,80):"",chatAt:Math.min(now,Number(p.chatAt)||0),
   gesture:["fish","clam","drink"].includes(p.gesture)?p.gesture:null,gestureAt:Math.min(now,Number(p.gestureAt)||0),blush:Math.min(now+120000,Number(p.blush)||0),
-  coach:Number.isInteger(p.coach)?p.coach:null,slot:Number.isInteger(p.slot)?Math.max(0,Math.min(5,p.slot)):0,deckX:Number.isFinite(p.deckX)?Math.max(-3.5,Math.min(3.5,p.deckX)):null,deckZ:Number.isFinite(p.deckZ)?Math.max(-12.8,Math.min(-6.7,p.deckZ)):null});
+  coach:Number.isInteger(p.coach)?p.coach:null,slot:Number.isInteger(p.slot)?Math.max(0,Math.min(5,p.slot)):0,deckX:Number.isFinite(p.deckX)?clampDeck(p.deckX,-5,5):null,deckZ:Number.isFinite(p.deckZ)?clampDeck(p.deckZ,-18,18):null});
  const ops=[read("INSERT INTO coast_visitors(room,id,updated,pose) VALUES(?,?,?,?) ON CONFLICT(room,id) DO UPDATE SET updated=excluded.updated,pose=excluded.pose,seat=CASE WHEN coast_visitors.updated<? THEN NULL ELSE coast_visitors.seat END",room,id,now,pose,now-15000),
   read("INSERT OR IGNORE INTO coast_harbor(room,x,z,yaw,updated) VALUES(?,?,?,?,0)",room,mooring.x,mooring.z,0)];
+ const scooterCommand=["rentScooter","returnScooter","mountScooter","parkScooter"].includes(cmd);
+ if(scooterCommand)ops.push(...scooterOps(read,room,id,p,cmd,now));
+ const rentalIndex=ops.push(read("SELECT dock,x,z,heading,parked FROM coast_scooters WHERE room=? AND id=? AND (parked=0 OR parked>?)",room,id,now-600000))-1;
  const spot=coast.table;
  const coach=coast.coach,seat=coast.seat;
  if(cmd==="board"&&Number.isInteger(coach)&&coach>=0&&coach<busCount&&Number.isInteger(seat)&&seat>=0&&seat<8){
   const stop=busAt(coach,now/1000).stop;
-  if(stop&&distance(p,stop==="station"?station:beachStop)<29){
+  if(stop&&(!coast.stop||coast.stop===stop)&&p.mode==="walk"&&distance(p,stopById(stop))<6.5){
    ops.push(read("DELETE FROM coast_bus_seats WHERE room=? AND updated<?",room,now-15000));
    ops.push(read("INSERT OR IGNORE INTO coast_bus_seats(room,coach,seat,id,updated) VALUES(?,?,?,?,?)",room,coach,seat,id,now));
   }
@@ -46,32 +57,17 @@ export async function coastRequest(db,{room,id,key,coast},now){
     WHERE NOT EXISTS(SELECT 1 FROM coast_visitors v WHERE v.room=? AND v.updated>? AND v.seat=?*4+value AND v.id<>?) ORDER BY value LIMIT 1) WHERE room=? AND id=?`,spot,room,now-15000,spot,id,room,id));
  }
  if(cmd==="stand")ops.push(read("UPDATE coast_visitors SET seat=NULL WHERE room=? AND id=?",room,id));
- let claim=-1;
- const seated="EXISTS(SELECT 1 FROM coast_visitors WHERE room=? AND id=? AND seat BETWEEN ? AND ?)";
- if(["grill","eat"].includes(cmd)&&Number.isInteger(spot)&&tables[spot]&&distance(p,tables[spot])<4.5){
-  const q=[room,id,spot*4,spot*4+3];
-  if(cmd==="grill")ops.push(read("INSERT INTO coast_grills(room,spot,started) SELECT ?,?,? WHERE "+seated+" ON CONFLICT(room,spot) DO UPDATE SET started=excluded.started WHERE started=0",room,spot,now,...q));
-  else claim=ops.push(read("UPDATE coast_grills SET started=0 WHERE room=? AND spot=? AND started=? AND started<=? AND "+seated+" RETURNING spot",room,spot,Number(coast.started)||-1,now-6500,...q))-1;
+ const tavern=tavernOps(ops,read,room,id,p,coast,now);
+ if(cmd==="festival"&&canStartFestival(p)&&inCoastSpace(avatar)&&avatar.coast?.mode==="walk"&&
+    avatar.seat==null&&!avatar.groundSit&&distance(seaPoint(avatar),festivalBooth)<11){
+  ops.push(read("UPDATE coast_harbor SET festival=? WHERE room=? AND (festival=0 OR festival<=?)",
+    now,room,now-festivalDuration*1000));
  }
- if(cmd==="festival"&&Math.abs(p.x-dock.x)<800&&Math.abs(p.z-dock.z)<1100){
-  const duration=festivalDuration*1000,scheduled=scheduledFestivalStart(now);
-  ops.push(read(`UPDATE coast_harbor SET festival=? WHERE room=? AND (festival=0 OR festival<=?)
-    AND (? >= ? OR (festival>0 AND festival<=? AND festival>?))`,
-    now,room,now-duration,now,scheduled+duration,scheduled,scheduled-duration));
- }
- // A stale helm returns to the pier so a disconnected skipper never strands the bay.
- ops.push(read("UPDATE coast_harbor SET helm=NULL WHERE room=? AND updated<? AND helm IS NOT NULL",room,now-18000));
- ops.push(read("UPDATE coast_harbor SET x=?,z=?,yaw=0,updated=? WHERE room=? AND helm IS NULL AND updated<? AND NOT EXISTS(SELECT 1 FROM coast_visitors WHERE room=? AND updated>? AND json_extract(pose,'$.mode')='deck')",mooring.x,mooring.z,now,room,now-18000,room,now-15000));
- if(cmd==="helm"&&p.mode==="deck")ops.push(read("UPDATE coast_harbor SET helm=?,updated=? WHERE room=? AND helm IS NULL AND (x-?)*(x-?)+(z-?)*(z-?)<=225",id,now,room,p.x,p.x,p.z,p.z));
- const boat=coast.boat;
- if(boat&&[boat.x,boat.z,boat.yaw].every(Number.isFinite)&&boat.x>0&&boat.x<1300&&boat.z>-1030&&boat.z<400){
-  ops.push(read("UPDATE coast_harbor SET x=?,z=?,yaw=?,updated=? WHERE room=? AND helm=? AND abs(x-?)<=8+0.022*max(0,?-updated) AND abs(z-?)<=8+0.022*max(0,?-updated)",boat.x,boat.z,boat.yaw,now,room,id,boat.x,now,boat.z,now));
- }
- if(cmd==="release")ops.push(read("UPDATE coast_harbor SET helm=NULL,updated=? WHERE room=? AND helm=?",now,room,id));
- if(cmd==="moor"&&distance(p,mooring)<15)ops.push(read("UPDATE coast_harbor SET helm=NULL,x=?,z=?,yaw=0 WHERE room=? AND helm=? AND abs(x-?)<17 AND abs(z-?)<17",mooring.x,mooring.z,room,id,mooring.x,mooring.z));
+ await appendVesselOps(ops,read,room,id,p,coast,now);
  if(Math.random()<.008)ops.push(read("DELETE FROM coast_visitors WHERE updated<?",now-86400000));
  ops.push(read("SELECT coach,seat,id FROM coast_bus_seats WHERE room=? AND updated>?",room,now-15000),read("SELECT v.id,v.pose,v.seat,w.nickname,w.coat FROM coast_visitors v JOIN walkers w ON w.room=v.room AND w.id=v.id WHERE v.room=? AND v.updated>?"+(coast.shared===true?" AND v.id=?":""),room,now-15000,...(coast.shared===true?[id]:[])),
- read("SELECT x,z,yaw,helm,festival FROM coast_harbor WHERE room=?",room),read("SELECT spot,started FROM coast_grills WHERE room=?",room));
+ read(harborSnapshot,room));
  const rows=await db.batch(ops);
- return reply({now,busSeats:rows.at(-4).results,ate:claim>=0&&rows[claim].results.length>0,people:rows.at(-3).results.map(r=>({...JSON.parse(r.pose),id:r.id,nickname:r.nickname,coat:r.coat,seat:r.seat})),boat:rows.at(-2).results[0],grills:rows.at(-1).results});
+ const orders=rows[tavern.orders].results;
+ return reply({now,grills:orders.filter(o=>o.cookingClams>0).map(o=>({spot:o.spot,started:o.grillUntil-6500})),scooter:rentalState(rows[rentalIndex].results),tavernOrders:orders,bite:tavern.receipt==null?null:rows[tavern.receipt].results[0]??null,busSeats:rows.at(-3).results,people:rows.at(-2).results.map(r=>({...JSON.parse(r.pose),id:r.id,nickname:r.nickname,coat:r.coat,seat:r.seat})),boat:vesselSnapshot(rows.at(-1).results[0],now)});
 }

@@ -45,9 +45,9 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
     part(0x826b53,-.58,.477,-.18,2.85,.085,.41);
     for(const x of [-1.69,.52])part(shade,x,.239,-.18,.081,.46,.36);
     part(blue,2.26,2.23,.03,.57,.56,.20);
-    const type=placard("버스",.49,.30,{background:"#305ca8",ink:"#fff9e7"});type.position.set(2.26,2.23,.136);shelter.add(type);
+    const type=placard(stop.short??"버스",.49,.30,{background:stop.tint??"#305ca8",ink:"#fff9e7"});type.position.set(2.26,2.23,.136);shelter.add(type);
     const name=placard(stop.name,4.24,.42,{sub:stop.direction});name.position.set(-.37,2.40,.925);shelter.add(name);
-    const routes=placard(route?.name??"세종대로 순환버스",1.33,.59,{sub:route?.line??"서울역 · 시청 · 광화문 · 삼청동"});
+    const routes=placard(stop.routeName??route?.name??"세종대로 순환버스",1.33,.59,{sub:stop.lineLabel??route?.line??"서울역 · 시청 · 광화문 · 삼청동"});
     routes.position.set(1.35,1.53,-.45);shelter.add(routes);
     const obstacle=(side,forward,width,depth,height)=>{
       const p=busLocalPose(stop.shelter,side,forward);
@@ -149,9 +149,10 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
   }
 
   function model(index){
-    const bus=new T.Group();bus.name=(route?.name??"세종대로 순환버스")+" "+(index+1)+"호";
+    const service=route?.vehicle?.(index);
+    const bus=new T.Group();bus.name=(service?.name??route?.name??"세종대로 순환버스")+" "+(index+1)+"호";
     bus.visible=false;busGroup.add(bus);
-    const frame=0x26333e,roof=0xe0e4e3,coat=index%2===0?0x3677b8:0x2f6fae,body=0x2d597f;
+    const frame=0x26333e,roof=0xe0e4e3,coat=service?.coat??(index%2===0?0x3677b8:0x2f6fae),body=service?.body??0x2d597f;
     const trim=0x9cabb4,seatBlue=0x4d7395,cushion=0x587f9f,aisle=0x696b66;
     const wide=BUS_WIDTH/2,front=BUS_LENGTH/2;
     const parts=new Map();
@@ -266,10 +267,10 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
       }
       wheels.push(wheel);
     }
-    const number=`순환 0${index+1}`;
-    fixedSign(placard(number,1.97,.29,{sub:route?.line??"덕수궁 · 경복궁"}),0,2.70,front+.021);
+    const number=service?.number??`순환 0${index+1}`;
+    fixedSign(placard(number,1.97,.29,{sub:service?.summary??route?.line??"덕수궁 · 경복궁"}),0,2.70,front+.021);
     fixedSign(placard(number,1.19,.28),0,2.68,-front-.016,Math.PI);
-    fixedSign(placard(number,1.25,.32,{sub:route?.name??"세종대로"}),-wide-.018,2.52,3.00,-Math.PI/2);
+    fixedSign(placard(number,1.25,.32,{sub:service?.name??route?.name??"세종대로"}),-wide-.018,2.52,3.00,-Math.PI/2);
     const steer=driverRig(bus,index);
     bus.traverse(object=>{if(object.isMesh)object.userData.dynamic=true;});
     return {bus,doors,wheels,steer,previous:null,spin:0};

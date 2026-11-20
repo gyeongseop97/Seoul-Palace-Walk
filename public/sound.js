@@ -1,9 +1,23 @@
 import {PLAZA_SHOW_BEAT_MS,PLAZA_SHOW_BEATS,PLAZA_SHOW_DURATION_MS,PLAZA_SHOW_HEARING_METRES,plazaShowNotes} from "./plaza-show.js";
 
+let gameSound;
+export function getGameSound(){return gameSound??=makeSound();}
 // Recordings and procedural ambience share the user's sound control and master volume.
 export function makeSound(){
   let context=null,master=null,noise=null,engine=null,engineStop=null,show=null,rainfall=null,rainStop=null,brook=null,brookStop=null;
-  let enabled=localStorage.getItem("jeongdong-sound")!=="off";
+  function read(key){try{return globalThis.localStorage?.getItem(key);}catch{return null;}}
+  function save(key,value){try{globalThis.localStorage?.setItem(key,value);}catch{/* Keep session settings in private mode. */}}
+  let enabled=read("jeongdong-sound")!=="off";
+  const saved=Number(read("jeongdong-volume"));
+  let level=saved>0&&saved<=100?Math.round(saved):55;
+  const syncOutput=()=>{
+    if(!master)return;
+    const now=context.currentTime,value=enabled&&!document.hidden?level/100:0;
+    master.gain.cancelScheduledValues(now);
+    if(value===0)master.gain.setValueAtTime(0,now);
+    else master.gain.setTargetAtTime(value,now,.012);
+  };
+  globalThis.document?.addEventListener("visibilitychange",syncOutput);
   const fraction=value=>Math.max(0,Math.min(1,Number.isFinite(value)?value:0));
   const recordings=new Map();
   async function loadRecording(ctx,name){
@@ -27,7 +41,7 @@ export function makeSound(){
       const Audio=window.AudioContext||window.webkitAudioContext;
       if(!Audio)return null;
       try{context=new Audio();}catch{return null;}
-      master=context.createGain();master.gain.value=.55;master.connect(context.destination);
+      master=context.createGain();master.gain.value=document.hidden?0:level/100;master.connect(context.destination);
       for(const name of ["bird-1","bird-2","cat-short","cat-long","mallet","board"])void loadRecording(context,name);
       const length=Math.floor(context.sampleRate*.5);
       noise=context.createBuffer(1,length,context.sampleRate);
@@ -37,7 +51,12 @@ export function makeSound(){
     if(context.state==="suspended"||context.state==="interrupted")context.resume().catch(()=>{});
     return context;
   }
-  const playing=()=>enabled&&context?.state==="running"?context:null;
+  const playing=()=>enabled&&!document.hidden&&context?.state==="running"?context:null;
+  function setEnabled(value){
+    enabled=value;save("jeongdong-sound",enabled?"on":"off");syncOutput();
+    if(enabled)ready();
+    else{stopEngine();stopShow();stopRain();stopStream();}
+  }
 
   function startEngine(ctx){
     const motor=ctx.createOscillator(),rattle=ctx.createOscillator(),tires=ctx.createBufferSource();
@@ -221,12 +240,18 @@ export function makeSound(){
   }
   return {
     get enabled(){return enabled;},
+    get volume(){return enabled?level:0;},
+    get output(){return playing()?master:null;},
     wake:ready,
     toggle(){
-      enabled=!enabled;localStorage.setItem("jeongdong-sound",enabled?"on":"off");
-      if(enabled)ready();
-      else{stopEngine();stopShow();stopRain();stopStream();context?.suspend().catch(()=>{});}
-      return enabled;
+      setEnabled(!enabled);return enabled;
+    },
+    setVolume(percent){
+      if(!Number.isFinite(percent))return;
+      const next=Math.max(0,Math.min(100,Math.round(percent)));
+      if(next>0){level=next;save("jeongdong-volume",String(level));}
+      if(enabled!==(next>0))setEnabled(next>0);
+      else{syncOutput();if(enabled)ready();}
     },
     bus,plazaShow,rain,stream,
     // A foot flicking the surface of the stream.
@@ -286,6 +311,12 @@ export function makeSound(){
       if(recorded(Math.random()<.5?"bird-1":"bird-2",gain*9,.97+Math.random()*.06))return;
       const base=2400+Math.random()*1400,notes=2+Math.floor(Math.random()*3);
       for(let i=0;i<notes;i++)tone(base,base*(1.2+Math.random()*.3),{gain,attack:.008,decay:.07,delay:i*.11});
+    },
+    gull(relativeGain=1){
+      const gain=.045*fraction(relativeGain);if(!gain)return;
+      tone(950,1580,{gain,attack:.045,decay:.18,type:"triangle"});
+      tone(1520,780,{gain:gain*.83,attack:.025,decay:.28,delay:.14,type:"triangle"});
+      tone(1340,930,{gain:gain*.46,attack:.028,decay:.20,delay:.52,type:"triangle"});
     },
     cricket(){for(let i=0;i<4;i++)tone(4300,4250,{gain:.016,attack:.004,decay:.03,delay:i*.055,type:"triangle"});},
     meow(relativeGain=1){

@@ -1,5 +1,5 @@
 import * as T from "three";
-import {hill,parkRoad,hillFloor,tracks,loop} from "./space-walk-layout.js";
+import {hill,parkRoad,hillFloor,tracks,loop,landings,stairHalfWidth} from "./space-walk-layout.js";
 export function buildSpaceWalk(scene){
  const g=new T.Group();scene.add(g);g.name="환호공원 스페이스워크";
  const geom=new T.PlaneGeometry(360,215,80,54).rotateX(-Math.PI/2),v=geom.attributes.position;
@@ -33,28 +33,50 @@ export function buildSpaceWalk(scene){
  const pathGeometry=new T.BufferGeometry();pathGeometry.setAttribute("position",new T.Float32BufferAttribute(pathPoints,3));
  pathGeometry.setIndex(indices);pathGeometry.computeVertexNormals();
  g.add(new T.Mesh(pathGeometry,new T.MeshStandardMaterial({color:0xc6b79c,roughness:1,side:T.DoubleSide})));
+ const railOffset=stairHalfWidth+.04;
+ for(const d of landings){
+  obj.position.set(d.x,d.h-.09,d.z);obj.rotation.set(0,0,0);obj.scale.set(d.halfX*2,.18,d.halfZ*2);add(box,step);
+  for(const side of ["west","east","north","south"]){
+   const alongZ=side==="west"||side==="east",span=alongZ?d.halfZ:d.halfX;
+   const sign=side==="west"||side==="north"?-1:1;
+   const edge=(u,v)=>[d.x+(alongZ?sign*d.halfX:u),d.h+v,d.z+(alongZ?u:sign*d.halfZ)];
+   // The two gates protect only the loop. At a stair mouth the rail stops
+   // on each side, leaving the entire stair width open for crossing.
+   const sections=d.ports[side]==="walk"?[[-span,-railOffset],[railOffset,span]]:[[-span,span]];
+   for(const [u,v] of sections){
+    rod(edge(u,1.2),edge(v,1.2),.032);rod(edge(u,.59),edge(v,.59),.016);
+    rod(edge(u,.02),edge(u,1.2),.022);rod(edge(v,.02),edge(v,1.2),.022);
+   }
+   if(d.ports[side]==="loop"){
+    for(const u of [-railOffset,0,railOffset])rod(edge(u,.02),edge(u,1.2),.023);
+   }
+   rod(edge(-span,-.10),edge(span,-.10),.043,led);
+  }
+ }
  for(const line of [...tracks,loop]){
   const closed=line===loop;
+  function edge(i,sign,height){
+   const p=line[i],prev=line[Math.max(0,i-1)],next=line[Math.min(i+1,line.length-1)];
+   const length=Math.hypot(next.x-prev.x,next.z-prev.z)||1;
+   const nx=closed?0:(next.z-prev.z)/length,nz=closed?1:(prev.x-next.x)/length;
+   return [p.x+sign*railOffset*nx,p.h+height,p.z+sign*railOffset*nz];
+  }
   for(let i=1;i<line.length;i++){
    const a=line[i-1],b=line[i],dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz)||.001;
    // The visual loop banks through vertical, while both walkable arms have horizontal treads.
-   const yaw=Math.atan2(dx,dz),s=closed?0:dz/len,n=closed?1:-dx/len;
+   const yaw=Math.atan2(dx,dz);
    obj.position.set((a.x+b.x)/2,(a.h+b.h)/2-.06,(a.z+b.z)/2);
    obj.rotation.set(0,yaw,0);if(closed)obj.rotateX(-Math.atan2(b.h-a.h,len));
-   obj.scale.set(1.2,.105,Math.hypot(len,closed?b.h-a.h:0)+.025);add(box,step);
+   obj.scale.set(stairHalfWidth*2,.105,Math.hypot(len,closed?b.h-a.h:0)+.025);add(box,step);
    if(i%3===0||i===line.length-1){
-    const prev=line[Math.floor((i-1)/3)*3];
+    const k=Math.floor((i-1)/3)*3,prev=line[k];
     for(const sign of [-1,1]){
-     const point=(p,h)=>[p.x+sign*s*.64,p.h+h,p.z+sign*n*.64];
-     rod(point(prev,1.2),point(b,1.2),.032);rod(point(prev,.59),point(b,.59),.016);
-     rod(point(b,.02),point(b,1.2),.021);rod(point(prev,-.07),point(b,-.07),.043,led);
+     rod(edge(k,sign,1.2),edge(i,sign,1.2),.032);rod(edge(k,sign,.59),edge(i,sign,.59),.016);
+     rod(edge(i,sign,.02),edge(i,sign,1.2),.021);rod(edge(k,sign,-.07),edge(i,sign,-.07),.043,led);
     }
     rod([prev.x,prev.h-.23,prev.z],[b.x,b.h-.23,b.z],.15);
    }
    if(!closed&&i%29===0&&b.h>hillFloor(b)+2)rod([b.x+.9,hillFloor(b)-.2,b.z+.8],[b.x,b.h-.22,b.z],.23);
-  }
-  if(!closed&&line!==tracks[0]){
-   const b=line.at(-1);rod([b.x-.56,b.h+.8,b.z],[b.x+.56,b.h+.8,b.z],.056);
   }
  }
  for(const {geometry,material,matrices} of batches.values()){

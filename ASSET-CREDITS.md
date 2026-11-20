@@ -74,3 +74,19 @@
 `public/art/`의 이미지와 확대 재현한 유물의 원본 URL 및 이용 조건은 [기본 전시 목록](public/museum-catalog.js), [삼국·고려 추가 목록](public/museum-more-early.js), [조선·근대 추가 목록](public/museum-more-late.js)에 있습니다. 이미지들은 게임에서 빠르게 열리도록 크기를 줄여 WebP로 변환했습니다.
 
 렌더링은 CDN으로 [Three.js r180](https://github.com/mrdoob/three.js/tree/r180)을 불러옵니다. [Three.js MIT 라이선스](https://github.com/mrdoob/three.js/blob/r180/LICENSE)
+
+## 포항 영일대
+
+포항역, 해안로와 해수욕장, 영일교와 해상누각의 배치는 공개 지도와 현장 사진을 참고했습니다. 급행·시내 노선과 시간표, 역 안의 매장, 킥보드 대여소, 유람선과 공연은 게임용입니다. [© OpenStreetMap 기여자](https://www.openstreetmap.org/copyright) · [네이버 지도 영일대해수욕장 위성지도·거리뷰](https://map.naver.com/p/entry/place/13491276) · [국가철도공단 포항역](https://www.kr.or.kr/boardCnts/view.do?boardID=1100096&boardSeq=1106956) · [영일대 해상누각 설계·시공 사진](https://www.laeun.co.kr/41/?bmode=view&idx=741448)
+
+### 영일대 상권
+
+아래 점포의 업종과 위치를 참고해 게임용 상호, 간판과 메뉴를 만들었습니다. 위·경도는 WGS84이며 공개 지도에 표시된 영업장 또는 주소의 위치입니다. 게임의 주문 위치는 각 건물에서 도로를 바라보는 면에 배치했습니다.
+
+| 게임 점포 | 참고한 영업장과 도로명주소 | 위도, 경도 | 위치 자료 |
+| --- | --- | --- | --- |
+| 영일 눈꽃다방 | 설빙 포항영일대점 · 포항시 북구 해안로 95, 2층 | 36.0573304, 129.3779542 | [매장 주소·층](https://www.diningcode.com/profile.php?rid=ohVf8BoZJ5TU) · [지도 핀](https://www.openstreetmap.org/node/13068221701) · [건물 윤곽](https://www.openstreetmap.org/way/872330358) |
+| 파도 라운지 | XTC PUB · 포항시 북구 해안로 123, 2층 | 36.0596764, 129.3792181 | [매장 주소·층](https://www.diningcode.com/profile.php?rid=Lk6toLBcY8dq) · [도로명주소 좌표](https://findby.co.kr/details/37708-471133304045-st-652c0ffdf27008be2c61142f) · [건물 윤곽](https://www.openstreetmap.org/way/872330390) |
+| 두호 그릴펍 | Tilt Bar N Grill · 포항시 북구 삼호로 243, 1층 | 36.0599322, 129.3785183 | [매장 주소·층](https://opengo.kr/5601fb3f0e887edf2ce33799) · [지도 핀](https://www.openstreetmap.org/node/2699055767) · [건물 윤곽](https://www.openstreetmap.org/way/874079368) · [삼호로 구간](https://www.openstreetmap.org/way/1305750384) |
+
+영일대 오션뷰 카페는 해안로 191-1 오브레멘, 바다야장은 해안로 107 미남 대게 회 새우의 지도 위치를 기준으로 배치했습니다. 상호와 좌석, 야외 영업 공간, 메뉴는 게임에 맞게 구성했습니다. [한국관광공사 오브레멘](https://korean.visitkorea.or.kr/detail/ms_detail.do?cotid=5c41872b-747e-4f80-9c83-d74ab662b296) · [네이버 미남 대게 회 새우](https://m.booking.naver.com/booking/6/bizes/642298)
