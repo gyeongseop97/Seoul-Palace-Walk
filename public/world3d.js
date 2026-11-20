@@ -1005,6 +1005,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     }
     if(element.hidden===show)element.hidden=!show;
   }
+  const coach=railRoomById["ktx-coach"];
   let cameraAnchor=null,cameraOnBridge=false,lowerStream=false,cameraDistance=0,prevTime=0,governedAt=0,cullAt=0;
   let visibleRoot=outdoors,visibleInterior=null;
   let shadowDirty=true,shadowTime=-Infinity,shadowFrame=-Infinity,shadowX=Infinity,shadowY=Infinity;
@@ -1352,7 +1353,9 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
     const outsideBus=bus&&!firstPerson;
     const floor=seat?0:footing(anchor.bikeDriverPosition??anchor);
     const fallWeight=firstPerson?(bikeFallAt(anchor,clock)?.weight??0):0;
-    const eyeHeight=outsideBus?2.115+busGround(bus):seat?(firstPerson?1.30:1.22)+(seat.base??0):
+    // In a train seat the lens rides above the headrests, so the rows behind never cover it.
+    const coachSeat=insideId==="ktx-coach"&&Boolean(seat)&&!firstPerson;
+    const eyeHeight=outsideBus?2.115+busGround(bus):seat?(firstPerson?1.30:coachSeat?1.5:1.22)+(seat.base??0):
       (firstPerson?1.28:1.20)+floor+renderedJumpLift(anchor,clock,floor)+(isCycling(anchor)?.12:0)-fallWeight*.87;
     const cameraPoint=outsideBus?bus:seat??anchor;
     anchorPoint.set(wx(cameraPoint.x),eyeHeight,wz(cameraPoint.y));
@@ -1380,7 +1383,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
       Math.max(-83,Math.min(62,(outsideBus?23:14)+(view.tilt<0?view.tilt*1.22:view.tilt)));
     const bathView=!firstPerson&&seat?.footBath;
     const pitch=tightStreamView?Math.max(20,Math.min(41,viewPitch)):bathView?Math.max(23,viewPitch):viewPitch;
-    const orbitPitch=firstPerson?pitch:Math.max(outsideBus?4:-10,pitch);
+    const orbitPitch=firstPerson?pitch:Math.max(outsideBus?4:coachSeat?9:-10,pitch);
     const elevation=orbitPitch*Math.PI/180;
     const horizontal=Math.cos(elevation);
     arm.set(-Math.sin(angle)*horizontal,Math.sin(elevation),Math.cos(angle)*horizontal);
@@ -1390,7 +1393,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
       camera.rotateZ(fallWeight*.62);
       cameraDistance=0;
     }else{
-      const ceiling=insideId==="ktx-coach"?2.68:sameStation(insideId,"station-hall")?(railHeight(anchor.x,anchor.y)??0)+8:arcadeFloors.has(insideId)?3.74:diningById[insideId]?4.5:4.97;
+      const ceiling=insideId==="ktx-coach"?2.4:sameStation(insideId,"station-hall")?(railHeight(anchor.x,anchor.y)??0)+8:arcadeFloors.has(insideId)?3.74:diningById[insideId]?4.5:4.97;
       const distance=Math.min(outsideBus?11.8-view.zoom*1.15:4.55-view.zoom*.42,
         indoors&&arm.y>0?(ceiling-pivot.y)/arm.y:Infinity,tightStreamView?2.36:bathView?3.3:Infinity);
       let available=distance;
@@ -1403,7 +1406,10 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high"}={}) {
         const roof=lowerStream?cheonggyeCameraCeiling(point.x,point.y):null;
         const roofCollision=roof!=null&&pivot.y<terrain+roof+.05&&y>terrain+roof-.20;
         const streamWall=lowerStream&&cheonggyeCameraWall(point.x,point.y,y-terrain-.16);
-        if(roofCollision||streamWall||solidAt(point.x,point.y,y-.17-terrain)){
+        // Seats do not stop the lens there. Only the car body and the luggage shelves do.
+        const coachHit=coachSeat&&(Math.abs(point.x-coach.center.x)>1.72||Math.abs(point.y-coach.center.y)>11.55||
+          y>1.9&&Math.abs(point.x-coach.center.x)>1.05);
+        if(roofCollision||streamWall||(coachSeat?coachHit:solidAt(point.x,point.y,y-.17-terrain))){
           available=Math.max(.34,step-.24);break;
         }
       }

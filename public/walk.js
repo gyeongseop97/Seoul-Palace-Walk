@@ -27,7 +27,7 @@ import {expandedSubwayStops,subwayAccessPaths} from "./subway-expansion.js";
 import {jeongdongExtensionLandmarks,jeongdongExtensionPaths,jeongdongParkCourt,extensionRibbon} from "./jeongdong-extension-layout.js";
 import {worldExtent} from "./world-extent.js";
 import {stationSites,stationGround} from "./station-layout.js";
-import {stationSurfaces,stationBuildings} from "./station-data.js";
+import {stationSurfaces,stationBuildings} from "./station-survey.js";
 import {westSurfaces,westBuildings,westSites,westRegion,westWalkable} from "./west-district-layout.js";
 
 import {bukchonAlleyShortcut,bukchonBounds,bukchonPaths,bukchonLandmarks,bukchonWalkable,bukchonLawns} from "./bukchon-layout.js";

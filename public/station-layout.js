@@ -1,7 +1,7 @@
 import {addZone,addLandmarks,addObstacle,addLoft} from "./layout.js";
-import {stationSurfaces,stationBuildings} from "./station-data.js";
+import {stationSurfaces,stationBuildings,registerForecourt} from "./station-survey.js";
 import {terminalPose,terminalPoint} from "./rail-station-layout.js";
-import {plazaCafeFront,outletFront} from "./station-approach-plan.js";
+import {plazaCafeFront,outletFront,terminalSpan,terminalDoorOffsets} from "./station-approach-plan.js";
 import {approachAt,stationRise} from "./station-levels.js";
 import {cultureVenues} from "./culture-station-layout.js";
 import {groundIndex} from "./ground-index.js";
@@ -32,13 +32,13 @@ export function registerStation(){
     const next=ring[(i+1)%ring.length],dx=next[0]-a[0],dy=next[1]-a[1];
     addObstacle((a[0]+next[0])/2,(a[1]+next[1])/2,Math.hypot(dx,dy),.10,-Math.atan2(dy,dx));
   }
-  // The projecting glass facade and its columns extend beyond the cadastral footprint.
-  addObstacle(terminalPose.x,terminalPose.y,47,8,terminalPose.angle);
+  registerForecourt(addObstacle);
   for(const {x,y,w,d,angle} of [plazaCafeFront,outletFront])
     addObstacle(x-Math.sin(angle)*d/2,y-Math.cos(angle)*d/2,w,d,angle);
 
-  for(const x of [-20,-8,8,20]){
-    const p=terminalPoint(x,4.1);addObstacle(p.x,p.y,.55,.55);
+  // Slender posts carry the deep eave between the five doors of the concourse.
+  for(const x of [terminalSpan[1]-.4,...terminalDoorOffsets.slice(1).map((door,i)=>(door+terminalDoorOffsets[i])/2),terminalDoorOffsets[0]-2.2]){
+    const p=terminalPoint(x,9.4);addObstacle(p.x,p.y,.3,.3);
   }
   addZone({name:"숭례문 · 서울역",contains:(x,y)=>x>=stationBounds.minX&&x<=590&&y>=388&&y<=stationBounds.maxY,walkable:stationWalkable});
 }

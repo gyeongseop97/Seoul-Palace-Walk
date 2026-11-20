@@ -238,7 +238,7 @@ export const concourseParts=[
   slab("station-hall","3층 상가 연결통로",-60,-36,-68,-62,5.1,"bridge"),
   slab("station-hall","서울역 3층 상가",-74,-60,-73,-57,5.1,"retail")
 ];
-export const westExit={inside:railPoint(-98,9),outside:{x:-165.4,y:1516.2,heading:270,up:true}};
+export const westExit={inside:railPoint(-98,9),outside:{x:-152.6,y:1511.6,heading:290,up:true}};
 export const northBridgeExit={inside:railPoint(38,14),outside:{x:-155.8,y:1390.5,heading:270}};
 export const rearMarketExit={inside:railPoint(38,1),outside:{x:-183.2,y:1322.2,heading:270}};
 export const marketExit={inside:railPoint(44,8),outside:{x:-62.7,y:1408.4,heading:180,up:true}};

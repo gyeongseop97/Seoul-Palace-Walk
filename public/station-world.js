@@ -1,12 +1,11 @@
 import {makeTreeBuilder} from "./lowpoly-trees.js";
-import {stationFrontage,lettering} from "./station-frontage.js";
-import {stationSurfaces,stationBuildings,stationTrees,seoulloDeck} from "./station-data.js";
+import {stationFrontage,buildStationFront,lettering} from "./station-frontage.js";
+import {stationSurfaces,stationBuildings,stationTrees,seoulloDeck,forecourtSurfaces} from "./station-survey.js";
 import {southWorldSurfaceHeight as ground,southWorldTerrainHeight,gradePalaceMeshes} from "./gyeongbok-terrain.js";
 import {standSign} from "./regional-stands.js";
 import {buildStationApproaches} from "./station-approach-world.js";
 import {stationRise} from "./station-levels.js";
 import {gatePose} from "./station-approach-plan.js";
-import {terminalPose} from "./rail-station-layout.js";
 import {districtTile} from "./district-material.js";
 
 const colors={shared:"#575b5b",stone:"#b6b2a9",path:"#aaa49a",grass:"#83906b",road:"#575b5b",crossing:"#686a68",verge:"#9b9987"};
@@ -39,7 +38,7 @@ export function* buildStationBand(T,root,kit,band){
       const x=position.getX(i),z=position.getZ(i);
       uv.setXY(i,(x*c+z*k)/repeat,(-x*k+z*c)/repeat);
     }
-    const mesh=new T.Mesh(geo,surfaces[s.kind]);mesh.position.y=.046;mesh.receiveShadow=true;mesh.userData.followTerrain=true;root.add(mesh);paving.push(mesh);
+    const mesh=new T.Mesh(geo,surfaces[s.kind]);mesh.position.y=forecourtSurfaces.includes(s)?.062:.046;mesh.receiveShadow=true;mesh.userData.followTerrain=true;root.add(mesh);paving.push(mesh);
     if(++count%16===0)yield;
   }
   yield* gradePalaceMeshes(T,paving,southWorldTerrainHeight);
@@ -146,52 +145,6 @@ export function* buildStationBand(T,root,kit,band){
     const hand=box(0x3f3932,.17,4.45,1.06,.06,.54,.04,front);hand.rotation.z=-.65;
     box(0x3f3932,-.26,4.25,1.07,.53,.063,.04,front);
   }
-  function terminal(){
-    const g=groupAt(terminalPose.x,terminalPose.y,terminalPose.angle);g.name="서울역";
-    g.position.y+=stationRise;
-    box(0xa4aaa9,0,-stationRise/2,0,47,stationRise,8,g);
-    // Ground-level shop windows remain visible under the raised KTX forecourt.
-    for(let i=0;i<9;i++){
-      const x=(i-4)*4.95;box(i%3?0x65858d:0x4e686e,x,-3.18,4.08,4.65,4.17,.15,g);
-      box(0xb8b5a6,x,-1.04,4.24,4.94,.51,.32,g);
-      for(const u of [-2.26,0,2.26])box(0xbac4c2,x+u,-3.16,4.2,.10,4.04,.13,g);
-    }
-    const silver=0xc1c9c8,glaze=0x597b87;
-    const span=47,half=span/2;
-    box(glaze,0,9.4,0,span,18.8,8,g);
-    for(let row=0;row<5;row++)for(let col=0;col<12;col++){
-      const tint=[0x517682,0x70909b,0x688a94,0x436473][(col+row+(col%3)*row)%4];
-      box(tint,(col-5.5)*3.84,4+row*2.87,4.04,3.72,2.76,.09,g);
-    }
-    const ref=document.createElement("canvas");ref.width=512;ref.height=192;
-    const ct=ref.getContext("2d"),sky=ct.createLinearGradient(0,0,0,192);
-    sky.addColorStop(0,"#688f9f");sky.addColorStop(.55,"#527b8e");sky.addColorStop(.7,"#6c8a96");sky.addColorStop(1,"#385b6b");
-    ct.fillStyle=sky;ct.fillRect(0,0,512,192);
-    for(let i=0;i<25;i++){
-      const x=i*22,h=8+Math.abs(Math.sin(i*8.39))*27;
-      ct.fillStyle=i%2?"rgba(42,69,84,.18)":"rgba(194,209,211,.15)";ct.fillRect(x,192-h,21,h);
-    }
-    const tex=new T.CanvasTexture(ref);tex.colorSpace=T.SRGBColorSpace;
-    const pane=new T.Mesh(new T.PlaneGeometry(span,14.45),new T.MeshBasicMaterial({map:tex,color:0xc6d2d5}));
-    pane.position.set(0,11.50,4.101);g.add(pane);
-    for(const x of [-14,-7,0,7,14]){
-      box(0xc1cbcc,x,2.05,4.26,5.68,4.08,.21,g);
-      for(const side of [-1,1]){box(0x314d5c,x+side*1.33,1.91,4.43,2.49,3.65,.10,g);box(0xa6b7b8,x+side*.35,1.25,4.54,.08,.72,.08,g);}
-    }
-    for(let j=0;j<8;j++){
-      const z0=-20+3*j,z1=z0+3,roofAt=z=>20.9+2.4*Math.cos((z+10)*Math.PI/27);
-      const cover=box(silver,0,(roofAt(z0)+roofAt(z1))/2,(z0+z1)/2,span+2,.39,3.1,g);
-      cover.rotation.x=-Math.atan2(roofAt(z1)-roofAt(z0),3);
-    }
-    for(let i=-half;i<=half;i+=3.9){
-      box(silver,i,9.65,4.08,.19,18.9,.28,g);
-      beam(g,[i,20,-11],[i,16.6,8.8],.28,silver);
-    }
-    for(let h=2;h<19;h+=3.2)box(silver,0,h,4.16,span,.17,.22,g);
-    const canopy=box(silver,0,17.6,7.4,span+2,.55,7,g);canopy.rotation.x=.14;
-    for(const z of [-7,4.1])for(const x of [-20,-8,8,20])cylinder(0x98a6a5,x,7.9,z,.45,16,10,g);
-    lettering(T,g,"서울역  Seoul Station",0,14.2,4.88,25,2.8);
-  }
   function sungnyemun(){
     const g=groupAt(gatePose.x,gatePose.y,gatePose.angle);g.name="숭례문";
     const stone=0xb0a593,tile=0x3c4143,green=0x4e7363,red=0x975344;
@@ -247,10 +200,9 @@ export function* buildStationBand(T,root,kit,band){
     const center=b.rings[0].reduce((p,[x,y],_,a)=>({x:p.x+x/a.length,y:p.y+y/a.length}),{x:0,y:0});
     if(bandOf(center.y)!==band)continue;
     if(b.kind==="gate"){if(!dressed.has(b.id))sungnyemun();}
-    else if(b.kind==="terminal"||b.kind==="stationWing"){
-      stationFrontage(T,kit,{groupAt,beam,ground},b,!dressed.has(b.id));
-      if(b.kind==="terminal"&&!dressed.has(b.id))terminal();
-    }else{
+    else if(b.part){if(b.part==="concourse")buildStationFront(T,kit,{groupAt,beam,ground});}
+    else if(b.kind==="stationWing")stationFrontage(T,kit,{groupAt,ground},b);
+    else{
       const wall=b.kind==="historic"?brick:b.kind==="terminal"?facades[4]:b.kind==="squareOffice"?facades[5]:facades[Number(b.id)%5||0];
       shell(b,wall,b.kind==="historic"?0x495b59:b.kind==="terminal"?0x9aa8a7:0x858984,b.kind==="historic"?9.8:b.height);
       if(b.kind==="historic")oldStation();

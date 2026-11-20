@@ -12,9 +12,9 @@ export function buildUpperPlaza(T,kit,root,ground){
       const dx=x-s.b[0],dz=z-s.b[1];
       if(Math.abs(dx*s.ux+dz*s.uy)<2&&Math.abs(dz*s.ux-dx*s.uy)<s.w/2+.8)return true;
     }
-    // Exposed roadside edges need guards. Edges along the hall glazing and cafe stay open.
-    if(z>1452&&x<.76*(z-1458)+2.3||z>1498&&x>26)return true;
-    if(Math.hypot(x+62.7,z-1408.4)<4||Math.hypot(x+165.4,z-1516.2)<6)return true;
+    // Exposed edges need guards. The outlet shopfront, concourse glass and east wing are walls.
+    if(x<-3.6&&z>1440||z>1483.5&&x>-6)return true;
+    if(Math.hypot(x+62.7,z-1408.4)<4||Math.hypot(x+151,z-1511)<7)return true;
     return false;
   }
   for(const {rings} of stationTerraces){
@@ -39,7 +39,7 @@ export function buildUpperPlaza(T,kit,root,ground){
       }
     }
   }
-  for(const [x,z] of [[-37,1414],[-58,1414],[-82,1414],[-102,1414],[-119,1403],[16,1456],[31,1488]]){
+  for(const [x,z] of [[-37,1414],[-58,1414],[-82,1414],[-102,1414],[-119,1403]]){
     const h=y-ground({x,y:z})-.54;
     box(0x959c99,wx(x),y-.54-h/2,wz(z),1.02,h,1.3,root);
   }

@@ -199,7 +199,7 @@ export function* buildStationComplex(T,root,kit,venue,walkerModels){
     if(style==="atrium"){
       box(0xd9ddd7,x,10.85,z,w,.25,d);
       for(let u=x0+2;u<x1;u+=5.4){
-        beam([u,8.8,z0],[u,10.45,z1],.24,0x3066a2);
+        beam([u,8.8,z0],[u,10.45,z1],.24,0xf3f5f3);
         for(let k=0;k<3;k++)beam([u,8.9+k*.49,z0+k*d/3],[u,10.52,z0+(k+1)*d/3],.16,0xe4e4db);
       }
       if(z1===19)for(let u=x0+1.75;u<x1-1.6;u+=3.5){

@@ -1,4 +1,4 @@
-import {stationHall,railPlatform,railShopPlots,seatRows,waitingRows,extraWaitingRows,hallColumns} from "./rail-station-layout.js";
+import {stationHall,railPlatform,railShopPlots,seatRows,seatOffsets,waitingRows,extraWaitingRows,hallColumns} from "./rail-station-layout.js";
 import {hallBow} from "./station-levels.js";
 import {standSign} from "./regional-stands.js";
 import {makeRegionalItemProps} from "./regional-item-props.js";
@@ -30,6 +30,27 @@ export function* buildRailRoom(T,root,kit,venue){
       const back=box(color,u,.76,.268,w,.51,.10,g);back.rotation.x=.09;
     }
   }
+  const paintMap=(w,h,draw,repeat=true)=>{
+    const c=document.createElement("canvas");c.width=w;c.height=h;draw(c.getContext("2d"),w,h);
+    const map=new T.CanvasTexture(c);map.colorSpace=T.SRGBColorSpace;map.anisotropy=4;
+    if(repeat)map.wrapS=map.wrapT=T.RepeatWrapping;
+    return map;
+  };
+  // Honed granite in 1.2 m slabs, as laid through the concourse.
+  const granite=new T.MeshStandardMaterial({roughness:.36,metalness:.05,map:paintMap(256,256,(ctx,n)=>{
+    let seed=9;const rnd=()=>(seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296;
+    for(let j=0;j<4;j++)for(let i=0;i<4;i++){
+      const v=206+Math.floor(rnd()*13);ctx.fillStyle=`rgb(${v},${v-2},${v-8})`;ctx.fillRect(i*64,j*64,64,64);
+    }
+    for(let k=0;k<2800;k++){ctx.fillStyle=k%3?"rgba(70,66,60,.11)":"rgba(255,255,255,.17)";ctx.fillRect(rnd()*n,rnd()*n,1.4,1.4);}
+    ctx.fillStyle="rgba(116,112,104,.5)";for(let i=0;i<=4;i++){ctx.fillRect(i*64-1,0,2,n);ctx.fillRect(0,i*64-1,n,2);}
+  })});
+  function stoneFloor(outline,altitude=.004){
+    const shape=new T.Shape(outline.map(([x,z])=>new T.Vector2(x,-z))),geo=new T.ShapeGeometry(shape);geo.rotateX(-Math.PI/2);
+    const pos=geo.attributes.position,uv=geo.attributes.uv;
+    for(let i=0;i<pos.count;i++)uv.setXY(i,pos.getX(i)/4.8,pos.getZ(i)/4.8);
+    const mesh=new T.Mesh(geo,granite);mesh.position.y=altitude;mesh.receiveShadow=true;room.add(mesh);
+  }
   room.add(new T.HemisphereLight(0xfff4df,0xcbc8bd,.98));
   function ceilingLight(x,y,z,power,reach){
     const light=new T.PointLight(0xfff0d5,power,reach,1.65);
@@ -37,7 +58,7 @@ export function* buildRailRoom(T,root,kit,venue){
   }
   if(venue===stationHall){
     ceilingLight(7,5,15,52,27);ceilingLight(0,7,-15,60,32);
-    paving(42,58,2.2,0xd3cec0);
+    box(0xb9b6ac,0,-.12,0,42,.24,58);stoneFloor([[-21,-29],[21,-29],[21,29],[-21,29]]);
     for(const side of [-1,1]){
       for(const [z,len] of (side<0?[[24,10]]:[]))box(0xb7c6c9,side*21,4.25,z,.27,8.5,len);
       if(side>0)box(0xd3d6d0,0,4.25,29,42,8.5,.27);
@@ -67,7 +88,7 @@ export function* buildRailRoom(T,root,kit,venue){
         panel.rotation.y=angle;return panel;
       };
       const deck=[[21,a.z],[a.x,a.z],[b.x,b.z],[21,b.z]];
-      if(!opening)surface(deck,0,0xd3cec0);
+      if(!opening)stoneFloor(deck,.006);
       surface(deck,9.23,0xc6d2d1);
       const low=opening?4.10:.6;
       pane(0x839fa8,(9.2+low)/2,9.2-low,.095).material=glazing;
@@ -100,17 +121,17 @@ export function* buildRailRoom(T,root,kit,venue){
     // Tied steel arches span the public hall. Alternating clerestory and acoustic
     // panels follow the upper chord so the roof has real depth from the gallery.
     const crown=x=>9.20+4.85*(1-(x/21)**2);
-    const skylight=new T.MeshBasicMaterial({color:0xd4e6ea});
+    const skylight=new T.MeshBasicMaterial({color:0xe6f3f8});
     for(let z=-29;z<29;z+=5.8){
       const mid=z+2.90;
       for(let j=0;j<8;j++){
         const x0=-21+j*5.25,x1=x0+5.25,y0=crown(x0),y1=crown(x1);
-        const roof=box(0xc7ceca,(x0+x1)/2,(y0+y1)/2+.17,mid,Math.hypot(x1-x0,y1-y0)+.045,.18,5.84);
+        const roof=box(0xf0f2ee,(x0+x1)/2,(y0+y1)/2+.17,mid,Math.hypot(x1-x0,y1-y0)+.045,.18,5.84);
         roof.rotation.z=Math.atan2(y1-y0,x1-x0);
         if(j===3||j===4)roof.material=skylight;
-        girder(room,[x0,y0,z],[x1,y1,z],.24,0x356697);
-        girder(room,[x0,y0-.95,z],[x1,y1-.95,z],.17,0x486e8e);
-        girder(room,[x0,y0-.95,z],[x1,y1,z],.12,0x7893a1);
+        girder(room,[x0,y0,z],[x1,y1,z],.24,0xf3f5f3);
+        girder(room,[x0,y0-.95,z],[x1,y1-.95,z],.17,0xe6ebea);
+        girder(room,[x0,y0-.95,z],[x1,y1,z],.12,0xd5dddc);
         box(0xb2bfc0,x0,y0-.07,mid,.13,.15,5.84);
       }
       for(const x of [-10.5,10.5])box(0xffefd4,x,crown(x)-1.02,mid,.13,.08,4.75);
@@ -141,26 +162,63 @@ export function* buildRailRoom(T,root,kit,venue){
     }
     for(const [x,z] of [...waitingRows,...extraWaitingRows])seats(room,x,z,2.1,2,0x648085);
     const tickets=group(16,-13,-Math.PI/2);
-    box(0xdfd8c5,0,1.65,0,9,3.3,6,tickets);box(navy,0,1.03,3.03,8.6,.97,.28,tickets);
-    for(const x of [-3,-1,1,3]){
-      box(0x65838d,x,2.06,3.09,1.7,.96,.12,tickets);
-      box(0xe4cda7,x,1.5,3.25,1.89,.13,.65,tickets);
+    box(0xe9e6dc,0,1.9,0,9,3.8,6,tickets);box(0x1f4f86,0,3.38,3.06,9.04,.84,.16,tickets);
+    box(0xd8d4c8,0,.55,3.12,8.7,1.1,.36,tickets);box(0xf4f1e8,0,1.12,3.22,8.8,.07,.62,tickets);
+    for(const x of [-3.2,-1.07,1.07,3.2]){
+      box(0x86a9b4,x,1.98,3.05,1.86,1.62,.07,tickets);box(0x3b5f6e,x,2.64,3.1,1.9,.3,.05,tickets);
+      box(0xcfd6d6,x+1.065,1.98,3.1,.07,1.66,.14,tickets);box(0x2b3b44,x,1.24,3.4,.5,.16,.3,tickets);
     }
-    sign(tickets,"표 사는 곳","TICKETS",8,0,3.55,3.12);
+    box(0xcfd6d6,-4.26,1.98,3.1,.07,1.66,.14,tickets);
+    const ticketSign=paintMap(1024,96,(ctx,w,h)=>{
+      ctx.fillStyle="#1f4f86";ctx.fillRect(0,0,w,h);ctx.fillStyle="#ffffff";ctx.textBaseline="middle";
+      ctx.font="bold 56px sans-serif";ctx.fillText("승차권 매표소",34,50);ctx.font="600 34px sans-serif";ctx.fillStyle="#d9e6f4";ctx.fillText("Tickets  ·  乘车券  ·  きっぷうりば",430,52);
+    },false);
+    const ticketBoard=new T.Mesh(new T.PlaneGeometry(8.9,.83),new T.MeshBasicMaterial({map:ticketSign}));ticketBoard.position.set(0,3.38,3.15);tickets.add(ticketBoard);
+    for(const x of [-3.2,-1.07,1.07,3.2])for(const z of [4.4,5.6]){rod(0xc7cfd0,x-1.05,.5,z,.035,1,tickets);box(0x2456a4,x-1.05,.93,z+.6,.04,.05,1.2,tickets);}
+    // Self-service ticket machines stand beside the counters.
+    for(let i=0;i<5;i++){
+      const kiosk=group(13.9+i*1.05,-7.55,0);
+      box(0xeef0ec,0,.86,0,.86,1.72,.62,kiosk);box(0x1f4f86,0,1.8,0,.9,.18,.66,kiosk);box(0x20303a,0,1.18,.32,.6,.46,.03,kiosk);
+      box(0x5fb3c8,0,1.18,.335,.52,.38,.01,kiosk);box(0xc9cfce,0,.74,.33,.5,.16,.04,kiosk);box(0xf2c54b,.24,.5,.32,.12,.06,.03,kiosk);
+    }
+    sign(room,"자동발매기","Ticket Machines",3.4,16,2.5,-7.2,"#1f4f86","#ffffff",.56);
+    // Round information desk inside the entrance.
+    const desk=group(10.5,21.5);
+    kit.cylinder(0xf2f0e8,0,.52,0,1.12,1.04,28,desk);kit.cylinder(0x1f4f86,0,1.07,0,1.2,.07,28,desk);kit.cylinder(0xdedad0,0,.05,0,1.22,.1,28,desk);
+    rod(0xc7cfd0,0,1.9,0,.05,1.7,desk);
+    for(const a of [0,Math.PI/2,Math.PI,-Math.PI/2]){const face=group(0,0,a,desk);sign(face,"안내","Information",1.5,0,2.84,.03,"#1f4f86","#ffffff",.5);}
     const entry=group(0,28.77,Math.PI);
     for(const x of [-14,-7,0,7,14]){
       box(0x677e88,x,1.55,.06,2.13,3.15,.22,entry);box(0xabc8c8,x,1.55,.21,1.89,2.89,.1,entry);
     }
     sign(entry,"서울역광장 출구","EXIT",5.9,0,3.9,.25);
+    // Departure board above the way to the platforms, drawn like the station's LED panel.
     const departures=group(1.5,-16);
-    box(0x2a3032,0,5.76,0,12.6,3.06,.36,departures);
-    sign(departures,"열차 출발 안내","TRAIN DEPARTURES",11.9,0,6.68,.20,"#24475c","#f4edd4",.88);
-    for(const [i,label] of ["KTX     승차 체험     3 · 4","타는 곳    5–14    /    서부 맞이방"].entries()){
-      sign(departures,label,null,11.9,0,5.86-i*.68,.20,"#19292d",i?"#c3dfd6":"#f2cb76",.64);
+    const rows=[["10:00","KTX","029","부산","3","탑승 중"],["10:12","KTX-산천","407","목포","4","탑승 준비"],["10:25","ITX-새마을","1003","부산","6",""],
+      ["10:31","KTX-이음","705","강릉","12",""],["10:40","무궁화호","1211","부산","8",""],["10:55","KTX","211","포항","5","5분 지연"]];
+    const led=paintMap(1280,400,(ctx,w,h)=>{
+      ctx.fillStyle="#0c1114";ctx.fillRect(0,0,w,h);ctx.fillStyle="#17384f";ctx.fillRect(0,0,w,64);
+      ctx.textBaseline="middle";ctx.font="bold 36px sans-serif";ctx.fillStyle="#f3f6f4";ctx.fillText("열차 출발 안내   Departures",26,34);
+      ctx.font="bold 28px sans-serif";ctx.fillStyle="#9fc4d8";
+      for(const [x,title] of [[26,"시각"],[190,"열차"],[520,"행선지"],[790,"타는 곳"],[980,"상태"]])ctx.fillText(title,x,92);
+      rows.forEach(([time,train,number,to,track,note],i)=>{
+        const y=142+i*47;ctx.fillStyle=i%2?"#10181c":"#141e23";ctx.fillRect(0,y-23,w,46);
+        ctx.font="bold 34px sans-serif";ctx.fillStyle="#f6d86b";ctx.fillText(time,26,y);
+        ctx.fillStyle=train.startsWith("KTX")?"#7fd3f0":"#b7e08a";ctx.fillText(train,190,y);ctx.fillStyle="#cfd8d6";ctx.font="28px sans-serif";ctx.fillText(number,430,y+2);
+        ctx.font="bold 34px sans-serif";ctx.fillStyle="#ffffff";ctx.fillText(to,520,y);ctx.fillStyle="#f6d86b";ctx.fillText(track,830,y);
+        ctx.fillStyle=note.includes("지연")?"#ff8a6a":"#8be0a0";ctx.fillText(note,980,y);
+      });
+    },false);
+    box(0x20272a,0,6.1,0,12.9,4.2,.34,departures);
+    for(const face of [1,-1]){
+      const panel=new T.Mesh(new T.PlaneGeometry(12.5,3.9),new T.MeshBasicMaterial({map:led}));
+      panel.position.set(0,6.1,face*.18);panel.rotation.y=face>0?0:Math.PI;departures.add(panel);
     }
+    box(0x1f4f86,0,3.72,0,12.9,.56,.2,departures);
+    sign(departures,"타는 곳  Tracks  1 – 14",null,7.6,0,3.72,.11,"#1f4f86","#ffffff",.5);
     const reverse=group(0,0,Math.PI,departures);
-    sign(reverse,"나가는 곳  ·  동부광장","Seoul Station Plaza",11.9,0,5.76,.20,"#25445b","#f5ecce",2.5);
-    for(const x of [-3.8,3.8])rod(silver,x+1.5,(crown(x+1.5)+7.24)/2,-16,.055,crown(x+1.5)-7.24);
+    sign(reverse,"나가는 곳  ·  서울역광장",null,7.6,0,3.72,.11,"#1f4f86","#ffffff",.5);
+    for(const x of [-5.6,5.6])rod(silver,x+1.5,(crown(x+1.5)+8.2)/2,-16,.055,crown(x+1.5)-8.2);
     sign(room,"3 · 4   ↓   타는 곳","TRACKS    /    KTX",6,0,3.6,-28);
     sign(room,"3층  ↑  식당가","FOOD HALL",5.2,-16,3.6,-28);
     sign(room,"승강기  ↕","LIFT",2.5,-7.25,3.1,-28);
@@ -195,7 +253,7 @@ export function* buildRailRoom(T,root,kit,venue){
       yield;
     }
   }else if(venue===railPlatform){
-    paving(8.7,97,1.3,0xbebbb1);
+    box(0xb4b1a7,0,-.12,0,8.7,.24,97);stoneFloor([[-4.35,-48.5],[4.35,-48.5],[4.35,48.5],[-4.35,48.5]]);
     box(0x818981,0,-1.25,3.75,23,.26,104.5);
     sign(room,"↓  전철 직통환승","Metro transfer",4.5,0,3.10,-46);
     for(const side of [-1,1]){
@@ -229,71 +287,130 @@ export function* buildRailRoom(T,root,kit,venue){
     sign(returnSign,"↑ 나가는 곳","2층 맞이방",4.1,0,2.72,0);
 
     yield;
-    // Cross sections at successive longitudinal stations produce the rounded high-speed nose.
-    const train=group(7.09,0);
-    const ring=[[-1,.16],[-1,.67],[-.93,.85],[-.63,.97],[0,1],[.63,.97],[.93,.85],[1,.67],[1,.16],[.83,0],[-.83,0]];
-    const sections=[[-40,.21,.62,.1],[-38.5,.93,1.13,-.09],[-36,1.39,1.82,-.23],[-32,1.61,3.06,-.26],[-29,1.64,3.45,-.27],[-18,1.64,3.45,-.27]];
-    const xyz=[];
-    for(let j=1;j<sections.length;j++)for(let i=0;i<ring.length;i++){
-      const make=(row,k)=>{const [z,w,h,b]=sections[row],[u,v]=ring[k%ring.length];return [u*w,b+v*h,z];};
-      xyz.push(...make(j-1,i),...make(j,i),...make(j,i+1),...make(j-1,i),...make(j,i+1),...make(j-1,i+1));
-    }
-    for(const end of [sections[0],sections.at(-1)]){
-      const [z,w,h,b]=end;
-      for(let i=0;i<ring.length;i++){
-        const [a,u]=ring[i],[c,v]=ring[(i+1)%ring.length];
-        xyz.push(0,b+h/2,z,a*w,b+u*h,z,c*w,b+v*h,z);
-      }
-    }
-    const geom=new T.BufferGeometry();geom.setAttribute("position",new T.Float32BufferAttribute(xyz,3));geom.computeVertexNormals();
-    train.add(new T.Mesh(geom,new T.MeshStandardMaterial({color:0xdce4e5,side:T.DoubleSide,roughness:.48})));
-    function nosePanel(color,vertices){
-      const panel=new T.BufferGeometry();
-      panel.setAttribute("position",new T.Float32BufferAttribute(vertices.flat(),3));
-      panel.setIndex([0,1,2,0,2,3]);panel.computeVertexNormals();
-      train.add(new T.Mesh(panel,new T.MeshStandardMaterial({color,side:T.DoubleSide,roughness:.5})));
-    }
-    for(const side of [-1,1]){
-      nosePanel(0x263e55,[[0,2.03,-34.72],[side*1.24,1.88,-34.72],[side*1.19,2.99,-31.75],[0,3.04,-31.75]]);
-      nosePanel(0x324b60,[[side*1.46,1.89,-34.65],[side*1.58,2.55,-31.73],[side*1.64,2.25,-30.52],[side*1.59,1.88,-32.05]]);
-      for(let i=1;i<sections.length;i++){
-        const a=sections[i-1],b=sections[i],band=(s,v)=>[side*(s[1]+.011),s[3]+s[2]*v,s[0]];
-        nosePanel(navy,[band(a,.24),band(b,.24),band(b,.38),band(a,.38)]);
-      }
-      const headlight=box(0xffe4a3,side*.83,.60,-38.55,.35,.16,.12,train);headlight.rotation.y=side*.60;
-    }
-    for(const side of [-1,1]){
-      box(0x718899,side*1.64,.57,-23.5,.055,.08,10.6,train);
-      for(let j=0;j<8;j++)box(slate,side*1.64,1.9,-25+j*.7,.064,.75,.27,train);
-    }
-    for(const [a,b] of [[-17.8,2.65],[3,23.95],[24.3,45.2]]){
-      const len=b-a,m=(a+b)/2;
-      box(0x354149,0,-.28,m,2.92,.56,len-.5,train);
-      box(0xe1e8e7,0,1.24,m,3.30,2.98,len,train);
-      box(0xcad4d6,0,2.87,m,3.04,.35,len,train);
-      for(const side of [-1,1]){
-        box(navy,side*1.656,.88,m,.035,.42,len,train);
-        for(let z=a+1.25;z<b-.65;z+=1.62){
-          if(a===3&&Math.abs(z-12)<1.5)continue;
-          box(0x3b5365,side*1.66,1.95,z,.05,.76,1.28,train);
+    // Lofted car bodies: one cross-section is carried along each car and tapered into the nose.
+    // Each strip of the section has its own colour, which gives the livery its clean bands.
+    const text=(parent,title,x,y,z,w,h,ink,angle=0,weight="bold")=>{
+      const map=paintMap(512,128,(ctx,cw,ch)=>{ctx.fillStyle=ink;ctx.font=weight+" 86px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(title,cw/2,ch/2+4,cw-16);},false);
+      const panel=new T.Mesh(new T.PlaneGeometry(w,h),new T.MeshBasicMaterial({map,transparent:true,depthWrite:false}));
+      panel.position.set(x,y,z);panel.rotation.y=angle;parent.add(panel);
+    };
+    const section=[[0,-.72],[1.30,-.72],[1.44,-.60],[1.56,-.10],[1.63,.60],[1.655,1.12],[1.66,1.34],[1.66,1.42],[1.615,2.30],[1.56,2.45],[1.43,2.70],[1.15,2.90],[.70,3.03],[0,3.06]];
+    const liveries={
+      sancheon:{body:0xf1f3f1,roof:0xd5dbda,skirt:0x7f888c,band:0x161c21,stripe:0x1d4f91,accent:0x1d4f91,pane:0x2f4558},
+      classic:{body:0xe9ecea,roof:0xc9d0d0,skirt:0x9aa3a6,band:0x1f4f8f,stripe:0xf1f3f1,accent:0x1f4f8f,pane:0x1b2c40}
+    };
+    function buildTrain(x,turn,livery,boarding){
+      const train=group(x,0,turn),look=liveries[livery],tint=new T.Color();
+      const strip=[0x30363a,look.skirt,look.skirt,look.body,look.body,look.stripe,look.body,look.band,look.body,look.roof,look.roof,look.roof,look.roof];
+      // z, width scale, height and underside of each station along the cab car.
+      const nose=[[-40,.10,.55,.05],[-39.6,.34,1.05,-.25],[-38.8,.58,1.55,-.50],[-37.6,.78,2.05,-.66],[-36.2,.90,2.55,-.72],[-34.6,.97,3.05,-.72],[-33,1,3.5,-.72],[-31.6,1,3.78,-.72],[-18,1,3.78,-.72]];
+      const at=([z,w,h,b],i,side)=>[side*section[i][0]*w,b+(section[i][1]+.72)/3.78*h,z];
+      const xyz=[],rgb=[];
+      function loft(stations,cab){
+        for(let k=1;k<stations.length;k++)for(const side of [-1,1])for(let i=0;i<section.length-1;i++){
+          const a=at(stations[k-1],i,side),b=at(stations[k],i,side),c=at(stations[k],i+1,side),d=at(stations[k-1],i+1,side);
+          let color=strip[i];
+          if(cab){
+            // The blue of the nose sweeps back into the stripe; the cab car has no window band.
+            if(i===7)color=look.body;
+            if(stations[k][0]<=-34.6&&i>=3&&i<=6)color=look.accent;
+            if(stations[k][0]<=-37.6&&i>=1&&i<=8)color=look.accent;
+          }
+          tint.setHex(color,T.SRGBColorSpace);
+          for(const point of side>0?[a,b,c,a,c,d]:[a,c,b,a,d,c]){xyz.push(...point);rgb.push(tint.r,tint.g,tint.b);}
+        }
+        for(const [station,flip] of [[stations[0],1],[stations.at(-1),-1]]){
+          tint.setHex(0x2a3034,T.SRGBColorSpace);
+          for(const side of [-1,1])for(let i=0;i<section.length-1;i++){
+            const a=at(station,i,side),b=at(station,i+1,side),centre=[0,station[3]+station[2]/2,station[0]];
+            for(const point of side*flip>0?[centre,b,a]:[centre,a,b]){xyz.push(...point);rgb.push(tint.r,tint.g,tint.b);}
+          }
         }
       }
-      box(0x39444b,0,1.2,b+.15,2.98,2.82,.27,train);
-      for(const z of [a+2,b-2])for(const side of [-1,1]){
-        const wheel=rod(0x343d42,side*1.07,-.44,z,.32,.22,train);wheel.rotation.z=Math.PI/2;
+      loft(nose,true);
+      const cars=[[-17.4,2.9],[3.4,23.7],[24.2,44.5]];
+      for(const [a,b] of cars)loft([[a,1,3.78,-.72],[b,1,3.78,-.72]],false);
+      const geo=new T.BufferGeometry();geo.setAttribute("position",new T.Float32BufferAttribute(xyz,3));
+      geo.setAttribute("color",new T.Float32BufferAttribute(rgb,3));geo.computeVertexNormals();
+      const body=new T.Mesh(geo,new T.MeshStandardMaterial({vertexColors:true,roughness:.34,metalness:.22,side:T.DoubleSide}));body.castShadow=true;train.add(body);
+      // Wraparound windscreen, side cab windows, headlights and the coupler hatch.
+      const dark=new T.MeshStandardMaterial({color:0x10161b,roughness:.16,metalness:.5,side:T.DoubleSide});
+      const lift=(station,i,side,out=.02)=>{const p=at(station,i,side);return [p[0]+side*out*.5,p[1]+out,p[2]];};
+      const patch=(points,material=dark)=>{
+        const quad=new T.BufferGeometry();quad.setAttribute("position",new T.Float32BufferAttribute(points.flat(),3));
+        quad.setIndex([0,1,2,0,2,3]);quad.computeVertexNormals();train.add(new T.Mesh(quad,material));
+      };
+      for(const side of [-1,1]){
+        patch([lift(nose[3],13,side),lift(nose[3],11,side),lift(nose[5],11,side),lift(nose[5],13,side)]);
+        patch([lift(nose[3],11,side),lift(nose[3],9,side),lift(nose[5],10,side),lift(nose[5],11,side)]);
+        patch([lift(nose[5],9,side,.03),lift(nose[5],8,side,.03),lift(nose[6],8,side,.03),lift(nose[6],9,side,.03)]);
+        const lamp=at(nose[2],5,side),glow=new T.Mesh(new T.SphereGeometry(.17,12,8),new T.MeshBasicMaterial({color:0xfff2c4}));
+        glow.position.set(lamp[0]*.92,lamp[1]+.04,lamp[2]+.12);glow.scale.set(.7,.5,1.5);train.add(glow);
+        const tail=at(nose[2],3,side);box(0xc23a2f,tail[0]*.9,tail[1]+.1,tail[2]+.1,.14,.09,.3,train);
       }
+      box(0x23292d,0,.2,-39.92,.5,.34,.2,train);
+      // Cooling grilles and the wordmark on the power car.
+      for(const side of [-1,1]){
+        for(let j=0;j<9;j++)box(0x3a4349,side*1.645,1.86,-29.6+j*.82,.05,.82,.5,train).rotation.z=side*.05;
+        text(train,"KTX",side*1.672,.68,-22.4,2.5,.62,livery==="sancheon"?"#1d4f91":"#ffffff",side*Math.PI/2);
+      }
+      const glass=new T.MeshStandardMaterial({color:look.pane,roughness:.12,metalness:.55});
+      for(const [index,[a,b]] of cars.entries()){
+        const len=b-a,mid=(a+b)/2;
+        for(const side of [-1,1]){
+          for(let z=a+2.1;z<b-1.6;z+=1.72){
+            if(boarding&&index===1&&side<0&&Math.abs(z-12)<1.6)continue;
+            const pane=new T.Mesh(new T.BoxGeometry(.03,.66,1.44),glass);pane.position.set(side*1.647,1.87,z);pane.rotation.z=side*.051;train.add(pane);
+          }
+          text(train,"KTX",side*1.672,.72,a+2.2,1.5,.38,livery==="sancheon"?"#1d4f91":"#ffffff",side*Math.PI/2);
+          text(train,(index+1)+"호차",side*1.672,.72,b-1.9,.9,.24,"#3a454c",side*Math.PI/2,"600");
+          // Plug door with its window, step and yellow leading edges.
+          const doorZ=index===1?12:a+1.1,door=group(side*1.665,doorZ,0,train);
+          if(!(boarding&&index===1&&side<0)){
+            box(look.body,0,1.02,0,.05,2.3,1.02,door);box(0x1a2228,side*.012,1.62,0,.04,.78,.5,door);box(0x9aa5a8,0,-.1,0,.3,.06,1.08,door);
+            for(const dz of [-.52,.52])box(0x8c979b,side*.01,1.02,dz,.05,2.3,.03,door);
+          }
+        }
+        box(0x1f2529,0,1.2,b+.33,2.7,2.86,.62,train);
+        // Bogies, underfloor equipment and roof fairings.
+        for(const z of [a+2.4,b-2.4]){
+          box(0x2e3438,0,-.86,z,2.3,.26,3.1,train);
+          for(const side of [-1,1])for(const dz of [-.95,.95]){
+            const wheel=rod(0x3c4348,side*.72,-1.02,z+dz,.44,.14,train);wheel.rotation.z=Math.PI/2;
+            const rim=rod(0xa9b1b3,side*.8,-1.02,z+dz,.3,.03,train);rim.rotation.z=Math.PI/2;
+            box(0x555d62,side*1.08,-.94,z+dz,.14,.2,.4,train);
+          }
+        }
+        box(0x3a4146,0,-.92,mid,2.5,.42,len-8.6,train);
+        box(look.roof,0,3.1,mid,1.5,.16,len*.42,train);
+        for(const side of [-1,1])box(look.skirt,side*1.43,-.72,mid,.06,.5,len-6.4,train);
+      }
+      // Pantograph on the second car.
+      const pan=group(0,7.5,0,train);box(0x4a5257,0,3.2,0,1.1,.1,1.5,pan);
+      girder(pan,[0,3.25,-.5],[0,3.95,.4],.06,0x30363a);girder(pan,[0,3.95,.4],[0,4.55,-.3],.05,0x30363a);box(0x30363a,0,4.57,-.3,1.5,.04,.26,pan);
+      return train;
     }
-    box(0x263541,-1.69,1.19,12,.09,2.48,1.66,train);
-    box(0xa3b2b2,-1.87,.09,12,.47,.15,1.6,train);
-    for(const dz of [-.87,.87])box(0xdab55e,-1.75,1.17,12+dz,.11,2.35,.065,train);
-    const doorLabel=group(-1.73,12,-Math.PI/2,train);
-    sign(doorLabel,"KTX  ·  1호차","일반실",2.42,0,2.76,0,"#264c67","#f5eddc",.49);
-    const wordmark=group(-1.677,-16,-Math.PI/2,train);
-    sign(wordmark,"KTX","KOREA TRAIN EXPRESS",2.6,0,1.41,0,"#e0e7e6","#1c5581",.7);
+    const train=buildTrain(7.09,0,"sancheon",true);
+    yield;
+    buildTrain(-7.09,Math.PI,"classic",false);
+    // The open door of car 2, with a boarding plate over the gap.
+    box(0x1b2227,-1.71,1.05,12,.05,2.26,1.04,train);box(0xa3b2b2,-1.88,-.02,12,.5,.06,1.2,train);
+    for(const dz of [-.56,.56])box(0xe0b84c,-1.7,1.05,12+dz,.08,2.28,.06,train);
+    const led=paintMap(512,96,(ctx,w,h)=>{
+      ctx.fillStyle="#0b0f12";ctx.fillRect(0,0,w,h);ctx.fillStyle="#f6c443";ctx.font="bold 54px sans-serif";ctx.textBaseline="middle";
+      ctx.fillText("KTX 029",18,50);ctx.fillStyle="#f3f6f4";ctx.fillText("부산",300,50);ctx.fillStyle="#8be0a0";ctx.font="bold 30px sans-serif";ctx.fillText("Busan",404,54);
+    },false);
+    const display=new T.Mesh(new T.PlaneGeometry(1.5,.28),new T.MeshBasicMaterial({map:led}));
+    display.position.set(-1.682,2.52,13.6);display.rotation.y=-Math.PI/2;train.add(display);
+    const doorLabel=group(-1.76,12,-Math.PI/2,train);
+    sign(doorLabel,"2호차  ·  일반실","KTX  ·  승차 체험",2.3,0,2.95,0,"#1d4f91","#ffffff",.46);
   }else{
-    // The cabin and platform are separate streamed rooms. The view beyond the glass uses platform scenery.
-    ceilingLight(0,2.55,5,13,15);ceilingLight(0,2.55,-5,13,15);
-    const windowMaterial=new T.MeshStandardMaterial({color:0xb1d2d5,transparent:true,opacity:.21,depthWrite:false});
+    // KTX standard car. The cabin and platform are separate streamed rooms; the view beyond
+    // the glass uses platform scenery.
+    ceilingLight(0,2.2,5.5,10,13);ceilingLight(0,2.2,-5.5,10,13);
+    const glow=color=>new T.MeshBasicMaterial({color});
+    const lit=(color,x,y,z,w,h,d)=>{const m=new T.Mesh(new T.BoxGeometry(w,h,d),glow(color));m.position.set(x,y,z);room.add(m);return m;};
+    const windowMaterial=new T.MeshStandardMaterial({color:0xb1d2d5,transparent:true,opacity:.2,depthWrite:false});
     for(const side of [-1,1]){
       box(0xb9bab0,side*6,-.19,0,7,.36,62);
       box(0xabb5b3,side*6,3.97,0,8,.24,62);
@@ -301,44 +418,84 @@ export function* buildRailRoom(T,root,kit,venue){
       box(0xa1aea9,side*20,4.5,0,5,10,65);
       for(let j=-5;j<=5;j++)box(0x75868a,side*17.45,3,j*5,.1,2.8,4.45);
     }
-    box(0x777b80,0,-.08,0,3.9,.16,23.8);
-    box(0x646d76,0,.006,-.6,.84,.012,20.1);
+    // Carpet with a woven check and a darker runner along the aisle.
+    const carpet=new T.MeshStandardMaterial({roughness:.96,map:paintMap(64,64,(ctx,n)=>{
+      ctx.fillStyle="#3b4862";ctx.fillRect(0,0,n,n);
+      for(let j=0;j<8;j++)for(let i=0;i<8;i++){ctx.fillStyle=(i+j)%2?"#43516f":"#34405a";ctx.fillRect(i*8+1,j*8+1,6,6);}
+    })});
+    const rug=new T.PlaneGeometry(3.9,23.8);rug.rotateX(-Math.PI/2);
+    for(let i=0;i<rug.attributes.uv.count;i++)rug.attributes.uv.setXY(i,rug.attributes.uv.getX(i)*6.5,rug.attributes.uv.getY(i)*39.6);
+    box(0x565b63,0,-.08,0,3.9,.16,23.8);const floor=new T.Mesh(rug,carpet);floor.position.y=.004;room.add(floor);
+    box(0x2c3548,0,.008,-.4,.9,.006,21.4);
+    const pillars=Array.from({length:10},(_,k)=>-8.825+k*1.95);
     for(const side of [-1,1]){
-      box(ivory,side*1.95,.58,0,.12,1.16,23.8);
-      box(0xc9d0ca,side*1.95,2.53,0,.12,.59,23.8);
-      for(let j=-5;j<=5;j++){
-        const z=j*2.04;
-        box(0xb6cdd2,side*1.95,1.73,z,.06,1.14,1.82).material=windowMaterial;
-        box(0xd7d5c8,side*1.95,1.76,z+1,.16,1.32,.18);
-        box(0x8098a0,side*1.90,1.17,z,.15,.05,1.86);
-        box(0x879a9e,side*1.905,1.62,z,.035,.08,1.8);
-        box(0x8d9ea4,side*1.90,1.72,z+.65,.04,.90,.08);
+      box(0xe7e8e3,side*1.93,.4,0,.1,.8,23.8);box(0xb7bcb8,side*1.868,.13,0,.05,.18,22.8);box(0xcfd3cf,side*1.885,.815,0,.17,.05,23.8);
+      box(0xe7e8e3,side*1.93,1.3,-10.36,.1,1,3.07);box(0xe7e8e3,side*1.93,1.3,10.31,.1,1,3.17);
+      for(const z of pillars)box(0xecede8,side*1.915,1.3,z,.13,1,.4);
+      for(let k=1;k<pillars.length;k++){
+        const z=(pillars[k]+pillars[k-1])/2;
+        box(0xb6cdd2,side*1.955,1.3,z,.04,.96,1.56).material=windowMaterial;
+        box(0xd9d2bd,side*1.925,1.74-(k*7%4)*.035,z,.02,.1+(k*7%4)*.07,1.5);
+        box(0x9aa5a8,side*1.9,.87,z,.06,.03,1.5);
       }
-      box(0xa7b0ae,side*1.48,2.42,-.5,.72,.12,20.9);
-      box(0xfff1cd,side*.76,2.68,0,.14,.05,23.3);
+      box(0xeeefea,side*1.9,1.86,0,.16,.14,23.8);
+      const cove=box(0xf3f4ef,side*1.6,2.2,0,.86,.05,23.8);cove.rotation.z=-side*.66;
+      // Glass luggage shelf with its rail, brackets and reading light.
+      box(0xc3d2d4,side*1.53,1.985,0,.72,.025,20.8);box(0xccd3d3,side*1.17,2.0,0,.045,.05,20.8);
+      for(const z of pillars)box(0xc2c9c9,side*1.55,1.92,z,.7,.1,.04);
+      lit(0xfff3d6,side*1.3,1.955,0,.09,.02,20.4);lit(0xfffbe9,side*.62,2.465,0,.2,.02,22.4);
     }
+    box(0xf5f5f0,0,2.5,0,2.6,.06,23.8);
+    // Bulkheads with the sliding vestibule door and the passenger information display.
     for(const end of [-1,1]){
-      box(ivory,0,1.38,end*11.9,3.9,2.76,.17);
-      box(slate,0,1.28,end*11.76,.9,2.51,.13);
+      const wall=group(0,end*11.86,end<0?0:Math.PI);
+      box(0xe9eae5,0,1.27,0,3.9,2.54,.1,wall);box(0xa9b4b6,0,1.06,.07,1.0,2.12,.05,wall);box(0x223540,0,1.16,.1,.8,1.8,.02,wall);
+      box(0xc9d0d0,.3,1.08,.12,.03,.5,.03,wall);box(0xd8d4c8,-1.35,.5,.14,.5,1,.18,wall);box(0xc23a2f,1.42,.62,.12,.22,.5,.14,wall);
+      const info=paintMap(512,112,(ctx,w,h)=>{
+        ctx.fillStyle="#0b0f12";ctx.fillRect(0,0,w,h);ctx.textBaseline="middle";ctx.font="bold 50px sans-serif";
+        ctx.fillStyle="#f6c443";ctx.fillText("1호차",16,58);ctx.fillStyle="#f3f6f4";ctx.fillText("서울 → 부산",170,58);ctx.fillStyle="#8be0a0";ctx.font="bold 28px sans-serif";ctx.fillText("KTX 029",398,60);
+      },false);
+      const board=new T.Mesh(new T.PlaneGeometry(1.5,.33),new T.MeshBasicMaterial({map:info}));board.position.set(0,2.3,.12);wall.add(board);
+      box(0x2b3136,0,2.3,.08,1.62,.42,.05,wall);
     }
-    box(0xe2dfd2,0,2.84,0,4,.18,23.8);
-    const label=group(0,-11.64);sign(label,"서울역  ·  정차 중","1호차 일반실",2.42,0,2.22,0,"#24384a","#f5d887",.45);
-    const exit=group(-1.84,9.5,Math.PI/2);box(0x84969b,0,1.25,0,1.24,2.5,.12,exit);
-    sign(exit,"승강장","내리는 문",.97,0,1.86,.08,"#285a71","#fff4d9",.4);
-    for(const [i,z] of seatRows.entries()){
-      for(const side of [-1,1])for(const u of [.96,1.56]){
-        const x=u*side;
-        box(slate,x,.23,z,.34,.44,.42);
-        box(0x597588,x,.46,z,.54,.18,.56);
-        const back=box(0x4b6c83,x,.85,z+.24,.54,.76,.15);back.rotation.x=.11;
-        box(0x96abba,x,1.25,z+.27,.48,.26,.17);
-        box(0xf0ece1,x,1.28,z+.17,.31,.16,.03);
-        box(0xe8e2cf,x,1.28,z+.359,.32,.16,.025);
-        box(0xa1b1b5,x,.88,z+.34,.36,.34,.045);
-        box(0x485e6a,x,1.051,z+.37,.07,.025,.02);
-        box(0x495561,x-side*.26,.69,z,.05,.09,.37);
+    for(const z of [-4.9,4.9]){
+      box(0x22272b,0,2.24,z,.66,.4,.07);rod(0xb9c1c2,0,2.46,z,.025,.1);
+      const screen=paintMap(256,144,(ctx,w,h)=>{
+        ctx.fillStyle="#12324a";ctx.fillRect(0,0,w,h);ctx.fillStyle="#ffffff";ctx.font="bold 30px sans-serif";ctx.fillText("서울역 정차 중",22,52);
+        ctx.fillStyle="#9fd0e8";ctx.font="bold 20px sans-serif";ctx.fillText("Seoul Station",24,88);ctx.fillStyle="#f6c443";ctx.fillText("다음 역  광명",24,120);
+      },false);
+      for(const face of [-1,1]){
+        const lcd=new T.Mesh(new T.PlaneGeometry(.58,.33),new T.MeshBasicMaterial({map:screen}));lcd.position.set(0,2.24,z+face*.04);lcd.rotation.y=face>0?0:Math.PI;room.add(lcd);
       }
-      if(i%3===0)yield;
+    }
+    const exit=group(-1.87,9.5,Math.PI/2);box(0xdfe2de,0,1.08,0,1.18,2.16,.08,exit);box(0x223540,0,1.5,.05,.56,.8,.02,exit);
+    for(const u of [-.6,.6])box(0xe0b84c,u,1.08,.05,.05,2.16,.03,exit);
+    sign(exit,"승강장","내리는 문",.97,0,2.36,.08,"#1d6a52","#fff4d9",.4);
+    // Luggage stack by the door.
+    for(const [y,w] of [[.5,1],[1.05,1],[1.6,1]])box(0xb9c1c2,1.5,y,10.4,.8,.04,1.5);
+    for(const z of [9.68,11.12])box(0xa9b2b3,1.5,.82,z,.8,1.64,.05);
+    box(0x48607e,1.5,.76,10.1,.5,.46,.3);box(0x7a4b3f,1.48,.2,10.65,.46,.36,.7);
+    // One upholstered shell, profiled from the side and extruded across the seat.
+    const outline=new T.Shape([[-.45,.34],[-.47,.44],[-.43,.5],[-.06,.485],[.11,.5],[.17,.58],[.275,1.0],[.325,1.3],[.37,1.345],[.435,1.33],[.45,1.26],[.4,.62],[.34,.4],[.22,.34]].map(([z,y])=>new T.Vector2(z,y)));
+    const shell=new T.ExtrudeGeometry(outline,{depth:.44,bevelEnabled:true,bevelSize:.028,bevelThickness:.028,bevelSegments:2,curveSegments:1});
+    shell.rotateY(-Math.PI/2);shell.translate(.22,0,0);shell.computeVertexNormals();
+    const fabric=new T.MeshStandardMaterial({color:0x34508c,roughness:.93});
+    for(const [i,z] of seatRows.entries()){
+      for(const side of [-1,1]){
+        for(const u of seatOffsets){
+          const x=u*side,seat=new T.Mesh(shell,fabric);seat.position.set(x,0,z);seat.castShadow=true;room.add(seat);
+          const cover=box(0xf2f0e9,x,1.21,z+.318,.42,.21,.022);cover.rotation.x=.23;
+          const back=box(0x4c535b,x,.87,z+.418,.47,.9,.03);back.rotation.x=.155;
+          const tray=box(0x737a82,x,.93,z+.447,.36,.25,.02);tray.rotation.x=.155;box(0x2b3035,x,.6,z+.4,.36,.15,.02);
+          box(0x9aa2a6,x,1.08,z+.47,.05,.03,.02);
+        }
+        for(const u of [seatOffsets[0]-.3,(seatOffsets[0]+seatOffsets[1])/2,seatOffsets[1]+.3]){
+          box(0x353a41,u*side,.66,z-.1,.055,.05,.4);box(0x353a41,u*side,.56,z+.08,.05,.2,.05);
+        }
+        const mid=(seatOffsets[0]+seatOffsets[1])/2*side;
+        box(0x5a6068,mid,.3,z-.08,1.12,.07,.36);box(0x5a6068,mid,.14,z-.08,.14,.28,.3);box(0x6c7379,mid,.1,z-.52,1.0,.03,.05);
+      }
+      if(i%2===0)yield;
     }
   }
   return {};
