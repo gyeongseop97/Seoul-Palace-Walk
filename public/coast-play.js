@@ -38,7 +38,7 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
  const boat={...mooring,yaw:0,helm:null,festival:0},ship={...boat};
  const remoteVessel=createVesselTrack();
  let deckYaw=null,lastSailingTime=null;
- let ready=false,inFlight=false,nextPoll=0,disposed=false,speed=0,tableSeat=null,orders=[],grills=new Map();
+ let ready=false,inFlight=null,nextPoll=0,disposed=false,speed=0,tableSeat=null,orders=[],grills=new Map();
  let busHeading=null,riders=[],deck=null,wasHelm=false,watchUntil=0,actions=new Map(),pending=[],lastError=0;
  let surfRide=null;
  let deckSeats=[],seatHeading=null;
@@ -77,9 +77,13 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
    command("talkTavern",{table,token:chat.id,text:chat.text,called:order?.called??0,waitingForCall});
   };
  }
- async function poll(){
-  const v=visit();if(!v||inFlight||disposed)return;
-  inFlight=true;const c=pending[0],p=seaPoint(me),s=state();
+ function poll(){
+  const v=visit();if(!v||disposed)return;
+  inFlight??=exchange(v).finally(()=>{inFlight=null;});
+  return inFlight;
+ }
+ async function exchange(v){
+  const c=pending[0],p=seaPoint(me),s=state();
   if(c?.waitingForCall){c.called=orders.find(o=>o.spot===c.table)?.called??c.called;delete c.waitingForCall;}
   try{
    const response=await request("/api/room",{room:v.room,id:v.id,key:v.key,coast:{...c,shared:true,
@@ -146,7 +150,7 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
    grills=new Map(orders.filter(o=>o.cookingClams>0).map(o=>[o.spot,o.grillUntil-6500]));
   }catch{
    if(c&&now()-lastError>5000){notice("항구와 연결을 다시 시도하고 있어요.");lastError=now();}
-  }finally{inFlight=false;nextPoll=now()+(pending.length?250:boat.helm?450:1500);}
+  }finally{nextPoll=now()+(pending.length?250:boat.helm?450:1500);}
  }
  function enterDeck(){
   const landing=berth();
@@ -431,5 +435,10 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
   locked:()=>["bus","table"].includes(state().mode)||state().mode==="deck"&&Boolean(boat.helm===visit()?.id||state().deckSeat||seatPending()),
   atSea:()=>["scooter","deck","bus","table"].includes(state().mode),
   watchLift:()=>now()<watchUntil&&distance(seaPoint(me),dock)<11?8.2:0,
-  stop(){disposed=true;},clock};
+  async leaveStation(){
+    const v=visit();if(!v)return;
+    await inFlight;
+    const result=await request("/api/room",{room:v.room,id:v.id,key:v.key,coast:{action:"leave"}});
+    if(!result.ok)throw Error("train");
+  },stop(){disposed=true;},clock};
 }

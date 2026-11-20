@@ -9,7 +9,7 @@ import {graniteSlab} from "./station-materials.js";
 
 export function* buildStationComplex(T,root,kit,venue,walkerModels){
   yield* buildRailRoom(T,root,kit,stationHall);
-  yield* buildRailRoom(T,root,kit,railPlatform);
+  const platform=yield* buildRailRoom(T,root,kit,railPlatform);
   const food=new T.Group();food.position.y=storeys[2];
   const restaurant=yield* buildDiningInterior(T,food,kit,stationDining,walkerModels);
   const hall=new T.Group();hall.position.set(kit.wx(hallOrigin.x),0,kit.wz(hallOrigin.y));root.add(hall);
@@ -262,7 +262,7 @@ export function* buildStationComplex(T,root,kit,venue,walkerModels){
   }
   const matrix=new T.Matrix4();
   let lastTreadFrame=-Infinity;
-  return {afterBatch(){hall.add(moving);root.add(food);},update(clock,light,tickets,anchor){
+  return {pickBoardingDoor:platform.pickBoardingDoor,afterBatch(){hall.add(moving);root.add(food);},update(clock,light,tickets,anchor){
     restaurant.update(clock,light,tickets,anchor);
     const now=clock;
     for(const {car,doors,bank,shown} of cars){

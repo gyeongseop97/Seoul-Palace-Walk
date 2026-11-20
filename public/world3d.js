@@ -1691,8 +1691,12 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const x=wz(machine.y)-sample.z,z=sample.x-wx(machine.x);
     return Math.abs(x)<=field.x+.19&&Math.abs(z)<=field.z+.24?{x,z}:null;
   }
-  function pick(clientX,clientY){
+  function pick(clientX,clientY,boardingTrack){
     if(!pointRay(clientX,clientY))return null;
+    if(boardingTrack&&visibleInterior===railComplex){
+      const track=interactionMarkers?.pickBoardingMarker(ray)??railComplex.view?.pickBoardingDoor(ray.ray,boardingTrack);
+      if(track)return {ktxTrack:track};
+    }
     if(guideMarker.visible&&ray.intersectObject(guideMarker,false).length)return {...ticketGuide.approach,guide:true};
     if(showMarker.visible&&ray.intersectObject(showMarker,false).length)return {x:plazaShowSpot.x,y:plazaShowSpot.y};
     const trackHit=seaside?.pickTrack(ray.ray);

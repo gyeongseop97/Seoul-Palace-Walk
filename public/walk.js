@@ -10,6 +10,7 @@ import {isInsideMuseum,museumBounds,museumGalleries,museumGalleryAt,museumHall,m
 import {museumArtUrl,museumExhibits} from "./museum-catalog.js";
 import {nearbyPalaceGuide} from "./palace-guide.js";
 import {bindSceneTouch} from "./scene-touch.js";
+import {bindPlayViewport} from "./play-viewport.js";
 import {bindPaperBoats} from "./paper-boat-client.js";
 import {bindNearbyControls} from "./nearby-controls.js";
 import {bindMapGestures} from "./map-gestures.js";
@@ -92,6 +93,9 @@ import {inCoastSpace,coastOrigin,seaPoint} from "./region-coordinates.js";
 let travelTicket=null;
 try{travelTicket=JSON.parse(sessionStorage.getItem("palace-coast-ticket"));}catch{}
 const onCoast=Boolean(travelTicket?.room&&new URL(location.href).searchParams.get("region")==="pohang");
+const arrivalRegion=travelTicket?.room&&travelTicket.id&&travelTicket.key&&travelTicket.nickname&&
+  travelTicket.region===(onCoast?"boarding":"returning")?(onCoast?"pohang":"seoul"):null;
+let awaitingMapFrame=false,leavingByKtx=false;
 const region=onCoast?await import("./coast-region.js"):null;
 const coastModule=onCoast?await import("./coast-play.js"):null;
 region?.registerCoast();
@@ -166,6 +170,7 @@ let pageVersion=0,walkPositionAt=0,lastWalkPosition=null;
 let ktxTrack=null;
 const motionStream=createMotionStream(request);
 let syncTimer,syncDue=Infinity,syncInFlight=null,syncStarted=-Infinity,syncFailures=0;
+let pendingRoomSync=null;
 let links=[],queuedHand=null,queuedFeed=null,queuedChat=null,toastTimer;
 let queuedBus=null,queuedBike=null,lastBusHeading=null,lastBikeHeading=null;
 let tandemOffer=null;
@@ -318,6 +323,7 @@ $("bike-fall-tip-dismiss").addEventListener("click",()=>{
 });
 
 const mobileHeader=matchMedia("(max-width:810px), (pointer:coarse)");
+bindPlayViewport(gameShell,chatInput,mobileHeader);
 const fullscreenToggle=$("fullscreen-toggle");
 const graphicsSelect=$("graphics-quality");
 const savedQuality=localStorage.getItem("palace-graphics-quality");
@@ -1082,11 +1088,11 @@ function clearSyncTimer(){
   clearTimeout(syncTimer);syncTimer=undefined;syncDue=Infinity;
 }
 function scheduleSync(delay){
-  if(!active||!session||syncInFlight===session)return;
+  if(!active||!session||leavingByKtx||syncInFlight===session)return;
   const due=performance.now()+delay;
   if(syncDue<=due)return;
   clearSyncTimer();syncDue=due;
-  syncTimer=setTimeout(()=>{clearSyncTimer();sync();},delay);
+  syncTimer=setTimeout(()=>{clearSyncTimer();pendingRoomSync=sync();},delay);
 }
 function movingCadence(){
   if(motionStream.healthy(performance.now()))return 300;
@@ -1315,6 +1321,7 @@ function showProfile(){
   nickname.focus({preventScroll:true});
 }
 function returnToLobby(message=""){
+  awaitingMapFrame=false;leavingByKtx=false;delete document.documentElement.dataset.ktxTransfer;
   studioMonitor?.close();
   saveBag();bagCommand=null;walkBag.close();
   const old=session;
@@ -1367,13 +1374,15 @@ async function enterRoom(action,code){
   let ticket=null;
   try{ticket=JSON.parse(sessionStorage.getItem("palace-coast-ticket"));}catch{}
   const returning=ticket&&ticket.nickname===name&&(action==="open"?ticket.mode==="open":action==="join"&&ticket.code===code);
+  const transferring=Boolean(arrivalRegion&&returning&&ticket.region===(onCoast?"boarding":"returning"));
+  if(transferring)document.documentElement.dataset.ktxTransfer=arrivalRegion;
   const id=returning?ticket.id:token(),key=returning?ticket.key:token(),avatar=initialAvatar(),view=initialView();
   Object.assign(avatar,readBag(name));lastBagSave="";
   const angle=parseInt(id.slice(0,8),16)/0x100000000*Math.PI*2;
   const offset=.38+parseInt(id.slice(8,12),16)/0x10000*.67;
   avatar.x+=Math.cos(angle)*offset;avatar.y+=Math.sin(angle)*offset;
   const navigation=pageVersion;
-  const saved=action==="create"?null:readWalkPosition(name,code);
+  const saved=action==="create"||transferring?null:readWalkPosition(name,code);
   try{
     // Complete collision registration before announcing a restored position to the room.
     if(saved&&!world)await loadWorld();
@@ -1394,19 +1403,33 @@ async function enterRoom(action,code){
       if(onCoast)avatar.coast={mode:"walk",board:false};
     }
     const sent=performance.now();
-    const response=await request("/api/rooms",{action,code,nickname:name,id,key,avatar,view}),data=await response.json();
+    const entry={action,code,nickname:name,id,key,avatar,view};
+    let response;
+    if(transferring){
+      void loadWorld();
+      const arrival={room:ticket.room,id,key,avatar,view};
+      try{response=await request("/api/room",arrival);}catch{}
+      if(!response||response.status>=500)response=await request("/api/room",arrival);
+    }
+    const continuing=Boolean(response?.ok);
+    if(!response||response.status===409)response=await request("/api/rooms",entry);
+    const data=await response.json();
     if(!active||navigation!==pageVersion){
-      if(response.ok)leaveBeacon({room:data.room,id,key});
+      if(response.ok&&!transferring)leaveBeacon({room:data.room,id,key});
       return;
     }
     if(!response.ok)throw Error(data.error);
     clockOffset=null;roundTrip=65;
     setBusYields(data.busYields);
     updateClock(data.serverTime,sent,performance.now());
-    session={room:data.room,code:data.code,mode:data.mode??"private",id,key,...data.profile};
+    if(continuing){
+      const self=data.walkers.find(player=>player.id===id);
+      session={room:ticket.room,code:ticket.code,mode:ticket.mode,id,key,nickname:self.nickname,coat:self.coat};
+      setPresence(data.walkers.length+"명 접속 중",data.walkers.length);
+    }else session={room:data.room,code:data.code,mode:data.mode??"private",id,key,...data.profile};
     ktxTrack=(returning?ticket.ktxTrack:resumed?saved.ktxTrack:null)??null;
-    if(onCoast)sessionStorage.setItem("palace-coast-ticket",JSON.stringify({...ticket,region:"pohang"}));
-    else sessionStorage.removeItem("palace-coast-ticket");
+    awaitingMapFrame=transferring;
+    if(!transferring)storeArrivedTicket(ticket);
     world?.setVisitorRoom(session.room);
     environment.liveWeather=data.weather??null;passport.setRoom(session.room);
     Object.assign(me,avatar,{nickname:session.nickname,coat:session.coat});
@@ -1433,10 +1456,15 @@ async function enterRoom(action,code){
     if(action==="create")openInvite();
     scheduleSync(0);
   }catch(error){
+    if(transferring){delete document.documentElement.dataset.ktxTransfer;showServers();}
     $("lobby-status").textContent=error.message==="Failed to fetch"?"연결을 확인한 뒤 다시 시도해 주세요.":error.message;
   }finally{
     joining=false;serverButtons.forEach(button=>{button.disabled=false;});
   }
+}
+function storeArrivedTicket(ticket){
+  if(onCoast)sessionStorage.setItem("palace-coast-ticket",JSON.stringify({...ticket,region:"pohang"}));
+  else sessionStorage.removeItem("palace-coast-ticket");
 }
 $("profile-form").addEventListener("submit",event=>{
   event.preventDefault();
@@ -1524,7 +1552,7 @@ $("model-credits").addEventListener("click",()=>$("credits-dialog").showModal())
 window.addEventListener("pagehide",()=>{
   saveBag();
   rememberWalkPosition();
-  active=false;pageVersion++;clearSyncTimer();sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);if(!departingForPohang&&!onCoast)leaveBeacon();
+  active=false;pageVersion++;clearSyncTimer();sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);if(!leavingByKtx&&!awaitingMapFrame&&!onCoast)leaveBeacon();
 });
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden){beginBackgroundTrip();rememberWalkPosition();clearManualInput();exitPress=null;sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);}
@@ -1921,11 +1949,12 @@ $("world").addEventListener("keydown",event=>{
   if(!["Enter"," "].includes(event.key)||!event.target.matches("[data-map-place],[data-stamp-id]"))return;
   event.preventDefault();event.stopPropagation();walkFromMap(event);
 });
+const canTapToWalk=started=>thumbId===undefined&&!keys.size&&started>manualInputAt;
 const clearSceneTouch=bindSceneTouch($("game"),gameShell,{
   allowHeldTap:()=>Boolean(photoMode.camera),
-  canTap:started=>Boolean(session&&(photoMode.camera||thumbId===undefined&&!keys.size&&started>manualInputAt)),
+  canTap:started=>Boolean(session&&(photoMode.camera||canTapToWalk(started)||ktxBoardingAt(me.x,me.y))),
   onBegin:()=>{setEmotes(false);focusGame();},
-  onTap:(x,y)=>{
+  onTap:(x,y,started)=>{
     if(photoMode.camera){photoMode.toggleTools();return;}
     if(arcade.kind==="mole"){arcade.strikeMole(world?.pickMole(x,y));return;}
     if(bungeoMode){
@@ -1935,9 +1964,13 @@ const clearSceneTouch=bindSceneTouch($("game"),gameShell,{
     if(arcade.kind==="baseball"){arcade.aimBaseball(world?.pickBaseballAim(x,y));return;}
     if(isClassic(arcade.kind)){arcade.tapClassic(world?.pickClassicTap(x,y,arcade.kind));return;}
     if(arcade.frozen)return;
-    const target=world?.pick(x,y);
-    if(target?.guide&&nearVisitorGuide())openVisitorGuide();
-    else walkTo(target);
+    const boarding=ktxBoardingAt(me.x,me.y);
+    const target=world?.pick(x,y,boarding?.track);
+    if(target?.ktxTrack)useVenueDoor(portalNearby(target.ktxTrack));
+    else if(canTapToWalk(started)){
+      if(target?.guide&&nearVisitorGuide())openVisitorGuide();
+      else walkTo(target);
+    }
   },
   onDrag:(dx,dy,x,y)=>{
     if(bungeoMode||arcade.kind==="pump"||arcade.kind==="mole")return;
@@ -2140,11 +2173,15 @@ function atIndoorStation(point,reach=2.8){return near(point,me.x,me.y)<reach&&cl
 const subwayPortals=expandedSubwayStops.filter(s=>s.area==="station"&&s.number!==1).map(s=>[
   {inside:metroInsidePoint(s.number),outside:s.arrive},s.name]);
 const stationPortals=[[westExit,"서부광장"],[northBridgeExit,"북측 보행육교"],[rearMarketExit,"마트 서쪽 출입구"],[marketExit,"쇼핑동 보행데크"],[subwayExit,"지하철 1번 출구"],...subwayPortals];
-function portalNearby(){
+function portalNearby(selectedTrack){
   if(!world||me.bus||isCycling(me)||queuedBus||queuedBike)return null;
   const inside=interiorAt(me.x,me.y);
   if(inside==="ktx-platform"){
-    const boarding=ktxBoardingAt(me.x,me.y);
+    let boarding=ktxBoardingAt(me.x,me.y);
+    if(boarding&&selectedTrack!=null){
+      if(Math.ceil(boarding.track/2)!==Math.ceil(selectedTrack/2))return null;
+      boarding=ktxBoardingSpots[selectedTrack-1];
+    }
     return boarding?{inside:false,venue:ktxCoach,boarding}:null;
   }
   if(inside===ktxCoach.id){
@@ -2678,28 +2715,36 @@ function movePlayerTo(destination,place){
   ownView={...ownView,pan:heading,tilt:destination.tilt??0};
   $("location").textContent=place;dirty=true;wakeSync();
 }
-let departingForPohang=false;
 $("pohang-trip").addEventListener("click",()=>{
-  if(!session||departingForPohang||interiorAt(me.x,me.y)!=="ktx-coach")return;
+  if(!session||leavingByKtx||interiorAt(me.x,me.y)!=="ktx-coach")return;
   void travelTo(true);
 });
 async function travelTo(outward){
-  if(!session||departingForPohang)return;
+  if(!session||leavingByKtx)return;
   if(bagLocked()){toast("물건을 주고받은 뒤 승차해 주세요.");return;}
-  departingForPohang=true;
-  const link=myLink();
-  if(link){
-    try{
+  leavingByKtx=true;
+  const visit=session;
+  document.documentElement.dataset.ktxTransfer=outward?"pohang":"seoul";
+  resetInput();clearSyncTimer();
+  try{
+    await pendingRoomSync;
+    if(session!==visit||!active)return;
+    const link=queuedHand?.action==="release"?queuedHand:myLink();
+    if(link){
       const result=await request("/api/room",{room:session.room,id:session.id,key:session.key,
         hand:{action:"release",id:link.id,...(isUmbrellaLink(link)?{kind:"umbrella"}:{})}});
       if(!result.ok)throw Error("train");
-    }catch{departingForPohang=false;toast("연결을 확인한 뒤 다시 승차해 주세요.");return;}
+    }
+    rememberWalkPosition();saveBag();const ticket={...session,avatar:{...me},view:{...ownView},ktxTrack,region:outward?"boarding":"returning"};
+    if(!outward)await coastPlay?.leaveStation();
+    sessionStorage.setItem("palace-coast-ticket",JSON.stringify(ticket));
+    if(!outward)coastPlay?.stop();
+    const url=new URL("index.html",location.href);if(outward)url.searchParams.set("region","pohang");
+    location.replace(url);
+  }catch{
+    leavingByKtx=false;delete document.documentElement.dataset.ktxTransfer;
+    scheduleSync(0);toast("이동하지 못했어요. 다시 시도해 주세요.");
   }
-  rememberWalkPosition();saveBag();const ticket={...session,avatar:{...me},view:{...ownView},ktxTrack,region:outward?"boarding":"returning"};
-  sessionStorage.setItem("palace-coast-ticket",JSON.stringify(ticket));
-  if(!outward)coastPlay?.stop();
-  const url=new URL("index.html",location.href);if(outward)url.searchParams.set("region","pohang");
-  location.assign(url);
 }
 function takeCoastFood(kind){
   const time=gameTime(),slot=freeItemSlot(me,time);
@@ -2732,7 +2777,9 @@ $("arcade-stairs").addEventListener("click",()=>{
   if(stairs){movePlayerTo(stairs.to,stairs.place);focusGame();}
 });
 function stopAtPressedExit(event){
-  if(event.button!==0||venueDoorButton.hidden||venueDoorButton.disabled||!portalNearby()?.inside)return;
+  if(event.button!==0||venueDoorButton.hidden||venueDoorButton.disabled)return;
+  const portal=portalNearby();
+  if(!portal?.inside&&!portal?.boarding)return;
   exitPress={pointerId:event.pointerId};
   resetInput();
 }
@@ -2752,9 +2799,9 @@ window.addEventListener("pointermove",event=>{
   if(exitPress?.pointerId===event.pointerId&&event.pointerType==="mouse"&&!(event.buttons&1))exitPress=null;
 },true);
 window.addEventListener("blur",()=>{exitPress=null;});
-venueDoorButton.addEventListener("click",()=>{
+const venueAction=portal=>portal?portal.venue.id+(portal.inside?"-exit":"-enter"):"";
+function useVenueDoor(portal){
   exitPress=null;
-  const portal=portalNearby();
   if(!session||!portal||feedingLocked(gameTime()))return;
   const {inside,venue}=portal,destination=portal.destination??(inside?venue.outsideDoor:venue.insideSpawn);
   const link=myLink()??(queuedHand?.action==="offer"?queuedHand:null);
@@ -2764,7 +2811,12 @@ venueDoorButton.addEventListener("click",()=>{
   const place=inside?(venue===ktxCoach?placeName(destination):venue.outsideName??venue.name+" 앞"):venue.name;
   movePlayerTo(destination,place);
   if(venue===ktxCoach)rememberWalkPosition();
+  if(portal.boarding)toast("포항행 KTX 일반실에 탔어요.");
   focusGame();
+}
+venueDoorButton.addEventListener("click",()=>{
+  const portal=portalNearby();
+  if(venueAction(portal)===venueDoorButton.dataset.actionTarget)useVenueDoor(portal);
 });
 function guestbookVenue(){
   const venue=venueById[interiorAt(me.x,me.y)];
@@ -3272,6 +3324,7 @@ function updateActivities(time,guideNearby,coastMarkers){
   const entrance=portal?.venue===ARCADE_SITE?"오락실 입장":[mmcaVenue,semaVenue].includes(portal?.venue)?"미술관 입장":diningById[portal?.venue?.id]?"식당 입장":"입장하기";
   setActivity("pohang-trip",interiorAt(me.x,me.y)==="ktx-coach"?"포항행 KTX 출발":null);
   setActivity("museum-door",portal?(portal.label??(portal.inside?portal.venue.exitLabel??"나가기":portal.venue.enterLabel??entrance)):null,feeding||(!portal?.inside&&!portal?.boarding&&Boolean(myLink()?.active)));
+  attr(venueDoorButton,"data-action-target",venueAction(portal));
   setActivity("venue-guestbook",eligible&&guestbookVenue()?"방명록":null);
   updateDiningControls(eligible,busy,time);
   const exhibit=eligible&&nearbyExhibit();
@@ -3533,7 +3586,7 @@ function preferredPeerAction(time){
 function frame(now){
   const elapsed=Math.max(0,Math.min(56,now-lastFrame))/1000;lastFrame=now;
   requestAnimationFrame(frame);
-  if(!session){liftRide=null;return;}
+  if(!session||leavingByKtx){liftRide=null;return;}
   const time=gameTime(now);
   if(alcoholSip&&time>=alcoholSip.at){
     Object.assign(me,finishAlcoholSip(me,alcoholSip.at,alcoholSip.empty));
@@ -3619,7 +3672,15 @@ function frame(now){
     bungeoStall:bungeoWatchedStall,
     minigameFree:minigameKiteCuts.concat(minigames.freeStates()),arcade:arcade.state(now),bowling:bowlingMatch,
     minigameAimPreview:minigames.aimPreview()};
-  if(studioMonitor?.active)studioMonitor.render(lastScene,now);else world?.render(lastScene,now);
+  if(studioMonitor?.active)studioMonitor.render(lastScene,now);
+  else{
+    const drawn=world?.render(lastScene,now);
+    if(awaitingMapFrame&&(drawn||worldFailed)){
+      awaitingMapFrame=false;
+      storeArrivedTicket(travelTicket);
+      delete document.documentElement.dataset.ktxTransfer;focusGame();
+    }
+  }
   photoMode.update(time);
 }
 
@@ -3697,7 +3758,7 @@ function drawIndoorMap(base,venue,galleries,mini){
   const points=[[venue.insideDoor,venue.exitLabel??"출구"]];
   for(const child of stationVenues)if(child.parent===venue.id){
     if(child===ktxCoach){
-      if(!mini)for(const spot of ktxBoardingSpots)if(spot.track%2===0)points.push([spot,`${spot.track-1}·${spot.track}번 KTX 타기`]);
+      if(!mini)for(const spot of ktxBoardingSpots)if(spot.track%2===0)points.push([spot,`${spot.track-1}·${spot.track}번 KTX 승강장`]);
     }else points.push([child.outsideDoor,child.enterLabel]);
   }
   if(venue===stationHall)for(const [link,label] of stationPortals)drawMapPoint(layer,{...link.inside,name:label},"railway",mini,true);
@@ -4329,7 +4390,10 @@ const stampPins=new Map((onCoast?[]:passportStamps).map(stamp=>{
 }));
 const savedCode=sessionStorage.getItem("jeongdong-room-code");
 const savedOpen=sessionStorage.getItem("jeongdong-room-mode")==="open";
-if(nickname.value&&(savedCode&&(!suppliedCode||suppliedCode===savedCode)||savedOpen&&!suppliedCode)){
+if(arrivalRegion){
+  nickname.value=travelTicket.nickname;
+  enterRoom(travelTicket.mode==="open"?"open":"join",travelTicket.code);
+}else if(nickname.value&&(savedCode&&(!suppliedCode||suppliedCode===savedCode)||savedOpen&&!suppliedCode)){
   showServers();enterRoom(savedOpen&&!suppliedCode?"open":"join",savedCode);
 }
 function loadWorld(){

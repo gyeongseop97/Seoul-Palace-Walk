@@ -136,5 +136,13 @@ export function makeInteractionMarkers(T,scene,{wx,wz,floorHeight},points){
       data.needsUpdate=true;
     }
   }
-  return {update};
+  function pickBoardingMarker(raycaster){
+    if(!root.visible)return null;
+    for(const {point,label,halo} of slots){
+      if(!point?.ktxTrack)continue;
+      if(label.visible&&raycaster.intersectObject(label,false).length||raycaster.intersectObject(halo,false).length)return point.ktxTrack;
+    }
+    return null;
+  }
+  return {update,pickBoardingMarker};
 }

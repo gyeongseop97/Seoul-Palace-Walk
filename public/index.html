@@ -9,6 +9,33 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script>
+    try {
+      const ticket = JSON.parse(sessionStorage.getItem("palace-coast-ticket"));
+      if (ticket?.room && ticket.id && ticket.key && ticket.nickname) {
+        const pohang = new URLSearchParams(location.search).get("region") === "pohang";
+        if (pohang && ticket.region === "boarding") document.documentElement.dataset.ktxTransfer = "pohang";
+        if (!pohang && ticket.region === "returning") document.documentElement.dataset.ktxTransfer = "seoul";
+      }
+    } catch {}
+  </script>
+  <style>
+    #ktx-transfer-loading, #ktx-transfer-loading span { display: none; }
+    html[data-ktx-transfer] { background: #10251e; }
+    html[data-ktx-transfer] #entry-flow { display: none; }
+    html[data-ktx-transfer] #game-shell { visibility: hidden; }
+    html[data-ktx-transfer] #ktx-transfer-loading {
+      position: fixed; inset: 0; z-index: 10000; display: grid; place-content: center;
+      justify-items: center; gap: 1.15rem; padding: 1.5rem; background: #10251e; color: #f4efdf;
+      font: 650 clamp(1.25rem, 4vw, 1.75rem)/1.45 "Segoe UI", "Malgun Gothic", sans-serif;
+    }
+    html[data-ktx-transfer="pohang"] #ktx-transfer-loading .ktx-to-pohang,
+    html[data-ktx-transfer="seoul"] #ktx-transfer-loading .ktx-to-seoul { display: inline; }
+    .ktx-loading-track { display: block; width: 8rem; height: 3px; border-radius: 2px; overflow: hidden; background: #42594b; }
+    .ktx-loading-track::before { content: ""; display: block; width: 38%; height: 100%; background: #e2c283; animation: ktx-progress 1.45s ease-in-out infinite alternate; }
+    @keyframes ktx-progress { to { transform: translateX(163%); } }
+    @media (prefers-reduced-motion: reduce) { .ktx-loading-track::before { width: 100%; animation: none; } }
+  </style>
   <link rel="manifest" href="./palace.webmanifest">
   <link rel="apple-touch-icon" href="./palace-icon-192.png?v=palace">
   <title>서울 궁 한바퀴 | Seoul Palace Walk</title>
@@ -24,6 +51,10 @@
   <script type="module" src="./walk.js"></script>
 </head>
 <body>
+  <div id="ktx-transfer-loading" role="status" aria-live="polite" aria-atomic="true">
+    <span class="ktx-to-pohang">포항역으로 이동 중</span><span class="ktx-to-seoul">서울역으로 이동 중</span>
+    <i class="ktx-loading-track" aria-hidden="true"></i>
+  </div>
   <main id="entry-flow" class="entry-flow" aria-label="산책 시작">
     <div class="entry-frame">
       <section id="profile-step" class="entry-profile" aria-labelledby="profile-title">

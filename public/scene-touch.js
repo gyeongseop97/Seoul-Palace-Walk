@@ -56,7 +56,7 @@ export function bindSceneTouch(scene,shell,{canTap,allowHeldTap,onBegin,onTap,on
     }
     if(activate&&pointer.tap&&!pointer.pinched&&!pointer.dragged&&canTap(pointer.began)&&
       (!pointer.touch||event.timeStamp-pointer.began<tapDuration||allowHeldTap?.())&&
-      Math.hypot(event.clientX-pointer.startX,event.clientY-pointer.startY)<dragSlop)onTap(event.clientX,event.clientY);
+      Math.hypot(event.clientX-pointer.startX,event.clientY-pointer.startY)<dragSlop)onTap(event.clientX,event.clientY,pointer.began);
   }
   scene.addEventListener("pointerup",event=>finishScenePointer(event,true));
 

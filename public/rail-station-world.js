@@ -295,18 +295,21 @@ export function* buildRailRoom(T,root,kit,venue){
 
     yield;
     const tools={box,rod,group,girder,paintMap};
+    const doorBounds=new Map();
+    room.updateWorldMatrix(true,false);
     const led=paintMap(512,96,(ctx,w,h)=>{
       ctx.fillStyle="#0b0f12";ctx.fillRect(0,0,w,h);ctx.fillStyle="#f6c443";ctx.font="bold 54px sans-serif";ctx.textBaseline="middle";
       ctx.fillText("KTX",18,50);ctx.fillStyle="#f3f6f4";ctx.fillText("포항",207,50);ctx.fillStyle="#8be0a0";ctx.font="bold 30px sans-serif";ctx.fillText("Pohang",342,53);
     },false);
     for(const side of [-1,1]){
       const train=buildKtx(T,new T.Group(),tools,side<0?"sancheon":"classic");
-      box(0x1b2227,-1.71,1.05,12,.05,2.26,1.04,train);
-      box(0xa3b2b2,-1.95,-.02,12,.66,.06,1.2,train);
-      for(const dz of [-.56,.56])box(0xe0b84c,-1.7,1.05,12+dz,.08,2.28,.06,train);
+      const entrance=group(0,0,0,train);
+      box(0x1b2227,-1.71,1.05,12,.05,2.26,1.04,entrance);
+      box(0xa3b2b2,-1.95,-.02,12,.66,.06,1.2,entrance);
+      for(const dz of [-.56,.56])box(0xe0b84c,-1.7,1.05,12+dz,.08,2.28,.06,entrance);
       const display=new T.Mesh(new T.PlaneGeometry(1.5,.28),new T.MeshBasicMaterial({map:led}));
-      display.position.set(-1.682,2.52,13.6);display.rotation.y=-Math.PI/2;train.add(display);
-      const doorLabel=group(-1.76,12,-Math.PI/2,train);
+      display.position.set(-1.682,2.52,13.6);display.rotation.y=-Math.PI/2;entrance.add(display);
+      const doorLabel=group(-1.76,12,-Math.PI/2,entrance);
       sign(doorLabel,"2호차  ·  일반실","포항행 KTX",2.3,0,2.95,0,"#1d4f91","#ffffff",.46);
       // Reuse the two train models, their textures and their repeated parts across the yard.
       train.updateMatrixWorld(true);
@@ -318,13 +321,18 @@ export function* buildRailRoom(T,root,kit,venue){
         batches.get(key).matrices.push(part.matrixWorld);
       });
       const berths=ktxBerths.filter(berth=>berth.side===side);
+      const opening=new T.Box3().setFromObject(entrance);
+      const placements=berths.map(berth=>{
+        const placement=new T.Matrix4().makeRotationY(side>0?Math.PI:0);
+        placement.setPosition(ktxIsland.x-berth.x,0,railPlatform.center.y-hallOrigin.y-berth.z);
+        doorBounds.set(berth.track,opening.clone().applyMatrix4(placement).applyMatrix4(room.matrixWorld));
+        return placement;
+      });
       for(const {part,matrices} of batches.values()){
         const batch=new T.InstancedMesh(part.geometry,part.material,berths.length*matrices.length);
-        const placement=new T.Matrix4(),transform=new T.Matrix4();
+        const transform=new T.Matrix4();
         let index=0;
-        for(const berth of berths){
-          placement.makeRotationY(side>0?Math.PI:0);
-          placement.setPosition(ktxIsland.x-berth.x,0,railPlatform.center.y-hallOrigin.y-berth.z);
+        for(const placement of placements){
           for(const matrix of matrices)batch.setMatrixAt(index++,transform.multiplyMatrices(placement,matrix));
         }
         batch.castShadow=part.castShadow;batch.receiveShadow=part.receiveShadow;
@@ -332,6 +340,17 @@ export function* buildRailRoom(T,root,kit,venue){
       }
       yield;
     }
+    const hit=new T.Vector3();
+    return {pickBoardingDoor(ray,track){
+      const first=track%2===1?track:track-1;
+      let nearest=null,distance=Infinity;
+      for(const candidate of [first,first+1]){
+        if(!ray.intersectBox(doorBounds.get(candidate),hit))continue;
+        const gap=ray.origin.distanceToSquared(hit);
+        if(gap<distance){nearest=candidate;distance=gap;}
+      }
+      return nearest;
+    }};
   }else{
     // KTX standard car. The cabin and platform are separate streamed rooms; the view beyond
     // the glass uses platform scenery.

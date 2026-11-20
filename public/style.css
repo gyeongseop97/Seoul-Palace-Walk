@@ -1029,27 +1029,26 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   #game-shell{--hud-overlay:var(--deep-lacquer);--hud-menu:var(--deep-lacquer);--hud-button:var(--deep-lacquer);--hud-primary:var(--gold-3)}
 }
 
-/* The landscape extends beneath chat and the home indicator. HUD hit targets
-   share the first row above the text composer. */
-@supports (grid-template-rows:subgrid){
-  @media(max-width:810px),(pointer:coarse){
-    #game-shell>main{padding-bottom:0}
-    .scene-panel{
-      display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;
-      min-height:0;border-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0;
-    }
-    .scene-wrap:not(.photo-active){
-      grid-area:1 / 1 / -1 / -1;display:grid;grid-template-rows:subgrid;
-      grid-template-columns:minmax(0,1fr);border-bottom:0;
-    }
-    .scene-wrap:not(.photo-active)>:not(#game){grid-area:1 / 1 / 2 / 2}
-    .scene-controls{
-      position:relative;grid-area:2 / 1;margin:0;min-height:0;
-      padding:2px 8px max(2px,env(safe-area-inset-bottom,0px));
-      background:transparent;pointer-events:none;
-    }
-    .chat-composer :is(input,button){pointer-events:auto}
+/* Play controls end above chat. The scene itself reaches the home indicator. */
+@media(max-width:810px),(pointer:coarse){
+  #game-shell,#game-shell.game-fullscreen{
+    position:fixed;inset:var(--play-visible-top,0px) 0 auto;height:var(--play-visible-height,100dvh);
   }
+  #game-shell>main{padding-bottom:0}
+  .scene-panel{
+    position:relative;display:grid;grid-template: minmax(0,1fr) auto / minmax(0,1fr);
+    min-height:0;overflow:clip;border-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0;
+  }
+  .scene-wrap:not(.photo-active){display:contents}
+  .scene-wrap:not(.photo-active)>#game{grid-area:1 / 1 / -1 / -1}
+  .scene-wrap:not(.photo-active)>:not(#game){grid-area:1 / 1 / 2 / 2}
+  .scene-controls{
+    position:relative;grid-area:2 / 1;margin:0;min-height:0;
+    padding:2px 8px max(2px,env(safe-area-inset-bottom,0px));
+    background:transparent;pointer-events:none;
+  }
+  .chat-composer :is(input,button){pointer-events:auto}
+  #game-shell[data-chat-keyboard] :is(.joystick,.game-hud,.peer-hud,.gesture-menu,.emote-menu){visibility:hidden}
 }
 
 #tavern-menu{width:min(350px,90vw)}
