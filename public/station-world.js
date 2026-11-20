@@ -1,3 +1,4 @@
+import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {stationFrontage,lettering} from "./station-frontage.js";
 import {stationSurfaces,stationBuildings,stationTrees,seoulloDeck} from "./station-data.js";
 import {southWorldSurfaceHeight as ground,southWorldTerrainHeight,gradePalaceMeshes} from "./gyeongbok-terrain.js";
@@ -269,9 +270,16 @@ export function* buildStationBand(T,root,kit,band){
       if(l>15){cylinder(0xa6aaa3,0,6.5,0,.96,14,12,g);cylinder(planter,-2.8,15.4,0,1.15,.92,16,g);dome(g,-2.8,16,0,1.8,2.2,1.75,0x6d805d);}
     }
   }
+  const foliage=new T.Group();root.add(foliage);
+  let seed=47637+band;
+  const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+  const trees=makeTreeBuilder(T,foliage,{rand,clearance:{meshFits:()=>true,trim:()=>true}});
   for(const [x,y] of stationTrees)if(bandOf(y)===band){
-    const g=groupAt(x,y);cylinder(0x685746,0,2,0,.19,4,7,g);
-    dome(g,0,3.2,0,2.1,3.2,2,0x849155);
+    const start=foliage.children.length,grade=ground({x,y}),height=5.6+rand()*2.3;
+    const palette=rand()<.12?"pine":rand()<.64?"ginkgo":rand()<.5?"amber":"olive";
+    trees.grow(wx(x),wz(y),{height,spread:height*.54,style:palette==="pine"?"cloud":rand()<.5?"branchy":"round",palette});
+    for(let i=start;i<foliage.children.length;i++)foliage.children[i].position.y+=grade;
+    if(++count%3===0)yield;
   }
   if(band===2)return buildStationApproaches(T,root,kit,ground);
 }

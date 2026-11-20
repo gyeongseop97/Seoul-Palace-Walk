@@ -6,6 +6,7 @@ import json
 import math
 import sys
 import subprocess
+from shapely.prepared import prep
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from shapely.geometry import LineString, Point, Polygon, box
@@ -22,7 +23,7 @@ def line(i): return LineString(ways[i][1])
 def poly(i): return Polygon(ways[i][1]).buffer(0)
 def parts(shape):
     if shape.is_empty: return []
-    if shape.geom_type=="Polygon": return [shape] if shape.area>.11 else []
+    if shape.geom_type=="Polygon": return [shape] if shape.area>.0002 else []
     return [part for g in getattr(shape,"geoms",[]) for part in parts(g)]
 def rings(shape):
     return [[[round(x,2),round(y,2)] for x,y in list(r.coords)[:-1]] for r in [shape.exterior,*shape.interiors]]
@@ -69,6 +70,7 @@ for bounds in [(309,437,393,547),(512,503.8,528,526.2),(472,569.8,488,592.2),(53
     scope=scope.difference(box(*bounds))
 context=scope.buffer(52)
 busways=[];road_centres=[];public_squares=[];parks=[]
+road_axes=[];foot_axes=[];restricted=[];planted=[];rail_yard=[]
 road=[];walk=list(joins);cross=[];crossing_lines=[];grass=[];buildings=[];built=[];squares=[];platforms=[];taxi_aprons=[];trees=[]
 for i,(t,pts) in ways.items():
     if len(pts)<2 or i in (767663127,767663128):continue  # Masonry parts of the Sungnyemun gate relation.
@@ -89,9 +91,15 @@ for i,(t,pts) in ways.items():
         continue
     if not scope.intersects(ln) and not (closed and pg.intersects(scope)):continue
     if t.get("layer","0").startswith("-") or t.get("tunnel") or t.get("bridge"):continue
+    if closed and (t.get("access") in ("no","private") or t.get("natural")=="water" or t.get("landuse")=="railway"):
+        restricted.append(pg)
+    if t.get("railway") in ("rail","siding") and t.get("location")!="underground":
+        rail_yard.append(ln.buffer(3))
+    if closed and (t.get("landuse")=="flowerbed" or t.get("leisure")=="garden" or t.get("natural")=="shrubbery"):
+        planted.append(pg)
     hw=t.get("highway")
     if hw=="busway" and (t.get("bus") in ("yes","designated","permissive") or t.get("access") not in ("no","private")):
-        busways.append(ln.buffer(1.85));continue
+        busways.append(ln.buffer(1.85));road_axes.append((ln,1.85));continue
     footway=hw in ("footway","pedestrian","steps","path","cycleway","platform")
     foot=t.get("foot")
     if t.get("access") in ("no","private") and not (footway and foot in ("yes","designated","permissive")):continue
@@ -106,15 +114,20 @@ for i,(t,pts) in ways.items():
         if t.get("taxi")=="yes":taxi_aprons.append(platform)
     elif hw in ("pedestrian","footway","steps","path","cycleway"):
         if t.get("footway")=="crossing":
-            dx,dy=pts[-1][0]-pts[0][0],pts[-1][1]-pts[0][1]
-            cross.append((ln.buffer(2.35,cap_style="square"),round(math.atan2(dy,dx),4)))
+            walk.append(ln.buffer(2.4))
             crossing_lines.append([pts[0],pts[-1],4.7])
-        else:walk.append(ln.buffer(2.25))
+            bends=list(ln.simplify(.32).coords)
+            for a,b in zip(bends,bends[1:]):
+                dx,dy=b[0]-a[0],b[1]-a[1]
+                if math.hypot(dx,dy)<.05:continue
+                cross.append((LineString([a,b]).buffer(2.35,cap_style="flat"),round(math.atan2(dy,dx),4)))
+        else:
+            walk.append(ln.buffer(2.25));foot_axes.append(ln)
     elif hw in ("primary","trunk","secondary","tertiary","residential","service","living_street","unclassified","primary_link","secondary_link"):
         defaults={"primary":9.2,"trunk":10,"secondary":7,"tertiary":5.5,"service":2.8}
         lanes=t.get("lanes","")
         radius=min(10.6,float(lanes)*1.58) if lanes.isdigit() else defaults.get(hw,3.6)
-        road.append(ln.buffer(max(2.35,radius)))
+        road.append(ln.buffer(max(2.35,radius)));road_axes.append((ln,max(2.35,radius)))
         road_centres.append(ln.buffer(1.85))
     elif closed and (t.get("landuse")=="grass" or t.get("leisure")=="garden"):grass.append(pg)
 # Station concourse faces east across the plaza, beyond the old station's south wing.
@@ -135,6 +148,35 @@ for side in [-1,1]:
     built.append(pier)
 squares.append(gate_box(-g["opening"],g["opening"],-20,20))
 asphalt=merge(road)
+# Many side-street zebras are recorded as nodes on the carriageway only.
+# Follow a nearby crossing footway if present, otherwise use the road normal.
+mapped_crossings=merge([p for p,_ in cross])
+unpainted=[]
+for n in root.findall("node"):
+    tag=tags(n)
+    if tag.get("highway")!="crossing" or tag.get("crossing")=="no":continue
+    x,y=nodes[n.get("id")];pt=Point(x,y)
+    if not scope.covers(pt) or pt.distance(mapped_crossings)<1:continue
+    nearby=[(ln.distance(pt),ln,r) for ln,r in road_axes if ln.distance(pt)<1.5]
+    if not nearby:continue
+    _,ln,r=min(nearby,key=lambda item:item[0])
+    t=ln.project(pt);a=ln.interpolate(max(0,t-3));b=ln.interpolate(min(ln.length,t+3))
+    angle=math.atan2(b.y-a.y,b.x-a.x)+math.pi/2
+    foot=[path for path in foot_axes if path.distance(pt)<2.3]
+    if foot:
+        path=min(foot,key=lambda line:line.distance(pt));t=path.project(pt)
+        a=path.interpolate(max(0,t-3));b=path.interpolate(min(path.length,t+3))
+        hint=math.atan2(b.y-a.y,b.x-a.x)
+        if abs(math.cos(angle-hint))>.72:angle=hint
+    dx,dy=math.cos(angle),math.sin(angle)
+    ends=[(x+sign*(r+1.4)*dx,y+sign*(r+1.4)*dy) for sign in (-1,1)]
+    span=LineString(ends);width=4.4 if r>5 else 3.5
+    shape=span.buffer(width/2,cap_style="flat")
+    if tag.get("crossing:markings")=="no" or tag.get("crossing")=="unmarked":unpainted.append(shape)
+    else:
+        cross.append((shape,round(angle,4)))
+        crossing_lines.append([list(ends[0]),list(ends[1]),width])
+    walk.extend(Point(end).buffer(width*.75) for end in ends)
 # Cover the public shoulders up to the facade, preserving all surveyed sides of each junction.
 walk.append(asphalt.buffer(5.7).difference(asphalt))
 walk.append(LineString([(32,1423),(28,1452),(18,1460),(15,1464)]).buffer(5))
@@ -175,7 +217,7 @@ for px,py,heading in [(199.83,1524.46,180),(142.71,1593.60,180),(108.93,1697.06,
 surfaces=[]
 def add(kind,shape,angle=None):
     global used
-    cleaned=set_precision(shape.intersection(scope).difference(used),.02)
+    cleaned=set_precision(shape,.02).intersection(set_precision(scope,.02)).difference(used)
     used=used.union(cleaned)
     for part in parts(cleaned):
         # Clip at grid boundaries to keep both rendering and collision lookup local.
@@ -183,10 +225,16 @@ def add(kind,shape,angle=None):
         for x in range(math.floor(a/80)*80,math.ceil(c/80)*80,80):
             for y in range(math.floor(b/80)*80,math.ceil(d/80)*80,80):
                 for cell in parts(part.intersection(box(x,y,x+80,y+80))):
-                    obj={"kind":kind,"rings":rings(cell.simplify(.035,preserve_topology=True))}
+                    obj={"kind":kind,"rings":rings(cell)}
                     if angle is not None:obj["angle"]=angle
                     surfaces.append(obj)
-for shape,angle in cross:add("crossing",shape,angle)
+carriageways=asphalt.union(merge(busways)).buffer(.14)
+for shape,angle in cross:
+    # Paint up to the kerb; the remainder of the same crossing is its paved landing.
+    paint=shape.intersection(carriageways)
+    add("crossing",paint if paint.area>.5 else shape,angle)
+    walk.append(shape)
+add("shared",merge(unpainted))
 crossing_lines.extend([[[81,1168],[55,1199],5.2],[[151,1230],[156,1265],5]])
 # Keep vehicle access through pedestrian aprons, alleys and forecourt drop-off areas.
 # Only mapped zebra crossings get stripes; raised bus islands retain their own paving.
@@ -204,8 +252,37 @@ add("path",merge(walk))
 add("road",asphalt)
 add("stone",merge(public_squares))
 add("grass",merge(grass+parks))
-add("path",scope.intersection(asphalt.buffer(10.5)))
+# Continue sidewalks across the public frontage between the kerb, nearby
+# mapped footways, and building lines. Exclude rail land, water and planting.
+excluded=merge(restricted+planted+rail_yard)
+frontage=asphalt.buffer(12.5).union(merge(foot_axes).buffer(6.5)).difference(excluded)
+add("path",scope.intersection(frontage))
 add("verge",scope)
+# Reuse surveyed trees first. Fill long bare blocks of the Sejong-daero
+# pedestrian corridor at the pavement edge, keeping junction sight lines clear.
+avenue=merge([LineString(pts) for t,pts in ways.values() if len(pts)>1 and
+              t.get("name") in ("세종대로","통일로","한강대로") and t.get("highway") in ("primary","secondary","trunk")])
+def surface_union(kinds):
+    return merge([Polygon(s["rings"][0],s["rings"][1:]).buffer(0) for s in surfaces if s["kind"] in kinds])
+plantable=prep(surface_union({"path","stone","grass","verge"}).difference(
+    merge([merge(built).buffer(3.0),merge([p for p,_ in cross]).buffer(4),clearance.buffer(2.5),excluded,down])))
+street_trees=[]
+def plant(x,y,spacing):
+    if not plantable.covers(Point(x,y)) or any(math.hypot(x-px,y-py)<spacing for px,py in street_trees):return False
+    street_trees.append([round(x,2),round(y,2)]);return True
+for x,y in trees:plant(x,y,5.4)
+for path in foot_axes:
+    if path.length<21 or path.distance(avenue)>22:continue
+    for n in range(9,int(path.length)-4,16):
+        pt=path.interpolate(n)
+        if pt.y<401 or pt.y>1475 or pt.distance(avenue)>27:continue
+        a,b=path.interpolate(n-1),path.interpolate(n+1)
+        angle=math.atan2(b.y-a.y,b.x-a.x)+math.pi/2
+        dx,dy=math.cos(angle)*2.7,math.sin(angle)*2.7
+        sides=sorted([(pt.x+dx,pt.y+dy),(pt.x-dx,pt.y-dy)],key=lambda p:asphalt.distance(Point(p)))
+        for x,y in sides:
+            if plant(x,y,10.5):break
+trees=street_trees
 out=Path(__file__).resolve().parents[1]/"public"/"station-data.js"
 terraces=[{"kind":"deck","rings":rings(p)} for p in parts(decks)]
 out.with_name("station-terraces.js").write_text("// Generated by scripts/bake-station.py from the public approach plan.\nexport const stationTerraces="+dumped(terraces)+";\n",encoding="utf8")

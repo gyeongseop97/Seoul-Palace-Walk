@@ -13,6 +13,7 @@ import {LOOK_OPTIONS} from "./public/look-options.js";
 import {GITHUB_PAGES_ORIGIN} from "./public/hosting.js";
 import {worldExtent} from "./public/world-extent.js";
 import {exchangeMotion} from "./server/motion.mjs";
+import {ensureLiftTables,readLifts,roomLifts,validLift} from "./server/station-lifts.mjs";
 import {ensureSocialTables} from "./database/social-schema.mjs";
 import {roomYields,selectYields,yieldEntries} from "./server/room-crossings.mjs";
 import {belongings} from "./public/walk-inventory.js";
@@ -558,6 +559,7 @@ export async function api(request,env){
     ]);
     return json({ok:true});
   }
+  if(body.lift!=null&&(!key||!validLift(body.lift)))return json({error:"승강기 요청을 확인해 주세요."},400);
   if(hand!=null&&(!key||!validHand(hand)))return json({error:"함께 걷기 요청을 읽을 수 없어요."},400);
   if(feed!=null&&(!key||avatar===undefined||!validFeed(feed)))return json({error:"간식 주기 요청을 읽을 수 없어요."},400);
   if(bus!=null&&(!key||avatar===undefined||!validBus(bus)))return json({error:"버스 요청을 읽을 수 없어요."},400);
@@ -586,6 +588,8 @@ export async function api(request,env){
   if(watchBungeo)await ensureBungeoTables(db);
   const watchBowling=Boolean(key&&(bowling||body.bowlingWatch===true));
   if(watchBowling)await ensureRoomBowling(db);
+  const watchLifts=key&&(body.lift||body.liftWatch===true);
+  if(watchLifts)await ensureLiftTables(db);
   const tandem=Boolean(key&&(body.bikeOffers===true||tandemActions.has(bike?.action)));
   if(tandem)await ensureBikeOffers(db);
   if(diningVenue)await ensureDiningService(db);
@@ -639,6 +643,7 @@ export async function api(request,env){
     operations.push(...handStatements(db,room,id,key,hand,now,online,wet));
   }
   if(photo)operations.push(writeRoomPhoto(db,{room,id,key,now,online,photo}));
+  const liftSelection=watchLifts?operations.push(readLifts(db,room))-1:-1;
   const photoSelection=operations.push(selectRoomPhoto(db,room,now))-1;
   const minigameContext={room,id,key,now,online,minigame};
   if(minigame)operations.push(...minigameStatements(db,minigameContext));
@@ -727,6 +732,7 @@ export async function api(request,env){
   }
   return json({
     serverTime:now,busYields,bagResult,
+    ...(watchLifts?await roomLifts(db,room,receiver.avatar,body.lift,now,results[liftSelection].results):{}),
     weather,
     ...socialPayload(results.at(-3).results[0],{...socialContext,avatar:receiver.avatar}),
     photoSession:roomPhotoPayload(results[photoSelection],receiver.avatar),

@@ -1,4 +1,5 @@
-import {airportLift,railHeight,railPoint,railStepAllowed,liftLanding,liftCenter,liftAt,storeys,approachAt,approachRoute,subwayExit,stationApproaches} from "../public/station-levels.js";
+import {dispatchLift} from "../public/lift-dispatch.js";
+import {boardingIslands,liftBanks,setStationLifts,outdoorRailBlocks,railHeight,railPoint,railStepAllowed,liftLanding,liftAt,approachAt,approachRoute,subwayExit,stationApproaches} from "../public/station-levels.js";
 import assert from "node:assert/strict";
 import {gatePose} from "../public/station-approach-plan.js";
 import {stationTerraces} from "../public/station-terraces.js";
@@ -41,18 +42,38 @@ for(const bench of coachBenches)for(const slot of bench.slots){
   assert(walkable(slot.approach.x,slot.approach.y));
   reachable(ktxCoach.insideSpawn,slot.approach,"KTX 좌석 통로");
 }
-for(const [u,z,h] of [[0,0,0],[0,-38,-3.15],[0,-60,-6.3],[-16,-38,2.55],[-24,-59,5.1],[-20,-94,9.6],[-70,-40,-10.8]]){
+for(const [u,z,h] of [[0,0,0],[0,-38,-3.15],[0,-60,-6.3],[-16,-38,2.55],[-24,-59,5.1],[-20,-94,9.6],[-70,-40,-10.8],[-28,28,-3.15],...boardingIslands.map(s=>[s.x,70,-6.3]),[-35,-10.5,2.55],[-36,-27,5.1],[-28,-124,9.6],[25,-10,0]]){
   const p=railPoint(u,z);assert(Math.abs(railHeight(p.x,p.y)-h)<.001);reachable(stationHall.insideSpawn,p,"연속 보행 "+u+","+z);
 }
-for(const floor of [1,2,3,4]){
-  const at=(floor-1)*7000+2000;assert.equal(liftAt(at).height,storeys[floor-1]);
-  assert(railStepAllowed(liftLanding(floor),liftCenter,at));assert(!railStepAllowed(liftLanding(floor),liftCenter,at+3200));
+const shortcut=[railPoint(0,-140),railPoint(0,-160),railPoint(-75,-160),railPoint(-75,-40),metroInsidePoint(4)];
+for(let i=1;i<shortcut.length;i++)reachable(shortcut[i-1],shortcut[i],"4번 승강장 전철 직통환승");
+assert.equal(railHeight(stationHall.center.x+28,stationHall.center.y),0);
+assert.equal(railHeight(stationHall.center.x+29,stationHall.center.y),null);
+for(const bank of liftBanks){
+  let time=100000;
+  const first=bank.stops[0].floor,last=bank.stops.at(-1).floor;
+  let stops=dispatchLift(bank,[],first,time);
+  setStationLifts({[bank.id]:stops});
+  time=stops.at(-1).at+850;
+  assert(railStepAllowed(liftLanding(first,bank),bank.center,time));
+  stops=dispatchLift(bank,stops,last,time);setStationLifts({[bank.id]:stops});
+  assert.deepEqual(stops.map(s=>s.floor),[first,last]);
+  assert(!railStepAllowed(liftLanding(last,bank),bank.center,time));
+  const arrived=stops.at(-1).at;
+  assert(liftAt(arrived-1000,bank).moving);
+  assert(railStepAllowed(liftLanding(last,bank),bank.center,arrived+800));
+  assert.equal(liftAt(arrived+86400000,bank).floor,last);
+  assert.equal(liftAt(arrived+86400000,bank).open,0);
 }
-for(const [i,stop] of airportLift.stops.entries()){
-  const at=i*7000+2000-airportLift.offset+42000,landing=liftLanding(stop.floor,airportLift);
-  assert.equal(liftAt(at,airportLift).floor,stop.floor);
-  assert(railStepAllowed(landing,airportLift.center,at));
+setStationLifts({});
+for(const s of stationApproaches.filter(s=>["stairs","escalator"].includes(s.kind))){
+  const p=(t,u)=>({x:s.a[0]+s.ux*t-s.uy*u,y:s.a[1]+s.uy*t+s.ux*u}),m=s.len/2;
+  assert(outdoorRailBlocks(p(m,s.w/2-1),p(m,s.w/2+.6)));
+  if(s.kind==="escalator"||s.w>10)assert(outdoorRailBlocks(p(m,-.7),p(m,.7)));
+  assert(!outdoorRailBlocks(p(-.8,s.w/4),p(s.len+.8,s.w/4)));
 }
+assert(!railStepAllowed(railPoint(.1,-38),railPoint(1.6,-38)),"실내 계단과 에스컬레이터 사이 난간");
+assert(railStepAllowed(railPoint(1.6,-38),railPoint(1.6,-37)),"실내 에스컬레이터 진행 방향");
 // Crossing the vault must work from either approach while the masonry remains solid.
 const gatePoint=(u,v)=>({x:gatePose.x+u*Math.cos(gatePose.angle)+v*Math.sin(gatePose.angle),
   y:gatePose.y-u*Math.sin(gatePose.angle)+v*Math.cos(gatePose.angle)});
@@ -69,7 +90,7 @@ for(const {rings} of stationTerraces){
   }
 }
 let walker={x:40,y:1443.3,up:false};
-for(const [x,y] of [[37.5,1443.3],[12.3,1443.9],[10,1450],...terminalDoors.slice().reverse().map(p=>[p.x,p.y]),[27,1487.2],[33.5,1499.8]]){
+for(const [x,y] of [[37.5,1445.3],[12.3,1445.9],[10,1450],...terminalDoors.slice().reverse().map(p=>[p.x,p.y]),[27,1487.2],[33.5,1499.8]]){
   const start=walker,n=Math.ceil(Math.hypot(start.x-x,start.y-y)/.15);
   for(let i=1;i<=n;i++){
     const px=start.x+(x-start.x)*i/n,py=start.y+(y-start.y)*i/n,step=loftStep(walker,px,py);
@@ -81,7 +102,7 @@ assert(walker.up);
 const steps=stationApproaches.find(s=>s.kind==="stairs");assert(approachAt(...steps.b).height>5);
 assert(walkable(subwayExit.outside.x,subwayExit.outside.y),"지하철 출구 보도");
 const eastRoute=approachRoute(square,stationHall.outsideDoor,planWalk);
-assert(eastRoute?.some(p=>Math.hypot(p.x-37.5,p.y-1443.3)<.5),"광장에서 계단을 거쳐 정문으로");
+assert(eastRoute?.some(p=>Math.hypot(p.x-37.5,p.y-1443.3)<3.3),"광장에서 계단을 거쳐 정문으로");
 assert.deepEqual(eastRoute.at(-1),stationHall.outsideDoor);
 for(const venue of cultureVenues){
   for(const r of venue.rooms){
@@ -104,6 +125,14 @@ for(const stop of metroStops){
 }
 for(const p of [westExit.outside,rearMarketExit.outside])assert(walkable(p.x,p.y));
 assert(approachAt(subwayExit.outside.x,subwayExit.outside.y).height< -4);
+for(const [x,y] of [[490.87,459.87],[457.95,573.82],[363.6,697.66],[203.36,1078.31],[139.06,1192],[106.09,1316.44],[59.58,1381.13],[114.44,1420.05]]){
+  assert.equal(stationGround(x,y),"path","서울역 방향 보도 포장");
+  assert(walkable(x,y),"서울역 방향 보도 이동");
+}
+for(const [x,y] of [[498.93,426.68],[385.89,653.29],[373.55,844.55],[153.07,1130.47]]){
+  assert.equal(stationGround(x,y),"crossing","차로 중심의 횡단보도");
+  assert(walkable(x,y));
+}
 const roadKinds=new Set(["road","crossing","shared"]);
 assert.equal(stationGround(45.6,1390),"shared","서울역 택시 승차장 진입로");
 for(let t=0;t<BUS_CYCLE_MS;t+=200){

@@ -1,4 +1,5 @@
-import {stationHall,railPlatform,railShopPlots,seatRows,waitingRows,hallColumns} from "./rail-station-layout.js";
+import {stationHall,railPlatform,railShopPlots,seatRows,waitingRows,extraWaitingRows,hallColumns} from "./rail-station-layout.js";
+import {hallBow} from "./station-levels.js";
 import {standSign} from "./regional-stands.js";
 import {makeRegionalItemProps} from "./regional-item-props.js";
 
@@ -38,16 +39,52 @@ export function* buildRailRoom(T,root,kit,venue){
     ceilingLight(7,5,15,52,27);ceilingLight(0,7,-15,60,32);
     paving(42,58,2.2,0xd3cec0);
     for(const side of [-1,1]){
-      for(const [z,len] of (side<0?[[25,8]]:[[-14,30],[20,18]]))box(0xb7c6c9,side*21,4.25,z,.27,8.5,len);
+      for(const [z,len] of (side<0?[[24,10]]:[]))box(0xb7c6c9,side*21,4.25,z,.27,8.5,len);
       if(side>0)box(0xd3d6d0,0,4.25,29,42,8.5,.27);
       else box(0xb4c6c8,0,7.6,-29,42,1.8,.22);
-      for(let z=-26;z<=26;z+=4)if(z<1||z>10)box(0x778d92,side*20.79,5.5,z,.14,4.6,.115);
+      for(let z=-26;z<=26;z+=4)if(side<0&&z>19)box(0x778d92,side*20.79,5.5,z,.14,4.6,.115);
       for(let z=-25;z<=25;z+=5){
         if(z>=0&&z<=10)continue;
-        if(side<0&&z<21&&z>=10)continue;
+        if(side>0||z<21)continue;
         box(0x9db7bd,side*20.84,6.35,z,.1,2.35,4.81);
         box(0xe0dcd1,side*20.8,3.1,z,.2,.28,5);
       }
+    }
+    // Walkable bow, facade and minimap use the same survey-guide outline.
+    function surface(coordinates,altitude,color){
+      const geom=new T.BufferGeometry();
+      geom.setAttribute("position",new T.Float32BufferAttribute(coordinates.flatMap(([x,z])=>[x,altitude,z]),3));
+      geom.setIndex(altitude===0?[0,2,1,0,3,2]:[0,1,2,0,2,3]);geom.computeVertexNormals();
+      room.add(new T.Mesh(geom,kit.matte(color)));
+    }
+    const glazing=new T.MeshStandardMaterial({color:0x72979f,roughness:.34,transparent:true,opacity:.45,depthWrite:false});
+    for(let i=1;i<hallBow.length;i++){
+      const a=hallBow[i-1],b=hallBow[i],length=Math.hypot(b.x-a.x,b.z-a.z);
+      const midX=(a.x+b.x)/2,midZ=(a.z+b.z)/2,angle=Math.atan2(b.x-a.x,b.z-a.z);
+      const opening=a.z===2&&b.z===10;
+      const pane=(color,y,height,thickness)=>{
+        const panel=box(color,midX,y,midZ,thickness,height,length+.018);
+        panel.rotation.y=angle;return panel;
+      };
+      const deck=[[21,a.z],[a.x,a.z],[b.x,b.z],[21,b.z]];
+      if(!opening)surface(deck,0,0xd3cec0);
+      surface(deck,9.23,0xc6d2d1);
+      const low=opening?4.10:.6;
+      pane(0x839fa8,(9.2+low)/2,9.2-low,.095).material=glazing;
+      if(!opening)pane(0xbec5c4,.29,.58,.27);
+      for(const y of [4.18,6.64,9.10])pane(0x8c9da0,y,.12,.26);
+      box(0x819497,a.x,(9.25+low)/2,a.z,.21,9.25-low,.21);
+      if(!opening)box(0x8d9fa3,midX,4.65,midZ,.10,9.1,.11);
+    }
+    box(0xb3b1a4,65,-.64,-4,78,.75,84);
+    for(const [u,z,width,height,depth] of [[74,-30,24,19,17],[90,-7,20,30,19],[75,15,22,14,21],[98,36,23,22,16]]){
+      box(0xb0b4ae,u,height/2-.36,z,width,height,depth);
+      for(let level=2;level<height-1;level+=3.15)box(0x82979b,u-width/2-.04,level,z,.12,1.47,depth-.5);
+    }
+    // At the end of the hall only the signed stair and lift openings are open.
+    for(const [a,b] of [[-21,-19.8],[-12.2,-8.65],[-5.85,-3.8],[3.8,21]]){
+      box(0xc6c9c1,(a+b)/2,3.40,-29,b-a,6.8,.24);
+      for(let x=a+1.15;x<b-1;x+=2.75)box(0x8da7ae,x,4.75,-28.85,2.1,1.49,.09);
     }
     // Curtain wall, tactile route and clerestory lights carry the eye to the platform entrance.
     for(let x=-19;x<=19;x+=3.8){
@@ -58,24 +95,52 @@ export function* buildRailRoom(T,root,kit,venue){
       }
     }
     box(0xc6a262,-3,.011,-.5,.36,.018,52);
-    box(0xc6a262,-7.35,.011,-13,8.72,.018,.35);
-    const skylightMaterial=new T.MeshBasicMaterial({color:0xd9e5db});
-    for(let z=-27;z<=27;z+=6){
-      for(const side of [-1,1]){
-        girder(room,[side*20.9,7.9,z],[0,10.1,z],.31,0x316aa2);
-        girder(room,[side*20.9,6.9,z],[0,8.8,z],.20,0x34679a);
-        for(let x=2;x<20;x+=4)girder(room,[side*x,9.96-x*.105,z],[side*(x+2),8.8-(x+2)*.10,z],.12,0xe5e8df);
-        const roof=box(0xc6d2d1,side*10.5,9.16,z,21.2,.12,5.97);roof.rotation.z=-side*.102;
+    box(0xc6a262,4.9,.020,-13,15.82,.016,.35);
+    box(0xc6a262,-12,.020,6,18,.016,.35);
+    // Tied steel arches span the public hall. Alternating clerestory and acoustic
+    // panels follow the upper chord so the roof has real depth from the gallery.
+    const crown=x=>9.20+4.85*(1-(x/21)**2);
+    const skylight=new T.MeshBasicMaterial({color:0xd4e6ea});
+    for(let z=-29;z<29;z+=5.8){
+      const mid=z+2.90;
+      for(let j=0;j<8;j++){
+        const x0=-21+j*5.25,x1=x0+5.25,y0=crown(x0),y1=crown(x1);
+        const roof=box(0xc7ceca,(x0+x1)/2,(y0+y1)/2+.17,mid,Math.hypot(x1-x0,y1-y0)+.045,.18,5.84);
+        roof.rotation.z=Math.atan2(y1-y0,x1-x0);
+        if(j===3||j===4)roof.material=skylight;
+        girder(room,[x0,y0,z],[x1,y1,z],.24,0x356697);
+        girder(room,[x0,y0-.95,z],[x1,y1-.95,z],.17,0x486e8e);
+        girder(room,[x0,y0-.95,z],[x1,y1,z],.12,0x7893a1);
+        box(0xb2bfc0,x0,y0-.07,mid,.13,.15,5.84);
       }
-      const lightwell=box(0xe0eff0,0,9.46,z,2.2,.06,5.85);lightwell.material=skylightMaterial;
-      box(0xfbf1d4,0,9.39,z,5.5,.06,.16);
+      for(const x of [-10.5,10.5])box(0xffefd4,x,crown(x)-1.02,mid,.13,.08,4.75);
+    }
+    for(const z of [-29,29]){
+      for(let i=0;i<12;i++){
+        const x=-19.25+i*3.5,top=crown(x)-.12;
+        box(0x92aeb6,x,(top+8.45)/2,z,3.49,top-8.45,.13);
+        box(0x768b92,x-1.72,(top+8.45)/2,z,.09,top-8.45,.24);
+      }
+    }
+    // A continuous curved fascia ties the retail bays together on each side of
+    // the shopping passage. The public corridor remains open at ground level.
+    const curve=z=>-16.9+.0096*z*z;
+    for(const [start,end] of [[-26.8,-2.25],[9.2,26.8]]){
+      for(let z=start;z<end-.01;z+=3){
+        const next=Math.min(z+3,end),x0=curve(z),x1=curve(next),mid=(z+next)/2,angle=Math.atan2(x1-x0,next-z);
+        const len=Math.hypot(x1-x0,next-z),front=(x0+x1)/2+1.8,back=-20.9;
+        box(0xdad7cb,(front+back)/2,4.28,mid,front-back,.34,next-z+.01);
+        const fascia=box(0xd8d2c4,front,4.33,mid,.23,.67,len+.035);fascia.rotation.y=angle;
+        const strip=box(0xffe5ad,front+.11,4.12,mid,.05,.09,len+.035);strip.rotation.y=angle;
+      }
     }
     for(const [x,z] of hallColumns){
       box(0xa07155,x,.66,z,1.08,1.32,1.08);box(0xc3a386,x,1.39,z,1.17,.12,1.17);
-      for(const d of [-.18,.18])for(const e of [-.18,.18])rod(0xe0e4dc,x+d,4.6,z+e,.15,6.42);
+      const top=crown(x)-.85;
+      for(const d of [-.18,.18])for(const e of [-.18,.18])rod(0xe0e4dc,x+d,(top+1.4)/2,z+e,.15,top-1.4);
     }
-    for(const [x,z] of waitingRows)seats(room,x,z,2.1,2,0x648085);
-    const tickets=group(-16,-13,Math.PI/2);
+    for(const [x,z] of [...waitingRows,...extraWaitingRows])seats(room,x,z,2.1,2,0x648085);
+    const tickets=group(16,-13,-Math.PI/2);
     box(0xdfd8c5,0,1.65,0,9,3.3,6,tickets);box(navy,0,1.03,3.03,8.6,.97,.28,tickets);
     for(const x of [-3,-1,1,3]){
       box(0x65838d,x,2.06,3.09,1.7,.96,.12,tickets);
@@ -87,16 +152,22 @@ export function* buildRailRoom(T,root,kit,venue){
       box(0x677e88,x,1.55,.06,2.13,3.15,.22,entry);box(0xabc8c8,x,1.55,.21,1.89,2.89,.1,entry);
     }
     sign(entry,"서울역광장 출구","EXIT",5.9,0,3.9,.25);
-    const departures=group(-2,-16);
-    box(0x333d41,0,4.98,0,9.8,2.05,.31,departures);
-    sign(departures,"열차 안내     KTX","승강장 ↓     정차 중     ·     서울역",9.52,0,4.98,.17,"#182d36","#f0cf84",1.88);
-    for(const x of [-3.8,3.8])rod(silver,x,7.3,-16,.055,2.65);
-    sign(room,"1층  ↓  KTX 타는 곳","PLATFORMS",6,0,3.6,-28);
+    const departures=group(1.5,-16);
+    box(0x2a3032,0,5.76,0,12.6,3.06,.36,departures);
+    sign(departures,"열차 출발 안내","TRAIN DEPARTURES",11.9,0,6.68,.20,"#24475c","#f4edd4",.88);
+    for(const [i,label] of ["KTX     승차 체험     3 · 4","타는 곳    5–14    /    서부 맞이방"].entries()){
+      sign(departures,label,null,11.9,0,5.86-i*.68,.20,"#19292d",i?"#c3dfd6":"#f2cb76",.64);
+    }
+    const reverse=group(0,0,Math.PI,departures);
+    sign(reverse,"나가는 곳  ·  동부광장","Seoul Station Plaza",11.9,0,5.76,.20,"#25445b","#f5ecce",2.5);
+    for(const x of [-3.8,3.8])rod(silver,x+1.5,(crown(x+1.5)+7.24)/2,-16,.055,crown(x+1.5)-7.24);
+    sign(room,"3 · 4   ↓   타는 곳","TRACKS    /    KTX",6,0,3.6,-28);
     sign(room,"3층  ↑  식당가","FOOD HALL",5.2,-16,3.6,-28);
     sign(room,"승강기  ↕","LIFT",2.5,-7.25,3.1,-28);
     const props=makeRegionalItemProps(T,kit);
     for(const p of railShopPlots){
       const g=group(p.x,p.z,p.angle),w=p.w,d=p.d;
+      g.position.y=p.level??0;
       box(0xe4d7bd,0,1.78,-d/2+.1,w,3.56,.2,g);
       for(const side of [-1,1])box(0xc1b79e,side*(w/2-.08),1.76,0,.16,3.52,d,g);
       box(p.color,0,.49,d/2-.15,w-.22,.98,.6,g);
@@ -125,7 +196,8 @@ export function* buildRailRoom(T,root,kit,venue){
     }
   }else if(venue===railPlatform){
     paving(8.7,97,1.3,0xbebbb1);
-    box(0x818981,0,-1.25,0,23,.26,115);
+    box(0x818981,0,-1.25,3.75,23,.26,104.5);
+    sign(room,"↓  전철 직통환승","Metro transfer",4.5,0,3.10,-46);
     for(const side of [-1,1]){
       box(0x999f9f,side*19,-.1,0,6.2,.38,130);
       box(0xaeb8b9,side*19,4.22,0,7.4,.22,121);
@@ -152,7 +224,7 @@ export function* buildRailRoom(T,root,kit,venue){
       box(0xf4efd8,.2,4.51,z,3.1,.05,.19);
     }
     const stationBoard=group(-2.55,-12,Math.PI/2);sign(stationBoard,"서울","SEOUL   |   서울역",3.45,0,2.74,0,"#f3efe4","#29485b",.83);
-    sign(room,"3  ·  KTX","열차 타는 곳",3.5,0,3.3,2);
+    sign(room,"3 · 4    서울","열차 타는 곳",3.5,0,3.3,2);
     const returnSign=group(0,39.1,Math.PI);
     sign(returnSign,"↑ 나가는 곳","2층 맞이방",4.1,0,2.72,0);
 

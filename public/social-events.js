@@ -3,6 +3,8 @@ import {isCycling} from "./sejong-bike.js";
 import {ITEM_SLOTS,itemAnimating} from "./held-items.js";
 
 export const HAND_SPACING=.69;
+// Both posed face meshes project just under .60 m along the contact axis.
+export const KISS_SPACING=.61;
 export const isKiss=id=>typeof id==="string"&&id.startsWith("kiss-");
 export const canKiss=(avatar,time)=>Boolean(avatar?.kissReady&&!avatar.groundSit&&avatar.seat==null&&
   !isCycling(avatar)&&!avatar.bus&&!avatar.arcade&&time-(avatar.jump??0)>=JUMP_MS);

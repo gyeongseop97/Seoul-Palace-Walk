@@ -1,4 +1,4 @@
-import {eastDoor,hallOrigin,railPoint} from "./station-levels.js";
+import {boardingIslands,roofBeds,eastDoor,hallOrigin,railPoint} from "./station-levels.js";
 import {cultureVenues,registerCultureFurniture} from "./culture-station-layout.js";
 // Room coordinates are shared by the renderer, collision map, room server and minimap.
 const point=(x,y,heading=0)=>({x,y,heading});
@@ -24,20 +24,24 @@ export const ktxCoach=room("ktx-coach","KTX 일반실",1810,690,3.9,23.8,
 export const railRooms=[stationHall,railPlatform,ktxCoach,...cultureVenues];
 export const railRoomById=Object.fromEntries(railRooms.map(v=>[v.id,v]));
 export const railShopPlots=[
-  {name:"제철 과일모찌",kind:"fruitMochi",x:7.8,z:16,angle:0,w:6.5,d:3.4,color:0x86585b,ink:"#72434c",sign:"#f2e5d2"},
-  {name:"여행 편의점",kind:"churu",x:15.5,z:16,angle:0,w:7.4,d:3.4,color:0x277b75,ink:"#fff4db",sign:"#196663"},
-  {name:"서울역 버거",kind:"stationBurger",x:16.8,z:-4,angle:-Math.PI/2,w:8.5,d:4,color:0xa74e34,ink:"#ffefc8",sign:"#973d2e"},
-  {name:"플랫폼 커피",kind:"coffee",x:16.8,z:-15,angle:-Math.PI/2,w:8.4,d:4,color:0x5f7769,ink:"#f9eedd",sign:"#3c574d"}
+  {name:"옥상정원 커피",kind:"coffee",x:-22,z:-125,angle:-Math.PI/2,w:5.6,d:2.7,level:9.6,color:0x6c7859,ink:"#fff3d8",sign:"#4f5a46"},
+  {name:"맞이방 전망 카페",kind:"coffee",x:-27.4,z:-13.5,angle:Math.PI/2,w:7.8,d:2.6,level:5.1,color:0x795140,ink:"#f9eddc",sign:"#634233"},
+  {name:"제철 과일모찌",kind:"fruitMochi",x:-16.0,z:13.4,angle:1.80,w:6.5,d:3.4,color:0x86585b,ink:"#72434c",sign:"#f2e5d2"},
+  {name:"여행 편의점",kind:"churu",x:-12.65,z:21.4,angle:2.06,w:7.4,d:3.4,color:0x277b75,ink:"#fff4db",sign:"#196663"},
+  {name:"서울역 버거",kind:"stationBurger",x:-16.2,z:-8.15,angle:1.38,w:8.5,d:4,color:0xa74e34,ink:"#ffefc8",sign:"#973d2e"},
+  {name:"플랫폼 커피",kind:"coffee",x:-13.5,z:-19.0,angle:1.14,w:8.4,d:4,color:0x5f7769,ink:"#f9eedd",sign:"#3c574d"}
 ];
 export const railCounters=railShopPlots.flatMap(p=>{
   const counter={name:p.name,kind:p.kind,area:"station",interior:stationHall.id,
     x:stationHall.center.x+p.x+Math.sin(p.angle)*(p.d/2+.98),y:stationHall.center.y+p.z+Math.cos(p.angle)*(p.d/2+.98)};
   if(p.kind!=="churu")return [counter];
-  return [{...counter,x:counter.x-1.24},{...counter,x:counter.x+1.40,kind:"triangleRice",secondary:true}];
+  const along=u=>({...counter,x:counter.x+Math.cos(p.angle)*u,y:counter.y-Math.sin(p.angle)*u});
+  return [along(-1.24),{...along(1.40),kind:"triangleRice",secondary:true}];
 });
 export const plazaCafe={name:"서울역사점 · 광장 카페",kind:"coffee",area:"station",x:33.5,y:1499.8,up:true};
 export const seatRows=[-7.6,-5.65,-3.7,-1.75,.2,2.15,4.1,6.05];
 export const waitingRows=[[-9,1],[-9,-6],[1,1],[1,-6]];
+export const extraWaitingRows=[[3.18,1],[3.18,-6],[5.36,1],[5.36,-6],[-6.82,1],[-6.82,-6],[8.4,12.4],[10.58,12.4],[8.4,16.4],[10.58,16.4]];
 export const hallColumns=[[-17,-24],[17,-24],[-17,23],[17,23],[-17,3],[18,5]];
 export function registerRailFurniture(add,benches){
   registerCultureFurniture(add);
@@ -48,15 +52,16 @@ export function registerRailFurniture(add,benches){
   }
   const hall=(x,z,w,d,h)=>add(stationHall.center.x+x,stationHall.center.y+z,w,d,0,h);
   for(const p of railShopPlots)add(stationHall.center.x+p.x,stationHall.center.y+p.z,p.w,p.d,p.angle);
-  for(const [x,z] of hallColumns)hall(x,z,.62,.62);
-  hall(-16,-13,6,9); // ticket counter enclosure
-  // The north side opens directly into the two stair flights.
-  for(const [x,z] of waitingRows){
+  for(const [x,z] of hallColumns)hall(x,z,.64,.64);
+  for(const {x} of boardingIslands)for(let z=40;z<74;z+=9)hall(x,z,.22,.22);
+  hall(16,-13,6,9); // ticket counter enclosure
+  function waitingSeat([x,z]){
     const cx=stationHall.center.x+x,cy=stationHall.center.y+z;
     hall(x,z,2.1,.67,.88);
     benches.push({x:cx,y:cy,slots:[-.51,.51].map(dx=>({x:cx+dx,y:cy,heading:0,
       approach:point(cx+dx,cy-1.05),base:-.018}))});
   }
+  waitingRows.forEach(waitingSeat);
   const {center:c}=ktxCoach;
   for(const z of seatRows)for(const side of [-1,1]){
     const x=c.x+side*1.26,y=c.y+z;
@@ -64,4 +69,6 @@ export function registerRailFurniture(add,benches){
     benches.push({x,y,slots:[.96,1.56].map((u,i)=>({x:c.x+side*u,y,heading:0,base:-.02,
       approach:point(c.x+side*.15,y-.34+i*.26)}))});
   }
+  extraWaitingRows.forEach(waitingSeat);
+  for(const bed of roofBeds)hall(bed.x,bed.z,bed.w,2.25,.67);
 }

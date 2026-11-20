@@ -1,4 +1,4 @@
-import {railStepAllowed,sameStation} from "./station-levels.js";
+import {outdoorRailBlocks,railStepAllowed,sameStation} from "./station-levels.js";
 import {worldExtent} from "./world-extent.js";
 import {interiorAt,interiorBounds} from "./interior-layout.js";
 
@@ -240,7 +240,7 @@ export function addZone(zone){
   if(zone.connects)layeredZones.push(zone);
 }
 function layerConnects(ax,ay,bx,by){
-  if(!railStepAllowed({x:ax,y:ay},{x:bx,y:by}))return false;
+  if(!railStepAllowed({x:ax,y:ay},{x:bx,y:by})||outdoorRailBlocks({x:ax,y:ay},{x:bx,y:by}))return false;
   for(const zone of layeredZones){
     if(zone.contains(ax,ay)&&zone.contains(bx,by)&&!zone.connects({x:ax,y:ay},{x:bx,y:by}))return false;
   }
@@ -406,6 +406,7 @@ export function loftHeight(position){
 // null when the loft blocks it, undefined when ordinary ground rules decide.
 export function loftStep(from,x,y){
   if(!lofts.length)return undefined;
+  if(outdoorRailBlocks(from,{x,y}))return null;
   const stair=loftStair(x,y),onStair=loftStair(from.x,from.y);
   if(stair==null&&onStair==null&&!from.up)return undefined;
   const here=onStair??(from.up?loftHeight(from):platformAt(from.x,from.y));

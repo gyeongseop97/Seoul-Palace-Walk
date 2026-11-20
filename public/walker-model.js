@@ -1019,10 +1019,10 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       const wobble=woozy?Math.sin(clock*.0048+model.offset)*.062:0;
       pelvis.position.set(.020*pendulum*sway+(bodyPose?.x??0)*(1-seated),
         .691-HIP_DROP+bob-strideDip+idleRise+breath*.004-seated*.145-crouch*.225+(bodyPose?.y??0)*idleGesture,0);
-      chest.rotation.set(.020+sprint*.13+crouch*.34+seated*.03+clink*.22+(position.kiss||0)*.20+(eatingMeal?.dip??0)*.13+(bodyPose?.pitch??0)*idleGesture,
+      chest.rotation.set(.020+sprint*.13+crouch*.34+seated*.03+clink*.22+(position.kiss||0)*.052+(eatingMeal?.dip??0)*.13+(bodyPose?.pitch??0)*idleGesture,
         pendulum*sway*.10+(bodyPose?.yaw??0)*idleGesture,pendulum*sway*.065+(bodyPose?.roll??0)*idleGesture+wobble*.41);
       headJoint.rotation.set(-.030-sprint*.070+crouch*.16+(eatingMeal?.dip??0)*.18+(eatingMeal?.lift??0)*.078+(bodyPose?.headPitch??0)*idleGesture,
-        -pendulum*sway*.05+wobble*.65,(position.kiss||0)*.16+breath*.020-pendulum*sway*.045+(bodyPose?.headRoll??0)*idleGesture+wobble);
+        -pendulum*sway*.05+wobble*.65,(position.kiss||0)*.105+breath*.020-pendulum*sway*.045+(bodyPose?.headRoll??0)*idleGesture+wobble);
     }
     body.rotation.z=-(fall?.weight??0)*1.48;
     model.shadow.visible = !seat;
