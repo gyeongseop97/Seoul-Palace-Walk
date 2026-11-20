@@ -81,7 +81,9 @@ export function makeFirstPersonView(T,createItemProp){
     const frame=(vector,x,y,depth)=>vector.set(x*viewWidth*depth,y*viewHeight*depth,-depth);
     ambient.intensity=2.12-.84*night;key.intensity=1.10-.48*night;
     const suit=swimwearOptions[position.coast?.swimwear],swimming=position.coast?.mode==="swim";
-    const stroke=swimming?swimStroke(clock/1000%14400,position.stepping,swimSeed(position)):null;
+    const surfing=position.coast?.mode==="surf",seconds=clock/1000%14400;
+    const ride=position.coast?.surf,standing=clamp(ride?.rise??0),bank=clamp(ride?.bank??0,-1,1);
+    const stroke=swimming?swimStroke(seconds,position.stepping,swimSeed(position)):null;
     const outfit=suit?"swimsuit":position.look?.outfit==="hoodie"?"puffer":position.look?.outfit??"coat";
     const tone=LOOK_OPTIONS.skin.includes(position.look?.skin)?position.look.skin:"light";
     const coat=suit?.top??position.coat??0xab5947,keyForLook=`${outfit}/${coat}/${tone}`;
@@ -95,14 +97,14 @@ export function makeFirstPersonView(T,createItemProp){
     }
     const riding=!seat&&isCycling(position),driving=riding&&isBikeDriver(position),passenger=riding&&isBikePassenger(position);
     const seated=Boolean(seat)||passenger;
-    const walking=Boolean(position.stepping&&!seated&&!riding&&jumpLift(position,clock)<.06);
+    const walking=Boolean(position.stepping&&!seated&&!riding&&!surfing&&jumpLift(position,clock)<.06);
     const motion=walking?(position.blocked?.40:1):0;
     stride=mix(stride,motion,1-Math.exp(-delta*11));
     phase+=delta*(position.running?16:10.4);
     const hands=avatarHands(position,clock,{riding,seated,walking});
     const {claspSide,feedAge,petAge,petting,petSide,itemFor,feedingSide,tray}=hands;
-    const carryingTray=Boolean(tray&&!seated&&!riding);
-    const eating=diningGesture(tray,seat);
+    const carryingTray=Boolean(tray&&!seated&&!riding&&!surfing);
+    const eating=surfing?null:diningGesture(tray,seat);
     let seeingMeal=false;
     if(eating){
       const angle=seat.heading*Math.PI/180;
@@ -135,8 +137,8 @@ export function makeFirstPersonView(T,createItemProp){
       const step=Math.sin(phase+side*Math.PI/2)*stride,bob=seated||riding?0:Math.sin(phase*2)*stride;
       // The camera faces -Z, so its horizontal axis is the reverse of the avatar's.
       const avatarSide=-side;
-      const prop=itemFor(avatarSide),item=prop?.item,spec=prop?.spec,itemAge=prop?.itemAge;
-      const holding=Boolean(prop),holdingUmbrella=avatarSide===umbrellaSide;
+      const prop=surfing?null:itemFor(avatarSide),item=prop?.item,spec=prop?.spec,itemAge=prop?.itemAge;
+      const holding=Boolean(prop),holdingUmbrella=!surfing&&avatarSide===umbrellaSide;
       const spark=item?.kind==="sparkler",drink=spec?.verb==="마시기";
       const use=holding&&!spark&&item.kind!=="churu"?ease(Math.min(itemAge/235,(spec.duration-itemAge)/300)):0;
       const toasting=avatarSide===clinkSide?cheers:0,serving=avatarSide===feedingSide?ease(Math.min(feedAge/270,(FEED_MS-feedAge)/290)):0;
@@ -163,6 +165,19 @@ export function makeFirstPersonView(T,createItemProp){
         frame(shoulder,side*.93,-1.13,.38);
         frame(elbow,side*(.64+.66*sweep),idle?-.82:-.64-.44*fold,.51+.25*(1-fold));
         frame(wrist,side*(.20+.87*sweep+.19*fold),idle?-.71+.22*sweep:-.45-.47*fold,1.08-.37*fold);
+      }
+      // Match the phase and opposing arms in the third-person paddling rig.
+      let paddleSweep=0;
+      if(surfing){
+        const surfPhase=seconds*3.85+(avatarSide>0?Math.PI:0);
+        const paddling=clamp((ride?.speed??0)/1.8);
+        const reach=Math.sin(surfPhase)*paddling,trim=side*bank;
+        paddleSweep=Math.cos(surfPhase)*paddling;
+        frame(shoulder,side*mix(.88,1.12,standing),mix(-1.08,-1.25,standing),.45);
+        frame(elbow,side*mix(.81-.20*reach+.12*paddleSweep,1.08-.12*trim,standing),
+          mix(-.96+.22*reach,-.81+.19*trim,standing),mix(.63+.10*reach,.63,standing));
+        frame(wrist,side*mix(.59-.25*reach+.15*paddleSweep,.90-.14*trim,standing),
+          mix(-.79+.35*reach-.13*paddleSweep,-.64+.23*trim,standing),mix(.75+.19*reach,.76,standing));
       }
       if(carryingTray){
         wrist.copy(trayPivot.position);
@@ -214,11 +229,14 @@ export function makeFirstPersonView(T,createItemProp){
         side*(holding?.39:.21),mix(side*(driving?.08:.32),performanceHand?.roll??side*.32,weight));
       if(carryingTray)palm.rotation.set(-.81,side*.19,side*.46);
       else if(seeingMeal&&side===1)palm.rotation.set(-.80,-.34,.32);
+      if(surfing)palm.rotation.set(mix(-1.00-.32*paddleSweep,-.81,standing),side*mix(.16,.30,standing),
+        side*mix(.09+.28*paddleSweep,.53+side*bank*.19,standing));
       if(mole&&side===1)palm.rotation.set(-.40,-.18,.20);
-      peaceHand.visible=!mole&&acting?.kind==="peace"&&weight>.26;
+      peaceHand.visible=!mole&&!surfing&&acting?.kind==="peace"&&weight>.26;
       mitten.visible=!peaceHand.visible;
       const gripping=mole||driving||holding||holdingUmbrella||carryingTray||seeingMeal&&side===1;
       mitten.scale.y=gripping?.042:mix(.058,performanceHand?.curl<-.8?.043:.058,weight);
+      if(surfing)mitten.scale.y=.060;
       const {pivot:itemPivot,show}=props[i];
       itemPivot.visible=holding&&!mole&&!swimming;
       if(holding){

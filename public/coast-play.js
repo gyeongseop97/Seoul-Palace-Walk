@@ -9,9 +9,11 @@ import {busSeatPose} from "./sejong-bus.js";
 import {inPark,parkStep,hillFloor} from "./space-walk-layout.js";
 import {pavilionStep,pavilionFloor} from "./pohang-pavilion-layout.js";
 import {coastPoint,seaPoint} from "./region-coordinates.js";
-import {canCrossBeachEdge,harborStops,stopById,arrivalsAt,busLine,platformDoor,boardRack,dock,mooring,tables,seatSpot,distance,busAt,clamp,shore,inWater,wave,showAge} from "./pohang-layout.js";
+import {canCrossBeachEdge,harborStops,stopById,arrivalsAt,busLine,platformDoor,boardRack,dock,mooring,tables,seatSpot,distance,busAt,clamp,shore,inWater,showAge} from "./pohang-layout.js";
 import {canStartFestival} from "./pohang-festival-site.js";
 import {festivalFocus} from "./pohang-festival-score.js";
+import {newSurfRide,stepSurfRide} from "./coast-surfing.js";
+import {surfField,surfSample} from "./pohang-surf-waves.js";
 
 const radians=Math.PI/180;
 const turn=(a,b)=>Math.atan2(Math.sin(b-a),Math.cos(b-a));
@@ -24,6 +26,7 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
  const boat={...mooring,yaw:0,helm:null,festival:0},ship={...boat};
  let ready=false,inFlight=false,nextPoll=0,disposed=false,speed=0,tableSeat=null,orders=[],grills=new Map();
  let busHeading=null,riders=[],deck=null,wasHelm=false,watchUntil=0,actions=new Map(),pending=[],lastError=0;
+ let surfRide=null;
  const state=()=>me.coast??={mode:"walk",board:false};
  const clock=()=>now()/1000%14400;
  function mark(){changed();}
@@ -129,6 +132,7 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
    if(mode!==s.mode){s.mode=mode;mark();}
   }
   if(s.mode!=="bus")busHeading=null;
+  if(s.mode!=="surf"&&(surfRide||s.surf)){surfRide=null;delete s.surf;mark();}
   wasHelm=helm;
  }
  function canStep(x,y){
@@ -148,10 +152,19 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
   const floor=deck?.h??s.floor??mainFloor,next=seaToDeck(ship,seaPoint({x,y}),now(),floor),height=deckHeight(next,floor);
   return height!==null&&Math.abs(height-floor)<.49;
  }
- function drift(dt,move){
-  const p=seaPoint(me),flow=wave(p.x,p.z,clock()),heading=me.heading;
-  const energy=clamp(1+flow*.7,.35,1.85);
-  if(move(me.x-dt*energy,me.y-dt*energy*.22))me.heading=heading;
+ function rideBoard(dt,inputX,inputZ,move){
+  const p=seaPoint(me),s=state();
+  surfRide??=newSurfRide();
+  const step=stepSurfRide(surfRide,me.heading,inputX,inputZ,surfSample(p.x,p.z,clock()),dt);
+  const moving=Math.hypot(step.x,step.z)>1e-6;
+  const advanced=moving&&move(me.x+step.x,me.y+step.z);
+  if(moving&&!advanced){surfRide.speed=0;surfRide.grip=0;surfRide.riding=false;}
+  if(advanced&&!inWater(seaPoint(me))){s.mode="walk";surfRide=null;delete s.surf;mark();return false;}
+  const rounded=n=>Math.round(n*100)/100;
+  const next={speed:rounded(surfRide.speed),bank:rounded(surfRide.bank),rise:rounded(surfRide.rise)};
+  if(me.heading!==step.heading||!s.surf||Object.keys(next).some(k=>s.surf[k]!==next[k]))mark();
+  me.heading=step.heading;s.surf=next;
+  return moving&&!advanced;
  }
  function afterMove(leaderCoast){
   const s=state(),p=seaPoint(me);
@@ -248,8 +261,22 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
    }
    hint=messages.join(" / ");
    if(s.mode==="walk"&&distance(p,platformDoor)<3)add("train","서울행 KTX 타기",goSeoul);
-   if(distance(p,boardRack)<5)add("board",s.board?"서핑보드 반납":"서핑보드 빌리기",()=>{s.board=!s.board;mark();});
-   if(!inPark(p)&&inWater(p)&&s.board)add("surf",s.mode==="surf"?"보드에서 내리기":"파도 타기",()=>{s.mode=s.mode==="surf"?"swim":"surf";mark();});
+   if(distance(p,boardRack)<5)add("board",s.board?"서핑보드 반납":"서핑보드 빌리기",()=>{
+    s.board=!s.board;
+    if(s.board)notice("해변 계단으로 내려가세요. 노란 부표 사이에서 파도를 탈 수 있어요.");
+    mark();
+   });
+   if(!inPark(p)&&inWater(p)&&s.board){
+    if(s.mode==="surf"){
+     if(surfRide?.riding)hint="파도 타는 중 · 대각선으로 방향을 잡아 보세요";
+     else if((surfField(p.x,p.z)?.strength??0)<.25)hint="파도가 들어오는 노란 부표 사이로 저어 가세요";
+     else hint="파도가 오면 해변 쪽으로 저어 보세요";
+    }
+    add("surf",s.mode==="surf"?"보드에서 내리기":"보드에 올라 패들링",()=>{
+     const mount=s.mode!=="surf";reset();s.mode=mount?"surf":"swim";
+     surfRide=mount?newSurfRide():null;delete s.surf;me.jump=0;me.vaultBase=null;mark();
+    });
+   }
    if(ready&&distance(p,dock)<6&&distance(ship,mooring)<10&&Math.abs(ship.speed??0)<.45&&(!boat.voyage||boat.voyage.kind==="drift"||ship.done))add("embark","크루즈 승선",enterDeck);
    if(ready){
     let nearest=null,best=3.6;
@@ -271,9 +298,9 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
   }
   return {actions,hint};
  }
- return {ship,boat,menu,tick,canStep,afterMove,drift,riderPose,selectSeat:(coach,seat,stop)=>command("board",{coach,seat,stop}),
+ return {ship,boat,menu,tick,canStep,afterMove,rideBoard,riderPose,selectSeat:(coach,seat,stop)=>command("board",{coach,seat,stop}),
   seatMap:(coach)=>({line:busLine(coach),bus:busAt(coach,now()/1000),occupied:riders.filter(row=>row.coach===coach).map(r=>r.seat)}),trigger:id=>actions.get(id)?.run(),get grills(){return grills;},get tavernOrders(){return orders;},
-  speedScale:()=>state().mode==="surf"?2.5:state().mode==="swim"?.83:1,
+  speedScale:()=>state().mode==="swim"?.83:1,
   locked:()=>["bus","table"].includes(state().mode)||state().mode==="deck"&&boat.helm===visit()?.id,
   atSea:()=>["scooter","deck","bus","table"].includes(state().mode),
   watchLift:()=>now()<watchUntil&&distance(seaPoint(me),dock)<11?8.2:0,

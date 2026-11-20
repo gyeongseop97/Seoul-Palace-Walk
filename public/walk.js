@@ -774,7 +774,7 @@ function setGestures(open){
 }
 const gestureButtons=[...document.querySelectorAll("[data-gesture]")];
 function gestureReady(time,kind){
-  if(!session||riding||me.bus||isCycling(me)||queuedBus||queuedBike||myLink()?.active||
+  if(!session||riding||me.bus||me.coast?.mode==="surf"||isCycling(me)||queuedBus||queuedBike||myLink()?.active||
     photoMode.camera||minigames.active()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||carryingDiningTray(time)||mealBiteLocked(time)||
     time-me.jump<jumpDuration(me)||ITEM_SLOTS.some(slot=>itemAnimating(me[slot],time)))return false;
   if(!kind)return true;
@@ -1530,7 +1530,7 @@ $("run").addEventListener("click",()=>{
 function jump(){
   const time=gameTime();
   if(!session||!world||bungeoMode||arcade.kind||riding||me.bus||isCycling(me)||queuedBus||queuedBike||sharingUmbrella()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||carryingDiningTray(time)||mealBiteLocked(time)||time-me.jump<jumpDuration(me))return;
-  if(onCoast&&(coastPlay?.locked()||me.coast?.mode==="scooter"))return;
+  if(onCoast&&(coastPlay?.locked()||["scooter","surf"].includes(me.coast?.mode)))return;
   if(pendingSeat)course=[];
   pendingSeat=seatClaim=null;stand();
   rememberWalkPosition();
@@ -1770,7 +1770,7 @@ joystick.addEventListener("lostpointercapture",finishThumb);
 function clearManualInput(){keys.clear();shiftHeld=false;releaseThumb();clearSceneTouch();}
 function resetInput(){backgroundTrip=null;clearManualInput();course=[];pendingSeat=seatClaim=null;}
 function beginBackgroundTrip(){
-  if(backgroundTrip||!session||!world||riding||photoMode.camera||me.bus||me.seat!=null||isBikePassenger(me)||amFollowingHands()||
+  if(backgroundTrip||!session||!world||riding||photoMode.camera||me.bus||me.coast?.mode==="surf"||me.seat!=null||isBikePassenger(me)||amFollowingHands()||
     arcade.frozen||bungeoMode||(!keys.size&&thumbId===undefined&&!course.length))return;
   let [x,y]=Array.from(keys,key=>vectors[key]).reduce(([x,y],[vx,vy])=>[x+vx,y+vy],thumb);
   if(x||y){
@@ -3165,7 +3165,7 @@ function updateActivities(time,guideNearby){
   const landmark=eligible&&nearbyPalaceGuide(me);
   setActivity("landmark-guide",landmark?"설명 읽기":null);
   if(landmark)attr($("landmark-guide"),"aria-label",landmark.title+" 설명 읽기");
-  $("jump").disabled=!eligible||riding||feeding||sharingUmbrella()||clinkLocked(time)||sickLocked(time)||carryingDiningTray(time)||mealBiteLocked(time)||time-me.jump<jumpDuration(me);
+  $("jump").disabled=!eligible||riding||me.coast?.mode==="surf"||feeding||sharingUmbrella()||clinkLocked(time)||sickLocked(time)||carryingDiningTray(time)||mealBiteLocked(time)||time-me.jump<jumpDuration(me);
   const atFountain=nearWishFountain();
   if($("wish").hidden===Boolean(atFountain))$("wish").hidden=$("wish").disabled=!atFountain;
   const cat=eligible&&me.seat==null&&!myLink()?.active&&world.parkLife.nearestCat(me.x,me.y);
@@ -3212,12 +3212,14 @@ function updateActivities(time,guideNearby){
   if(exhibit)attr($("museum-exhibit"),"aria-label",exhibit.title+" 작품 설명");
   setActivity("mmca-light",exhibit?.id==="colors"?"빛 바꾸기":null);
 }
+function mapDirection(dx,dy,cameraRelative){
+  if(!cameraRelative)return [dx,dy];
+  const angle=ownView.pan*Math.PI/180;
+  return [dx*Math.cos(angle)-dy*Math.sin(angle),dx*Math.sin(angle)+dy*Math.cos(angle)];
+}
 function moveWithInput(dx,dy,speed,link,cameraRelative){
   if(me.bus||isBikePassenger(me)||queuedBus||queuedBike)return false;
-  if(cameraRelative){
-    const angle=ownView.pan*Math.PI/180;
-    [dx,dy]=[dx*Math.cos(angle)-dy*Math.sin(angle),dx*Math.sin(angle)+dy*Math.cos(angle)];
-  }
+  [dx,dy]=mapDirection(dx,dy,cameraRelative);
   if(!speed||(!dx&&!dy))return false;
   stand();
   const scale=speed/Math.max(1,Math.hypot(dx,dy));
@@ -3282,11 +3284,19 @@ function motion(now,elapsed){
     if(next.x!==me.x||next.y!==me.y){me.x=next.x;me.y=next.y;coastPlay?.afterMove(leader.avatar?.coast);dirty=true;}
     blocked=Boolean(leader.avatar.blocked);
   }else if(!exitPress&&session&&elapsed>0&&!queuedBus&&!queuedBike&&!feedingLocked(gameTime(now))&&!clinkLocked(gameTime(now))&&!sickLocked(gameTime(now))){
-    if(keys.size||thumbId!==undefined){
-      const [dx,dy]=Array.from(keys,key=>vectors[key]).reduce(([x,y],[vx,vy])=>[x+vx,y+vy],thumb);
-      blocked=moveWithInput(dx,dy,speed,link,!worldFailed&&(thumbId!==undefined||document.activeElement!==$("world")));
+    const manual=keys.size||thumbId!==undefined;
+    const axes=manual?Array.from(keys,key=>vectors[key]).reduce(([x,y],[vx,vy])=>[x+vx,y+vy],thumb):[0,0];
+    const relative=!worldFailed&&(thumbId!==undefined||document.activeElement!==$("world"));
+    if(me.coast?.mode==="surf"){
+      let [dx,dy]=mapDirection(...axes,relative);
+      if(!manual&&course.length){
+        if(near(course[0],me.x,me.y)<1.25)course.shift();
+        if(course.length){dx=course[0].x-me.x;dy=course[0].y-me.y;}
+      }
+      blocked=coastPlay.rideBoard(elapsed,dx,dy,move);
+    }else if(manual){
+      blocked=moveWithInput(...axes,speed,link,relative);
     }else walkCourse(speed);
-    if(!link?.active&&me.coast?.mode==="surf")coastPlay.drift(elapsed,move);
   }
   const moved=oldX!==me.x||oldY!==me.y;
   const distance=moved?Math.hypot(me.x-oldX,me.y-oldY):0;
@@ -3301,10 +3311,10 @@ function motion(now,elapsed){
     const location=placeName(me);
     if($("location").textContent!==location)$("location").textContent=location;
   }
-  const cap=isCycling(me)?12:8;
+  const cap=isCycling(me)||me.coast?.mode==="surf"?12:8;
   const vx=moved&&elapsed?Math.max(-cap,Math.min(cap,(me.x-oldX)/elapsed)):0;
   const vy=moved&&elapsed?Math.max(-cap,Math.min(cap,(me.y-oldY)/elapsed)):0;
-  const running=leader?Boolean(leader.avatar.running):!isCycling(me)&&(moved||blocked)&&pace;
+  const running=leader?Boolean(leader.avatar.running):me.coast?.mode!=="surf"&&!isCycling(me)&&(moved||blocked)&&pace;
   if(me.vx!==vx||me.vy!==vy||me.blocked!==blocked||me.running!==running){
     Object.assign(me,{vx,vy,blocked,running});dirty=true;
   }

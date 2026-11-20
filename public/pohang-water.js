@@ -1,55 +1,48 @@
 import * as T from "three";
-import {shore,spectrum,wave} from "./pohang-layout.js";
-const nx=140,nz=350,startZ=-1650,dz=3000/nz;
-const coastRows=Array.from({length:nz+1},(_,j)=>shore(startZ+j*dz));
-const ranges=Array.from({length:nx+1},(_,i)=>-7+Math.pow(i/nx,1.65)*1900);
-const amplitudes=ranges.map(d=>{const t=Math.max(0,Math.min(1,(d+5)/15));return t*t*(3-2*t);});
-// Match the shader's actual displaced triangles. Analytic wave peaks between vertices
-// can otherwise put the mouth a few centimetres on the wrong side of the visible water.
+import {spectrum} from "./pohang-layout.js";
+import {createOceanGrid} from "./pohang-ocean-grid.js";
+import {surfVertexShader} from "./pohang-surf-waves.js";
+let grid;
+// Use the same triangles for swimmers, surfboards and the visible surface.
 export function oceanSurface(x,z,t){
- const q=Math.max(0,Math.min(nz-.00001,(z-startZ)/dz)),j=Math.floor(q),v=q-j;
- const d=x-coastRows[j]*(1-v)-coastRows[j+1]*v;
- const i=Math.max(0,Math.min(nx-1,Math.floor(nx*Math.pow(Math.max(0,(d+7)/1900),1/1.65))));
- const u=Math.max(0,Math.min(1,(d-ranges[i])/(ranges[i+1]-ranges[i])));
- const h=(r,k)=>wave(coastRows[r]+ranges[k],startZ+r*dz,t)*amplitudes[k];
- const br=h(j,i+1),tl=h(j+1,i);
- return u+v<=1?h(j,i)*(1-u-v)+br*u+tl*v:h(j+1,i+1)*(u+v-1)+tl*(1-u)+br*(1-v);
+ grid??=createOceanGrid();return grid.height(x,z,t);
 }
 export function ocean(scene){
- const positions=[],uv=[],indices=[];
- for(let j=0;j<=nz;j++){
-  const z=startZ+dz*j;
-  for(let i=0;i<=nx;i++){
-   const d=ranges[i];
-   positions.push(coastRows[j]+d,0,z);uv.push(d,z);
-   if(i&&j){const n=j*(nx+1)+i;indices.push(n-1,n,n-nx-1,n-1,n-nx-1,n-nx-2);}
-  }
- }
- const g=new T.BufferGeometry();g.setAttribute("position",new T.Float32BufferAttribute(positions,3));g.setAttribute("uv",new T.Float32BufferAttribute(uv,2));g.setIndex(indices);
+ grid??=createOceanGrid();
+ const g=new T.BufferGeometry();g.setAttribute("position",new T.Float32BufferAttribute(grid.positions,3));g.setAttribute("uv",new T.Float32BufferAttribute(grid.uv,2));g.setIndex(grid.indices);
+ g.setAttribute("surfField",new T.Float32BufferAttribute(grid.fields,4));
  const uniforms={uTime:{value:0},night:{value:0},glow:{value:0},
   burst:{value:Array.from({length:3},()=>new T.Color(0))},
   lightSite:{value:Array.from({length:3},()=>new T.Vector2())},
   wake:{value:new T.Vector3()},speed:{value:0},turn:{value:0}};
  const swell=spectrum.map(([a,kx,kz,s,p])=>"q=sin(dot(w.xz,vec2("+kx+","+kz+"))+uTime*"+s+"+"+p+");wave+="+a+"*(q+.17*(2.*q*q-1.));").join("\n");
  const normals=spectrum.map(([a,kx,kz,s,p])=>"phase=dot(w.xz,vec2("+kx+","+kz+"))+uTime*"+s+"+"+p+";slope+=vec2("+kx+","+kz+")*"+a+"*cos(phase)*(1.+.68*sin(phase));").join("\n");
- const material=new T.ShaderMaterial({uniforms,transparent:true,depthWrite:false,side:T.DoubleSide,vertexShader:`
- varying vec3 w; varying float depth; uniform float uTime;
+ const vertexShader=`
+ invariant gl_Position;
+ varying vec3 w,breaker; varying float depth; uniform float uTime; attribute vec4 surfField;
  void main(){w=position;depth=uv.x;
  float wave=0.,q=0.;
  ${swell}
- w.y=wave*smoothstep(-5.,10.,depth);gl_Position=projectionMatrix*modelViewMatrix*vec4(w,1.);}
- `,fragmentShader:`
- varying vec3 w; varying float depth; uniform float uTime,night,glow,speed,turn;
- uniform vec3 burst[3],wake; uniform vec2 lightSite[3];
+ w.y=wave*smoothstep(-5.,10.,depth);breaker=vec3(0.);
+ ${surfVertexShader}
+ gl_Position=projectionMatrix*modelViewMatrix*vec4(w,1.);}
+ `;
+ const waterNoise=`
  float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
  float noise2(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}
  float rip(vec2 p){float limit=1.-smoothstep(38.,320.,length(cameraPosition.xz-w.xz));
  vec2 warp=vec2(noise2(p*.069+uTime*.045),noise2(p*.087-uTime*.036))*2.3;
  return .63*noise2(p*.65+warp+vec2(uTime*.38,0.))+.24*noise2(p*1.82-warp+vec2(0.,uTime*.55))+limit*.13*noise2(p*4.1+warp*2.);}
+ float shoreline(vec2 p,float r){return depth+2.9*sin(uTime*.89+p.y*.038+2.*noise2(p*.026))+.82*r;}
+ `;
+ const material=new T.ShaderMaterial({uniforms,transparent:true,depthWrite:false,side:T.DoubleSide,forceSinglePass:true,vertexShader,fragmentShader:`
+ varying vec3 w,breaker; varying float depth; uniform float uTime,night,glow,speed,turn;
+ uniform vec3 burst[3],wake; uniform vec2 lightSite[3];
+ ${waterNoise}
 
  void main(){
  vec2 p=w.xz;float fine=rip(p);float r=(fine-.5)*5.;
- vec2 slope=vec2(0.);float phase;
+ vec2 slope=breaker.xy;float phase;
  ${normals}
  vec3 geometric=normalize(vec3(-slope.x,1.,-slope.y));
  vec2 slopes=vec2(rip(p+vec2(.22,0.))-fine,rip(p+vec2(0.,.22))-fine);
@@ -69,12 +62,19 @@ export function ocean(scene){
  float align=max(dot(reflect(-normalize(vec3(.56,.32,-.6)),normal),eye),0.);
  float spec=pow(align,180.)*1.8+pow(align,22.)*.13;
  base+=mix(vec3(1.,.85,.51),vec3(.48,.70,.89),night)*spec;
- float front=depth+2.9*sin(uTime*.89+p.y*.038+2.*noise2(p*.026))+.82*r;
+ float front=shoreline(p,r);
  if(front< -2.)discard;
  float lace=noise2(p*1.42+vec2(uTime*.6,-uTime*.25))*.6+noise2(p*.46+r*.3)*.4;
  float foam=(1.-smoothstep(.15,3.6,abs(front-.35)))*smoothstep(.23,.58,lace);
  foam+=.38*(1.-smoothstep(.2,1.25,abs(front-4.-r)))*smoothstep(.32,.62,lace);
  foam+=.14*smoothstep(.59,.82,w.y)*smoothstep(.62,.73,lace);
+ // A bright spilling lip throws off streaky foam down the shore-facing slope.
+ if(breaker.z>.005){
+  float streak=noise2(vec2(p.x*.68+uTime*.72,p.y*.15)+vec2(r*.2,0.));
+  float whitecap=smoothstep(.18,.83,breaker.z+.40*(streak-.50)+.32*(lace-.50));
+  foam+=whitecap*(.55+.51*lace);
+  base=mix(base,mix(vec3(.10,.46,.44),vec3(.04,.12,.15),night),breaker.z*(1.-whitecap)*.44);
+ }
  if(glow>.5){
   vec2 toWater=w.xz-cameraPosition.xz;
   float glints=pow(clamp(.50+.28*r,0.,1.),3.)*.90;
@@ -99,7 +99,17 @@ export function ocean(scene){
  gl_FragColor=vec4(base,alpha);
  #include <colorspace_fragment>
  }`});
- const mesh=new T.Mesh(g,material);mesh.frustumCulled=false;scene.add(mesh);return uniforms;
+ // Opaque swimmers and the sand have rendered already. Keep the nearest wave for
+ // the translucent colour pass; otherwise rear triangles show through its steep face.
+ const depthMaterial=new T.ShaderMaterial({uniforms,transparent:true,colorWrite:false,depthWrite:true,
+  side:T.DoubleSide,forceSinglePass:true,vertexShader,fragmentShader:`
+   varying vec3 w; varying float depth; uniform float uTime;
+   ${waterNoise}
+   void main(){if(depth<5. && shoreline(w.xz,(rip(w.xz)-.5)*5.)< -2.)discard;gl_FragColor=vec4(0.);}
+  `});
+ const waterDepth=new T.Mesh(g,depthMaterial),mesh=new T.Mesh(g,material);
+ waterDepth.renderOrder=-8;mesh.renderOrder=-7;waterDepth.frustumCulled=mesh.frustumCulled=false;
+ scene.add(waterDepth,mesh);return uniforms;
 }
 export function skyDome(scene){
  const uniforms={night:{value:0}};

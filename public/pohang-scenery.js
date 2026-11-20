@@ -1,4 +1,6 @@
 import * as T from "three";
+import {surfboard} from "./pohang-surfboard.js";
+export {surfboard};
 import {beachParasols} from "./coast-beach-seats.js";
 import {cafeBackdrop} from "./pohang-cafe-site.js";
 import {profileRows,sandCrest,seabedStops} from "./pohang-beach-profile.js";
@@ -174,10 +176,6 @@ export function buildCoast(scene){
  fade.addColorStop(0,"#fff");fade.addColorStop(.18,"rgba(255,245,224,.8)");fade.addColorStop(1,"rgba(255,238,200,0)");ctx.fillStyle=fade;ctx.fillRect(0,0,32,32);
  const lightMat=new T.PointsMaterial({map:new T.CanvasTexture(disk),size:.52,vertexColors:true,transparent:true,depthWrite:false,blending:T.AdditiveBlending});
  scene.add(new T.Points(lp,lightMat));return (night,players=[],clock=0)=>{lightMat.opacity=.08+night*.92;pavilionLights(night);updateRinses(players,clock);};
-}
-export function surfboard(index=0){
- const g=new T.Group();oval(g,[0xf3b76d,0x58b8ae,0xe28680][index%3],0,0,0,.37,.088,1.2);
- oval(g,0xf6eee0,0,.048,0,.075,.054,1.12);return g;
 }
 export function busModel(){
  const g=new T.Group();box(g,0x317b96,0,1.35,0,2.65,2.3,9);

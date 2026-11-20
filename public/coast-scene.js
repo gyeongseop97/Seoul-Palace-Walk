@@ -5,6 +5,7 @@ import {tavernStoolTop} from "./coast-tavern-layout.js";
 import {beachBenches} from "./coast-beach-seats.js";
 import {cafeBenches,cafeLevel,pickCafe} from "./coast-cafe.js";
 import {breaststroke,swimSeed,swimStroke} from "./beach-swimming.js";
+import {surferPose,boardAttitude} from "./coast-surfing.js";
 import {hullAttitude,deckToSea,seaToDeck,deckHeight,cruiseScale,mainFloor} from "./coast-vessel-layout.js";
 export {coastVisitors} from "./coast-visitors.js";
 import {coastObstacle} from "./coast-region.js";
@@ -16,6 +17,8 @@ import {buildCoast,cruiseModel,surfboard} from "./pohang-scenery.js";
 import {ocean,skyDome,oceanSurface as waterAt} from "./pohang-water.js";
 import {createWake} from "./coast-wake.js";
 import {coastalGulls} from "./coast-gulls.js";
+import {buildSurfBuoys} from "./coast-surf-buoys.js";
+import {buildSurfSpray} from "./coast-surf-spray.js";
 import {fireworks} from "./pohang-festival.js";
 import {buildHarborStreet,harborBusRoute} from "./coast-streets.js";
 import {buildSejongBusModels} from "./sejong-bus-model.js";
@@ -27,6 +30,8 @@ export function createCoastScene(root,play,walkers,kit){
  const lights=buildCoast(root),water=ocean(root),sky=skyDome(root),show=fireworks(root,water);
  const updateWake=createWake(root);
  const updateGulls=coastalGulls(root);
+ const updateSurfBuoys=buildSurfBuoys(root);
+ const updateSurfSpray=buildSurfSpray(root,waterline);
  buildHarborStreet(root);const parkLights=buildSpaceWalk(root);
  const ship=cruiseModel();ship.scale.set(cruiseScale,1,cruiseScale);root.add(ship);
  const buses=buildSejongBusModels(T,root,kit,walkers,()=>1.85,()=>1.85,harborBusRoute);
@@ -46,6 +51,8 @@ export function createCoastScene(root,play,walkers,kit){
   });
  }
  let lastClock=Date.now(),deckViewer=null,orbitShip=false,cafeViewerFloor;
+ function setClock(clock){lastClock=clock;}
+ function waterline(x,z){return waterAt(x,z,lastClock/1000%14400);}
  function pickDeck({origin:o,direction:d}){
   if(!deckViewer)return null;
   let above=true;
@@ -89,7 +96,7 @@ export function createCoastScene(root,play,walkers,kit){
   return ground(local);
  }
  function update(state,night,camera,height){
-  lastClock=state.clock;const t=lastClock/1000%14400,b=play.ship,p=seaPoint(state.me);
+  const t=lastClock/1000%14400,b=play.ship,p=seaPoint(state.me);
   const id=state.me.id,attitude=hullAttitude(b,lastClock);
   deckViewer=state.me.coast?.mode==="deck"?state.me.coast:null;orbitShip=Boolean(deckViewer&&play.boat.helm===id);
   cafeViewerFloor=state.me.coast?.cafeFloor;
@@ -99,6 +106,8 @@ export function createCoastScene(root,play,walkers,kit){
   updateScooters(players,p);
   sky.sky.position.copy(camera.position);sky.uniforms.night.value=night;
   lights(night,players,lastClock);parkLights(night);water.night.value=night;water.uTime.value=t;
+  updateSurfBuoys(t,p);
+  updateSurfSpray(players,p,t,night,height);
   updateWake(b,lastClock,night,water);
   updateGulls(lastClock,p,b,camera.position);
   show.update(showAge(lastClock,play.boat.festival),p,t,height);
@@ -120,7 +129,7 @@ export function createCoastScene(root,play,walkers,kit){
    }
   }else{model.group.rotation.x=0;model.group.rotation.z=0;}
   if(wet||surf)model.shadow.visible=false;
-  if(wet||surf)swimmingWake(player,p,t);else for(const ring of ripples.get(player.id)??[])ring.visible=false;
+  if(wet)swimmingWake(player,p,t);else for(const ring of ripples.get(player.id)??[])ring.visible=false;
   if(wet){
    const stroke=swimStroke(t,player.stepping,swimSeed(player));breaststroke(model,stroke);
    // Sample the actual wave under the moving face: the prone head can be almost a metre
@@ -129,22 +138,30 @@ export function createCoastScene(root,play,walkers,kit){
    const waterline=waterAt(swimmerHead.x,swimmerHead.z,t),clearance=stroke.idle?.242:.136+.149*stroke.breath;
    model.group.position.y+=waterline+clearance-swimmerHead.y;
    if(model.label)model.label.position.y=waterline+.92-model.group.position.y;
-  }else if(surf){
-   model.body.rotation.x=.13;
-   if(!player.gesture&&!player.hand&&!player.groundSit)model.arms.forEach((arm,i)=>{
-    if(i===0?player.item:player.secondItem)return;
-    arm.upper.rotation.set(.22,0,(i?1:-1)*.89);
-   });
-   model.legs[0].upper.rotation.x=-.4;model.legs[1].upper.rotation.x=.3;
-  }else if(s?.mode==="scooter")scooterPose(model);
-  else model.body.rotation.x=0;
+  }else if(surf)surferPose(model,s.surf,t);
+  else{
+   model.body.position.z=0;model.body.rotation.set(0,0,model.body.rotation.z,'XYZ');
+   if(s?.mode==="scooter")scooterPose(model);
+  }
   let board=boards.get(player.id);
   if(!s?.board){if(board)board.visible=false;return;}
   if(!board){board=surfboard();boards.set(player.id,board);root.add(board);}
   board.visible=wet||surf||s.mode==="walk";
   const a=Math.PI-player.heading*Math.PI/180,land=!wet&&!surf;
-  board.position.set(p.x+(land?.45*Math.cos(a):0),land?surface(player)+.72:waterAt(p.x,p.z,t)+.05,p.z-(land?.45*Math.sin(a):0));
-  board.rotation.set(0,a,land?1.4:.06*Math.sin(t));
+  if(land){
+   board.position.set(p.x+.45*Math.cos(a),surface(player)+.72,p.z-.45*Math.sin(a));
+   board.rotation.set(0,a,1.4,'YXZ');
+  }else{
+   const beside=wet?.70:0;
+   const center={x:p.x+beside*Math.cos(a),z:p.z-beside*Math.sin(a)};
+   const attitude=boardAttitude(center,a,t,waterAt,surf?s.surf?.bank:0);
+   board.position.set(center.x,attitude.height,center.z);
+   board.rotation.set(attitude.pitch,a,attitude.roll,'YXZ');
+   if(surf){
+    model.group.position.copy(board.position);model.group.position.y+=.052;
+    model.group.rotation.copy(board.rotation);
+   }
+  }
  }
- return {benches:[...beachBenches,...cafeBenches],tavernStoolTop,surface,pose,update,pickTrack:ray=>pickDeck(ray)??pickCafe(ray,cafeViewerFloor)??pickSpaceWalk(ray)??pickPavilion(ray),cameraBlocked,watchLift:play.watchLift};
+ return {benches:[...beachBenches,...cafeBenches],tavernStoolTop,setClock,waterline,surface,pose,update,pickTrack:ray=>pickDeck(ray)??pickCafe(ray,cafeViewerFloor)??pickSpaceWalk(ray)??pickPavilion(ray),cameraBlocked,watchLift:play.watchLift};
 }

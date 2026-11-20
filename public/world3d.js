@@ -1099,6 +1099,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     if(container.hidden)return;
     if(coastWildlife&&!coastWildlifeReady)coastWildlifeReady=coastWildlife.next().done;
     const {me,peers,view,firstPerson,fountainShow,parkedBikes=[],clock=Date.now()}=state,delta=Math.min(.064,(now-(prevTime||now))/1000);
+    seaside?.setClock(clock);
     prevTime=now;
     const anchor=me,angle=view.pan*Math.PI/180,insideId=interiorAt(anchor.x,anchor.y),indoors=Boolean(insideId),
       atPlaza=inGwanghwamunPlaza(anchor.x,anchor.y);
@@ -1370,6 +1371,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const seat=seatAt(anchor,clock),bus=anchor.bus&&busAt(anchor.bus.index,clock);
     const coastBus=coast&&anchor.coast?.mode==="bus";
     const atCoastHelm=coast&&anchor.coast?.mode==="deck"&&coast.play.boat.helm===anchor.id;
+    const surfing=seaside&&anchor.coast?.mode==="surf";
     const shipOrbit=atCoastHelm&&!firstPerson;
     const outsideBus=(bus||coastBus)&&!firstPerson;
     const floor=seat?0:footing(anchor.bikeDriverPosition??anchor);
@@ -1380,6 +1382,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       (firstPerson?1.28:1.20)+floor+renderedJumpLift(anchor,clock,floor)+(isCycling(anchor)?.12:0)-fallWeight*.87;
     const cameraPoint=outsideBus&&bus?bus:seat??anchor;
     anchorPoint.set(wx(cameraPoint.x),eyeHeight+(seaside?.watchLift()??0),wz(cameraPoint.y));
+    if(surfing)anchorPoint.y-=(firstPerson?.87:.42)*(1-(anchor.coast.surf?.rise??0));
     if(shipOrbit)anchorPoint.set(coast.play.ship.x,5.1,coast.play.ship.z);
     const anchorKey=bus?`${anchor.id}-${bus.index}-${firstPerson}`:anchor.bikeRide?.driver??anchor.id;
     const changed=cameraAnchor!==anchorKey||pivot.distanceToSquared(anchorPoint)>144;
@@ -1411,12 +1414,13 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     arm.set(-Math.sin(angle)*horizontal,Math.sin(elevation),Math.cos(angle)*horizontal);
     if(firstPerson){
       camera.position.copy(pivot);
-      camera.lookAt(gaze.copy(pivot).sub(arm));
+      if(surfing)camera.position.y=Math.max(camera.position.y,seaside.waterline(camera.position.x,camera.position.z)+.25);
+      camera.lookAt(gaze.copy(camera.position).sub(arm));
       camera.rotateZ(fallWeight*.62);
       cameraDistance=0;
     }else{
       const ceiling=insideId==="ktx-coach"?2.4:sameStation(insideId,"station-hall")?(railHeight(anchor.x,anchor.y)??0)+8:arcadeFloors.has(insideId)?3.74:diningById[insideId]?4.5:4.97;
-      const distance=Math.min(shipOrbit?42-view.zoom*3:outsideBus?11.8-view.zoom*1.15:4.55-view.zoom*.42,
+      const distance=Math.min(shipOrbit?42-view.zoom*3:outsideBus?11.8-view.zoom*1.15:surfing?5.7-view.zoom*.50:4.55-view.zoom*.42,
         indoors&&arm.y>0?(ceiling-pivot.y)/arm.y:Infinity,tightStreamView?2.36:bathView?3.3:Infinity);
       let available=distance;
       // Shorten the orbit arm at walls and let it ease back out as space opens.
@@ -1438,6 +1442,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       if(changed||!cameraDistance||available<cameraDistance)cameraDistance=available;
       else cameraDistance+=(available-cameraDistance)*(1-Math.exp(-delta*8));
       camera.position.copy(pivot).addScaledVector(arm,cameraDistance);
+      if(surfing)camera.position.y=Math.max(camera.position.y,seaside.waterline(camera.position.x,camera.position.z)+.30);
       if(pitch===orbitPitch)camera.lookAt(pivot);
       else{
         const direction=pitch*Math.PI/180;
