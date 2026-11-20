@@ -1,6 +1,6 @@
 import {buildKtx} from "./ktx-model.js";
-import {stationHall,railPlatform,railShopPlots,seatRows,seatOffsets,waitingRows,extraWaitingRows,hallColumns,hallBays,hallDoors,ticketOffice,ticketMachines,infoDesk,departureBoard,ktxStairs} from "./rail-station-layout.js";
-import {hallSpan,concourseParts,boardingIslands,ktxIsland} from "./station-levels.js";
+import {stationHall,railPlatform,railShopPlots,seatRows,seatOffsets,waitingRows,extraWaitingRows,hallColumns,hallBays,hallDoors,ticketOffice,ticketMachines,infoDesk,departureBoard,ktxStairs,ktxBerths} from "./rail-station-layout.js";
+import {hallOrigin,hallSpan,concourseParts,boardingIslands,ktxIsland} from "./station-levels.js";
 import {standSign} from "./regional-stands.js";
 import {stationGranite} from "./station-materials.js";
 import {makeRegionalItemProps} from "./regional-item-props.js";
@@ -169,7 +169,7 @@ export function* buildRailRoom(T,root,kit,venue){
       const lane=x-(ktx?1:1.5);
       box(0xc6a262,lane,.012,(7+z1)/2,.36,.018,z1-7);
       const head=group(x,z1-.3,Math.PI);
-      sign(head,tracks,ktx?"타는 곳  ·  KTX":"타는 곳  ·  Tracks",ktx?4.4:5.6,0,gate-.42,0,"#1f4f86","#ffffff",.78);
+      sign(head,tracks,"포항행 KTX 타는 곳",ktx?4.4:5.6,0,gate-.42,0,"#1f4f86","#ffffff",.78);
       box(0x1f4f86,0,gate+.02,-.02,ktx?5.2:7.7,.12,.3,head);
     }
     const liftHead=group(-4.2,z1-.3,Math.PI);sign(liftHead,"승강기  ↕","LIFT  ·  3 · 4",2.5,0,gate-.42,0,"#294d61","#fff3c8",.6);
@@ -209,7 +209,7 @@ export function* buildRailRoom(T,root,kit,venue){
     // Departure board above the gates, drawn like the station's LED panel. The seats face it.
     const departures=group(departureBoard.x,departureBoard.z,Math.PI),boardY=6.75,boardW=departureBoard.w;
     const rows=[["10:00","KTX","029","부산","3","탑승 중"],["10:12","KTX-산천","407","목포","4","탑승 준비"],["10:25","ITX-새마을","1003","부산","6",""],
-      ["10:31","KTX-이음","705","강릉","12",""],["10:40","무궁화호","1211","부산","8",""],["10:55","KTX","211","포항","5","5분 지연"]];
+      ["10:31","KTX-이음","705","강릉","12",""],["10:40","무궁화호","1211","부산","8",""],["10:55","KTX","211","포항","1–14","탑승 중"]];
     const led=paintMap(1280,400,(ctx,w,h)=>{
       ctx.fillStyle="#0c1114";ctx.fillRect(0,0,w,h);ctx.fillStyle="#17384f";ctx.fillRect(0,0,w,64);
       ctx.textBaseline="middle";ctx.font="bold 36px sans-serif";ctx.fillStyle="#f3f6f4";ctx.fillText("열차 출발 안내   Departures",26,34);
@@ -295,31 +295,43 @@ export function* buildRailRoom(T,root,kit,venue){
 
     yield;
     const tools={box,rod,group,girder,paintMap};
-    const train=buildKtx(T,group(track,0),tools);
-    yield;
-    buildKtx(T,group(-track,0,Math.PI),tools,"classic",false);
-    yield;
-    // Trains standing at two other islands, seen across the yard and through the hall glass.
-    // They are too far away to read, so their lettering is left off.
-    const berth=(island,side)=>ktxIsland.x-(boardingIslands[island].x+side*6.4);
-    for(const [x,turn,livery] of [[berth(2,1),0,"classic"],[berth(0,1),Math.PI,"sancheon"]]){
-      const distant=buildKtx(T,group(x,0,turn),tools,livery,false);
-      for(const part of [...distant.children])if(part.material?.transparent&&part.material.map){
-        distant.remove(part);part.geometry.dispose();part.material.map.dispose();part.material.dispose();
+    const led=paintMap(512,96,(ctx,w,h)=>{
+      ctx.fillStyle="#0b0f12";ctx.fillRect(0,0,w,h);ctx.fillStyle="#f6c443";ctx.font="bold 54px sans-serif";ctx.textBaseline="middle";
+      ctx.fillText("KTX",18,50);ctx.fillStyle="#f3f6f4";ctx.fillText("포항",207,50);ctx.fillStyle="#8be0a0";ctx.font="bold 30px sans-serif";ctx.fillText("Pohang",342,53);
+    },false);
+    for(const side of [-1,1]){
+      const train=buildKtx(T,new T.Group(),tools,side<0?"sancheon":"classic");
+      box(0x1b2227,-1.71,1.05,12,.05,2.26,1.04,train);
+      box(0xa3b2b2,-1.95,-.02,12,.66,.06,1.2,train);
+      for(const dz of [-.56,.56])box(0xe0b84c,-1.7,1.05,12+dz,.08,2.28,.06,train);
+      const display=new T.Mesh(new T.PlaneGeometry(1.5,.28),new T.MeshBasicMaterial({map:led}));
+      display.position.set(-1.682,2.52,13.6);display.rotation.y=-Math.PI/2;train.add(display);
+      const doorLabel=group(-1.76,12,-Math.PI/2,train);
+      sign(doorLabel,"2호차  ·  일반실","포항행 KTX",2.3,0,2.95,0,"#1d4f91","#ffffff",.46);
+      // Reuse the two train models, their textures and their repeated parts across the yard.
+      train.updateMatrixWorld(true);
+      const batches=new Map();
+      train.traverse(part=>{
+        if(!part.isMesh)return;
+        const key=part.geometry.id+"/"+part.material.id;
+        if(!batches.has(key))batches.set(key,{part,matrices:[]});
+        batches.get(key).matrices.push(part.matrixWorld);
+      });
+      const berths=ktxBerths.filter(berth=>berth.side===side);
+      for(const {part,matrices} of batches.values()){
+        const batch=new T.InstancedMesh(part.geometry,part.material,berths.length*matrices.length);
+        const placement=new T.Matrix4(),transform=new T.Matrix4();
+        let index=0;
+        for(const berth of berths){
+          placement.makeRotationY(side>0?Math.PI:0);
+          placement.setPosition(ktxIsland.x-berth.x,0,railPlatform.center.y-hallOrigin.y-berth.z);
+          for(const matrix of matrices)batch.setMatrixAt(index++,transform.multiplyMatrices(placement,matrix));
+        }
+        batch.castShadow=part.castShadow;batch.receiveShadow=part.receiveShadow;
+        batch.computeBoundingSphere();room.add(batch);
       }
       yield;
     }
-    // The open door of car 2, with a boarding plate over the gap.
-    box(0x1b2227,-1.71,1.05,12,.05,2.26,1.04,train);box(0xa3b2b2,-1.88,-.02,12,.5,.06,1.2,train);
-    for(const dz of [-.56,.56])box(0xe0b84c,-1.7,1.05,12+dz,.08,2.28,.06,train);
-    const led=paintMap(512,96,(ctx,w,h)=>{
-      ctx.fillStyle="#0b0f12";ctx.fillRect(0,0,w,h);ctx.fillStyle="#f6c443";ctx.font="bold 54px sans-serif";ctx.textBaseline="middle";
-      ctx.fillText("KTX 029",18,50);ctx.fillStyle="#f3f6f4";ctx.fillText("부산",300,50);ctx.fillStyle="#8be0a0";ctx.font="bold 30px sans-serif";ctx.fillText("Busan",404,54);
-    },false);
-    const display=new T.Mesh(new T.PlaneGeometry(1.5,.28),new T.MeshBasicMaterial({map:led}));
-    display.position.set(-1.682,2.52,13.6);display.rotation.y=-Math.PI/2;train.add(display);
-    const doorLabel=group(-1.76,12,-Math.PI/2,train);
-    sign(doorLabel,"2호차  ·  일반실","KTX  ·  승차 체험",2.3,0,2.95,0,"#1d4f91","#ffffff",.46);
   }else{
     // KTX standard car. The cabin and platform are separate streamed rooms; the view beyond
     // the glass uses platform scenery.
@@ -369,7 +381,7 @@ export function* buildRailRoom(T,root,kit,venue){
       box(0xc9d0d0,.3,1.08,.12,.03,.5,.03,wall);box(0xd8d4c8,-1.35,.5,.14,.5,1,.18,wall);box(0xc23a2f,1.42,.62,.12,.22,.5,.14,wall);
       const info=paintMap(512,112,(ctx,w,h)=>{
         ctx.fillStyle="#0b0f12";ctx.fillRect(0,0,w,h);ctx.textBaseline="middle";ctx.font="bold 50px sans-serif";
-        ctx.fillStyle="#f6c443";ctx.fillText("1호차",16,58);ctx.fillStyle="#f3f6f4";ctx.fillText("서울 → 부산",170,58);ctx.fillStyle="#8be0a0";ctx.font="bold 28px sans-serif";ctx.fillText("KTX 029",398,60);
+        ctx.fillStyle="#f6c443";ctx.fillText("2호차",16,58);ctx.fillStyle="#f3f6f4";ctx.fillText("서울 → 포항",170,58);ctx.fillStyle="#8be0a0";ctx.font="bold 28px sans-serif";ctx.fillText("KTX",423,60);
       },false);
       const board=new T.Mesh(new T.PlaneGeometry(1.5,.33),new T.MeshBasicMaterial({map:info}));board.position.set(0,2.3,.12);wall.add(board);
       box(0x2b3136,0,2.3,.08,1.62,.42,.05,wall);

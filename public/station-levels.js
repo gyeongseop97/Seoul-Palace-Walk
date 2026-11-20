@@ -171,8 +171,7 @@ const slab=(id,name,x0,x1,z0,z1,h,style="hall")=>({id,name,x0,x1,z0,z1,h,style})
 const flight=(name,x0,x1,z0,z1,front,back)=>({...slab("station-hall",name,x0,x1,z0,z1,front,"stairs"),back});
 const waitingHall=slab("station-hall","서울역 2층 맞이방",hallSpan.x0,hallSpan.x1,hallSpan.z0,hallSpan.z1,0);
 export const roofBeds=[{x:.5,z:-124.5,w:17},{x:-4,z:-102.5,w:8},{x:8.3,z:-102.5,w:2}];
-// Seven island platforms run south from the concourse, numbered from the east as in the
-// station. The KTX at tracks 3 and 4 can be boarded; its platform is the longest.
+// Seven island platforms run south from the concourse, numbered from east to west.
 export const ktxIsland={x:-7,tracks:"3 · 4",length:97};
 export const boardingIslands=[
   {x:10,tracks:"1 · 2"},{x:-24,tracks:"5 · 6"},{x:-41,tracks:"7 · 8"},

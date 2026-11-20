@@ -7,7 +7,7 @@ import {stationBuildings} from "../public/station-survey.js";
 import {groundIndex} from "../public/ground-index.js";
 import {addObstacle,clearSegment,loftStep,planWalk,walkable} from "../public/layout.js";
 import {registerStation,stationGround,stationSites} from "../public/station-layout.js";
-import {hallDoors,ktxCoach,plazaCafe,railCounters,railPlatform,railRooms,registerRailFurniture,seatRows,stationHall,terminalDoors} from "../public/rail-station-layout.js";
+import {hallDoors,ktxBoardingAt,ktxBoardingSpots,ktxCoach,plazaCafe,railCounters,railPlatform,railRooms,registerRailFurniture,seatRows,stationHall,terminalDoors} from "../public/rail-station-layout.js";
 import {interiorAt} from "../public/interior-layout.js";
 import {registerDiningNavigation} from "../public/dining-layout.js";
 import {stationDining} from "../public/dining-data.js";
@@ -36,6 +36,23 @@ for(const v of [...railRooms,stationDining]){
 }
 for(const p of [...railCounters,railPlatform.outsideDoor,stationDining.outsideDoor])reachable(stationHall.insideSpawn,p,p.name??"층간 이동");
 reachable(railPlatform.insideSpawn,ktxCoach.outsideDoor,"승강장에서 열차 문까지");
+assert.deepEqual(ktxBoardingSpots.map(spot=>spot.track),Array.from({length:14},(_,i)=>i+1));
+for(const spot of ktxBoardingSpots){
+  const east=spot.track%2===1,side=east?1:-1,islandX=10-17*Math.floor((spot.track-1)/2);
+  for(const z of [36.1,52,95.9,...([3,4].includes(spot.track)?[110,132.9]:[])]){
+    for(const offset of [.3,3.9]){
+      const p=railPoint(islandX+side*offset,z);
+      assert.equal(ktxBoardingAt(p.x,p.y)?.track,spot.track,`${spot.track}번 승강장 탑승 (${offset}, ${z})`);
+    }
+  }
+  assert.equal(ktxBoardingAt(spot.x,spot.y)?.track,spot.track);
+  assert(walkable(spot.x,spot.y),"하차 위치");
+  reachable(stationHall.insideSpawn,spot,spot.track+"번 승강장");
+  for(const [x,z] of [[islandX,12],[islandX,28],[islandX+side*6,74],[islandX,135]]){
+    const p=railPoint(x,z);assert.equal(ktxBoardingAt(p.x,p.y),null,"승강장 밖");
+  }
+}
+assert.equal(ktxBoardingAt(ktxCoach.insideSpawn.x,ktxCoach.insideSpawn.y),null);
 const coachBenches=seats.filter(s=>interiorAt(s.x,s.y)===ktxCoach.id);
 assert.equal(coachBenches.length,2*seatRows.length);
 for(const bench of coachBenches)for(const slot of bench.slots){

@@ -25,7 +25,7 @@ import { assembleMuseum, registerMuseumNavigation, isInsideMuseum, museumOutside
 import { interiorAt } from "./interior-layout.js";
 import {cultureVenues,cultureHeight} from "./culture-station-layout.js";
 import {approachAt,partAt,railHeight,sameStation} from "./station-levels.js";
-import {railRooms,railRoomById,railCounters,plazaCafe,registerRailFurniture} from "./rail-station-layout.js";
+import {railRooms,railRoomById,railCounters,plazaCafe,registerRailFurniture,ktxCoach,ktxBoardingSpots} from "./rail-station-layout.js";
 import {semaVenue} from "./sema-layout.js";
 import { mmcaVenue,mmcaExhibits,mmcaWalls } from "./mmca-gallery-layout.js";
 import { diningTrayPose,diningVenues,stationDining } from "./dining-data.js";
@@ -353,7 +353,9 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   const interactionMarkers=coast?null:makeInteractionMarkers(T,scene,{wx,wz,floorHeight},[
     ...COOKING_STALLS.map(stall=>amenity(stall,stall.kind==="hotteok"?"호떡 굽기":"붕어빵 굽기")),
     ...stations.map(station=>({...station,kind:"food",label:station.kind==="churu"?"츄르 사기":ITEMS[station.kind].name+" 받기"})),
-    ...[museum,mmcaVenue,semaVenue,ARCADE_SITE,...diningVenues.filter(v=>v!==stationDining),...railRooms.filter(v=>v.id!=="ktx-platform")].flatMap(venue=>[
+    ...ktxBoardingSpots.map(spot=>({...spot,ktxTrack:spot.track,kind:"enter",label:ktxCoach.enterLabel})),
+    {...ktxCoach.insideDoor,kind:"exit",label:ktxCoach.exitLabel},
+    ...[museum,mmcaVenue,semaVenue,ARCADE_SITE,...diningVenues.filter(v=>v!==stationDining),...railRooms.filter(v=>v!==ktxCoach&&v.id!=="ktx-platform")].flatMap(venue=>[
       {...venue.outsideDoor,kind:"enter",label:venue.enterLabel??(venue===ARCADE_SITE?"오락실 입장":diningById[venue.id]?"식당 입장":"전시관 입장")},
       {...venue.insideDoor,kind:"exit",label:venue.exitLabel??"나가기"}
     ]),

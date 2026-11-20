@@ -48,7 +48,7 @@ import {mmcaCourtyards,mmcaBuildings,mmcaLawns} from "./mmca-layout.js";
 import {stationTerraces} from "./station-terraces.js";
 import {approachAt,approachRoute,escalatorSpeed,escalatorDirection,stationApproaches,partAt,concourseParts,boardingIslands,ktxIsland,hallOrigin,westExit,northBridgeExit,rearMarketExit,marketExit,subwayExit,metroInsidePoint,railPoint,railHeight,sameStation,liftAt,liftBanks,liftLanding,floorName,setStationClock,setStationLifts,liftStopPending} from "./station-levels.js";
 import {cultureFrontDoors,culturePart,cultureVenues} from "./culture-station-layout.js";
-import {stationHall,hallDoors,terminalDoors,railRooms,railRoomById,railCounters} from "./rail-station-layout.js";
+import {stationHall,hallDoors,terminalDoors,railRooms,railRoomById,railCounters,ktxCoach,ktxBoardingAt,ktxBoardingSpots} from "./rail-station-layout.js";
 import {semaVenue,semaExhibits} from "./sema-layout.js";
 import {mmcaVenue,mmcaGalleryAt,mmcaGalleryRooms,mmcaExhibits} from "./mmca-gallery-layout.js";
 import {diningTables} from "./dining-layout.js";
@@ -163,6 +163,7 @@ let ownView=initialView(),trackedPersonId=null,world,worldLoading,worldFailed=fa
 let firstPerson=localStorage.getItem("jeongdong-first-person")==="true";
 let session=null,active=true,joining=false,lastPost=0,lastWishSynced=0,lastArcadePost="",dirty=true;
 let pageVersion=0,walkPositionAt=0,lastWalkPosition=null;
+let ktxTrack=null;
 const motionStream=createMotionStream(request);
 let syncTimer,syncDue=Infinity,syncInFlight=null,syncStarted=-Infinity,syncFailures=0;
 let links=[],queuedHand=null,queuedFeed=null,queuedChat=null,toastTimer;
@@ -892,7 +893,10 @@ function stationDoorToward(from,to){
   let child=venueById[to];
   if(!stationVenues.includes(child)||from===to)return null;
   while(child){
-    if((child.parent??null)===(from??null))return {...child.outsideDoor,name:child.enterLabel};
+    if((child.parent??null)===(from??null)){
+      const boarding=child===ktxCoach?ktxBoardingAt(me.x,me.y):null;
+      return {...(boarding??child.outsideDoor),name:child.enterLabel};
+    }
     child=venueById[child.parent];
   }
   return null;
@@ -1277,7 +1281,7 @@ function rememberWalkPosition(){
     (me.jump&&gameTime()-me.jump<jumpDuration(me)))return;
   const {x,y,heading}=me,up=Boolean(me.up),height=walkPositionHeight(me);
   if(height===null)return;
-  const record=JSON.stringify({x,y,heading,up,height,layout:4});
+  const record=JSON.stringify({x,y,heading,up,height,layout:4,...(ktxTrack?{ktxTrack}:{})});
   if(record===lastWalkPosition)return;
   try{
     localStorage.setItem(walkPositionKey(session.nickname,session.code),record);
@@ -1385,7 +1389,7 @@ async function enterRoom(action,code){
       if(ticket.avatar&&!(onCoast&&ticket.region==="pohang"))for(const field of ["character","look","blushLevel","blushUntil","alcoholGlasses","sickAt","umbrella","umbrellaReady","item","secondItem"])
         if(Object.hasOwn(ticket.avatar,field))avatar[field]=ticket.avatar[field];
       if(ticket.view)Object.assign(view,ticket.view);
-      const destination=onCoast?(ticket.region==="pohang"&&resumed?saved:region.platformArrival):{x:1810,y:698.6,heading:0};
+      const destination=onCoast?(ticket.region==="pohang"&&resumed?saved:region.platformArrival):ktxCoach.insideSpawn;
       Object.assign(avatar,{x:destination.x,y:destination.y,heading:destination.heading,up:false});view.pan=destination.heading;
       if(onCoast)avatar.coast={mode:"walk",board:false};
     }
@@ -1400,6 +1404,7 @@ async function enterRoom(action,code){
     setBusYields(data.busYields);
     updateClock(data.serverTime,sent,performance.now());
     session={room:data.room,code:data.code,mode:data.mode??"private",id,key,...data.profile};
+    ktxTrack=(returning?ticket.ktxTrack:resumed?saved.ktxTrack:null)??null;
     if(onCoast)sessionStorage.setItem("palace-coast-ticket",JSON.stringify({...ticket,region:"pohang"}));
     else sessionStorage.removeItem("palace-coast-ticket");
     world?.setVisitorRoom(session.room);
@@ -1410,7 +1415,7 @@ async function enterRoom(action,code){
     updateChatSend();
     syncStarted=-Infinity;syncFailures=0;
     people.clear();links=[];formations.clear();resetLocationGuides();resetInput();
-    $("location").textContent=onCoast?placeName(me):resumed?placeName(me):ticketApproach.name;
+    $("location").textContent=returning||onCoast||resumed?placeName(me):ticketApproach.name;
     localStorage.setItem("jeongdong-nickname",session.nickname);
     sessionStorage.setItem("jeongdong-room-mode",session.mode);
     if(session.code)sessionStorage.setItem("jeongdong-room-code",session.code);
@@ -2138,6 +2143,15 @@ const stationPortals=[[westExit,"서부광장"],[northBridgeExit,"북측 보행�
 function portalNearby(){
   if(!world||me.bus||isCycling(me)||queuedBus||queuedBike)return null;
   const inside=interiorAt(me.x,me.y);
+  if(inside==="ktx-platform"){
+    const boarding=ktxBoardingAt(me.x,me.y);
+    return boarding?{inside:false,venue:ktxCoach,boarding}:null;
+  }
+  if(inside===ktxCoach.id){
+    if(!atIndoorStation(ktxCoach.insideDoor,2.5))return null;
+    const destination=ktxBoardingSpots.find(spot=>spot.track===ktxTrack)??ktxCoach.outsideDoor;
+    return {inside:true,venue:ktxCoach,destination};
+  }
   if(inside==="culture284"||!inside){
     const door=cultureFrontDoors.find(d=>atIndoorStation(inside?d.inside:d.outside,1.9));
     if(door)return {inside:Boolean(inside),venue:cultureVenues[0],destination:inside?door.outside:{...door.inside,y:door.inside.y-1.8,heading:0}};
@@ -2681,7 +2695,7 @@ async function travelTo(outward){
       if(!result.ok)throw Error("train");
     }catch{departingForPohang=false;toast("연결을 확인한 뒤 다시 승차해 주세요.");return;}
   }
-  rememberWalkPosition();saveBag();const ticket={...session,avatar:{...me},view:{...ownView},region:outward?"boarding":"returning"};
+  rememberWalkPosition();saveBag();const ticket={...session,avatar:{...me},view:{...ownView},ktxTrack,region:outward?"boarding":"returning"};
   sessionStorage.setItem("palace-coast-ticket",JSON.stringify(ticket));
   if(!outward)coastPlay?.stop();
   const url=new URL("index.html",location.href);if(outward)url.searchParams.set("region","pohang");
@@ -2744,9 +2758,13 @@ venueDoorButton.addEventListener("click",()=>{
   if(!session||!portal||feedingLocked(gameTime()))return;
   const {inside,venue}=portal,destination=portal.destination??(inside?venue.outsideDoor:venue.insideSpawn);
   const link=myLink()??(queuedHand?.action==="offer"?queuedHand:null);
-  if(!inside&&link?.active)return;
-  if(inside&&link){releasePair(link);changeLinks(links);}
-  movePlayerTo(destination,inside?venue.outsideName??venue.name+" 앞":venue.name);focusGame();
+  if(!inside&&!portal.boarding&&link?.active)return;
+  if(link&&(inside||portal.boarding)){releasePair(link);changeLinks(links);}
+  if(venue===ktxCoach)ktxTrack=portal.boarding?.track??null;
+  const place=inside?(venue===ktxCoach?placeName(destination):venue.outsideName??venue.name+" 앞"):venue.name;
+  movePlayerTo(destination,place);
+  if(venue===ktxCoach)rememberWalkPosition();
+  focusGame();
 });
 function guestbookVenue(){
   const venue=venueById[interiorAt(me.x,me.y)];
@@ -3253,7 +3271,7 @@ function updateActivities(time,guideNearby,coastMarkers){
   const portal=eligible&&portalNearby();
   const entrance=portal?.venue===ARCADE_SITE?"오락실 입장":[mmcaVenue,semaVenue].includes(portal?.venue)?"미술관 입장":diningById[portal?.venue?.id]?"식당 입장":"입장하기";
   setActivity("pohang-trip",interiorAt(me.x,me.y)==="ktx-coach"?"포항행 KTX 출발":null);
-  setActivity("museum-door",portal?(portal.label??(portal.inside?portal.venue.exitLabel??"나가기":portal.venue.enterLabel??entrance)):null,feeding||(!portal?.inside&&Boolean(myLink()?.active)));
+  setActivity("museum-door",portal?(portal.label??(portal.inside?portal.venue.exitLabel??"나가기":portal.venue.enterLabel??entrance)):null,feeding||(!portal?.inside&&!portal?.boarding&&Boolean(myLink()?.active)));
   setActivity("venue-guestbook",eligible&&guestbookVenue()?"방명록":null);
   updateDiningControls(eligible,busy,time);
   const exhibit=eligible&&nearbyExhibit();
@@ -3677,7 +3695,11 @@ function drawIndoorMap(base,venue,galleries,mini){
       width:2.3,height:1.38,rx:.25,fill:"#d0ab79"});
   }
   const points=[[venue.insideDoor,venue.exitLabel??"출구"]];
-  for(const child of stationVenues)if(child.parent===venue.id)points.push([child.outsideDoor,child.enterLabel]);
+  for(const child of stationVenues)if(child.parent===venue.id){
+    if(child===ktxCoach){
+      if(!mini)for(const spot of ktxBoardingSpots)if(spot.track%2===0)points.push([spot,`${spot.track-1}·${spot.track}번 KTX 타기`]);
+    }else points.push([child.outsideDoor,child.enterLabel]);
+  }
   if(venue===stationHall)for(const [link,label] of stationPortals)drawMapPoint(layer,{...link.inside,name:label},"railway",mini,true);
   if(venue===stationHall)for(const shop of railCounters)if(!shop.secondary&&shop.interior)drawMapPoint(layer,shop,"shop",mini,true);
   if(venue===semaVenue)for(const work of semaExhibits)drawMapPoint(layer,{...work,name:work.title},"heritage",mini,true);

@@ -1,4 +1,5 @@
 import {interiorAt} from "./interior-layout.js";
+import {ktxBoardingAt} from "./rail-station-layout.js";
 
 const STYLES = {
   food:{light:0xffc66f,ink:"#ffdf9c",label:"받기"},
@@ -104,8 +105,9 @@ export function makeInteractionMarkers(T,scene,{wx,wz,floorHeight},points){
     if(now-scannedAt>=SCAN_MS||Math.hypot(player.x-scanX,player.y-scanY)>4||lastInterior!==interior){
       scannedAt=now;scanX=player.x;scanY=player.y;lastInterior=interior;
       const nearest=[];
+      const boardingTrack=interior==="ktx-platform"?ktxBoardingAt(scanX,scanY)?.track:null;
       for(const point of markers){
-        if(point.interior!==interior)continue;
+        if(point.interior!==interior||point.ktxTrack&&point.ktxTrack!==boardingTrack)continue;
         const distance=(point.x-scanX)**2+(point.y-scanY)**2;
         if(distance<RANGE**2)nearest.push({point,distance});
       }

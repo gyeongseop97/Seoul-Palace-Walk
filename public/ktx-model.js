@@ -67,12 +67,13 @@ export function buildKtx(T,train,{box,rod,group,girder,paintMap},livery="sancheo
     text(train,"KTX",side*1.672,.68,-22.4,2.5,.62,livery==="sancheon"?"#1d4f91":"#ffffff",side*Math.PI/2);
   }
   const glass=new T.MeshStandardMaterial({color:look.pane,roughness:.12,metalness:.55});
+  const windowShape=new T.BoxGeometry(.03,.66,1.44);
   for(const [index,[a,b]] of cars.entries()){
     const len=b-a,mid=(a+b)/2;
     for(const side of [-1,1]){
       for(let z=a+2.1;z<b-1.6;z+=1.72){
         if(boarding&&index===1&&side<0&&Math.abs(z-12)<1.6)continue;
-        const pane=new T.Mesh(new T.BoxGeometry(.03,.66,1.44),glass);pane.position.set(side*1.647,1.87,z);pane.rotation.z=side*.051;train.add(pane);
+        const pane=new T.Mesh(windowShape,glass);pane.position.set(side*1.647,1.87,z);pane.rotation.z=side*.051;train.add(pane);
       }
       text(train,"KTX",side*1.672,.72,a+2.2,1.5,.38,livery==="sancheon"?"#1d4f91":"#ffffff",side*Math.PI/2);
       text(train,(index+1)+"호차",side*1.672,.72,b-1.9,.9,.24,"#3a454c",side*Math.PI/2,"600");

@@ -1,4 +1,4 @@
-import {boardingIslands,concourseParts,slabEdges,outdoorFlight,ktxIsland,platformGate,roofBeds,hallOrigin,hallSpan,railPoint} from "./station-levels.js";
+import {boardingIslands,concourseParts,slabEdges,outdoorFlight,ktxIsland,platformGate,roofBeds,hallOrigin,hallSpan,railPoint,partAt} from "./station-levels.js";
 import {terminalPose as surveyedPose,terminalDoorOffsets} from "./station-approach-plan.js";
 import {cultureVenues,registerCultureFurniture} from "./culture-station-layout.js";
 // Room coordinates are shared by the renderer, collision map, room server and minimap.
@@ -27,8 +27,22 @@ export const hallDoors=terminalDoors.map((outside,i)=>{
 export const ktxStairs={x:-8.7,width:5};
 export const railPlatform=room("ktx-platform","서울역 KTX 승강장",hallOrigin.x+ktxIsland.x,hallOrigin.y+platformGate.z1+ktxIsland.length/2,8.7,ktxIsland.length,
   {...railPoint(ktxStairs.x,hallSpan.z1-2.5),heading:180},[ktxStairs.x-ktxIsland.x,-44.5,0],[0,-40,180],"승강장 내려가기","맞이방 올라가기",stationHall.id);
+const islands=[ktxIsland,...boardingIslands].sort((a,b)=>b.x-a.x);
+const coachDoorZ=platformGate.z1+ktxIsland.length/2-12;
+export const ktxBerths=islands.flatMap((island,index)=>[1,-1].map((side,i)=>{
+  const track=index*2+i+1,railOffset=island===ktxIsland?6.2:6.4;
+  return {track,side,x:island.x+side*railOffset,z:coachDoorZ-side*12,
+    landing:{...railPoint(island.x+side*3,coachDoorZ),heading:side>0?270:90,track}};
+}));
+export const ktxBoardingSpots=ktxBerths.map(berth=>berth.landing);
+export function ktxBoardingAt(x,y){
+  if(partAt(x,y)?.id!=="ktx-platform")return null;
+  const u=x-hallOrigin.x,index=islands.findIndex(island=>Math.abs(u-island.x)<=4.35);
+  if(index<0)return null;
+  return ktxBoardingSpots[index*2+(u<islands[index].x?1:0)];
+}
 export const ktxCoach=room("ktx-coach","KTX 일반실",1810,690,3.9,23.8,
-  {...railPoint(ktxIsland.x-3,platformGate.z1+ktxIsland.length/2-12),heading:90},[-1.05,9.5,90],[0,8.6,0],"KTX 타기","KTX 내리기",railPlatform.id);
+  ktxBoardingSpots[3],[-1.05,9.5,90],[0,8.6,0],"KTX 타기","KTX 내리기",railPlatform.id);
 export const railRooms=[stationHall,railPlatform,ktxCoach,...cultureVenues];
 export const railRoomById=Object.fromEntries(railRooms.map(v=>[v.id,v]));
 // Shops line the north wall and open south onto the concourse; x and z are their centres.
