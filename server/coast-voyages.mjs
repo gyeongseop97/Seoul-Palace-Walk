@@ -1,8 +1,11 @@
-import {nearHelm,seaToDeck,deckHeight} from "../public/coast-vessel-layout.js";
+import {nearHelm,seaToDeck,deckToSea,deckHeight} from "../public/coast-vessel-layout.js";
+import {cruiseSeatById,cruiseSeatInReach} from "../public/coast-vessel-seats.js";
 import {inSailingArea,voyageAt} from "../public/coast-voyage.js";
 import {clamp,mooring,distance} from "../public/pohang-layout.js";
 
 export const voyageSchema="CREATE TABLE IF NOT EXISTS coast_voyages(room TEXT PRIMARY KEY,kind TEXT,started INTEGER,ox REAL,oz REAL,angle REAL,speed REAL)";
+export const deckSeatSchema="CREATE TABLE IF NOT EXISTS coast_deck_seats(room TEXT NOT NULL,seat TEXT NOT NULL,id TEXT NOT NULL,updated INTEGER NOT NULL,PRIMARY KEY(room,seat),UNIQUE(room,id))";
+export const deckSeatLease=15000;
 export const harborSnapshot=`SELECT h.x,h.z,h.yaw,h.helm,h.updated,h.festival,v.kind,v.started,v.ox,v.oz,v.angle,v.speed
  FROM coast_harbor h LEFT JOIN coast_voyages v ON v.room=h.room WHERE h.room=?`;
 export function vesselSnapshot(row,now){
@@ -11,11 +14,26 @@ export function vesselSnapshot(row,now){
  const sample=voyage?voyageAt(voyage,now):{speed:boat.helm?speed??0:0};
  return {...boat,...sample,voyage};
 }
+function canTakeSeat(seat,p,boat,now){
+ if(!Number.isFinite(p.floor))return false;
+ const local=Number.isFinite(p.deckX)&&Number.isFinite(p.deckZ)?{x:p.deckX,z:p.deckZ}:seaToDeck(boat,p,now,p.floor);
+ if(!cruiseSeatInReach(seat,local.x,local.z,p.floor)||deckHeight(local,p.floor)!==seat.floor)return false;
+ // A passenger renders a moving hull between harbor updates. Check their reported
+ // world position against that hull as well as their precise deck coordinates.
+ const projected=deckToSea(boat,local,now,p.floor);
+ const allowance=boat.helm?6+Math.abs(boat.speed)*1.1:.75+Math.abs(boat.speed)*.6;
+ return distance(projected,p)<=allowance;
+}
 const save=`INSERT INTO coast_voyages(room,kind,started,ox,oz,angle,speed)
  SELECT room,?,?,x,z,yaw,COALESCE(?,(SELECT speed FROM coast_voyages WHERE room=coast_harbor.room),0) FROM coast_harbor WHERE room=? AND helm=?
  ON CONFLICT(room) DO UPDATE SET kind=excluded.kind,started=excluded.started,ox=excluded.ox,oz=excluded.oz,angle=excluded.angle,speed=excluded.speed`;
 export async function appendVesselOps(ops,read,room,id,p,coast,now){
  const cmd=coast.action,b=coast.boat;
+ if(p.mode!=="deck"||cmd==="deckStand"){
+  ops.push(read("DELETE FROM coast_deck_seats WHERE room=? AND id=?",room,id));
+ }else{
+  ops.push(read("UPDATE coast_deck_seats SET updated=max(updated,?) WHERE room=? AND id=? AND updated>?",now,room,id,now-deckSeatLease));
+ }
  // Base the release on the last accepted driving position and speed, in the same write transaction.
  if(b&&[b.x,b.z,b.yaw].every(Number.isFinite)&&inSailingArea(b)){
   ops.push(read("UPDATE coast_harbor SET x=?,z=?,yaw=?,updated=? WHERE room=? AND helm=? AND abs(x-?)<=8+.022*max(0,?-updated) AND abs(z-?)<=8+.022*max(0,?-updated)",b.x,b.z,b.yaw,now,room,id,b.x,now,b.z,now));
@@ -27,18 +45,30 @@ export async function appendVesselOps(ops,read,room,id,p,coast,now){
  }else if(cmd==="moor"&&distance(p,mooring)<25){
   ops.push(read("DELETE FROM coast_voyages WHERE room=? AND EXISTS(SELECT 1 FROM coast_harbor WHERE room=? AND helm=? AND abs(x-?)<17 AND abs(z-?)<17)",room,room,id,mooring.x,mooring.z));
   ops.push(read("UPDATE coast_harbor SET helm=NULL,x=?,z=?,yaw=0,updated=? WHERE room=? AND helm=? AND abs(x-?)<17 AND abs(z-?)<17",mooring.x,mooring.z,now,room,id,mooring.x,mooring.z));
- }else if(p.mode==="deck"&&(cmd==="helm"||cmd==="tour")){
+ }else if(p.mode==="deck"&&(cmd==="helm"||cmd==="tour"||cmd==="deckSit")){
   const old=(await read(harborSnapshot,room).all()).results[0];
   const current=old?vesselSnapshot(old,now):{...mooring,yaw:0,speed:0,helm:null};
-  const local=seaToDeck(current,p,now,p.floor),height=deckHeight(local,p.floor);
-  const helmReach=nearHelm({...local,h:p.floor})&&(!Number.isFinite(p.floor)||Math.abs(p.floor-7.85)<.45);
-  const allowed=cmd==="helm"?helmReach:height!=null&&(!current.voyage||current.voyage.kind==="drift"||current.done);
-  if(!current.helm&&allowed){
-   // Concurrent passengers see one pilot or one tour, with a continuous handover position.
-   const stamp=old?.started??0;
-   ops.push(read("UPDATE coast_harbor SET x=?,z=?,yaw=?,updated=?,helm=? WHERE room=? AND helm IS NULL AND COALESCE((SELECT started FROM coast_voyages WHERE room=?),0)=?",current.x,current.z,current.yaw,now,id,room,room,stamp));
-   ops.push(read(save,cmd==="helm"?"manual":"tour",now,current.speed,room,id));
-   if(cmd==="tour")ops.push(read("UPDATE coast_harbor SET helm=NULL WHERE room=? AND helm=? AND updated=?",room,id,now));
+  if(cmd==="deckSit"){
+   const seat=cruiseSeatById.get(coast.seat);
+   if(seat&&canTakeSeat(seat,p,current,now)){
+    ops.push(read("DELETE FROM coast_deck_seats WHERE room=? AND updated<=?",room,now-deckSeatLease));
+    ops.push(read(`INSERT OR IGNORE INTO coast_deck_seats(room,seat,id,updated) SELECT ?,?,?,?
+     WHERE NOT EXISTS(SELECT 1 FROM coast_harbor WHERE room=? AND helm=?)`,room,seat.id,id,now,room,id));
+   }
+  }else{
+   const local=seaToDeck(current,p,now,p.floor),height=deckHeight(local,p.floor);
+   const helmReach=nearHelm({...local,h:p.floor})&&(!Number.isFinite(p.floor)||Math.abs(p.floor-7.85)<.45);
+   const allowed=cmd==="helm"?helmReach:height!=null&&(!current.voyage||current.voyage.kind==="drift"||current.done);
+   if(!current.helm&&allowed){
+    // Concurrent passengers see one pilot or one tour, with a continuous handover position.
+    const stamp=old?.started??0;
+    ops.push(read(`UPDATE coast_harbor SET x=?,z=?,yaw=?,updated=?,helm=? WHERE room=? AND helm IS NULL
+     AND COALESCE((SELECT started FROM coast_voyages WHERE room=?),0)=?
+     AND NOT EXISTS(SELECT 1 FROM coast_deck_seats WHERE room=? AND id=? AND updated>?)`,
+     current.x,current.z,current.yaw,now,id,room,room,stamp,room,id,now-deckSeatLease));
+    ops.push(read(save,cmd==="helm"?"manual":"tour",now,current.speed,room,id));
+    if(cmd==="tour")ops.push(read("UPDATE coast_harbor SET helm=NULL WHERE room=? AND helm=? AND updated=?",room,id,now));
+   }
   }
  }
  // A vanished skipper leaves the boat drifting. Return an abandoned stopped vessel to its berth.

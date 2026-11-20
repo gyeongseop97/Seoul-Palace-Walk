@@ -870,6 +870,10 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     context.putImageData(preview.image,0,0);
   }
   function seatAt(position,clock){
+    if(seaside&&position.coast?.mode==="deck"&&position.coast.deckSeat){
+      const seat=seaside.cruiseSeatPose(position.coast.deckSeat);
+      if(seat)return {...seat,base:footBathSeatBase(seat.top)};
+    }
     const bus=position.bus&&busAt(position.bus.index,clock),pose=bus&&busSeatPose(bus,position.bus.seat);
     if(pose)return {...pose,base:BUS_FLOOR+.015+busGround(bus)};
     if(seaside&&position.coast?.mode==="table")return {x:position.x,y:position.y,heading:position.heading,base:footBathSeatBase(seaside.tavernStoolTop)};
@@ -1386,7 +1390,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     if(shipOrbit)anchorPoint.set(coast.play.ship.x,5.1,coast.play.ship.z);
     const anchorKey=bus?`${anchor.id}-${bus.index}-${firstPerson}`:anchor.bikeRide?.driver??anchor.id;
     const changed=cameraAnchor!==anchorKey||pivot.distanceToSquared(anchorPoint)>144;
-    if(changed||firstPerson&&(bus||isBikePassenger(anchor)))pivot.copy(anchorPoint);
+    if(changed||anchor.coast?.deckSeat||firstPerson&&(bus||isBikePassenger(anchor)))pivot.copy(anchorPoint);
     else pivot.lerp(anchorPoint,1-Math.exp(-delta*20));
     cameraAnchor=anchorKey;
     const streamLevel=cheonggyeLevel(anchor);

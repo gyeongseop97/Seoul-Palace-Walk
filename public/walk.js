@@ -788,7 +788,7 @@ $("gesture-open").addEventListener("click",event=>{
   if(open&&event.detail===0)gestureButtons.find(button=>!button.disabled)?.focus();
 });
 $("ground-sit").addEventListener("click",()=>{
-  if(!gestureReady(gameTime())||arcade.kind||bungeoMode||me.seat!=null||seatClaim)return;
+  if(!gestureReady(gameTime())||arcade.kind||bungeoMode||me.seat!=null||seatClaim||me.coast?.deckSeat)return;
   resetInput();pendingSeat=null;
   Object.assign(me,{groundSit:!me.groundSit,vx:0,vy:0,running:false,blocked:false});
   dirty=true;wakeSync();setGestures(false);focusGame();
@@ -3144,7 +3144,7 @@ function updateActivities(time,guideNearby){
     me[slot]=null;dirty=true;
   }
   $("gesture-open").disabled=!gestureReady(time);
-  $("ground-sit").disabled=$("gesture-open").disabled||Boolean(arcade.kind||bungeoMode||me.seat!=null||seatClaim);
+  $("ground-sit").disabled=$("gesture-open").disabled||Boolean(arcade.kind||bungeoMode||me.seat!=null||seatClaim||me.coast?.deckSeat);
   setText($("ground-sit"),me.groundSit?"일어나기":"제자리에 앉기");
   if(!$("gesture-menu").hidden)for(const button of gestureButtons)button.disabled=!gestureReady(time,button.dataset.gesture);
   const eligible=world&&session&&!me.bus&&!isCycling(me)&&!queuedBus&&!queuedBike;
@@ -3389,6 +3389,12 @@ function actors(now,stepping){
 }
 let lastFrame=performance.now(),interfaceAt=0,guideNearby=false;
 function preferredNearbyAction(time){
+  if(onCoast&&me.coast?.mode==="deck"){
+    for(const id of ["coast-deckStand","coast-deckSit"]){
+      const button=$(id);
+      if(!button.hidden&&!button.disabled)return id;
+    }
+  }
   if(!$("pohang-trip").hidden)return "pohang-trip";
   if(me.bus||queuedBus)return "bus-action";
   // Keep shoreline interactions within reach while the avatar is seated.

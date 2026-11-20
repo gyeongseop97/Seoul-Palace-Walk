@@ -1,4 +1,5 @@
 import {helmStation,boardingSpot,deckToSea} from "../public/coast-vessel-layout.js";
+import {cruiseSeats} from "../public/coast-vessel-seats.js";
 import {voyageAt,inSailingArea} from "../public/coast-voyage.js";
 import {coastPoint} from "../public/region-coordinates.js";
 import {scooterHubs,canScoot} from "../public/coast-scooters.js";
@@ -52,8 +53,35 @@ try{
  assert.equal((await ask(ids[1],hub,"",{},clock+600001)).scooter,null);
  const pilot=(ship,t)=>({...deckToSea(ship,helmStation,t,7.85),mode:"deck",floor:7.85});
  const deck=pilot({...mooring,yaw:0},clock);
+ const [chair,opposite]=cruiseSeats;
+ const onboard=(p,floor)=>({...deckToSea({...mooring,yaw:0},p,clock,floor),deckX:p.x,deckZ:p.z,floor,mode:"deck"});
+ const aisle=onboard(chair.approach,chair.floor),otherAisle=onboard(opposite.approach,opposite.floor);
+ const sit=(id,pose,seat=chair,time=clock)=>ask(id,pose,"deckSit",{seat:seat.id},time);
+ for(const pose of [{...aisle,mode:"walk"},{...aisle,floor:7.85},{...aisle,x:aisle.x+30},deck]){
+  assert.deepEqual((await sit(ids[0],pose)).deckSeats,[]);
+ }
+ await Promise.all(ids.map(id=>sit(id,aisle)));
+ const claims=(await ask(ids[0],aisle)).deckSeats;
+ assert.equal(claims.length,1);assert.equal(claims[0].seat,chair.id);
+ const seated=claims[0].id,waiting=ids.find(id=>id!==seated);
+ assert.deepEqual((await sit(seated,otherAisle,opposite)).deckSeats,claims);
+ assert.equal((await ask(seated,deck,"helm")).boat.helm,null);
+ assert.equal((await ask(seated,aisle,"tour")).boat.voyage,null);
+ assert.equal((await sit(waiting,otherAisle,opposite)).deckSeats.length,2);
+ assert.deepEqual((await ask(seated,aisle,"deckStand")).deckSeats.map(s=>s.id),[waiting]);
+ assert.deepEqual((await ask(waiting,dock)).deckSeats,[]);
+ await sit(seated,aisle);
+ await ask(seated,aisle,"leave");
+ assert.deepEqual((await sit(waiting,aisle)).deckSeats,[{id:waiting,seat:chair.id}]);
+ const beforeExpiry=clock+14000;
+ assert.equal((await ask(waiting,aisle,"",{},beforeExpiry)).deckSeats.length,1);
+ assert.deepEqual((await sit(seated,aisle,chair,beforeExpiry+15000)).deckSeats,[{id:seated,seat:chair.id}]);
+ await ask(seated,aisle,"deckStand");
+ const bow=onboard({x:0,z:19.15},2.46);
+ assert.equal((await ask(ids[0],bow)).people.find(p=>p.id===ids[0]).deckZ,bow.deckZ);
  assert.equal((await ask(ids[0],{...deckToSea({...mooring,yaw:0},boardingSpot,clock),mode:"deck",floor:2.46},"helm")).boat.helm,null);
  assert.equal((await ask(ids[0],deck,"helm")).boat.helm,ids[0]);
+ assert.deepEqual((await sit(ids[0],aisle)).deckSeats,[]);
  assert.equal((await ask(ids[1],deck,"helm")).boat.helm,ids[0]);
  const moved={x:mooring.x+5,z:mooring.z+3,yaw:.7};
  assert.equal((await ask(ids[0],deck,"",{boat:moved},clock+600)).boat.x,moved.x);

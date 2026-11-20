@@ -6,7 +6,8 @@ import {beachBenches} from "./coast-beach-seats.js";
 import {cafeBenches,cafeLevel,pickCafe} from "./coast-cafe.js";
 import {breaststroke,swimSeed,swimStroke} from "./beach-swimming.js";
 import {surferPose,boardAttitude} from "./coast-surfing.js";
-import {hullAttitude,deckToSea,seaToDeck,deckHeight,cruiseScale,mainFloor} from "./coast-vessel-layout.js";
+import {hullAttitude,deckToSea,seaToDeck,deckHeight,cruiseScale,mainFloor,salonBowDoor,salonSideHalfWidth} from "./coast-vessel-layout.js";
+import {cruiseSeatById,cruiseSeatHeading} from "./coast-vessel-seats.js";
 export {coastVisitors} from "./coast-visitors.js";
 import {coastObstacle} from "./coast-region.js";
 import {pickSpaceWalk} from "./space-walk-navigation.js";
@@ -38,6 +39,7 @@ export function createCoastScene(root,play,walkers,kit){
  const updateTavern=buildTavernService(root,walkers,kit);
  const boards=new Map(),ripples=new Map(),ringGeometry=new T.RingGeometry(.76,.79,36).rotateX(-Math.PI/2);
  const swimmerHead=new T.Vector3();
+ const hullEuler=new T.Euler(0,0,0,"YXZ"),seatTurn=new T.Quaternion(),up=new T.Vector3(0,1,0);
  function swimmingWake(player,p,t){
   let rings=ripples.get(player.id);
   if(!rings){
@@ -73,12 +75,21 @@ export function createCoastScene(root,play,walkers,kit){
   if(orbitShip)return false;
   const {deckX,deckZ,floor}=deckViewer;
   const bridgeRoom=floor>7.7&&deckZ>2.9&&Math.abs(deckX)<2.4;
-  const salon=floor<2.55&&deckZ> -7.65&&deckZ<9.65&&Math.abs(deckX)<3.65;
+  const salon=floor<2.55&&deckZ> -7.82&&deckZ<salonBowDoor.z&&Math.abs(deckX)<salonSideHalfWidth(deckZ);
   if(!bridgeRoom&&!salon)return false;
   const local=seaToDeck(play.ship,p,lastClock,floor);
   const localFloor=deckToSea(play.ship,local,lastClock,floor).h;
-  return height-localFloor>(bridgeRoom?2.06:2.37)||Math.abs(local.x)>(bridgeRoom?2.40:3.70)||
-   local.z>(bridgeRoom?8.46:9.66)||(local.z<(bridgeRoom?2.85:-7.67)&&Math.abs(local.x)>.66);
+  if(bridgeRoom)return height-localFloor>2.06||Math.abs(local.x)>2.40||local.z>8.46||(local.z<2.85&&Math.abs(local.x)>.66);
+  const x=Math.abs(local.x);
+  if(Math.abs(local.z-salonBowDoor.z)<.20&&x>salonBowDoor.half-.12)return true;
+  if(Math.abs(local.z+7.82)<.20&&x>.64)return true;
+  return local.z>=-7.82&&local.z<=salonBowDoor.z&&(height-localFloor>2.37||x>salonSideHalfWidth(local.z)-.13);
+ }
+ function cruiseSeatPose(id){
+  const seat=cruiseSeatById.get(id);
+  if(!seat)return null;
+  const top=deckToSea(play.ship,seat,lastClock,seat.floor+seat.seatHeight);
+  return {...coastPoint(top),top:top.h,heading:cruiseSeatHeading(play.ship,seat)};
  }
  function surface(p){
   const local=seaPoint(p),s=p.coast,t=lastClock/1000%14400;
@@ -119,8 +130,12 @@ export function createCoastScene(root,play,walkers,kit){
  function pose(player,model){
   const s=player.coast,wet=s?.mode==="swim",surf=s?.mode==="surf",t=lastClock/1000%14400,p=seaPoint(player);
   if(s?.mode==="deck"&&Number.isFinite(s.deckX)&&Number.isFinite(s.deckZ)){
-   const local={x:s.deckX,z:s.deckZ},height=deckHeight(local,s.floor);
-   if(height!=null){
+   const seat=cruiseSeatById.get(s.deckSeat),local={x:s.deckX,z:s.deckZ},height=deckHeight(local,s.floor);
+   if(seat){
+    const attitude=hullAttitude(play.ship,lastClock);
+    hullEuler.set(attitude.pitch,play.ship.yaw,attitude.roll,"YXZ");
+    model.group.quaternion.setFromEuler(hullEuler).multiply(seatTurn.setFromAxisAngle(up,seat.yaw));
+   }else if(height!=null){
     const world=deckToSea(play.ship,local,lastClock,height),attitude=hullAttitude(play.ship,lastClock);
     const relative=model.group.rotation.y-play.ship.yaw;
     model.group.position.x=world.x;model.group.position.z=world.z;
@@ -163,5 +178,5 @@ export function createCoastScene(root,play,walkers,kit){
    }
   }
  }
- return {benches:[...beachBenches,...cafeBenches],tavernStoolTop,setClock,waterline,surface,pose,update,pickTrack:ray=>pickDeck(ray)??pickCafe(ray,cafeViewerFloor)??pickSpaceWalk(ray)??pickPavilion(ray),cameraBlocked,watchLift:play.watchLift};
+ return {benches:[...beachBenches,...cafeBenches],tavernStoolTop,cruiseSeatPose,setClock,waterline,surface,pose,update,pickTrack:ray=>pickDeck(ray)??pickCafe(ray,cafeViewerFloor)??pickSpaceWalk(ray)??pickPavilion(ray),cameraBlocked,watchLift:play.watchLift};
 }

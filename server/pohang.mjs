@@ -1,5 +1,6 @@
 import {tavernOps,tavernSchema} from "./coast-tavern.mjs";
-import {voyageSchema,harborSnapshot,vesselSnapshot,appendVesselOps} from "./coast-voyages.mjs";
+import {voyageSchema,deckSeatSchema,deckSeatLease,harborSnapshot,vesselSnapshot,appendVesselOps} from "./coast-voyages.mjs";
+import {mainDeckRail} from "../public/coast-vessel-layout.js";
 import {inCoastSpace,seaPoint} from "../public/region-coordinates.js";
 import {scooterSchema,scooterOps,rentalState} from "./coast-scooter-rentals.mjs";
 import {canStartFestival,festivalBooth} from "../public/pohang-festival-site.js";
@@ -8,7 +9,7 @@ const reply=(data,status=200)=>Response.json(data,{status,headers:{"Cache-Contro
 const initialized=new WeakMap();
 function ensure(db){
  if(!initialized.has(db))initialized.set(db,db.batch([
-  ...tavernSchema,voyageSchema,scooterSchema,
+  ...tavernSchema,voyageSchema,deckSeatSchema,scooterSchema,
   "CREATE TABLE IF NOT EXISTS coast_visitors(room TEXT,id TEXT,updated INTEGER,pose TEXT,seat INTEGER,PRIMARY KEY(room,id))",
   "CREATE INDEX IF NOT EXISTS coast_active ON coast_visitors(room,updated)",
   "CREATE TABLE IF NOT EXISTS coast_harbor(room TEXT PRIMARY KEY,x REAL,z REAL,yaw REAL,helm TEXT,updated INTEGER,festival INTEGER DEFAULT 0)",
@@ -35,7 +36,7 @@ export async function coastRequest(db,{room,id,key,coast},now){
  const avatar=JSON.parse(owner.avatar),pose=JSON.stringify({x:p.x,z:p.z,yaw:p.yaw,mode:p.mode,walk:!!p.walk,hasBoard:!!p.hasBoard,
   character:avatar.character,look:avatar.look,chat:typeof p.chat==="string"?p.chat.trim().slice(0,80):"",chatAt:Math.min(now,Number(p.chatAt)||0),
   gesture:["fish","clam","drink"].includes(p.gesture)?p.gesture:null,gestureAt:Math.min(now,Number(p.gestureAt)||0),blush:Math.min(now+120000,Number(p.blush)||0),
-  coach:Number.isInteger(p.coach)?p.coach:null,slot:Number.isInteger(p.slot)?Math.max(0,Math.min(5,p.slot)):0,deckX:Number.isFinite(p.deckX)?clampDeck(p.deckX,-5,5):null,deckZ:Number.isFinite(p.deckZ)?clampDeck(p.deckZ,-18,18):null});
+  coach:Number.isInteger(p.coach)?p.coach:null,slot:Number.isInteger(p.slot)?Math.max(0,Math.min(5,p.slot)):0,deckX:Number.isFinite(p.deckX)?clampDeck(p.deckX,-5,5):null,deckZ:Number.isFinite(p.deckZ)?clampDeck(p.deckZ,-18,mainDeckRail.front):null});
  const ops=[read("INSERT INTO coast_visitors(room,id,updated,pose) VALUES(?,?,?,?) ON CONFLICT(room,id) DO UPDATE SET updated=excluded.updated,pose=excluded.pose,seat=CASE WHEN coast_visitors.updated<? THEN NULL ELSE coast_visitors.seat END",room,id,now,pose,now-15000),
   read("INSERT OR IGNORE INTO coast_harbor(room,x,z,yaw,updated) VALUES(?,?,?,?,0)",room,mooring.x,mooring.z,0)];
  const scooterCommand=["rentScooter","returnScooter","mountScooter","parkScooter"].includes(cmd);
@@ -65,9 +66,10 @@ export async function coastRequest(db,{room,id,key,coast},now){
  }
  await appendVesselOps(ops,read,room,id,p,coast,now);
  if(Math.random()<.008)ops.push(read("DELETE FROM coast_visitors WHERE updated<?",now-86400000));
+ const deckSeats=ops.push(read("SELECT id,seat FROM coast_deck_seats WHERE room=? AND updated>?",room,now-deckSeatLease))-1;
  ops.push(read("SELECT coach,seat,id FROM coast_bus_seats WHERE room=? AND updated>?",room,now-15000),read("SELECT v.id,v.pose,v.seat,w.nickname,w.coat FROM coast_visitors v JOIN walkers w ON w.room=v.room AND w.id=v.id WHERE v.room=? AND v.updated>?"+(coast.shared===true?" AND v.id=?":""),room,now-15000,...(coast.shared===true?[id]:[])),
  read(harborSnapshot,room));
  const rows=await db.batch(ops);
  const orders=rows[tavern.orders].results;
- return reply({now,grills:orders.filter(o=>o.cookingClams>0).map(o=>({spot:o.spot,started:o.grillUntil-6500})),scooter:rentalState(rows[rentalIndex].results),tavernOrders:orders,bite:tavern.receipt==null?null:rows[tavern.receipt].results[0]??null,busSeats:rows.at(-3).results,people:rows.at(-2).results.map(r=>({...JSON.parse(r.pose),id:r.id,nickname:r.nickname,coat:r.coat,seat:r.seat})),boat:vesselSnapshot(rows.at(-1).results[0],now)});
+ return reply({now,grills:orders.filter(o=>o.cookingClams>0).map(o=>({spot:o.spot,started:o.grillUntil-6500})),scooter:rentalState(rows[rentalIndex].results),tavernOrders:orders,bite:tavern.receipt==null?null:rows[tavern.receipt].results[0]??null,busSeats:rows.at(-3).results,deckSeats:rows[deckSeats].results,people:rows.at(-2).results.map(r=>({...JSON.parse(r.pose),id:r.id,nickname:r.nickname,coat:r.coat,seat:r.seat})),boat:vesselSnapshot(rows.at(-1).results[0],now)});
 }

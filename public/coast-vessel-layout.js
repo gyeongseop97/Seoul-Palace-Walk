@@ -1,25 +1,47 @@
 import {clamp,mooring,wave} from "./pohang-layout.js";
+import {cruiseFurnitureBlocks} from "./coast-vessel-seats.js";
 
 export const bridge={aft:2.75,front:8.65,half:2.55,door:.83,floor:7.85};
 export const cruiseScale=1.35,mainFloor=2.46;
+export const cruiseHullStations=[[-18,.70],[-15,.95],[-9,1],[0,1],[8,.94],[13,.76],[17,.44],[20,.035]];
+export const mainDeckRail={aft:-17.8,front:19.5,half:5.05};
+export const salonBowDoor={z:9.85,half:.90};
+export const salonTaperStart=6;
+export function salonSideHalfWidth(z){
+ const taper=clamp((z-salonTaperStart)/(salonBowDoor.z-salonTaperStart),0,1);
+ return 3.85-.55*taper;
+}
+const railEdge=cruiseHullStations.map(([station,ratio])=>({
+ x:mainDeckRail.half*ratio,z:mainDeckRail.aft+(station+18)/38*(mainDeckRail.front-mainDeckRail.aft)
+}));
+const railSegments=railEdge.slice(1).map((b,i)=>{
+ const a=railEdge[i],slope=(b.x-a.x)/(b.z-a.z);
+ return {...a,slope,normal:Math.hypot(1,slope)};
+});
+// Offset each side of the convex rail outline by the passenger's clearance,
+// including the steep diagonal sides which meet at the pointed bow.
+export function mainDeckRailHalfWidth(z,clearance=0){
+ if(z<mainDeckRail.aft+clearance||z>mainDeckRail.front-clearance)return 0;
+ let half=Infinity;
+ for(const edge of railSegments){
+  half=Math.min(half,edge.x+(z-edge.z)*edge.slope-clearance*edge.normal);
+ }
+ return Math.max(0,half);
+}
 export const boardingSpot={x:-4.48,z:0};
 export const helmStation={x:-.46,z:6.15};
 export const serviceSpot={x:-1.56,z:-8.24};
 export const nearHelm=p=>p&&(p.h==null||p.h>7.7)&&Math.hypot(p.x-helmStation.x,p.z-helmStation.z)<1.15;
 function lowerDeck(p){
  const x=Math.abs(p.x);
- if(p.z< -16.55||p.z>16.3)return null;
+ if(p.z< -16.55||x>=mainDeckRailHalfWidth(p.z,.26))return null;
+ if(cruiseFurnitureBlocks(p,mainFloor))return null;
  if(p.z< -8.05)return x<(p.z< -14?3.64:4.60)?mainFloor:null;
  if(p.z< -7.58&&x<4.13&&x>.72)return null;
- if(p.z<=10.02){
-  if(x>=3.69&&x<4.03)return null;
-  if(x>4.54-.085*Math.max(0,p.z-3.6))return null;
-  if(x<3.71&&p.z>9.65)return null;
-  if(x>2.2&&x<3.48&&p.z> -5.45&&p.z<6.45)return null;
-  return mainFloor;
- }
- if(p.z<10.4&&x<3.55)return null;
- return x<3.40-.30*(p.z-10.02)?mainFloor:null;
+ const cabinHalf=salonSideHalfWidth(p.z);
+ if(p.z<=salonBowDoor.z+.25&&Math.abs(x-cabinHalf)<.25)return null;
+ if(Math.abs(p.z-salonBowDoor.z)<.25&&x<cabinHalf&&x>salonBowDoor.half-.24)return null;
+ return mainFloor;
 }
 export function deckHeight(p,previous=p?.h){
  if(!p)return null;
@@ -33,13 +55,13 @@ export function deckHeight(p,previous=p?.h){
  if(Math.abs(p.x-1.7)<.69&&p.z>=-9.65&&p.z< -5.55)return 5.46+clamp((p.z+9.65)/4,0,1)*2.39;
  if(p.z>=-12.65&&p.z<=-6.15&&Math.abs(p.x)<=3.35){
   if(Math.abs(p.x+1.65)<1.36&&Math.abs(p.z+7.02)<.51)return null;
-  return 5.46;
+  return cruiseFurnitureBlocks(p,5.46)?null:5.46;
  }
  if(p.z< -5.58||p.z>bridge.front-.27||Math.abs(p.x)>2.75)return previous==null?lowerDeck(p):null;
  if(p.z>=bridge.aft-.23&&p.z<=bridge.aft+.23&&Math.abs(p.x)>bridge.door-.21)return null;
  if(p.z>bridge.aft&&Math.abs(p.x)>bridge.half-.25)return null;
  if(p.z>6.81&&p.z<7.98&&Math.abs(p.x)<1.81)return null;
- return bridge.floor;
+ return cruiseFurnitureBlocks(p,bridge.floor)?null:bridge.floor;
 }
 
 // Sample along the waterline on both axes. The protected berth has very little swell.
