@@ -26,9 +26,15 @@ export const eastWingRing=[glassAt(24.1),[17.25,1496.5],[26.95,1489.4],[29.4,148
 // Curved west concourse above the airport railroad entrance.
 export const westWingRing=[round(arcPoint(outer,to)),[-164.49,1540.87],[-175.13,1552.68],[-178.21,1561.21],[-179.12,1571.38],
   [-178.01,1589.68],[-175.5,1597.31],[-163.73,1597.33],[-163.75,1606.27],[-153.02,1605.97],[-152.52,1554.51],round(arcPoint(outer,117))];
+// Ground line of the 1925 station, clockwise from the north-west corner. The entrance block
+// stands 7 m further into the square than the mapped roof outline.
+export const oldStationRing=[[-4.75,1241.9],[7.2,1241.7],[7.4,1254.2],[10.95,1254.3],[10.95,1266.1],[9.2,1266.1],[9.2,1287.6],
+  [18.4,1287.6],[18.4,1297.2],[15.3,1297.2],[15.3,1310.5],[30.5,1310.5],[30.5,1336.1],[15.3,1336.1],[15.3,1350.2],[18.4,1350.2],
+  [18.4,1359.7],[10.5,1359.7],[10.5,1368],[18.2,1368],[18.2,1375],[10.5,1375],[10.5,1380.1],[-3.4,1380.1],[-4.75,1286.4]];
+export const oldStationCentre={x:8.6,y:1323.3};
 const part=(kind,part,height,rings)=>({id:TERMINAL,name:"서울역",kind,part,height,rings:[rings]});
 export const stationBuildings=[
-  ...bakedBuildings.filter(b=>b.id!==TERMINAL),
+  ...bakedBuildings.filter(b=>b.id!==TERMINAL).map(b=>b.kind==="historic"?{...b,rings:[oldStationRing]}:b),
   part("terminal","concourse",24.5,concourseRing),part("stationWing","outlet",30,outletRing),
   part("stationWing","eastWing",12,eastWingRing),part("stationWing","westWing",17,westWingRing)
 ];
@@ -40,6 +46,10 @@ export const forecourtSurfaces=[
 ];
 export const stationSurfaces=[...forecourtSurfaces,...bakedSurfaces];
 export const clockTower={x:34.4,y:1449.6};
+// Furniture of the square in front of the old station: statue, light mast and exit pylon.
+export const plazaStatue={x:36,y:1302},plazaMast={x:37.5,y:1352},exitPylon={x:33.6,y:1404.6};
+// Planted beds behind a low kerb along both wings of the old station.
+export const stationBeds=[[18.9,1303.9,5.4,11.6],[18.9,1343.2,5.4,12.6]];
 // Long seat walls on the terrace: centre x, y, width and depth.
 export const terraceBenches=[[11.4,1457.2,.9,11],[10.4,1451.9,2.8,.9]];
 // The terrace is a solid podium. Walls below deck level keep ground walkers out of it while
@@ -66,7 +76,8 @@ export function registerForecourt(addObstacle){
   const p=forecourtPlanters;
   addObstacle((p.minX+p.maxX)/2,(p.minY+p.maxY)/2,p.maxX-p.minX,p.maxY-p.minY);
   addObstacle(clockTower.x,clockTower.y,1.1,1.1);
-  for(const [x,y,w,d] of terraceBenches)addObstacle(x,y,w,d);
+  for(const [x,y,w,d] of [...terraceBenches,...stationBeds])addObstacle(x,y,w,d);
+  addObstacle(plazaStatue.x,plazaStatue.y,2.4,2.4);addObstacle(plazaMast.x,plazaMast.y,.9,.9);addObstacle(exitPylon.x,exitPylon.y,.7,.5);
   // Ring posts of the glass rotunda over subway exit 1. The escalators pass between them.
   for(let i=0;i<16;i++){
     const angle=(i+.5)*Math.PI/8,x=exitDome.x+Math.cos(angle)*exitDome.radius,y=exitDome.y+Math.sin(angle)*exitDome.radius;

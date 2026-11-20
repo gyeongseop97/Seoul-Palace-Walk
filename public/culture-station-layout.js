@@ -2,7 +2,7 @@
 // The two sheets have different scales. Local +z faces the plaza on both plans.
 const levels=[
   {id:"culture284",name:"문화역서울284 · 1층",center:{x:1900,y:810},scale:.126,origin:[602,512],
-    outsideDoor:{x:26.5,y:1323,heading:90},exit:[602,666],spawn:[602,647],enterLabel:"문화역서울284 들어가기",exitLabel:"서울역광장으로",
+    outsideDoor:{x:32.3,y:1323,heading:90},exit:[602,666],spawn:[602,647],enterLabel:"문화역서울284 들어가기",exitLabel:"서울역광장으로",
     rooms:[
       ["hall","중앙홀",525,451,678,598,17],["hall","중앙홀",550,434,650,451,17],
       ["hall","현관",556,598,650,676,12],["first","1·2등 대합실",399,451,525,547,6.1],
@@ -35,7 +35,7 @@ export const cultureVenues=levels.map(l=>{
     minY:y+Math.min(...rooms.map(r=>r.z0)),maxY:y+Math.max(...rooms.map(r=>r.z1))},
     insideDoor:{...point(...l.exit),heading:180},insideSpawn:{...point(...l.spawn),heading:0}};
 });
-export const cultureFrontDoors=[-4.05,0,4.05].map((d,i)=>({outside:{x:26.5,y:1323+d,heading:90},
+export const cultureFrontDoors=[-4.05,0,4.05].map((d,i)=>({outside:{x:32.3,y:1323.3+d,heading:90},
   inside:{...cultureVenues[0].point(602+(1-i)*28,666),heading:180}}));
 cultureVenues[1].outsideDoor={...cultureVenues[0].point(...levels[1].outside),heading:0};
 export function culturePart(x,y){

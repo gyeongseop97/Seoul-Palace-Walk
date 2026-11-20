@@ -4,7 +4,7 @@
 // Seoul's S-Map city model and street photographs.
 import {concourseArc,arcPoint,terminalPose,terminalSpan,terminalDoorOffsets,stationRise,stationApproaches,eastPlazaOutline,
   forecourtPlanters,exitDome,outletRotunda,plazaCafeFront,outletFront} from "./station-approach-plan.js";
-import {outletRing,eastWingRing,westWingRing,clockTower,domeOpening,terraceBenches} from "./station-survey.js";
+import {outletRing,eastWingRing,westWingRing,clockTower,domeOpening,terraceBenches,plazaStatue,plazaMast,exitPylon,stationBeds} from "./station-survey.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {districtTile} from "./district-material.js";
 
@@ -283,6 +283,32 @@ export function buildStationFront(T,kit,{groupAt,beam,ground}){
       const face=new T.Group();face.rotation.y=k*Math.PI/2;clock.add(face);
       const dial=new T.Mesh(new T.CircleGeometry(.58,28),matte(0xfbfaf4));dial.position.set(0,7.3,.905);face.add(dial);
       box(0x26303a,0,7.46,.92,.05,.34,.02,face);box(0x26303a,.12,7.3,.92,.26,.045,.02,face);
+    }
+    // Square in front of the old station: memorial statue, light mast, exit pylon and beds.
+    const statue=groupAt(plazaStatue.x,plazaStatue.y,Math.PI/2);
+    box(0xb9b3a6,0,.2,0,3,.4,3,statue);box(0xc6c0b3,0,1.5,0,2.1,2.2,2.1,statue);box(0xb9b3a6,0,2.7,0,2.4,.22,2.4,statue);
+    box(0x3d362c,0,1.6,1.06,1.3,.8,.04,statue);
+    const bronze=0x5b4a36;
+    cylinder(bronze,0,3.95,0,.42,2.3,12,statue,.72);cylinder(bronze,0,3.2,0,.56,.8,12,statue,.8);
+    const head=new T.Mesh(new T.SphereGeometry(.3,14,10),matte(bronze));head.position.set(0,5.42,.02);statue.add(head);
+    beam(statue,[.36,4.9,0],[.78,5.75,.2],.17,bronze);beam(statue,[-.36,4.9,0],[-.5,3.95,.16],.17,bronze);box(bronze,.82,5.86,.22,.16,.2,.16,statue);
+    const mast=groupAt(plazaMast.x,plazaMast.y);
+    cylinder(0xb7bfc0,0,7.6,0,.2,15.2,12,mast,.55);cylinder(0x9aa3a4,0,.3,0,.42,.6,12,mast);cylinder(0x8f9899,0,15.1,0,1.5,.16,20,mast);
+    for(let i=0;i<8;i++){const a=i*Math.PI/4;const lamp=box(0xf4f1e2,Math.cos(a)*1.5,14.9,Math.sin(a)*1.5,.5,.2,.7,mast);lamp.rotation.y=-a+Math.PI/2;}
+    const pylon=groupAt(exitPylon.x,exitPylon.y,Math.PI/2);
+    box(0x2d3136,0,2,0,1.25,4,.3,pylon);box(0xf2b632,0,3.62,0,1.25,.76,.32,pylon);
+    for(const face of [1,-1]){
+      const board=new T.Group();board.position.z=face*.17;board.rotation.y=face>0?0:Math.PI;pylon.add(board);
+      lettering(T,board,"1",0,3.62,0,.5,.6,"#22262a");lettering(T,board,"서울역",0,2.7,0,1.05,.42);lettering(T,board,"Seoul Station",0,2.3,0,1.05,.2,"#d9dedc","600");
+      for(const [i,[color,line]] of [["#263b96","1"],["#2e9fd8","4"],["#3f8fc9","A"]].entries()){
+        const dot=new T.Mesh(new T.CircleGeometry(.17,18),new T.MeshBasicMaterial({color}));dot.position.set(-.36+i*.36,1.72,.005);board.add(dot);
+        lettering(T,board,line,-.36+i*.36,1.72,.01,.3,.22);
+      }
+    }
+    for(const [x,z,w,d] of stationBeds){
+      box(0xc2bdb1,x,.16,z,w,.32,d,g);box(0x62794f,x,.36,z,w-.4,.1,d-.4,g);
+      for(let k=0;k<3;k++)trees.shrub(x+(k-1)*1.4,z+(k%2?1.8:-2.4),.8+rand()*.3,"deep");
+      trees.grow(x,z+(d>12?3.4:-3.2),{height:3.4,spread:2,style:"ball",palette:"olive"});
     }
     // Glass rotunda over the escalators of subway exit 1.
     const d=exitDome,dome=groupAt(d.x,d.y),sphere=(d.radius**2+d.height**2)/(2*d.height),drop=sphere-d.height,cap=Math.acos(drop/sphere);

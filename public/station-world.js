@@ -1,5 +1,6 @@
 import {makeTreeBuilder} from "./lowpoly-trees.js";
-import {stationFrontage,buildStationFront,lettering} from "./station-frontage.js";
+import {stationFrontage,buildStationFront} from "./station-frontage.js";
+import {buildOldStation} from "./culture-station-exterior.js";
 import {stationSurfaces,stationBuildings,stationTrees,seoulloDeck,forecourtSurfaces} from "./station-survey.js";
 import {southWorldSurfaceHeight as ground,southWorldTerrainHeight,gradePalaceMeshes} from "./gyeongbok-terrain.js";
 import {standSign} from "./regional-stands.js";
@@ -74,77 +75,6 @@ export function* buildStationBand(T,root,kit,band){
     const mesh=new T.Mesh(new T.SphereGeometry(1,30,13,0,Math.PI*2,0,Math.PI/2),matte(color));
     mesh.position.set(x,y,z);mesh.scale.set(rx,ry,rz);mesh.castShadow=true;g.add(mesh);
   }
-  function oldStation(){
-    const g=groupAt(16.4,1323);g.name="문화역서울284";
-    const stone=0xd4c0a7,bronze=0x537e75,window=0x354a50;
-    for(const side of [-1,1]){
-      for(let j=0;j<8;j++){
-        const z=side*(15+j*5.25);
-        box(stone,-2.15,4.45,z,.8,7.4,2.8,g);box(window,-1.68,4.35,z,.23,6.55,2.05,g);
-        box(stone,-1.48,4.4,z,.18,6.6,.13,g);
-      }
-      box(stone,-5.2,9.85,side*38,9.1,.6,46,g);
-      cylinder(stone,-9.7,9.92,side*53,7.02,.62,24,g);
-      dome(g,-9.7,10.21,side*53,7,5.6,7,bronze);
-    }
-    // The centre bay projects beyond the brick wings. Its fanlight sits under the copper dome.
-    box(stone,2.9,10.65,0,10.2,.68,21.6,g);
-    box(stone,7.3,9.85,0,1.4,4.85,18.8,g);
-    dome(g,8.08,8.7,0,.22,4.55,6.5,window);
-    for(let i=0;i<9;i++){
-      const t=Math.PI*i/8;
-      beam(g,[8.36,8.7,0],[8.36,8.7+4.45*Math.sin(t),6.38*Math.cos(t)],.14,stone);
-    }
-    for(const side of [-1,1]){
-      for(const z of [7.9,10.1]){box(stone,7.9,5.3,side*z,1.1,10.5,.8,g);box(0xe0cfb6,8.2,10.25,side*z,1.35,.53,1.3,g);}
-      for(const z of [20,36,49]){
-        const bay=new T.Group();bay.position.set(-.1,0,side*z);g.add(bay);
-        box(0xab7160,0,6.5,0,4,13,8.2,bay);
-        box(stone,2.1,7.85,0,.6,.5,8.55,bay);box(stone,2.12,12.8,0,.7,.85,8.9,bay);
-        for(const dz of [-2.55,0,2.55]){box(window,2.17,9.9,dz,.15,3.4,1.65,bay);box(stone,2.27,10,dz,.12,3.38,.12,bay);}
-        const drum=cylinder(stone,0,13.12,0,1,.48,24,bay);
-        drum.scale.x=3.2;drum.scale.z=4.6;
-        dome(bay,0,13.34,0,3.1,2.2,4.55,bronze);
-      }
-    }
-    // The plan shows three double-leaf doors behind the projecting stone vestibule.
-    box(0xa3876d,7.35,3.82,0,.64,7.64,15.2,g);
-    for(const z of [-4.05,0,4.05]){
-      box(0x644938,7.83,2.52,z,.38,5.04,3.45,g);
-      for(const side of [-1,1]){
-        const u=z+side*.73;
-        box(0x557070,8.05,2.15,u,.15,3.91,1.29,g);
-        box(0x7f5c42,8.16,.51,u,.10,.83,1.28,g);
-        box(0xcab391,8.17,2.90,u,.10,.09,1.27,g);
-        box(0xc4ae7a,8.22,1.31,z+side*.18,.10,.58,.08,g);
-      }
-      box(stone,8.09,4.88,z,.51,.26,3.72,g);
-      dome(g,8.06,5.03,z,.22,1.35,1.63,window);
-    }
-    box(0xb6a48c,8.26,.085,0,.62,.17,12.4,g);
-    box(0x975d4c,-1.4,12.2,0,13,4.8,17.6,g);
-    box(stone,-1.4,14.46,0,14.2,.56,18.4,g);
-    const drum=cylinder(stone,-1.4,14.27,0,1,.64,32,g);
-    drum.scale.x=8.53;drum.scale.z=10.44;
-    dome(g,-1.4,14.52,0,8.5,8.8,10.4,0x70988b);
-    for(let i=0;i<12;i++){
-      const t=i*Math.PI/6,pts=[];
-      for(let j=0;j<=8;j++){const h=j*Math.PI/16;pts.push([-1.4+8.56*Math.cos(h)*Math.cos(t),14.5+8.85*Math.sin(h),10.46*Math.cos(h)*Math.sin(t)]);}
-      for(let j=1;j<pts.length;j++)beam(g,pts[j-1],pts[j],.12,bronze);
-    }
-    cylinder(bronze,-1.4,24,0,.62,2.1,12,g);
-    dome(g,-1.4,24.92,0,.76,.68,.76,bronze);cylinder(bronze,-1.4,26,0,.10,1.2,10,g);
-    const rto=groupAt(11.05,1259,Math.PI/2);
-    box(stone,0,2.5,0,4.1,5,.29,rto);box(window,0,1.98,.17,3.12,3.96,.18,rto);
-    for(const side of [-1,1])box(0xd5c7ab,side*.76,2.05,.28,.075,3.7,.08,rto);
-    lettering(T,rto,"RTO",0,4.45,.24,2.0,.60);
-    const front=new T.Group();front.position.set(8.65,7.65,0);front.rotation.y=Math.PI/2;g.add(front);
-    lettering(T,front,"문화역서울284",0,0,0,7.8,.9);
-    const clock=new T.Mesh(new T.CircleGeometry(.9,40),matte(0xf5e6ca));front.add(clock);clock.position.set(0,4.25,1);
-    for(let i=0;i<12;i++){const a=i*Math.PI/6;box(0x463c33,.73*Math.sin(a),4.25+.73*Math.cos(a),1.03,.055,.13,.03,front).rotation.z=-a;}
-    const hand=box(0x3f3932,.17,4.45,1.06,.06,.54,.04,front);hand.rotation.z=-.65;
-    box(0x3f3932,-.26,4.25,1.07,.53,.063,.04,front);
-  }
   function sungnyemun(){
     const g=groupAt(gatePose.x,gatePose.y,gatePose.angle);g.name="숭례문";
     const stone=0xb0a593,tile=0x3c4143,green=0x4e7363,red=0x975344;
@@ -204,8 +134,8 @@ export function* buildStationBand(T,root,kit,band){
     else if(b.kind==="stationWing")stationFrontage(T,kit,{groupAt,ground},b);
     else{
       const wall=b.kind==="historic"?brick:b.kind==="terminal"?facades[4]:b.kind==="squareOffice"?facades[5]:facades[Number(b.id)%5||0];
-      shell(b,wall,b.kind==="historic"?0x495b59:b.kind==="terminal"?0x9aa8a7:0x858984,b.kind==="historic"?9.8:b.height);
-      if(b.kind==="historic")oldStation();
+      if(b.kind==="historic")buildOldStation(T,kit,{groupAt,beam,ground});
+      else shell(b,wall,0x858984,b.height);
     }
     dressed.add(b.id);
     if(++count%6===0)yield;
