@@ -1,6 +1,7 @@
 import {stationHall,railPlatform,railShopPlots,seatRows,seatOffsets,waitingRows,extraWaitingRows,hallColumns} from "./rail-station-layout.js";
 import {hallBow} from "./station-levels.js";
 import {standSign} from "./regional-stands.js";
+import {stationGranite} from "./station-materials.js";
 import {makeRegionalItemProps} from "./regional-item-props.js";
 
 const navy=0x234967,blue=0x336990,silver=0xb5c2c5,ivory=0xeee8d9,slate=0x546576;
@@ -36,15 +37,7 @@ export function* buildRailRoom(T,root,kit,venue){
     if(repeat)map.wrapS=map.wrapT=T.RepeatWrapping;
     return map;
   };
-  // Honed granite in 1.2 m slabs, as laid through the concourse.
-  const granite=new T.MeshStandardMaterial({roughness:.36,metalness:.05,map:paintMap(256,256,(ctx,n)=>{
-    let seed=9;const rnd=()=>(seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296;
-    for(let j=0;j<4;j++)for(let i=0;i<4;i++){
-      const v=206+Math.floor(rnd()*13);ctx.fillStyle=`rgb(${v},${v-2},${v-8})`;ctx.fillRect(i*64,j*64,64,64);
-    }
-    for(let k=0;k<2800;k++){ctx.fillStyle=k%3?"rgba(70,66,60,.11)":"rgba(255,255,255,.17)";ctx.fillRect(rnd()*n,rnd()*n,1.4,1.4);}
-    ctx.fillStyle="rgba(116,112,104,.5)";for(let i=0;i<=4;i++){ctx.fillRect(i*64-1,0,2,n);ctx.fillRect(0,i*64-1,n,2);}
-  })});
+  const granite=stationGranite(T);
   function stoneFloor(outline,altitude=.004){
     const shape=new T.Shape(outline.map(([x,z])=>new T.Vector2(x,-z))),geo=new T.ShapeGeometry(shape);geo.rotateX(-Math.PI/2);
     const pos=geo.attributes.position,uv=geo.attributes.uv;

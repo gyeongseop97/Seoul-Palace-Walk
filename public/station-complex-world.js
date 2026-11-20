@@ -5,6 +5,7 @@ import {stationDining} from "./dining-data.js";
 import {buildRailRoom} from "./rail-station-world.js";
 import {buildDiningInterior} from "./dining-world.js";
 import {standSign} from "./regional-stands.js";
+import {graniteSlab} from "./station-materials.js";
 
 export function* buildStationComplex(T,root,kit,venue,walkerModels){
   yield* buildRailRoom(T,root,kit,stationHall);
@@ -95,7 +96,8 @@ export function* buildStationComplex(T,root,kit,venue,walkerModels){
       }
     }else if(!["hall","platform","dining"].includes(style)){
       box(style==="garden"?0xa8a994:style==="bridge"?0xbac5c2:tiles,x,h-.17,z,w,.34,d);
-      for(let v=z0+2;v<z1;v+=2)box(0xa1a79f,x,h+.004,v,w,.008,.025);
+      if(style==="garden")for(let v=z0+2;v<z1;v+=2)box(0xa1a79f,x,h+.004,v,w,.008,.025);
+      else graniteSlab(T,hall,x,h+.004,z,w,d);
       if(["west","retail","transfer","arcade","terminal","gates","metro","arexPlatform"].includes(style)){
         box(0xdadbd3,x,h+5.8,z,w,.22,d);
         for(let v=z0+2;v<z1;v+=5)box(0xffeed0,x,h+5.63,v,Math.min(5,w*.65),.065,.22);
