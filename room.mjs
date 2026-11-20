@@ -524,6 +524,10 @@ export async function api(request,env){
     return json({error:"잘못된 산책방 정보예요."},400);
   }
   const {room,id,key=null,avatar,view,hand,feed,bus,bike,show,clink,leave}=body;
+  if(body.coast!==undefined){
+    const {coastRequest}=await import("./server/pohang.mjs");
+    return coastRequest(db,body,Date.now());
+  }
   if(body.paperBoat!==undefined){
     const {paperBoatRequest}=await import("./server/paper-boats.mjs");
     return paperBoatRequest(db,body,Date.now());

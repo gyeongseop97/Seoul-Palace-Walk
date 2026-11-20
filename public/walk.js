@@ -1320,7 +1320,10 @@ async function enterRoom(action,code){
   }
   joining=true;serverButtons.forEach(button=>{button.disabled=true;});
   $("lobby-status").textContent="산책방에 들어가는 중이에요.";
-  const id=token(),key=token(),avatar=initialAvatar(),view=initialView();
+  let ticket=null;
+  try{ticket=JSON.parse(sessionStorage.getItem("palace-coast-ticket"));}catch{}
+  const returning=ticket&&ticket.nickname===name&&(action==="open"?ticket.mode==="open":action==="join"&&ticket.code===code);
+  const id=returning?ticket.id:token(),key=returning?ticket.key:token(),avatar=initialAvatar(),view=initialView();
   Object.assign(avatar,readBag(name));lastBagSave="";
   const angle=parseInt(id.slice(0,8),16)/0x100000000*Math.PI*2;
   const offset=.38+parseInt(id.slice(8,12),16)/0x10000*.67;
@@ -1338,6 +1341,7 @@ async function enterRoom(action,code){
       Object.assign(avatar,{x,y,heading,up});
       view.pan=heading;
     }
+    if(returning){Object.assign(avatar,{x:1810,y:698.6,heading:0,up:false});view.pan=0;}
     const sent=performance.now();
     const response=await request("/api/rooms",{action,code,nickname:name,id,key,avatar,view}),data=await response.json();
     if(!active||navigation!==pageVersion){
@@ -1349,6 +1353,7 @@ async function enterRoom(action,code){
     setBusYields(data.busYields);
     updateClock(data.serverTime,sent,performance.now());
     session={room:data.room,code:data.code,mode:data.mode??"private",id,key,...data.profile};
+    sessionStorage.removeItem("palace-coast-ticket");
     world?.setVisitorRoom(session.room);
     environment.liveWeather=data.weather??null;passport.setRoom(session.room);
     Object.assign(me,avatar,{nickname:session.nickname,coat:session.coat});
@@ -1466,7 +1471,7 @@ $("model-credits").addEventListener("click",()=>$("credits-dialog").showModal())
 window.addEventListener("pagehide",()=>{
   saveBag();
   rememberWalkPosition();
-  active=false;pageVersion++;clearSyncTimer();sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);leaveBeacon();
+  active=false;pageVersion++;clearSyncTimer();sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);if(!departingForPohang)leaveBeacon();
 });
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden){beginBackgroundTrip();rememberWalkPosition();clearManualInput();exitPress=null;sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);}
@@ -2559,6 +2564,15 @@ function movePlayerTo(destination,place){
   ownView={...ownView,pan:heading,tilt:destination.tilt??0};
   $("location").textContent=place;dirty=true;wakeSync();
 }
+let departingForPohang=false;
+$("pohang-trip").addEventListener("click",()=>{
+  if(!session||departingForPohang||interiorAt(me.x,me.y)!=="ktx-coach")return;
+  saveBag();rememberWalkPosition();
+  const ticket={...session,look:me.look,character:me.character,plushHead:me.plushHead,plushBack:me.plushBack};
+  sessionStorage.setItem("palace-coast-ticket",JSON.stringify(ticket));
+  sessionStorage.removeItem("palace-coast-position");
+  departingForPohang=true;location.assign(new URL("pohang.html",location.href));
+});
 const venueDoorButton=$("museum-door");
 function nearbyArcadeStairs(){
   if(arcade.kind)return null;
@@ -3099,6 +3113,7 @@ function updateActivities(time,guideNearby){
   setActivity("subway",stop?"지하철 타기":null,riding||feeding||Boolean(myLink()?.active));
   const portal=eligible&&portalNearby();
   const entrance=portal?.venue===ARCADE_SITE?"오락실 입장":[mmcaVenue,semaVenue].includes(portal?.venue)?"미술관 입장":diningById[portal?.venue?.id]?"식당 입장":"입장하기";
+  setActivity("pohang-trip",interiorAt(me.x,me.y)==="ktx-coach"?"포항행 KTX 출발":null);
   setActivity("museum-door",portal?(portal.label??(portal.inside?portal.venue.exitLabel??"나가기":portal.venue.enterLabel??entrance)):null,feeding||(!portal?.inside&&Boolean(myLink()?.active)));
   setActivity("venue-guestbook",eligible&&guestbookVenue()?"방명록":null);
   updateDiningControls(eligible,busy,time);
@@ -3269,6 +3284,7 @@ function actors(now,stepping){
 }
 let lastFrame=performance.now(),interfaceAt=0,guideNearby=false;
 function preferredNearbyAction(time){
+  if(!$("pohang-trip").hidden)return "pohang-trip";
   if(me.bus||queuedBus)return "bus-action";
   // Keep shoreline interactions within reach while the avatar is seated.
   if(!$("boat-catch").hidden)return "boat-catch";
