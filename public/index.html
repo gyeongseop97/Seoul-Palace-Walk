@@ -12,10 +12,17 @@
   <script>
     try {
       const ticket = JSON.parse(sessionStorage.getItem("palace-coast-ticket"));
+      const pohang = new URLSearchParams(location.search).get("region") === "pohang";
       if (ticket?.room && ticket.id && ticket.key && ticket.nickname) {
-        const pohang = new URLSearchParams(location.search).get("region") === "pohang";
         if (pohang && ticket.region === "boarding") document.documentElement.dataset.ktxTransfer = "pohang";
         if (!pohang && ticket.region === "returning") document.documentElement.dataset.ktxTransfer = "seoul";
+      }
+      if (pohang && !document.documentElement.dataset.ktxTransfer) {
+        const entry = JSON.parse(sessionStorage.getItem("palace-map-entry"));
+        const nickname = localStorage.getItem("jeongdong-nickname");
+        if (nickname && (entry?.name === nickname || (ticket?.region === "pohang" && ticket.nickname === nickname))) {
+          document.documentElement.dataset.ktxTransfer = "resume";
+        }
       }
     } catch {}
   </script>
@@ -30,7 +37,8 @@
       font: 650 clamp(1.25rem, 4vw, 1.75rem)/1.45 "Segoe UI", "Malgun Gothic", sans-serif;
     }
     html[data-ktx-transfer="pohang"] #ktx-transfer-loading .ktx-to-pohang,
-    html[data-ktx-transfer="seoul"] #ktx-transfer-loading .ktx-to-seoul { display: inline; }
+    html[data-ktx-transfer="seoul"] #ktx-transfer-loading .ktx-to-seoul,
+    html[data-ktx-transfer="resume"] #ktx-transfer-loading .coast-resume { display: inline; }
     .ktx-loading-track { display: block; width: 8rem; height: 3px; border-radius: 2px; overflow: hidden; background: #42594b; }
     .ktx-loading-track::before { content: ""; display: block; width: 38%; height: 100%; background: #e2c283; animation: ktx-progress 1.45s ease-in-out infinite alternate; }
     @keyframes ktx-progress { to { transform: translateX(163%); } }
@@ -52,7 +60,7 @@
 </head>
 <body>
   <div id="ktx-transfer-loading" role="status" aria-live="polite" aria-atomic="true">
-    <span class="ktx-to-pohang">포항역으로 이동 중</span><span class="ktx-to-seoul">서울역으로 이동 중</span>
+    <span class="ktx-to-pohang">포항역으로 이동 중</span><span class="ktx-to-seoul">서울역으로 이동 중</span><span class="coast-resume">포항 산책을 이어가는 중</span>
     <i class="ktx-loading-track" aria-hidden="true"></i>
   </div>
   <main id="entry-flow" class="entry-flow" aria-label="산책 시작">
@@ -91,6 +99,7 @@
           <p id="server-profile" hidden></p>
         </div>
         <div class="entry-server-options" role="group" aria-label="산책방 입장 방법">
+          <button id="resume-coast" class="entry-server-option" type="button" hidden>포항에서 이어하기</button>
           <button id="open-server" class="entry-server-option entry-server-open" type="button">
             <span class="entry-server-icon" aria-hidden="true">◎</span>
             <span class="entry-server-text"><strong>오픈서버</strong><small>누구나 들어올 수 있는 공용 방</small></span>

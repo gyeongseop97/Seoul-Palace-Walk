@@ -1059,7 +1059,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   function govern(now){
     const elapsed=now-(governedAt||now);
     governedAt=now;
-    if(quality.pinned||document.hidden||elapsed<=0||elapsed>(coast?2000:250))return;
+    if(quality.pinned||(coast&&quality.mode==="high")||document.hidden||elapsed<=0||elapsed>(coast?2000:250))return;
     quality.frame+=(Math.min(elapsed,160)-quality.frame)*.06;
     if(now<quality.checkAt)return;
     quality.checkAt=now+1300;
@@ -1407,11 +1407,12 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const eyeHeight=outsideBus?2.115+(coastBus?1.85:busGround(bus)):seat?(firstPerson?1.30:coachSeat?1.5:1.22)+(seat.base??0):
       (firstPerson?1.28:1.20)+floor+renderedJumpLift(anchor,clock,floor)+(isCycling(anchor)?.12:0)-fallWeight*.87;
     const cameraPoint=outsideBus&&bus?bus:seat??anchor;
-    anchorPoint.set(wx(cameraPoint.x),eyeHeight+(seaside?.watchLift()??0),wz(cameraPoint.y));
+    const watchLift=seaside?.watchLift()??0;
+    anchorPoint.set(wx(cameraPoint.x),eyeHeight+watchLift,wz(cameraPoint.y));
     if(tavernView)models.get(anchor.id)?.headJoint.localToWorld(anchorPoint.set(0,.266,.22));
     if(ridingScooterView){anchorPoint.x+=.08*Math.sin(angle);anchorPoint.z-=.08*Math.cos(angle);}
     if(surfing)anchorPoint.y-=(firstPerson?.87:.42)*(1-(anchor.coast.surf?.rise??0));
-    if(shipOrbit)anchorPoint.set(coast.play.ship.x,5.1,coast.play.ship.z);
+    if(shipOrbit)anchorPoint.set(coast.play.ship.x,5.1+watchLift,coast.play.ship.z);
     const anchorKey=bus?`${anchor.id}-${bus.index}-${firstPerson}`:anchor.bikeRide?.driver??anchor.id;
     const changed=cameraAnchor!==anchorKey||pivot.distanceToSquared(anchorPoint)>144;
     if(changed||bodyView||anchor.coast?.mode==="deck"||firstPerson&&(bus||isBikePassenger(anchor)))pivot.copy(anchorPoint);
@@ -1455,7 +1456,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       for(let sample=1,count=Math.ceil(distance/.20);sample<=count;sample++){
         const step=distance*sample/count;
         const point={x:pivot.x+origin.x+arm.x*step,y:pivot.z+origin.y+arm.z*step};
-        const terrain=indoors?cultureHeight(point.x,point.y)??railHeight(point.x,point.y)??0:outsideGroundOffset(point)+Math.min(0,approachAt(point.x,point.y)?.height??0);
+        const terrain=seaside?0:indoors?cultureHeight(point.x,point.y)??railHeight(point.x,point.y)??0:outsideGroundOffset(point)+Math.min(0,approachAt(point.x,point.y)?.height??0);
         const y=pivot.y+arm.y*step;
         const roof=lowerStream?cheonggyeCameraCeiling(point.x,point.y):null;
         const roofCollision=roof!=null&&pivot.y<terrain+roof+.05&&y>terrain+roof-.20;

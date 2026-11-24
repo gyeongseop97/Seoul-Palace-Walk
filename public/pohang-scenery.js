@@ -42,15 +42,30 @@ function street(parent,a,b,w,h,y,color){
  const len=Math.hypot(a.x-b.x,a.z-b.z),m=box(parent,color,(a.x+b.x)/2,y,(a.z+b.z)/2,w,h,len+.06);m.rotation.y=Math.atan2(b.x-a.x,b.z-a.z);return m;
 }
 function consolidate(root){
- root.updateMatrixWorld(true);const groups=new Map(),items=[];
- root.traverse(o=>{if(!o.isMesh||o.isInstancedMesh||o.material.map||o.geometry.type==="BufferGeometry")return;
- const k=o.geometry.uuid+o.material.uuid;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(o);});
+ root.updateMatrixWorld(true);
+ const groups=new Map(),palette=new Set(mats.values()),white=mat(0xffffff);
+ root.traverse(o=>{
+  if(!o.isMesh||o.isInstancedMesh||o.material.map||o.geometry.type==="BufferGeometry")return;
+  // The scenery palette only varies in color. Keep the exact tint per part, and
+  // let the frustum discard whole blocks of buildings, railings and lamps.
+  const world=o.matrixWorld.elements;
+  const finish=palette.has(o.material)?Math.floor(world[12]/180)+","+Math.floor(world[14]/180):o.material.uuid;
+  const key=o.geometry.uuid+"/"+finish+"/"+o.renderOrder+"/"+o.castShadow+"/"+o.receiveShadow;
+  if(!groups.has(key))groups.set(key,[]);
+  groups.get(key).push(o);
+ });
  for(const meshes of groups.values()){
   if(meshes.length<3)continue;
-  const batch=new T.InstancedMesh(meshes[0].geometry,meshes[0].material,meshes.length);
-  meshes.forEach((o,i)=>{batch.setMatrixAt(i,o.matrixWorld);items.push(o);});root.add(batch);
+  const first=meshes[0],tinted=palette.has(first.material);
+  const batch=new T.InstancedMesh(first.geometry,tinted?white:first.material,meshes.length);
+  batch.renderOrder=first.renderOrder;batch.castShadow=first.castShadow;batch.receiveShadow=first.receiveShadow;
+  meshes.forEach((o,i)=>{
+   batch.setMatrixAt(i,o.matrixWorld);
+   if(tinted)batch.setColorAt(i,o.material.color);
+   o.removeFromParent();
+  });
+  root.add(batch);
  }
- for(const m of items)m.removeFromParent();
 }
 function facades(root){
  const chunks=new Map();

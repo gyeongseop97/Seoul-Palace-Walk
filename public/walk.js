@@ -90,12 +90,13 @@ import {bindWalkBag} from "./walk-bag-client.js";
 import {BIKE_FALL_DURATION_MS,GESTURE_DURATIONS,SICK_DURATION_MS,alcoholGait,bikeFallChance,finishAlcoholSip,staggeredStep} from "./avatar-gestures.js";
 
 import {inCoastSpace,coastOrigin,seaPoint} from "./region-coordinates.js";
+import {rememberRegion,savedInPohang,lastCoastRoom} from "./walk-resume.js";
 let travelTicket=null;
 try{travelTicket=JSON.parse(sessionStorage.getItem("palace-coast-ticket"));}catch{}
-const onCoast=Boolean(travelTicket?.room&&new URL(location.href).searchParams.get("region")==="pohang");
+const onCoast=new URL(location.href).searchParams.get("region")==="pohang";
 const arrivalRegion=travelTicket?.room&&travelTicket.id&&travelTicket.key&&travelTicket.nickname&&
   travelTicket.region===(onCoast?"boarding":"returning")?(onCoast?"pohang":"seoul"):null;
-let awaitingMapFrame=false,leavingByKtx=false;
+let awaitingMapFrame=false,leavingByKtx=false,waitForShipUntil=0;
 const region=onCoast?await import("./coast-region.js"):null;
 const coastModule=onCoast?await import("./coast-play.js"):null;
 region?.registerCoast();
@@ -1283,11 +1284,14 @@ function walkPositionHeight(point){
   return walkable(point.x,point.y,height)?height:null;
 }
 function rememberWalkPosition(){
-  if(!session||!world||coastPlay?.atSea()||riding||me.bus||isCycling(me)||me.seat!=null||
+  if(!session||!world||riding||me.bus||isCycling(me)||me.seat!=null||
     (me.jump&&gameTime()-me.jump<jumpDuration(me)))return;
-  const {x,y,heading}=me,up=Boolean(me.up),height=walkPositionHeight(me);
+  const deck=coastPlay?.deckCheckpoint();
+  if(!deck&&coastPlay?.atSea())return;
+  const {x,y,heading}=me,up=Boolean(me.up),height=deck?0:walkPositionHeight(me);
   if(height===null)return;
-  const record=JSON.stringify({x,y,heading,up,height,layout:4,...(ktxTrack?{ktxTrack}:{})});
+  const record=JSON.stringify({x,y,heading,up,height,layout:4,...(ktxTrack?{ktxTrack}:{}),
+    ...(deck?{deck}:onCoast?{track:me.coast?.track,cafeFloor:me.coast?.cafeFloor}:{})});
   if(record===lastWalkPosition)return;
   try{
     localStorage.setItem(walkPositionKey(session.nickname,session.code),record);
@@ -1312,6 +1316,7 @@ function showServers(showCode=false){
   const summary=$("server-profile");
   summary.textContent=nickname.value.trim()+" · "+(me.character==="woman"?"여자":"남자");
   summary.hidden=false;
+  $("resume-coast").hidden=!lastCoastRoom(localStorage,nickname.value.trim(),true,suppliedCode);
   $("server-title").focus({preventScroll:true});
   toggleInviteForm(showCode);
 }
@@ -1356,6 +1361,7 @@ function returnToLobby(message=""){
   $("lobby-status").textContent=message;
   sessionStorage.removeItem("jeongdong-room-mode");
   sessionStorage.removeItem("jeongdong-room-code");
+  sessionStorage.setItem("palace-show-lobby","1");
   if(old)joinCode.value=old.code??"";
   history.replaceState(null,"",location.pathname+location.search);
   document.querySelectorAll("dialog[open]").forEach(dialog=>dialog.close());
@@ -1375,6 +1381,17 @@ async function enterRoom(action,code){
   try{ticket=JSON.parse(sessionStorage.getItem("palace-coast-ticket"));}catch{}
   const returning=ticket&&ticket.nickname===name&&(action==="open"?ticket.mode==="open":action==="join"&&ticket.code===code);
   const transferring=Boolean(arrivalRegion&&returning&&ticket.region===(onCoast?"boarding":"returning"));
+  const resumeCoast=action!=="create"&&!transferring&&
+    (returning&&ticket.region==="pohang"||savedInPohang(localStorage,name,code));
+  if(!transferring&&Boolean(resumeCoast)!==onCoast){
+    sessionStorage.setItem("palace-map-entry",JSON.stringify({name,action,code}));
+    if(!returning)sessionStorage.removeItem("palace-coast-ticket");
+    const url=new URL(location.href);
+    if(resumeCoast){url.searchParams.set("region","pohang");document.documentElement.dataset.ktxTransfer="resume";}
+    else url.searchParams.delete("region");
+    url.hash=code?"code="+code:"";location.replace(url);return;
+  }
+  if(resumeCoast)document.documentElement.dataset.ktxTransfer="resume";
   if(transferring)document.documentElement.dataset.ktxTransfer=arrivalRegion;
   const id=returning?ticket.id:token(),key=returning?ticket.key:token(),avatar=initialAvatar(),view=initialView();
   Object.assign(avatar,readBag(name));lastBagSave="";
@@ -1387,20 +1404,25 @@ async function enterRoom(action,code){
     // Complete collision registration before announcing a restored position to the room.
     if(saved&&!world)await loadWorld();
     if(!active||navigation!==pageVersion)return;
-    const height=saved&&world?walkPositionHeight(saved):null;
+    const deck=resumeCoast&&saved&&inCoastSpace(saved)?coastModule.restoredDeckSpot(saved.deck):null;
+    const height=deck?0:saved&&world&&inCoastSpace(saved)===onCoast?walkPositionHeight(saved):null;
     const resumed=height!==null&&Math.abs(height-saved.height)<.05;
     if(resumed){
       const {x,y,heading,up}=saved;
       Object.assign(avatar,{x,y,heading,up});
       view.pan=heading;
     }
-    if(returning){
-      if(ticket.avatar&&!(onCoast&&ticket.region==="pohang"))for(const field of ["character","look","blushLevel","blushUntil","alcoholGlasses","sickAt","umbrella","umbrellaReady","item","secondItem"])
+    if(returning||onCoast){
+      if(returning&&ticket.avatar&&!(onCoast&&ticket.region==="pohang"))for(const field of ["character","look","blushLevel","blushUntil","alcoholGlasses","sickAt","umbrella","umbrellaReady","item","secondItem"])
         if(Object.hasOwn(ticket.avatar,field))avatar[field]=ticket.avatar[field];
-      if(ticket.view)Object.assign(view,ticket.view);
-      const destination=onCoast?(ticket.region==="pohang"&&resumed?saved:region.platformArrival):ktxCoach.insideSpawn;
+      if(returning&&ticket.view)Object.assign(view,ticket.view);
+      const destination=onCoast?(resumeCoast&&resumed?saved:region.platformArrival):ktxCoach.insideSpawn;
       Object.assign(avatar,{x:destination.x,y:destination.y,heading:destination.heading,up:false});view.pan=destination.heading;
-      if(onCoast)avatar.coast={mode:"walk",board:false};
+      if(onCoast){
+        avatar.coast={mode:"walk",board:false};
+        if(deck&&resumed)Object.assign(avatar.coast,{mode:"deck",deckX:deck.x,deckZ:deck.z,floor:deck.h});
+        for(const field of ["track","cafeFloor"])if(Number.isFinite(destination[field]))avatar.coast[field]=destination[field];
+      }
     }
     const sent=performance.now();
     const entry={action,code,nickname:name,id,key,avatar,view};
@@ -1418,7 +1440,10 @@ async function enterRoom(action,code){
       if(response.ok&&!transferring)leaveBeacon({room:data.room,id,key});
       return;
     }
-    if(!response.ok)throw Error(data.error);
+    if(!response.ok){
+      if(resumeCoast&&response.status===404)rememberRegion(localStorage,name,code,false);
+      throw Error(data.error);
+    }
     clockOffset=null;roundTrip=65;
     setBusYields(data.busYields);
     updateClock(data.serverTime,sent,performance.now());
@@ -1428,8 +1453,11 @@ async function enterRoom(action,code){
       setPresence(data.walkers.length+"명 접속 중",data.walkers.length);
     }else session={room:data.room,code:data.code,mode:data.mode??"private",id,key,...data.profile};
     ktxTrack=(returning?ticket.ktxTrack:resumed?saved.ktxTrack:null)??null;
-    awaitingMapFrame=transferring;
-    if(!transferring)storeArrivedTicket(ticket);
+    awaitingMapFrame=transferring||Boolean(resumeCoast);
+    waitForShipUntil=deck&&resumed?performance.now()+5000:0;
+    rememberRegion(localStorage,session.nickname,session.code,onCoast);
+    sessionStorage.removeItem("palace-show-lobby");
+    if(!awaitingMapFrame)storeArrivedTicket();
     world?.setVisitorRoom(session.room);
     environment.liveWeather=data.weather??null;passport.setRoom(session.room);
     Object.assign(me,avatar,{nickname:session.nickname,coat:session.coat});
@@ -1456,14 +1484,14 @@ async function enterRoom(action,code){
     if(action==="create")openInvite();
     scheduleSync(0);
   }catch(error){
-    if(transferring){delete document.documentElement.dataset.ktxTransfer;showServers();}
+    if(transferring||resumeCoast){delete document.documentElement.dataset.ktxTransfer;showServers();}
     $("lobby-status").textContent=error.message==="Failed to fetch"?"연결을 확인한 뒤 다시 시도해 주세요.":error.message;
   }finally{
     joining=false;serverButtons.forEach(button=>{button.disabled=false;});
   }
 }
-function storeArrivedTicket(ticket){
-  if(onCoast)sessionStorage.setItem("palace-coast-ticket",JSON.stringify({...ticket,region:"pohang"}));
+function storeArrivedTicket(){
+  if(onCoast)sessionStorage.setItem("palace-coast-ticket",JSON.stringify({...session,ktxTrack,region:"pohang"}));
   else sessionStorage.removeItem("palace-coast-ticket");
 }
 $("profile-form").addEventListener("submit",event=>{
@@ -1479,6 +1507,10 @@ $("profile-form").addEventListener("submit",event=>{
   showServers(Boolean(joinCode.value));
 });
 $("open-server").addEventListener("click",()=>enterRoom("open"));
+$("resume-coast").addEventListener("click",()=>{
+  const name=nickname.value.trim(),room=lastCoastRoom(localStorage,name,true,suppliedCode);
+  if(room){rememberRegion(localStorage,name,room.code,true);enterRoom(room.code?"join":"open",room.code);}
+});
 $("create-room").addEventListener("click",()=>enterRoom("create"));
 $("server-back").addEventListener("click",showProfile);
 $("invite-toggle").addEventListener("click",()=>toggleInviteForm($("invite-form").hidden));
@@ -3675,9 +3707,9 @@ function frame(now){
   if(studioMonitor?.active)studioMonitor.render(lastScene,now);
   else{
     const drawn=world?.render(lastScene,now);
-    if(awaitingMapFrame&&(drawn||worldFailed)){
+    if(awaitingMapFrame&&(worldFailed||drawn&&(now>=waitForShipUntil||coastPlay?.harborReady))){
       awaitingMapFrame=false;
-      storeArrivedTicket(travelTicket);
+      storeArrivedTicket();
       delete document.documentElement.dataset.ktxTransfer;focusGame();
     }
   }
@@ -4390,12 +4422,20 @@ const stampPins=new Map((onCoast?[]:passportStamps).map(stamp=>{
 }));
 const savedCode=sessionStorage.getItem("jeongdong-room-code");
 const savedOpen=sessionStorage.getItem("jeongdong-room-mode")==="open";
+let mapEntry=null;
+try{mapEntry=JSON.parse(sessionStorage.getItem("palace-map-entry"));}catch{}
+sessionStorage.removeItem("palace-map-entry");
+const lastRoom=lastCoastRoom(localStorage,nickname.value.trim());
 if(arrivalRegion){
   nickname.value=travelTicket.nickname;
   enterRoom(travelTicket.mode==="open"?"open":"join",travelTicket.code);
+}else if(mapEntry&&["create","open","join"].includes(mapEntry.action)&&mapEntry.name===nickname.value.trim()&&(!suppliedCode||suppliedCode===mapEntry.code)){
+  enterRoom(mapEntry.action,mapEntry.code);
 }else if(nickname.value&&(savedCode&&(!suppliedCode||suppliedCode===savedCode)||savedOpen&&!suppliedCode)){
   showServers();enterRoom(savedOpen&&!suppliedCode?"open":"join",savedCode);
-}
+}else if(lastRoom&&!sessionStorage.getItem("palace-show-lobby")&&(!suppliedCode||suppliedCode===lastRoom.code)){
+  enterRoom(lastRoom.code?"join":"open",lastRoom.code);
+}else if(document.documentElement.dataset.ktxTransfer==="resume")delete document.documentElement.dataset.ktxTransfer;
 function loadWorld(){
   if(world||worldLoading)return worldLoading;
   worldLoading=Promise.all([import("./world3d.js"),onCoast?import("./coast-scene.js"):null]).then(([{makeWorld},stage])=>{

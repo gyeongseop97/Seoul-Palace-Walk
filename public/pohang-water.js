@@ -46,10 +46,12 @@ export function ocean(scene){
  if(reducedDetail)return .70*noise2(p*.68+vec2(uTime*.34,0.))+.30*noise2(p*.19-vec2(0.,uTime*.19));
  float limit=1.-smoothstep(38.,320.,length(cameraPosition.xz-w.xz));
  vec2 warp=vec2(noise2(p*.069+uTime*.045),noise2(p*.087-uTime*.036))*2.3;
- return .63*noise2(p*.65+warp+vec2(uTime*.38,0.))+.24*noise2(p*1.82-warp+vec2(0.,uTime*.55))+limit*.13*noise2(p*4.1+warp*2.);}
+ float ripple=.63*noise2(p*.65+warp+vec2(uTime*.38,0.))+.24*noise2(p*1.82-warp+vec2(0.,uTime*.55));
+ if(limit>0.)ripple+=limit*.13*noise2(p*4.1+warp*2.);
+ return ripple;}
  float shoreline(vec2 p,float r){return depth+2.9*sin(uTime*.89+p.y*.038+2.*noise2(p*.026))+.82*r;}
  `;
- const material=new T.ShaderMaterial({uniforms,transparent:true,depthWrite:false,side:T.DoubleSide,forceSinglePass:true,vertexShader,fragmentShader:`
+ const material=new T.ShaderMaterial({uniforms,transparent:true,depthWrite:false,depthFunc:T.EqualDepth,side:T.DoubleSide,forceSinglePass:true,vertexShader,fragmentShader:`
  varying vec3 w,breaker; varying float depth,seaScale; uniform float uTime,night,glow,speed,turn,storm;
  uniform vec3 burst[3],wake; uniform vec2 lightSite[3];
  ${waterNoise}
@@ -66,26 +68,45 @@ export function ocean(scene){
  vec2 slopes=abs(area)>.000001?clamp(.22*vec2(df.x*dy.y-df.y*dx.y,dx.x*df.y-dy.x*df.x)/area,-.35,.35):vec2(0.);
  vec3 normal=normalize(geometric+vec3(slopes.x*.51,0.,slopes.y*.51));
  vec3 eye=normalize(cameraPosition-w);float fres=pow(1.-max(dot(eye,normal),0.),3.);
- float sand=noise2(p*.45+vec2(r*1.3,.2))* .12;
+ float sand=depth<21.?noise2(p*.45+vec2(r*1.3,.2))*.12:0.;
  vec3 base=mix(vec3(.16+sand,.36+sand,.30+sand),mix(vec3(.016,.185,.214),vec3(.012,.095,.165),smoothstep(16.,150.,depth)),smoothstep(0.,21.,depth));
  vec3 reflected=reflect(-eye,normal);vec3 skyColor=mix(vec3(.52,.67,.76),vec3(.14,.38,.56),clamp(reflected.y*1.6,0.,1.));
  base=mix(base,skyColor,.12+fres*.84);
- vec2 dir=vec2(sin(wake.z),cos(wake.z)),across=vec2(dir.y,-dir.x),dp=p-wake.xy;
- vec2 hullP=vec2(dot(dp,across)/6.89,dot(dp,dir)/24.57);
- vec2 rr=reflect(-eye,normal).xz;vec2 rp=dp+rr*(3.7/max(.14,abs(reflected.y)));
- float hullMirror=1.-smoothstep(.82,1.14,length(vec2(dot(rp,across)/4.95,dot(rp,dir)/16.7)));
- base=mix(base,vec3(.026,.081,.099),hullMirror*(.38+.26*fres));
- base*=.76+.24*smoothstep(.8,1.37,length(hullP));
+ vec2 dp=p-wake.xy;
+ float wakeLine=0.;
+ // Beyond 50 m the hull shadow, displaced reflection and foam all have zero influence.
+ if(dot(dp,dp)<2500.){
+  vec2 dir=vec2(sin(wake.z),cos(wake.z)),across=vec2(dir.y,-dir.x);
+  float lateral=dot(dp,across),along=dot(dp,dir);
+  vec2 hullP=vec2(lateral/6.89,along/24.57);
+  vec2 rp=dp+reflected.xz*(3.7/max(.14,abs(reflected.y)));
+  float hullMirror=1.-smoothstep(.82,1.14,length(vec2(dot(rp,across)/4.95,dot(rp,dir)/16.7)));
+  base=mix(base,vec3(.026,.081,.099),hullMirror*(.38+.26*fres));
+  base*=.76+.24*smoothstep(.8,1.37,length(hullP));
+  float fore=along*(speed<0.?-1.:1.);
+  float back=(speed<0.?22.8:26.)-fore;
+  if(abs(speed)>.001 && abs(lateral)<20. && back>-.8 && back<49.){
+   float shoulder=(speed<0.?4.35:.35)+min(1.,max(back,0.)/15.)*(speed<0.?2.:5.95);
+   float edge=abs(abs(lateral)-shoulder),chop=noise2(p*1.12+vec2(uTime*.41,-uTime*.25));
+   float bow=exp(-edge*(1.0-.28*abs(speed)))*smoothstep(-.8,1.2,back)*(1.-smoothstep(17.,29.,back));
+   float hullFoam=.38*exp(-abs(abs(lateral)-6.22)*1.6)*smoothstep(14.,23.,back)*(1.-smoothstep(40.,49.,back));
+   wakeLine=(bow+hullFoam)*abs(speed)*(.54+.59*chop)*(1.+.35*turn*sign(lateral));
+  }
+ }
  base=mix(base,mix(vec3(.003,.016,.027),vec3(.023,.05,.085),fres),night);
  float align=max(dot(reflect(-normalize(vec3(.56,.32,-.6)),normal),eye),0.);
  float spec=pow(align,180.)*1.8+pow(align,22.)*.13;
  base+=mix(vec3(1.,.85,.51),vec3(.48,.70,.89),night)*spec;
- float front=shoreline(p,r);
- if(front< -2.)discard;
- float lace=noise2(p*1.42+vec2(uTime*.6,-uTime*.25))*.6+noise2(p*.46+r*.3)*.4;
- float foam=(1.-smoothstep(.15,3.6,abs(front-.35)))*smoothstep(.23,.58,lace);
- foam+=.38*(1.-smoothstep(.2,1.25,abs(front-4.-r)))*smoothstep(.32,.62,lace);
- foam+=.14*smoothstep(.59,.82,w.y)*smoothstep(.62,.73,lace);
+ float foam=0.,lace=0.;
+ if(depth<13. || w.y>.59 || breaker.z>.005){
+  lace=noise2(p*1.42+vec2(uTime*.6,-uTime*.25))*.6+noise2(p*.46+r*.3)*.4;
+  if(depth<13.){
+   float front=shoreline(p,r);
+   foam=(1.-smoothstep(.15,3.6,abs(front-.35)))*smoothstep(.23,.58,lace);
+   foam+=.38*(1.-smoothstep(.2,1.25,abs(front-4.-r)))*smoothstep(.32,.62,lace);
+  }
+  foam+=.14*smoothstep(.59,.82,w.y)*smoothstep(.62,.73,lace);
+ }
  // A bright spilling lip throws off streaky foam down the shore-facing slope.
  if(breaker.z>.005){
   float streak=noise2(vec2(p.x*.68+uTime*.72,p.y*.15)+vec2(r*.2,0.));
@@ -103,15 +124,6 @@ export function ocean(scene){
    base+=burst[i]*streak*glints*smoothstep(4.,25.,length(toWater));
   }
  }
- float lateral=dot(dp,across),fore=dot(dp,dir)*(speed<0.?-1.:1.);
- float back=(speed<0.?22.8:26.)-fore;
- float shoulder=(speed<0.?4.35:.35)+min(1.,max(back,0.)/15.)*(speed<0.?2.:5.95);
- float wakeLine=0.;
- if(abs(speed)>.001 && abs(lateral)<20. && back>-.8 && back<49.){
- float edge=abs(abs(lateral)-shoulder),chop=noise2(p*1.12+vec2(uTime*.41,-uTime*.25));
- float bow=exp(-edge*(1.0-.28*abs(speed)))*smoothstep(-.8,1.2,back)*(1.-smoothstep(17.,29.,back));
- float hullFoam=.38*exp(-abs(abs(lateral)-6.22)*1.6)*smoothstep(14.,23.,back)*(1.-smoothstep(40.,49.,back));
- wakeLine=(bow+hullFoam)*abs(speed)*(.54+.59*chop)*(1.+.35*turn*sign(lateral));}
  base=mix(base,mix(vec3(.85,.97,.94),vec3(.39,.57,.65),night),clamp(foam+wakeLine,0.,.9));
  base=mix(base,base*vec3(.44,.56,.63)+vec3(.025,.033,.04),storm*.9);
  float offshore=smoothstep(1.,100.,depth);
@@ -120,10 +132,11 @@ export function ocean(scene){
  gl_FragColor=vec4(base,alpha);
  #include <colorspace_fragment>
  }`});
- // Opaque swimmers and the sand have rendered already. Keep the nearest wave for
- // the translucent colour pass; otherwise rear triangles show through its steep face.
- const depthMaterial=new T.ShaderMaterial({uniforms,transparent:true,colorWrite:false,depthWrite:true,
-  side:T.DoubleSide,forceSinglePass:true,vertexShader,fragmentShader:`
+ // Record the nearest wave over the sand and swimmers. EqualDepth lets the colour pass
+ // reuse that silhouette, including the moving shore edge, without discarding fragments again.
+ const depthOptions={uniforms,transparent:true,colorWrite:false,depthWrite:true,side:T.DoubleSide,forceSinglePass:true,vertexShader};
+ const offshoreDepth=new T.ShaderMaterial({...depthOptions,fragmentShader:"void main(){gl_FragColor=vec4(0.);}"});
+ const beachDepth=new T.ShaderMaterial({...depthOptions,fragmentShader:`
    varying vec3 w; varying float depth; uniform float uTime;
    ${waterNoise}
    void main(){if(depth<5. && shoreline(w.xz,(rip(w.xz)-.5)*5.)< -2.)discard;gl_FragColor=vec4(0.);}
@@ -134,7 +147,7 @@ export function ocean(scene){
   geometry.setIndex(g.index);geometry.setDrawRange(tile.start,tile.count);
   const center=new T.Vector3((tile.minX+tile.maxX)/2,0,(tile.minZ+tile.maxZ)/2);
   geometry.boundingSphere=new T.Sphere(center,Math.hypot(tile.maxX-center.x,6,tile.maxZ-center.z));
-  const depth=new T.Mesh(geometry,depthMaterial),water=new T.Mesh(geometry,material);
+  const depth=new T.Mesh(geometry,tile.minDepth<5?beachDepth:offshoreDepth),water=new T.Mesh(geometry,material);
   depth.renderOrder=-8;water.renderOrder=-7;scene.add(depth,water);
  }
  return uniforms;

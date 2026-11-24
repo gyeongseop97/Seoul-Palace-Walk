@@ -1,9 +1,9 @@
 import {tavernOps,tavernSchema} from "./coast-tavern.mjs";
-import {voyageSchema,deckSeatSchema,deckSeatLease,harborSnapshot,vesselSnapshot,appendVesselOps} from "./coast-voyages.mjs";
-import {mainDeckRail} from "../public/coast-vessel-layout.js";
+import {voyageSchema,deckSeatSchema,deckSeatLease,harborSnapshot,vesselSnapshot,appendVesselOps,passengerDeckPoint} from "./coast-voyages.mjs";
+import {bridge,cruiseBerth,mainDeckRail,mainDeckRailHalfWidth,mainFloor} from "../public/coast-vessel-layout.js";
 import {inCoastSpace,seaPoint} from "../public/region-coordinates.js";
 import {scooterSchema,scooterOps,rentalState} from "./coast-scooter-rentals.mjs";
-import {canStartFestival,festivalBooth} from "../public/pohang-festival-site.js";
+import {canStartFestival as atFestivalBooth,festivalBooth} from "../public/pohang-festival-site.js";
 import {tavernSeatReach,tavernSeatSpot} from "../public/coast-tavern-layout.js";
 import {busAt,busCount,stopById,distance,tables,dock,mooring,limits,festivalDuration} from "../public/pohang-layout.js";
 const reply=(data,status=200)=>Response.json(data,{status,headers:{"Cache-Control":"no-store"}});
@@ -21,6 +21,24 @@ function ensure(db){
 }
 const clampDeck=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 const modes=new Set(["scooter","walk","swim","surf","bus","table","deck"]);
+async function canLaunchFireworks(read,room,p,avatar,now){
+ if(!inCoastSpace(avatar))return false;
+ const position=seaPoint(avatar);
+ if(p.mode!=="deck")return atFestivalBooth(p)&&avatar.coast?.mode==="walk"&&
+  avatar.seat==null&&!avatar.groundSit&&distance(position,festivalBooth)<11;
+ if(!Number.isFinite(p.floor)||p.floor<mainFloor-.01||p.floor>bridge.floor+.01)return false;
+ const row=(await read(harborSnapshot,room).all()).results[0];
+ const ship=row?vesselSnapshot(row,now):{...mooring,yaw:0,speed:0};
+ if(avatar.coast?.mode!=="deck"){
+  // Boarding and the normal room position update may arrive in either order.
+  const landing=cruiseBerth(ship);
+  if(avatar.coast?.mode!=="walk"||!landing||distance(position,landing)>=11)return false;
+ }
+ const local=passengerDeckPoint(p,ship,now);
+ if(!local)return false;
+ const halfWidth=mainDeckRailHalfWidth(local.z);
+ return halfWidth>0&&Math.abs(local.x)<=halfWidth;
+}
 export async function coastRequest(db,{room,id,key,coast},now){
  if(!key||!coast||typeof coast!=="object")return reply({error:"승차 정보를 확인해 주세요."},400);
  const read=(sql,...args)=>db.prepare(sql).bind(...args);
@@ -67,8 +85,7 @@ export async function coastRequest(db,{room,id,key,coast},now){
  }
  if(cmd==="stand")ops.push(read("UPDATE coast_visitors SET seat=NULL WHERE room=? AND id=?",room,id));
  const tavern=tavernOps(ops,read,room,id,p,coast,now);
- if(cmd==="festival"&&canStartFestival(p)&&inCoastSpace(avatar)&&avatar.coast?.mode==="walk"&&
-    avatar.seat==null&&!avatar.groundSit&&distance(seaPoint(avatar),festivalBooth)<11){
+ if(cmd==="festival"&&await canLaunchFireworks(read,room,p,avatar,now)){
   ops.push(read("UPDATE coast_harbor SET festival=? WHERE room=? AND (festival=0 OR festival<=?)",
     now,room,now-festivalDuration*1000));
  }

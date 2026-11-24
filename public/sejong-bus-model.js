@@ -280,12 +280,15 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
   // offscreen models so a shorter headway doesn't build dozens of idle buses.
   const vehicles=Array.from({length:route?.count??BUS_COUNT},(_,i)=>route?.vehicle?null:model(i));
   const spares=new Map();
+  const distant=route?.createDistantFleet?.(T,busGroup,route);
   function update(time,anchor){
+    distant?.start();
     for(let index=0;index<vehicles.length;index++){
       const state=schedule(index,time);
       const distance=state&&anchor?Math.hypot(anchor.x-state.x,anchor.y-state.y):Infinity;
       let entry=vehicles[index];
-      if(distance>=145){
+      if(distance>=(distant&&entry?.bus.visible?175:145)){
+        if(distant&&state)distant.place(index,wx(state.x),height(state)+.015,wz(state.y),(180-state.heading)*Math.PI/180);
         if(entry?.bus.visible){
           entry.bus.visible=false;entry.previous=null;entry.steer(0,time,false);
           if(route?.vehicle){spares.get(entry.pool).push(entry);vehicles[index]=null;}
@@ -311,6 +314,7 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
       for(const {panel,offset} of doors)panel.position.z=3.49+offset*(1+open*1.57);
       entry.previous=state;
     }
+    distant?.finish();
   }
   return {update};
 }

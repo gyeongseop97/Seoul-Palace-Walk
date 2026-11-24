@@ -81,7 +81,8 @@ export function createCoastScene(root,play,walkers,kit){
   if(studioInRoom(studioViewer)){
    if(height<studioDoor.h+.08||height>studioDoor.h+2.73||!studioInRoom(p))return true;
   }else if(Math.abs(p.z-studioWall.z)<studioWall.half&&Math.abs(p.x-studioWall.x)<.24&&height<studioWall.height)return true;
-  if(!deckViewer)return coastObstacle(p,height);
+  // An upward-looking third-person camera can swing into the rising sand behind the walker.
+  if(!deckViewer)return (height<2.25&&height<ground(p)+.22)||coastObstacle(p,height);
   if(orbitShip)return false;
   const {deckX,deckZ,floor}=deckViewer;
   const bridgeRoom=floor>7.7&&deckZ>2.9&&Math.abs(deckX)<2.4;
@@ -126,7 +127,7 @@ export function createCoastScene(root,play,walkers,kit){
   updateActionMarker(state.photoCapture?null:state.coastMarker,camera);
   buses.update(lastClock,viewer);
   const players=[state.me,...state.peers];
-  updateScooters(players,p);
+  updateScooters(players);
   sky.sky.position.copy(camera.position);sky.uniforms.night.value=night;
   sky.uniforms.storm.value=water.storm.value=studioStorm(p);sky.uniforms.clock.value=t;
   lights(night,players,lastClock);parkLights(night);water.night.value=night;water.uTime.value=t;

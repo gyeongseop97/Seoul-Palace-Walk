@@ -9,6 +9,11 @@ import {deckHeight,deckToSea,seaToDeck,nearHelm,helmStation,boardingSpot,mainFlo
 import {studioDock,studioMooring,studioStep,studioInteraction} from "./coast-studio-layout.js";
 export {studioStorm} from "./coast-studio-layout.js";
 export {deckHeight} from "./coast-vessel-layout.js";
+export function restoredDeckSpot(p){
+ if(!p||![p.x,p.z,p.h].every(Number.isFinite))return null;
+ const h=deckHeight(p,p.h);
+ return h!=null&&Math.abs(h-p.h)<.12?{x:p.x,z:p.z,h}:null;
+}
 import {busSeatPose} from "./sejong-bus.js";
 import {inPark,parkStep,hillFloor} from "./space-walk-layout.js";
 import {pavilionStep,pavilionFloor} from "./pohang-pavilion-layout.js";
@@ -18,7 +23,7 @@ import {nearestTavernSeat} from "./coast-tavern-layout.js";
 import {readTavernSpeech,tavernReply} from "./tavern-speech.js";
 import {jumpLift} from "./activities.js";
 import {canCrossBeachEdge,harborStops,stopById,arrivalsAt,busLine,platformDoor,boardRack,dock,mooring,tables,seatSpot,distance,busAt,clamp,shore,inWater,showAge} from "./pohang-layout.js";
-import {canStartFestival,festivalBooth} from "./pohang-festival-site.js";
+import {canStartFestival as atFestivalBooth,festivalBooth} from "./pohang-festival-site.js";
 import {festivalFocus} from "./pohang-festival-score.js";
 import {newSurfRide,stepSurfRide} from "./coast-surfing.js";
 import {surfField,surfSample} from "./pohang-surf-waves.js";
@@ -38,6 +43,14 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
  const boat={...mooring,yaw:0,helm:null,festival:0},ship={...boat};
  const remoteVessel=createVesselTrack();
  let deckYaw=null,lastSailingTime=null;
+ let deckWatch=null;
+ function aimAtFireworks(p,eye){
+  const dx=festivalFocus.x-p.x,dz=festivalFocus.z-p.z;
+  const elevation=Math.atan2(festivalFocus.y-eye,Math.max(18,Math.hypot(dx,dz)))/radians;
+  const camera=view();
+  camera.pan=(Math.atan2(dx,-dz)/radians+360)%360;camera.tilt=-elevation-6;
+  if(deckWatch){deckWatch.pan=camera.pan;deckWatch.tilt=camera.tilt;}
+ }
  let ready=false,inFlight=null,nextPoll=0,disposed=false,speed=0,tableSeat=null,orders=[],grills=new Map();
  let busHeading=null,riders=[],deck=null,wasHelm=false,watchUntil=0,actions=new Map(),pending=[],lastError=0;
  let surfRide=null;
@@ -51,6 +64,7 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
  const gangwayOpen=()=>Boolean(berth());
  const canDisembark=()=>state().mode==="deck"&&!state().deckSeat&&!seatPending()&&gangwayOpen()&&nearCruiseExit(deck);
  const canStartTour=()=>state().mode==="deck"&&!state().deckSeat&&!seatPending()&&!boat.helm&&!touring()&&inWheelhouse(deck);
+ const canLaunchFireworks=p=>state().mode==="deck"||me.seat==null&&!me.groundSit&&atFestivalBooth({...p,mode:state().mode});
  function mark(){changed();}
  function relocate(p,heading){
   Object.assign(me,coastPoint(p),{vx:0,vy:0,blocked:false,running:false,up:false,groundSit:false});
@@ -170,6 +184,8 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
  function tick(dt,axis){
   const t=now(),s=state(),id=visit()?.id;if(!id)return;
   if(t>=nextPoll)void poll();
+  if(deckWatch&&(s.mode!=="deck"||axis[0]||axis[1]||Math.abs(view().pan-deckWatch.pan)>.01||
+     Math.abs(view().tilt-deckWatch.tilt)>.01||t>watchUntil&&showAge(t,boat.festival)<0))deckWatch=null;
   const helm=boat.helm===id&&s.mode==="deck";
   const followDt=lastSailingTime==null?dt:clamp((t-lastSailingTime)/1000,0,.5);
   lastSailingTime=t;
@@ -190,13 +206,15 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
    ship.speed=speed;
   }
   if(s.mode==="deck"){
+   deck??=restoredDeckSpot({x:s.deckX,z:s.deckZ,h:s.floor})??{...boardingSpot,h:mainFloor};
+   // Keep a returning passenger in place until we know where their ship is now.
+   if(!ready)return;
    if(helm){
     deck={...helmStation,h:7.85};
     const heading=(540-ship.yaw/radians)%360;
     if(!wasHelm){reset();Object.assign(view(),{pan:heading,tilt:0});}
     else view().pan=(view().pan+((heading-me.heading+540)%360)-180+360)%360;
    }
-   deck??={...boardingSpot,h:mainFloor};
    const seat=cruiseSeatById.get(s.deckSeat);
    if(seat){
     const heading=cruiseSeatHeading(ship,seat);
@@ -213,6 +231,7 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
    if(helm)me.heading=(540-ship.yaw/radians)%360;
    s.floor=deck.h??deckHeight(deck)??mainFloor;
    s.deckX=deck.x;s.deckZ=deck.z;
+   if(deckWatch)aimAtFireworks(next,s.floor);
   }else if(s.mode==="bus"){
    const pose=riderPose(s,t);
    if(busHeading!==null)view().pan=(view().pan+((pose.heading-busHeading+540)%360)-180+360)%360;
@@ -413,16 +432,14 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
    }
   }
   const age=showAge(t,boat.festival);
-  if(age<0?me.seat==null&&!me.groundSit&&canStartFestival({...p,mode:s.mode}):((nearbyBay||inPark(p))&&s.mode!=="bus")){
-   add("festival",age<0?"불빛축제 시작":"불꽃 바라보기",()=>{
+  if(age<0?canLaunchFireworks(p):sailing||(nearbyBay||inPark(p))&&s.mode!=="bus"){
+   add("festival",age<0?"불꽃놀이 시작":"불꽃 바라보기",()=>{
     const current=seaPoint(me);
-    if(age<0&&(me.seat!=null||me.groundSit||!canStartFestival({...current,mode:state().mode})))return;
-    const dx=festivalFocus.x-p.x,dz=festivalFocus.z-p.z;
-    const eye=s.track??(inPark(p)?hillFloor(p):s.floor??1.85);
-    const elevation=Math.atan2(festivalFocus.y-eye,Math.max(18,Math.hypot(dx,dz)))/radians;
-    Object.assign(view(),{pan:(Math.atan2(dx,-dz)/radians+360)%360,tilt:-elevation-6});
+    if(age<0&&!canLaunchFireworks(current))return;
+    deckWatch=state().mode==="deck"?{}:null;
+    aimAtFireworks(current,s.track??(inPark(current)?hillFloor(current):s.floor??1.85));
     watchUntil=t+4500;if(age<0)command("festival");
-   },age<0?festivalBooth:null);
+   },age<0&&!sailing?festivalBooth:null);
   }
   return {actions,hint};
  }
@@ -434,7 +451,10 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
   },
   locked:()=>["bus","table"].includes(state().mode)||state().mode==="deck"&&Boolean(boat.helm===visit()?.id||state().deckSeat||seatPending()),
   atSea:()=>["scooter","deck","bus","table"].includes(state().mode),
-  watchLift:()=>now()<watchUntil&&distance(seaPoint(me),dock)<11?8.2:0,
+  deckCheckpoint:()=>state().mode==="deck"?(restoredDeckSpot(deck)??{...boardingSpot,h:mainFloor}):null,
+  get harborReady(){return ready;},
+  watchLift:()=>deckWatch?Math.max(0,11.6-(state().floor??mainFloor)):
+    state().mode!=="deck"&&now()<watchUntil&&distance(seaPoint(me),dock)<11?8.2:0,
   async leaveStation(){
     const v=visit();if(!v)return;
     await inFlight;

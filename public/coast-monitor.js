@@ -21,7 +21,7 @@ export function makeStudioMonitor({world,ship,onClose}){
   <select aria-label="카메라 위치"></select><output aria-label="카메라 고도"></output>
   <button type="button" data-close>관제 종료</button></header>
   <div class="studio-controls"><div class="studio-pad" aria-label="카메라 이동"></div>
-  <span>드래그로 둘러보기 · 방향키로 이동 · 휠로 높이 조절</span><div class="studio-alt"></div></div>
+  <span>드래그로 시선 조절 · 방향키로 비행</span><div class="studio-alt"></div></div>
   <div class="studio-status" role="status" hidden></div>`;
  document.body.append(dialog);
  const host=dialog.querySelector(".studio-feed"),select=dialog.querySelector("select"),status=dialog.querySelector(".studio-status"),alt=dialog.querySelector("output");
@@ -71,18 +71,19 @@ export function makeStudioMonitor({world,ship,onClose}){
  host.onpointerdown=e=>{if(e.button!==0)return;host.focus();host.setPointerCapture(e.pointerId);drags.set(e.pointerId,[e.clientX,e.clientY]);};
  host.onpointermove=e=>{
   const p=drags.get(e.pointerId);if(!p)return;
-  camera.pan=(camera.pan+(e.clientX-p[0])*.29+360)%360;camera.tilt=clamp(camera.tilt+(e.clientY-p[1])*.24,4,87);
+  camera.pan=(camera.pan+(e.clientX-p[0])*.29+360)%360;camera.tilt=clamp(camera.tilt+(e.clientY-p[1])*.24,-87,87);
   drags.set(e.pointerId,[e.clientX,e.clientY]);
  };
  host.onlostpointercapture=e=>drags.delete(e.pointerId);
- host.addEventListener("wheel",e=>{e.preventDefault();camera.height=clamp(camera.height*Math.exp(clamp(e.deltaY,-180,180)*.0025),5,420);},{passive:false});
  function fly(dt,held){
   const forward=Number(held.has("forward"))-Number(held.has("back")),side=Number(held.has("right"))-Number(held.has("left"));
   const r=camera.pan*Math.PI/180,bounds=region==="seoul"?worldExtent:coastBounds;
   const step=dt*(9+camera.height*.82)*(fast?2:1)/Math.max(1,Math.hypot(forward,side));
-  camera.x=clamp(camera.x+step*(forward*Math.sin(r)+side*Math.cos(r)),bounds.minX,bounds.maxX);
-  camera.y=clamp(camera.y+step*(-forward*Math.cos(r)+side*Math.sin(r)),bounds.minY,bounds.maxY);
-  camera.height=clamp(camera.height+(Number(held.has("rise"))-Number(held.has("lower")))*dt*(8+camera.height*.60),5,420);
+  const pitch=camera.tilt*Math.PI/180,level=forward*Math.cos(pitch);
+  camera.x=clamp(camera.x+step*(level*Math.sin(r)+side*Math.cos(r)),bounds.minX,bounds.maxX);
+  camera.y=clamp(camera.y+step*(-level*Math.cos(r)+side*Math.sin(r)),bounds.minY,bounds.maxY);
+  const lift=(Number(held.has("rise"))-Number(held.has("lower")))*dt*(8+camera.height*.60);
+  camera.height=clamp(camera.height-step*forward*Math.sin(pitch)+lift,5,420);
  }
  return {get active(){return dialog.open;},open(){
   if(dialog.open)return;

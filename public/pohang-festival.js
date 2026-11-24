@@ -54,10 +54,10 @@ function makeSection(section, scene, pointMat, trailMat) {
         for (const offset of [Math.min(life*.84,tail*2.5+.13), 0]) {vertex(lines,...args);lines.tail.push(offset);}
       }
     };
-    const startHeight = e.shape === "fan" ? .75 : 1.2;
     // One travelling ember and its fading wake follow the full ascent.
-    const launchSpeed=(e.height-startHeight)*.33/(1-Math.exp(-.33*rise));
-    emit(0,startHeight-e.height,-e.lean*2.5,0,launchSpeed,e.lean*2.5/rise,
+    const flightHeight=(e.y-.3)/e.size;
+    const launchSpeed=flightHeight*.33/(1-Math.exp(-.33*rise));
+    emit(0,-flightHeight,-e.lean*2.5,0,launchSpeed,e.lean*2.5/rise,
       -rise,rise,0,2.1,2,.32);
     drawCue(e,emit);
   }

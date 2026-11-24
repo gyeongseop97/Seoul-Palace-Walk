@@ -15,15 +15,14 @@ export function vesselSnapshot(row,now){
  const sample=voyage?voyageAt(voyage,now):{speed:boat.helm?speed??0:0};
  return {...boat,...sample,voyage,sampleAt:boat.helm&&kind==="manual"?started:boat.updated};
 }
-function canTakeSeat(seat,p,boat,now){
- if(!Number.isFinite(p.floor))return false;
+export function passengerDeckPoint(p,boat,now){
+ if(!Number.isFinite(p.floor))return null;
  const local=Number.isFinite(p.deckX)&&Number.isFinite(p.deckZ)?{x:p.deckX,z:p.deckZ}:seaToDeck(boat,p,now,p.floor);
- if(!cruiseSeatInReach(seat,local.x,local.z,p.floor)||deckHeight(local,p.floor)!==seat.floor)return false;
  // A passenger renders a moving hull between harbor updates. Check their reported
  // world position against that hull as well as their precise deck coordinates.
  const projected=deckToSea(boat,local,now,p.floor);
  const allowance=boat.helm?6+Math.abs(boat.speed)*1.1:.75+Math.abs(boat.speed)*.6;
- return distance(projected,p)<=allowance;
+ return distance(projected,p)<=allowance?local:null;
 }
 const save=(guard="")=>`INSERT INTO coast_voyages(room,kind,started,ox,oz,angle,speed)
  SELECT room,?,?,x,z,yaw,COALESCE(?,(SELECT speed FROM coast_voyages WHERE room=coast_harbor.room),0) FROM coast_harbor WHERE room=? AND helm=? ${guard}
@@ -57,7 +56,8 @@ export async function appendVesselOps(ops,read,room,id,p,coast,now){
   const current=old?vesselSnapshot(old,now):{...mooring,yaw:0,speed:0,helm:null};
   if(cmd==="deckSit"){
    const seat=cruiseSeatById.get(coast.seat);
-   if(seat&&canTakeSeat(seat,p,current,now)){
+   const local=seat&&passengerDeckPoint(p,current,now);
+   if(local&&cruiseSeatInReach(seat,local.x,local.z,p.floor)&&deckHeight(local,p.floor)===seat.floor){
     ops.push(read("DELETE FROM coast_deck_seats WHERE room=? AND updated<=?",room,now-deckSeatLease));
     ops.push(read(`INSERT OR IGNORE INTO coast_deck_seats(room,seat,id,updated) SELECT ?,?,?,?
      WHERE NOT EXISTS(SELECT 1 FROM coast_harbor WHERE room=? AND helm=?)`,room,seat.id,id,now,room,id));

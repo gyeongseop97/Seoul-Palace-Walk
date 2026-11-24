@@ -61,13 +61,12 @@ export function buildCoastScooters(root){
  });
  root.add(racks);
  const prototype=batch((part,place)=>{place(0,0,0,0);draw(part);}),vehicles=new Map();
- function update(roster,anchor){
+ function update(roster){
   const visible=new Set();
   for(const rider of roster){
    const s=rider.coast,parked=s?.scooter?.parked;
    if(!parked&&s?.mode!=="scooter")continue;
    const p=parked??seaPoint(rider);
-   if(Math.hypot(p.x-anchor.x,p.z-anchor.z)>135)continue;
    visible.add(rider.id);
    let mesh=vehicles.get(rider.id);
    if(!mesh){mesh=prototype.clone();root.add(mesh);vehicles.set(rider.id,mesh);}

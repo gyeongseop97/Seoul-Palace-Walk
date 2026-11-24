@@ -1,4 +1,5 @@
-import {beachStop,festivalDuration,shore} from "./pohang-layout.js";
+import {festivalDuration,shore} from "./pohang-layout.js";
+import {beachLimits} from "./pohang-beach-profile.js";
 
 export const chapters = [0,29,66,101,141].map(at => ({at}));
 
@@ -7,20 +8,23 @@ export function chapterAt(age) {
   return chapters.findLast(chapter => age >= chapter.at);
 }
 
-// The front fans, middle figures and distant shells occupy separate parts of the bay.
+// Launch lines follow the beach. Keep burst altitude separate from the width
+// of the shell so even a broad crown stays framed above the horizon.
 const stages={
-  front:{offshore:620,spacing:9.8,size:4.35},
-  middle:{offshore:1140,spacing:12.5,size:7.25},
-  horizon:{offshore:1840,spacing:16.8,size:11.6}
+  front:{offshore:670,spacing:12,size:8.8,altitude:6.3},
+  middle:{offshore:985,spacing:14,size:13.8,altitude:9.5},
+  horizon:{offshore:1500,spacing:17.5,size:20.8,altitude:14.2}
 };
-export const festivalFocus={x:shore(beachStop.z)+stages.middle.offshore,z:beachStop.z-80,y:320};
+const [north,south]=beachLimits;
+const midBeach=(north+south)/2;
+export const festivalFocus={x:shore(midBeach)+stages.middle.offshore,z:midBeach,y:46*stages.middle.altitude};
 function stageCue(cue) {
   const layer=cue.layer??(cue.shape==="fan"||cue.shape==="comet"?"front":
     cue.shape==="willow"||cue.shape==="brocade"||cue.shape==="strobe"?"horizon":"middle");
-  const {offshore,spacing,size}=stages[layer];
-  const x=shore(beachStop.z)+offshore+Math.sin(cue.seed*1.37)*16;
-  const z=festivalFocus.z+cue.side*spacing;
-  return {...cue,layer,x,z,size,y:cue.height*size};
+  const {offshore,spacing,size,altitude}=stages[layer];
+  const z=midBeach+cue.side*spacing;
+  const x=shore(Math.max(north,Math.min(south,z)))+offshore+Math.sin(cue.seed*1.37)*16;
+  return {...cue,layer,x,z,size,y:cue.height*altitude};
 }
 
 // Choreography uses metres before each layer is scaled to its viewing distance.
@@ -111,5 +115,21 @@ cue(170.9,"cascade",61,41,28,"gold",1,"middle");
 cue(173.0,"fan",-50,12,25,"sunrise",-1,"front");
 cue(173.2,"fan",50,12,25,"sunrise",1,"front");
 cue(174.2,"peony",0,50,26,"coral",0,"middle");
+
+// The two ends of the beach answer the central shell. Alternating the first
+// launch sends the wave back down the shore in the next chapter.
+for(const [at,shape,height,span,palette,fromNorth] of [
+  [1.85,"peony",36,22,"sunrise",true],
+  [25.85,"ring",45,23,"pearl",false],
+  [42.55,"palm",44,24,"lagoon",true],
+  [71.5,"flower",42,25,"garden",false],
+  [96.85,"ring",47,21,"orchid",true],
+  [116.4,"strobe",43,23,"twilight",false],
+  [141.95,"chrysanthemum",46,26,"sunrise",true]
+]){
+  const edge=fromNorth?-34:34;
+  cue(at,shape,edge,height,span,palette,Math.sign(edge),"middle");
+  cue(at+.55,shape,-edge,height+3,span,palette,-Math.sign(edge),"middle");
+}
 
 export const festivalCues = cues.map(stageCue).sort((a, b) => a.at - b.at);

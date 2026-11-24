@@ -63,7 +63,7 @@ export function createOceanGrid() {
     for(let col=0;col<nx;col+=28){
       const endCol=Math.min(col+28,nx),start=indices.length;
       for(let j=row;j<endRow;j++)for(let i=col;i<endCol;i++)indexCell(i,j);
-      tiles.push({start,count:indices.length-start,minX:Math.min(...edge)+ranges[col],
+      tiles.push({start,count:indices.length-start,minDepth:ranges[col],minX:Math.min(...edge)+ranges[col],
         maxX:Math.max(...edge)+ranges[endCol],minZ:startZ+row*dz,maxZ:startZ+endRow*dz});
     }
   }

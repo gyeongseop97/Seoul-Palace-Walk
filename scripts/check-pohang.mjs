@@ -1,5 +1,5 @@
 import {helmStation,boardingSpot,deckToSea} from "../public/coast-vessel-layout.js";
-import {cruiseSeats} from "../public/coast-vessel-seats.js";
+import {cruiseSeats,cruiseSeatSpot} from "../public/coast-vessel-seats.js";
 import {voyageAt,inSailingArea} from "../public/coast-voyage.js";
 import {coastPoint} from "../public/region-coordinates.js";
 import {scooterHubs,canScoot} from "../public/coast-scooters.js";
@@ -77,7 +77,7 @@ try{
  assert.equal((await ask(waiting,aisle,"",{},beforeExpiry)).deckSeats.length,1);
  assert.deepEqual((await sit(seated,aisle,chair,beforeExpiry+15000)).deckSeats,[{id:seated,seat:chair.id}]);
  await ask(seated,aisle,"deckStand");
- const bow=onboard({x:0,z:19.15},2.46);
+ const bowDeck={x:0,z:19.15},bow=onboard(bowDeck,2.46);
  assert.equal((await ask(ids[0],bow)).people.find(p=>p.id===ids[0]).deckZ,bow.deckZ);
  for(const spot of [bow,aisle,onboard({x:0,z:4},2.46),onboard({x:0,z:2.6},7.85)]){
   assert.equal((await ask(ids[0],spot,"tour")).boat.voyage,null);
@@ -165,7 +165,7 @@ try{
  assert.equal((await ask(ids[0],boarding,"board",{coach:5,seat:1,stop:cityStop.id},clockCity)).busSeats.length,0);
  assert((await ask(ids[0],cityStop,"board",{coach:5,seat:1,stop:cityStop.id},clockCity)).busSeats.some(s=>s.coach===5&&s.seat===1));
  assert(ground(pavilion)>2.5);assert(Number.isFinite(wave(dock.x,dock.z,400)));
- // Only the designated booth can start a performance, including at the old scheduled time.
+ // The booth and cruise share a single performance, including at the old scheduled time.
  assert.equal(festivalDuration,180);
  const late=590000,end=late+festivalDuration*1000;
  assert.equal((await ask(ids[0],festivalBooth,"festival",{},late)).boat.festival,late);
@@ -176,5 +176,25 @@ try{
  assert.equal(showAge(1200000,end),-1);
  assert.equal(showAge(1200000,0),-1);
  assert.equal((await ask(ids[0],dock,"festival",{},1204000)).boat.festival,end);
+ const setAvatar=(id,pos,coast)=>db.prepare("UPDATE walkers SET avatar=? WHERE room=? AND id=?").bind(
+  JSON.stringify({...coastPoint(pos),coast}),room,id).all();
+ const cruiseStart=1300000,expires=cruiseStart+festivalDuration*1000;
+ await setAvatar(ids[0],dock,{mode:"walk"});
+ const gate=onboard(boardingSpot,2.46);
+ assert.equal((await ask(ids[0],gate,"festival",{},cruiseStart)).boat.festival,cruiseStart,"immediate boarding from the gangway");
+ assert.equal((await ask(ids[1],festivalBooth,"festival",{},cruiseStart+3000)).boat.festival,cruiseStart);
+ await setAvatar(ids[0],aisle,{mode:"deck"});
+ assert.equal((await ask(ids[0],{...aisle,x:aisle.x+85},"festival",{},expires)).boat.festival,cruiseStart);
+ await sit(ids[0],aisle,chair,expires);
+ const seatedAt=onboard(cruiseSeatSpot(chair),chair.floor);
+ await setAvatar(ids[0],seatedAt,{mode:"deck",deckSeat:chair.id});
+ const aboard=await ask(ids[0],seatedAt,"festival",{},expires);
+ assert.equal(aboard.boat.festival,expires);assert(aboard.deckSeats.some(s=>s.id===ids[0]&&s.seat===chair.id));
+ const next=expires+festivalDuration*1000;
+ const atSea=voyageAt((await ask(ids[1],deck,"tour",{},next-30000)).boat.voyage,next);
+ const bowAtSea={...deckToSea(atSea,bowDeck,next,2.46),deckX:bowDeck.x,deckZ:bowDeck.z,floor:2.46,mode:"deck"};
+ await setAvatar(ids[1],bowAtSea,{mode:"deck"});
+ assert.equal((await ask(ids[1],bowAtSea,"festival",{},next)).boat.festival,next,"moving bow");
+ assert.equal((await ask(ids[0],dock,"",{},next+10)).boat.festival,next);
  console.log("Pohang: road journey, sea heights, two guests, independent seats, shared grill, captain lease and synchronized festival passed.");
 }finally{client.close();}
