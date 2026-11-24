@@ -1,19 +1,40 @@
+import {coastPoint,seaPoint} from "./region-coordinates.js";
+
 // The set sits against the far edge of the existing navigable bay, in local coast metres.
 export const studioWall={x:568,z:-70,half:57,height:26};
 export const studioDock={x:557,z:-70},studioMooring={x:548.95,z:-70,yaw:Math.PI};
-export const studioLadder={x:557,z:-64},studioDoor={x:568,z:-87.7,h:7.25};
-export const studioConsole={x:574.9,z:-87.6,h:7.25};
-export const studioStairs={x:566,start:-73,end:-86.5,treads:30,width:1.66};
+export const studioLadder={x:557,z:-64};
+// Facing the painted wall from the water, positive z is to the viewer's right.
+const start=-67,run=.45,rise=.18,treads=30,base=1.85,width=1.66;
+export const studioStairs={x:studioWall.x-width/2,start,end:start+treads*run,treads,run,rise,base,width};
+export const studioLanding={minX:studioWall.x-width,maxX:studioWall.x,minZ:studioStairs.end,maxZ:studioStairs.end+2.9};
+export const studioDoor={x:studioWall.x,z:studioStairs.end+1.2,h:base+treads*rise};
+export const studioConsole={x:574.9,z:studioDoor.z-.1,h:studioDoor.h};
 const inside=(p,x1,x2,z1,z2)=>p.x>=x1&&p.x<=x2&&p.z>=z1&&p.z<=z2;
 const smooth=n=>{const t=Math.max(0,Math.min(1,n));return t*t*(3-2*t);};
-export const studioInRoom=p=>inside(p,568.28,576.62,-91.24,-83.96);
+export const studioInRoom=p=>inside(p,568.28,576.62,studioConsole.z-3.64,studioConsole.z+3.64);
+export function restoreStudioPosition(pose){
+ if(pose.layout!==4||pose.deck)return pose;
+ const p=seaPoint(pose);
+ // The quay and swim ladder stayed in place. Only the former solid flight,
+ // landing and control room moved when the stairs were reversed in layout 5.
+ const room=inside(p,568.28,576.62,-91.24,-83.96);
+ const landing=inside(p,564.85,567.75,-89.4,-86.5);
+ const raisedTread=inside(p,565.3,566.7,-86.5,-73.45+1e-6);
+ if(!room&&!landing&&!raisedTread)return pose;
+ const x=room?p.x:Math.max(studioLanding.minX+.14,Math.min(studioLanding.maxX-.14,studioStairs.x+p.x-566));
+ const z=2*studioWall.z-p.z;
+ const destination={x,z:landing?Math.min(z,studioLanding.maxZ-.14):z};
+ return {...pose,...coastPoint(destination),heading:(540-pose.heading)%360,layout:5};
+}
 export function studioFloor(p){
- if(p.x<557||p.x>577||p.z< -92||p.z> -61)return null;
+ if(p.x<557||p.x>577||p.z< -75||p.z>studioConsole.z+4)return null;
  if(studioInRoom(p))return studioDoor.h;
- if(inside(p,564.85,567.75,-89.4,studioStairs.end))return studioDoor.h;
- if(inside(p,studioStairs.x-.7,studioStairs.x+.7,studioStairs.end,studioStairs.start)){
-  const n=Math.floor((studioStairs.start-p.z)/.45+1e-6);
-  return 1.85+n*.18;
+ const inner=studioLanding.maxX-.13,outer=studioLanding.minX+.13;
+ if(inside(p,outer,inner,studioLanding.minZ,studioLanding.maxZ-.13))return studioDoor.h;
+ if(inside(p,outer,inner,studioStairs.start,studioStairs.end)){
+  const n=Math.floor((p.z-studioStairs.start)/studioStairs.run+1e-6);
+  return studioStairs.base+n*studioStairs.rise;
  }
  return inside(p,557,567.75,-75,-61)?1.85:null;
 }
@@ -23,7 +44,7 @@ export function studioStep(a,b){
  if(first!=null||last!=null){
   if(first==null||last==null||studioInRoom(a)!==studioInRoom(b))return false;
   // The control desk faces west. Its solid cabinet is behind the controls.
-  if(studioInRoom(b)&&inside(b,575.14,576.64,-89.1,-86.1))return false;
+  if(studioInRoom(b)&&inside(b,575.14,576.64,studioConsole.z-1.5,studioConsole.z+1.5))return false;
   return Math.abs(last-first)<.42;
  }
  if(Math.abs(b.z-studioWall.z)<=studioWall.half&&b.x>studioWall.x-.30)return false;
@@ -34,7 +55,8 @@ export function studioShipClear(p){
  const yaw=p.yaw??0,c=Math.cos(yaw),s=Math.sin(yaw);
  for(const [side,front] of [[-6.8,0],[6.8,0],[0,26],[0,-24],[-5.9,15],[5.9,15],[-5.5,-16],[5.5,-16]]){
   const q={x:p.x+side*c+front*s,z:p.z-side*s+front*c};
-  if((q.x>=556.85&&inside(q,556.85,568,-75.2,-60.8))||Math.abs(q.z-studioWall.z)<studioWall.half&&q.x>=567.60)return false;
+  if(inside(q,556.85,568,-75.2,-60.8)||inside(q,studioLanding.minX-.15,studioWall.x,studioStairs.start,studioLanding.maxZ)||
+     Math.abs(q.z-studioWall.z)<studioWall.half&&q.x>=567.60)return false;
  }
  return true;
 }

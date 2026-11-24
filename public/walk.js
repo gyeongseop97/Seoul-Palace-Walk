@@ -1265,6 +1265,7 @@ function readWalkPosition(name,code){
     const pose=JSON.parse(localStorage.getItem(walkPositionKey(name,code)));
     if(pose&&[pose.x,pose.y,pose.heading,pose.height].every(Number.isFinite)&&
       pose.heading>=0&&pose.heading<=360&&typeof pose.up==="boolean"){
+      if(onCoast)return coastModule.restoreStudioPosition(pose);
       if((pose.layout??0)<4){
         if(Math.abs(pose.x-1750)<4.36&&Math.abs(pose.y-690)<48.6)return {...pose,x:pose.x-110,y:pose.y-95.5};
         if(Math.abs(pose.x-1550)<12.1&&Math.abs(pose.y-515)<12.1)return {...pose,x:pose.x+66,y:pose.y+116};
@@ -1290,7 +1291,7 @@ function rememberWalkPosition(){
   if(!deck&&coastPlay?.atSea())return;
   const {x,y,heading}=me,up=Boolean(me.up),height=deck?0:walkPositionHeight(me);
   if(height===null)return;
-  const record=JSON.stringify({x,y,heading,up,height,layout:4,...(ktxTrack?{ktxTrack}:{}),
+  const record=JSON.stringify({x,y,heading,up,height,layout:onCoast?5:4,...(ktxTrack?{ktxTrack}:{}),
     ...(deck?{deck}:onCoast?{track:me.coast?.track,cafeFloor:me.coast?.cafeFloor}:{})});
   if(record===lastWalkPosition)return;
   try{

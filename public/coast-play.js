@@ -7,7 +7,7 @@ import {swimSpeed} from "./beach-swimming.js";
 import {nearbyAmenity,changingRoom,rinseDuration} from "./beach-amenities.js";
 import {deckHeight,deckToSea,seaToDeck,nearHelm,helmStation,boardingSpot,mainFloor,serviceSpot,inWheelhouse,nearCruiseExit,cruiseBerth} from "./coast-vessel-layout.js";
 import {studioDock,studioMooring,studioStep,studioInteraction} from "./coast-studio-layout.js";
-export {studioStorm} from "./coast-studio-layout.js";
+export {restoreStudioPosition,studioStorm} from "./coast-studio-layout.js";
 export {deckHeight} from "./coast-vessel-layout.js";
 export function restoredDeckSpot(p){
  if(!p||![p.x,p.z,p.h].every(Number.isFinite))return null;

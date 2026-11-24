@@ -1,24 +1,59 @@
 import * as T from "three";
-import {studioWall,studioDoor,studioStairs,studioConsole,studioLadder,studioFloor,studioInRoom} from "./coast-studio-layout.js";
+import {studioWall,studioDoor,studioStairs,studioLanding,studioConsole,studioLadder,studioFloor,studioInRoom} from "./coast-studio-layout.js";
 import {seaPoint} from "./region-coordinates.js";
 
 function paintedSky(){
  const canvas=document.createElement("canvas");canvas.width=1024;canvas.height=256;
  const c=canvas.getContext("2d"),sky=c.createLinearGradient(0,0,0,256);
- sky.addColorStop(0,"#67a5d2");sky.addColorStop(.62,"#9dc9e2");sky.addColorStop(1,"#c8dde6");
+ sky.addColorStop(0,"#6391cc");sky.addColorStop(.62,"#89b6df");sky.addColorStop(1,"#c3d7e4");
  c.fillStyle=sky;c.fillRect(0,0,1024,256);
- for(const [x,y,width] of [[80,89,100],[248,152,113],[452,55,95],[630,112,132],[842,71,114],[989,148,90]]){
-  for(let i=0;i<8;i++){
-   const dx=(i-3.5)*width*.16,scale=1-Math.abs(i-3.5)*.12;
-   c.save();c.translate(x+dx,y+Math.sin(i*2.7)*6);c.scale(width*.31*scale,21*scale);
-   const cloud=c.createRadialGradient(0,0,0,0,0,1);cloud.addColorStop(0,"rgba(248,249,238,.76)");cloud.addColorStop(.59,"rgba(245,247,238,.38)");cloud.addColorStop(1,"rgba(250,248,235,0)");
+ let seed=314159;
+ const random=()=>{seed=(Math.imul(1664525,seed)+1013904223)>>>0;return seed/4294967296;};
+ for(const [x,y,width,depth] of [[70,91,152,16],[227,163,142,12],[424,47,120,20],[628,126,181,18],[879,74,157,22],[981,169,120,11],[573,211,162,9],[810,197,138,13]]){
+  for(let i=0;i<48;i++){
+   const t=random()*2-1,scale=.35+.65*(1-t*t),height=depth*scale;
+   c.save();c.translate(x+t*width*.68,y-(random()-.30)*height);
+   c.scale(9+random()*width*.19,2+random()*height*.67);
+   const cloud=c.createRadialGradient(0,0,0,0,0,1);cloud.addColorStop(0,"rgba(250,242,237,.43)");cloud.addColorStop(.50,"rgba(248,243,242,.30)");cloud.addColorStop(1,"rgba(245,240,239,0)");
    c.fillStyle=cloud;c.fillRect(-1,-1,2,2);c.restore();
   }
  }
- // Faint seams reveal the painted flats when they are seen at arm's length.
- for(let x=0;x<1024;x+=91){c.fillStyle="rgba(77,113,128,.13)";c.fillRect(x,0,1,256);}
  const map=new T.CanvasTexture(canvas);map.colorSpace=T.SRGBColorSpace;
- return new T.MeshBasicMaterial({map,side:T.DoubleSide});
+ return new T.MeshBasicMaterial({map,side:T.DoubleSide,vertexColors:true});
+}
+
+// Rectangles on the wall, stair fascia and closed door sample the same mural
+// in set coordinates. Moving the door carries its patch of sky with it.
+function muralPanels(root,paint,rectangles,hingeZ=0,hingeY=0){
+ const positions=[],uv=[],indices=[],colors=[];
+ for(const [x,z1,z2,y1,y2,baseShade=1,topShade=1] of rectangles){
+  const first=positions.length/3;
+  for(const [z,y] of [[z1,y1],[z2,y1],[z2,y2],[z1,y2]]){
+   positions.push(x,y-hingeY,z-hingeZ);
+   const shade=y===y1?baseShade:topShade;
+   colors.push(shade,shade,shade);
+   uv.push((z+studioWall.half)/(2*studioWall.half),(y+1)/(studioWall.height+1));
+  }
+  indices.push(first,first+1,first+2,first,first+2,first+3);
+ }
+ const geometry=new T.BufferGeometry();
+ geometry.setAttribute("position",new T.Float32BufferAttribute(positions,3));
+ geometry.setAttribute("color",new T.Float32BufferAttribute(colors,3));
+ geometry.setAttribute("uv",new T.Float32BufferAttribute(uv,2));
+ geometry.setIndex(indices);geometry.computeVertexNormals();
+ root.add(new T.Mesh(geometry,paint));
+}
+
+function addExitMark(door,offset){
+ const canvas=document.createElement("canvas");canvas.width=canvas.height=128;
+ const ctx=canvas.getContext("2d");
+ ctx.fillStyle="#94aec3";ctx.beginPath();ctx.arc(64,64,57,0,Math.PI*2);ctx.fill();
+ ctx.strokeStyle="#718ca4";ctx.lineWidth=3;ctx.stroke();
+ ctx.fillStyle="#405971";ctx.font="bold 32px sans-serif";ctx.textAlign="center";
+ ctx.fillText("EXIT",64,75);
+ const map=new T.CanvasTexture(canvas);map.colorSpace=T.SRGBColorSpace;
+ const mark=new T.Mesh(new T.PlaneGeometry(.17,.17),new T.MeshStandardMaterial({map,alphaTest:.45,roughness:.76}));
+ mark.rotation.y=-Math.PI/2;mark.position.set(-.032,1.04,offset);door.add(mark);
 }
 
 function makeSet(parent){
@@ -37,16 +72,9 @@ function makeSet(parent){
   m.quaternion.setFromUnitVectors(up,delta.normalize());return m;
  }
  const paint=paintedSky(),wallH=studioWall.height,span=studioWall.half,doorZ=studioDoor.z-studioWall.z;
- function panel(z1,z2,y1,y2){
-  const data=new T.BufferGeometry();
-  data.setAttribute("position",new T.Float32BufferAttribute([0,y1,z1,0,y1,z2,0,y2,z2,0,y2,z1],3));
-  data.setAttribute("uv",new T.Float32BufferAttribute([(z1+span)/(2*span),(y1+1)/(wallH+1),(z2+span)/(2*span),(y1+1)/(wallH+1),
-   (z2+span)/(2*span),(y2+1)/(wallH+1),(z1+span)/(2*span),(y2+1)/(wallH+1)],2));
-  data.setIndex([0,1,2,0,2,3]);data.computeVertexNormals();group.add(new T.Mesh(data,paint));
- }
- panel(-span,doorZ-.73,-1,wallH);panel(doorZ+.73,span,-1,wallH);
- panel(doorZ-.73,doorZ+.73,-1,studioDoor.h);panel(doorZ-.73,doorZ+.73,studioDoor.h+2.23,wallH);
- // A working quay, a narrow flight of white set stairs, and a dark exit in the sky.
+ const floor=studioDoor.h,doorH=2.22,left=doorZ-.50,right=doorZ+.50;
+ const mural=[[0,-span,left,-1,wallH],[0,right,span,-1,wallH],
+  [0,left,right,-1,floor],[0,left,right,floor+doorH,wallH]];
  slab(0x777e7b,-5.5,1.61,2,11,.48,14);
  for(let z=-4;z<=8;z+=3)for(const x of [-10.58,-.63]){
   post(0x635d4c,x,-.30,z,.17,3.80);slab(0x4e5552,x,1.51,z,.28,.37,.42);
@@ -59,28 +87,53 @@ function makeSet(parent){
   rod([-10.76,2.34,ladderZ+dz],[-10.76,1.85,ladderZ+dz],.041,0xb3bbb4);
  }
  for(let i=0;i<10;i++)rod([-11.12,-1.15+i*.31,ladderZ-.31],[-11.12,-1.15+i*.31,ladderZ+.31],.032,0xafb7b2);
- const stairX=studioStairs.x-studioWall.x,baseZ=studioStairs.start-studioWall.z;
- for(let i=0;i<studioStairs.treads;i++){
-  const y=1.85+i*.18,z=baseZ-(i+.5)*.45;
-  slab(0xe5e7dd,stairX,y-.10,z,studioStairs.width,.20,.46);
-  slab(0xb7c1bc,stairX,y-.016,z+.204,studioStairs.width,.034,.036);
+ const {start,treads,run,rise,base}=studioStairs;
+ const outer=studioLanding.minX-studioWall.x,inner=studioLanding.maxX-studioWall.x;
+ const positions=[],indices=[];
+ for(let i=1;i<=treads;i++){
+  // The first tread is level with the existing quay.
+  const z=start+i*run-studioWall.z,y=base+i*rise;
+  const end=i===treads?studioLanding.maxZ-studioWall.z:z+run;
+  const index=positions.length/3;
+  positions.push(outer,y,z, outer,y,end, inner,y,end, inner,y,z,
+   outer,y-rise,z, outer,y,z, inner,y,z, inner,y-rise,z);
+  for(const first of [index,index+4])indices.push(first,first+1,first+2,first,first+2,first+3);
+  mural.push([outer,z,end,-1,y,1,.72]);
+  // Baked contact shadows keep the outline visible even from below at sea level.
+  // Stop at the head of the flight, leaving the opening clear.
+  if(i<treads){
+   const shadowEnd=i===treads-1?end:end-.28;
+   mural.push([-.016,z-.28,shadowEnd,y-.9,y+.16,.43,.61]);
+  }
  }
- for(const side of [-1,1]){
-  const x=stairX+side*.84;
-  rod([x,1.58,baseZ+.04],[x,7.06,baseZ-13.58],.064,0x8f9f9e);
-  rod([x,2.72,baseZ+.05],[x,8.12,baseZ-13.51],.043,0xdce4dd);
-  for(let i=0;i<=30;i+=5)rod([x,1.73+i*.18,baseZ-i*.45],[x,2.73+i*.18,baseZ-i*.45],.027,0xbdcbc6);
+ const stairs=new T.BufferGeometry();
+ stairs.setAttribute("position",new T.Float32BufferAttribute(positions,3));
+ stairs.setIndex(indices);stairs.computeVertexNormals();
+ const flight=new T.Mesh(stairs,color(0x89b3ce));flight.receiveShadow=true;group.add(flight);
+ const end=studioLanding.maxZ-studioWall.z;
+ // Wrap the mural around the end of the landing down to the waterline.
+ const cap=new T.PlaneGeometry(inner-outer,floor+1);
+ const capColor=[],capUV=cap.getAttribute("uv");
+ for(let i=0;i<capUV.count;i++){
+  const top=capUV.getY(i),shade=top ? .57 : 1;
+  capColor.push(shade,shade,shade);
+  capUV.setXY(i,(end+span)/(2*span),top*(floor+1)/(wallH+1));
  }
- slab(0xd4dbd3,-1.64,7.13,-17.95,3.28,.24,2.90);
- rod([-3.2,8.10,-16.50],[-3.2,8.10,-19.38],.041,0xcfdad6);
- for(const z of [-16.6,-19.3])rod([-3.2,7.19,z],[-3.2,8.11,z],.038,0xc6cfc8);
- const door=new T.Group();door.position.set(.02,studioDoor.h,doorZ-.69);group.add(door);
- slab(0x233944,0,1.075,.69,.085,2.15,1.38,door);
- for(const z of [doorZ-.74,doorZ+.74])slab(0x344a51,-.016,studioDoor.h+1.1,z,.14,2.23,.085);
- slab(0x344a51,-.016,studioDoor.h+2.19,doorZ,.14,.10,1.55);
- slab(0xb8b39c,-.071,.94,1.16,.10,.042,.21,door);
+ cap.setAttribute("color",new T.Float32BufferAttribute(capColor,3));
+ const capMesh=new T.Mesh(cap,paint);capMesh.position.set((outer+inner)/2,(floor-1)/2,end);group.add(capMesh);
+ muralPanels(group,paint,mural);
+
+ const door=new T.Group();door.position.set(0,floor,right);group.add(door);
+ const width=right-left-.022;
+ slab(0x455563,.018,doorH/2,-(right-left)/2,.058,doorH-.022,width,door);
+ muralPanels(door,paint,[[-.013,left+.011,right-.011,floor+.011,floor+doorH-.011]],right,floor);
+ addExitMark(door,-width+.15);
+ // A one-sided dark reveal gives the exterior its black silhouette. The view
+ // out to sea stays open from the working control room behind it.
+ const reveal=new T.Mesh(new T.PlaneGeometry(right-left+.04,doorH+.04),new T.MeshBasicMaterial({color:0x080c10}));
+ reveal.rotation.y=-Math.PI/2;reveal.position.set(.26,floor+doorH/2,doorZ);group.add(reveal);
  // The opposite side is a windowless television control room, built in the same coordinates.
- const roomZ=-17.6,floor=studioDoor.h,roomWall=0x485952;
+ const roomZ=studioConsole.z-studioWall.z,roomWall=0x485952;
  slab(0x555b53,4.61,floor-.12,roomZ,8.78,.24,8);
  slab(0x777b70,.135,floor-.08,doorZ,.27,.16,1.39);
  slab(roomWall,9,floor+1.44,roomZ,.20,2.88,8);
@@ -114,6 +167,6 @@ export function buildCoastStudio(root){
    const q=seaPoint(player);
    return (studioInRoom(q)||studioFloor(q)===studioDoor.h)&&Math.hypot(q.x-studioDoor.x,q.z-studioDoor.z)<1.58;
   });
-  open+=(Number(approach)-open)*.18;set.door.rotation.y=open*1.36;
+  open+=(Number(approach)-open)*.18;set.door.rotation.y=-open*1.54;
  };
 }
