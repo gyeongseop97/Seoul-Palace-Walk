@@ -489,7 +489,7 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
    }
    hint=messages.join(" / ");
    if(s.mode==="walk"&&distance(p,platformDoor)<3)add("train","서울행 KTX 타기",goSeoul,platformDoor);
-   if(distance(p,boardRack)<5)add("board",s.board?"서핑보드 반납":"서핑보드 빌리기",()=>{
+   if(distance(p,boardRack)<5&&!me.bag?.some(item=>item.kind==="surfboard"))add("board",s.board?"서핑보드 반납":"서핑보드 빌리기",()=>{
     s.board=!s.board;
     if(s.board)notice("해변으로 내려가 노란 부표 사이에서 파도를 타 보세요.");
     mark();

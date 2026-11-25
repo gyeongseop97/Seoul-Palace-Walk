@@ -4,7 +4,7 @@ import {ARCADE_CLAW} from "../public/arcade-layout.js";
 import {regionalStations,streetCounters} from "../public/street-stands.js";
 import {railCounters,plazaCafe} from "../public/rail-station-layout.js";
 const counters=[...regionalStations,...streetCounters,...railCounters,plazaCafe];
-const actions=new Set(["store","hold","give","prize","wear","remove","collect"]);
+const actions=new Set(["store","hold","give","prize","wear","remove","collect","storeBoard","unpackBoard"]);
 const token=v=>typeof v==="string"&&/^[a-f0-9]{32}$/.test(v);
 export const validInventory=(c,id)=>c&&actions.has(c.action)&&token(c.id)&&typeof c.kind==="string"&&c.kind.length<60&&
   (c.action!=="give"||token(c.to)&&c.to!==id);

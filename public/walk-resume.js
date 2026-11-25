@@ -7,11 +7,12 @@ const positionPrefix="pohang-walk-position:v1:";
 
 // Only the destination and invitation code survive closing the tab. A new
 // visit still uses the normal room admission and gets its own player key.
-export function rememberRegion(storage,name,code,pohang){
+export function rememberRegion(storage,name,code,region){
   try{
-    if(pohang){
-      storage.setItem(roomKey(name,code),"pohang");
-      storage.setItem(lastKey(name),JSON.stringify({code:code||null}));
+    if(region===true||region==="pohang"||region==="gyeongju"){
+      const city=region===true?"pohang":region;
+      storage.setItem(roomKey(name,code),city);
+      storage.setItem(lastKey(name),JSON.stringify({code:code||null,...(city==="gyeongju"?{region:city}:{})}));
     }else{
       if(storage.getItem(positionPrefix+JSON.stringify([nameKey(name),code||"open"])))storage.setItem(roomKey(name,code),"seoul");
       else storage.removeItem(roomKey(name,code));
@@ -19,14 +20,20 @@ export function rememberRegion(storage,name,code,pohang){
     }
   }catch{}
 }
+export function savedRegion(storage,name,code){
+  try{
+    const city=storage.getItem(roomKey(name,code));
+    return city==="pohang"||city==="gyeongju"?city:"seoul";
+  }catch{return "seoul";}
+}
 export function savedInPohang(storage,name,code){
-  try{return storage.getItem(roomKey(name,code))==="pohang";}catch{return false;}
+  return savedRegion(storage,name,code)==="pohang";
 }
 export function lastCoastRoom(storage,name,includeLegacy=false,invitation=""){
   try{
     const room=JSON.parse(storage.getItem(lastKey(name)));
     if(room&&(room.code===null||typeof room.code==="string"&&room.code.length>0)&&
-      (!invitation||invitation===room.code)&&savedInPohang(storage,name,room.code))return room;
+      (!invitation||invitation===room.code)&&savedRegion(storage,name,room.code)===(room.region??"pohang"))return room;
     // Older positions have no timestamp or last city. Offer a matching save
     // only when the player chooses to resume it explicitly.
     if(includeLegacy){

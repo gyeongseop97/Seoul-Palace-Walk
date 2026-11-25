@@ -89,18 +89,23 @@ import {BAG_SIZE,belongings,validPacked} from "./walk-inventory.js";
 import {bindWalkBag} from "./walk-bag-client.js";
 import {BIKE_FALL_DURATION_MS,GESTURE_DURATIONS,SICK_DURATION_MS,alcoholGait,bikeFallChance,finishAlcoholSip,staggeredStep} from "./avatar-gestures.js";
 
-import {inCoastSpace,coastOrigin,seaPoint} from "./region-coordinates.js";
-import {rememberRegion,savedInPohang,lastCoastRoom} from "./walk-resume.js";
+import {inCoastSpace,inGyeongjuSpace,coastOrigin,seaPoint} from "./region-coordinates.js";
+import {rememberRegion,savedRegion,lastCoastRoom} from "./walk-resume.js";
 let travelTicket=null;
 try{travelTicket=JSON.parse(sessionStorage.getItem("palace-coast-ticket"));}catch{}
-const onCoast=new URL(location.href).searchParams.get("region")==="pohang";
+const requestedCity=new URL(location.href).searchParams.get("region");
+const activeCity=requestedCity==="pohang"||requestedCity==="gyeongju"?requestedCity:"seoul";
+const onCoast=activeCity==="pohang",inGyeongju=activeCity==="gyeongju",regional=activeCity!=="seoul";
+function pointCity(p){return inCoastSpace(p)?"pohang":inGyeongjuSpace(p)?"gyeongju":"seoul";}
 const arrivalRegion=travelTicket?.room&&travelTicket.id&&travelTicket.key&&travelTicket.nickname&&
-  travelTicket.region===(onCoast?"boarding":"returning")?(onCoast?"pohang":"seoul"):null;
+  (regional?travelTicket.region==="boarding"&&(travelTicket.destination??"pohang")===activeCity:travelTicket.region==="returning")?activeCity:null;
 let awaitingMapFrame=false,leavingByKtx=false,waitForShipUntil=0;
-const region=onCoast?await import("./coast-region.js"):null;
+const region=inGyeongju?await import("./gyeongju-region.js"):onCoast?await import("./coast-region.js"):null;
 const coastModule=onCoast?await import("./coast-play.js"):null;
-region?.registerCoast();
+const gyeongjuModule=inGyeongju?await import("./gyeongju-activities.js"):null;
+if(inGyeongju)region.registerGyeongju();else region?.registerCoast();
 let coastPlay=null;
+let gyeongjuActivities=null;
 let studioMonitor=null;
 async function openStudioMonitor(){
  const {makeStudioMonitor}=await import("./coast-monitor.js");
@@ -139,7 +144,7 @@ function bagSaveKey(name){return "palace-walk-bag/"+name;}
 function readBag(name){
   let data={};
   try{data=JSON.parse(localStorage.getItem(bagSaveKey(name)))??{};}catch{}
-  return {...belongings(data),...Object.fromEntries(ITEM_SLOTS.map(s=>[s,validPacked(data[s])?{...data[s],started:0}:null])),bagClaim:null};
+  return {...belongings(data),...Object.fromEntries(ITEM_SLOTS.map(s=>[s,validPacked(data[s])&&data[s].kind!=="surfboard"?{...data[s],started:0}:null])),bagClaim:null};
 }
 function saveBag(){
   if(!session||bagCommand)return;
@@ -203,6 +208,11 @@ const paperBoats=bindPaperBoats({getSession:()=>session,getPlayer:()=>me,clock:g
 if(onCoast)for(const action of coastModule.coastActions){
  const button=document.createElement("button");button.type="button";button.id="coast-"+action;button.className="primary activity-button";button.hidden=true;
  button.onclick=()=>{coastPlay?.trigger(action);focusGame();};$("nearby-actions").append(button);
+}
+const gyeongjuButtons=inGyeongju?["stationBus","townBus","train",...gyeongjuModule.gyeongjuActionIds]:[];
+for(const id of gyeongjuButtons){
+ const button=document.createElement("button");button.type="button";button.id="gyeongju-"+id;button.className="primary activity-button";button.hidden=true;
+ button.onclick=()=>{gyeongjuMenu().get(id)?.run();focusGame();};$("nearby-actions").append(button);
 }
 const nearbyControls=bindNearbyControls($("nearby-controls"),focusGame,"nearby",()=>me);
 const peerControls=bindNearbyControls($("peer-controls"),focusGame,"peer",()=>me);
@@ -441,6 +451,7 @@ $("chat-form").addEventListener("submit",event=>{
   me.chat=queuedChat={id:token(),text,at:lastChatAt};
   const talk=onCoast&&coastPlay?.tableChat(queuedChat);
   if(talk)tavernChatActions.set(queuedChat,talk);
+  gyeongjuActivities?.chat(text);
   dirty=true;wakeSync();
   chatInput.value="";
   chatInput.focus({preventScroll:true});
@@ -832,6 +843,7 @@ const trackPins=[$("track-pin"),$("mini-track-pin")];
 function setText(node,value){if(node.textContent!==value)node.textContent=value;}
 function outdoorMap(position){
   if(inCoastSpace(position))return "포항";
+  if(inGyeongjuSpace(position))return "경주";
   const {x,y}=position;
   const indoors=venueById[interiorAt(x,y)];
   if(indoors)return indoors===mmcaVenue?"북촌":diningRegion[indoors.area]??"북촌";
@@ -1050,7 +1062,7 @@ function changeLinks(next){
   for(const key of formations.keys())if(!activeIds.has(key))formations.delete(key);
 }
 function pairedPose(link,leader,follower,now){
-  if(inCoastSpace(leader)!==inCoastSpace(follower))return follower;
+  if(pointCity(leader)!==pointCity(follower))return follower;
   if(!formations.has(link.id))formations.set(link.id,{x:follower.x,y:follower.y,started:now});
   const origin=formations.get(link.id),target=handPosition(leader,link.side);
   const age=Math.min(1,(now-origin.started)/410),blend=age*age*(3-2*age);
@@ -1068,7 +1080,8 @@ function gameTime(now=performance.now()){
 }
 setStationClock(gameTime);
 function placeName(point){
-  if(inCoastSpace(point))return region?.coastName(point)??"포항";
+  if(inCoastSpace(point))return onCoast?region.coastName(point):"포항";
+  if(inGyeongjuSpace(point))return inGyeongju?region.coastName(point):"경주";
   const inside=interiorAt(point.x,point.y);
   if(inside==="museum")return museumGalleryAt(point.x,point.y)?.name??"덕수궁 전시관";
   if(inside===mmcaVenue.id)return mmcaGalleryAt(point.x,point.y)?.name??mmcaVenue.name;
@@ -1202,6 +1215,7 @@ async function sync(){
     receiveBungeo(data,confirmed,bungeo,bungeoWatch);
     if(confirmed?.bagClaim&&confirmed.bagClaim!==me.bagClaim){
       Object.assign(me,belongings(confirmed),{bagClaim:confirmed.bagClaim});
+      if(me.coast&&confirmed.coast&&inventory?.kind==="surfboard")me.coast.board=confirmed.coast.board;
       for(const s of ITEM_SLOTS)me[s]=confirmed[s]??null;
       if(confirmed.bagClaim!==inventory?.id)toast("친구가 손에 선물을 건넸어요.");
       dirty=true;
@@ -1258,7 +1272,7 @@ async function sync(){
 
 function walkPositionKey(name,code){
   const normalized=name.normalize("NFC").trim().replace(/\s+/g," ");
-  return (onCoast?"pohang-walk-position:v1:":"jeongdong-walk-position:v1:")+JSON.stringify([normalized,code||"open"]);
+  return (regional?activeCity:"jeongdong")+"-walk-position:v1:"+JSON.stringify([normalized,code||"open"]);
 }
 function readWalkPosition(name,code){
   try{
@@ -1266,6 +1280,7 @@ function readWalkPosition(name,code){
     if(pose&&[pose.x,pose.y,pose.heading,pose.height].every(Number.isFinite)&&
       pose.heading>=0&&pose.heading<=360&&typeof pose.up==="boolean"){
       if(onCoast)return coastModule.restoreStudioPosition(pose);
+      if(inGyeongju)return pose;
       if((pose.layout??0)<4){
         if(Math.abs(pose.x-1750)<4.36&&Math.abs(pose.y-690)<48.6)return {...pose,x:pose.x-110,y:pose.y-95.5};
         if(Math.abs(pose.x-1550)<12.1&&Math.abs(pose.y-515)<12.1)return {...pose,x:pose.x+66,y:pose.y+116};
@@ -1317,7 +1332,9 @@ function showServers(showCode=false){
   const summary=$("server-profile");
   summary.textContent=nickname.value.trim()+" · "+(me.character==="woman"?"여자":"남자");
   summary.hidden=false;
-  $("resume-coast").hidden=!lastCoastRoom(localStorage,nickname.value.trim(),true,suppliedCode);
+  const resumeRoom=lastCoastRoom(localStorage,nickname.value.trim(),true,suppliedCode);
+  $("resume-coast").hidden=!resumeRoom;
+  if(resumeRoom)setText($("resume-coast"),resumeRoom.region==="gyeongju"?"경주에서 이어하기":"포항에서 이어하기");
   $("server-title").focus({preventScroll:true});
   toggleInviteForm(showCode);
 }
@@ -1366,7 +1383,7 @@ function returnToLobby(message=""){
   if(old)joinCode.value=old.code??"";
   history.replaceState(null,"",location.pathname+location.search);
   document.querySelectorAll("dialog[open]").forEach(dialog=>dialog.close());
-  if(onCoast){coastPlay?.stop();sessionStorage.removeItem("palace-coast-ticket");location.replace(new URL("index.html",location.href));return;}
+  if(regional){coastPlay?.stop();sessionStorage.removeItem("palace-coast-ticket");location.replace(new URL("index.html",location.href));return;}
   hideCatRunTip();showServers();
   setPresence("방을 선택해 주세요");
 }
@@ -1381,18 +1398,18 @@ async function enterRoom(action,code){
   let ticket=null;
   try{ticket=JSON.parse(sessionStorage.getItem("palace-coast-ticket"));}catch{}
   const returning=ticket&&ticket.nickname===name&&(action==="open"?ticket.mode==="open":action==="join"&&ticket.code===code);
-  const transferring=Boolean(arrivalRegion&&returning&&ticket.region===(onCoast?"boarding":"returning"));
-  const resumeCoast=action!=="create"&&!transferring&&
-    (returning&&ticket.region==="pohang"||savedInPohang(localStorage,name,code));
-  if(!transferring&&Boolean(resumeCoast)!==onCoast){
+  const transferring=Boolean(arrivalRegion&&returning&&ticket.region===(regional?"boarding":"returning"));
+  const destinationCity=action==="create"?"seoul":returning&&["pohang","gyeongju"].includes(ticket.region)?ticket.region:savedRegion(localStorage,name,code);
+  const resumeRegion=!transferring&&destinationCity!=="seoul";
+  if(!transferring&&destinationCity!==activeCity){
     sessionStorage.setItem("palace-map-entry",JSON.stringify({name,action,code}));
     if(!returning)sessionStorage.removeItem("palace-coast-ticket");
     const url=new URL(location.href);
-    if(resumeCoast){url.searchParams.set("region","pohang");document.documentElement.dataset.ktxTransfer="resume";}
+    if(resumeRegion){url.searchParams.set("region",destinationCity);document.documentElement.dataset.ktxTransfer="resume";}
     else url.searchParams.delete("region");
     url.hash=code?"code="+code:"";location.replace(url);return;
   }
-  if(resumeCoast)document.documentElement.dataset.ktxTransfer="resume";
+  if(resumeRegion)document.documentElement.dataset.ktxTransfer="resume";
   if(transferring)document.documentElement.dataset.ktxTransfer=arrivalRegion;
   const id=returning?ticket.id:token(),key=returning?ticket.key:token(),avatar=initialAvatar(),view=initialView();
   Object.assign(avatar,readBag(name));lastBagSave="";
@@ -1405,19 +1422,19 @@ async function enterRoom(action,code){
     // Complete collision registration before announcing a restored position to the room.
     if(saved&&!world)await loadWorld();
     if(!active||navigation!==pageVersion)return;
-    const deck=resumeCoast&&saved&&inCoastSpace(saved)?coastModule.restoredDeckSpot(saved.deck):null;
-    const height=deck?0:saved&&world&&inCoastSpace(saved)===onCoast?walkPositionHeight(saved):null;
+    const deck=resumeRegion&&onCoast&&saved&&inCoastSpace(saved)?coastModule.restoredDeckSpot(saved.deck):null;
+    const height=deck?0:saved&&world&&pointCity(saved)===activeCity?walkPositionHeight(saved):null;
     const resumed=height!==null&&Math.abs(height-saved.height)<.05;
     if(resumed){
       const {x,y,heading,up}=saved;
       Object.assign(avatar,{x,y,heading,up});
       view.pan=heading;
     }
-    if(returning||onCoast){
-      if(returning&&ticket.avatar&&!(onCoast&&ticket.region==="pohang"))for(const field of ["character","look","blushLevel","blushUntil","alcoholGlasses","sickAt","umbrella","umbrellaReady","item","secondItem"])
+    if(returning||regional){
+      if(returning&&ticket.avatar&&!(regional&&ticket.region===activeCity))for(const field of ["character","look","blushLevel","blushUntil","alcoholGlasses","sickAt","umbrella","umbrellaReady","item","secondItem"])
         if(Object.hasOwn(ticket.avatar,field))avatar[field]=ticket.avatar[field];
       if(returning&&ticket.view)Object.assign(view,ticket.view);
-      const destination=onCoast?(resumeCoast&&resumed?saved:region.platformArrival):ktxCoach.insideSpawn;
+      const destination=regional?(resumeRegion&&resumed?saved:region.platformArrival):ktxCoach.insideSpawn;
       Object.assign(avatar,{x:destination.x,y:destination.y,heading:destination.heading,up:false});view.pan=destination.heading;
       if(onCoast){
         avatar.coast={mode:"walk",board:false};
@@ -1442,7 +1459,7 @@ async function enterRoom(action,code){
       return;
     }
     if(!response.ok){
-      if(resumeCoast&&response.status===404)rememberRegion(localStorage,name,code,false);
+      if(resumeRegion&&response.status===404)rememberRegion(localStorage,name,code,false);
       throw Error(data.error);
     }
     clockOffset=null;roundTrip=65;
@@ -1454,9 +1471,9 @@ async function enterRoom(action,code){
       setPresence(data.walkers.length+"명 접속 중",data.walkers.length);
     }else session={room:data.room,code:data.code,mode:data.mode??"private",id,key,...data.profile};
     ktxTrack=(returning?ticket.ktxTrack:resumed?saved.ktxTrack:null)??null;
-    awaitingMapFrame=transferring||Boolean(resumeCoast);
+    awaitingMapFrame=transferring||resumeRegion;
     waitForShipUntil=deck&&resumed?performance.now()+5000:0;
-    rememberRegion(localStorage,session.nickname,session.code,onCoast);
+    rememberRegion(localStorage,session.nickname,session.code,activeCity);
     sessionStorage.removeItem("palace-show-lobby");
     if(!awaitingMapFrame)storeArrivedTicket();
     world?.setVisitorRoom(session.room);
@@ -1467,7 +1484,7 @@ async function enterRoom(action,code){
     updateChatSend();
     syncStarted=-Infinity;syncFailures=0;
     people.clear();links=[];formations.clear();resetLocationGuides();resetInput();
-    $("location").textContent=returning||onCoast||resumed?placeName(me):ticketApproach.name;
+    $("location").textContent=returning||regional||resumed?placeName(me):ticketApproach.name;
     localStorage.setItem("jeongdong-nickname",session.nickname);
     sessionStorage.setItem("jeongdong-room-mode",session.mode);
     if(session.code)sessionStorage.setItem("jeongdong-room-code",session.code);
@@ -1485,14 +1502,14 @@ async function enterRoom(action,code){
     if(action==="create")openInvite();
     scheduleSync(0);
   }catch(error){
-    if(transferring||resumeCoast){delete document.documentElement.dataset.ktxTransfer;showServers();}
+    if(transferring||resumeRegion){delete document.documentElement.dataset.ktxTransfer;showServers();}
     $("lobby-status").textContent=error.message==="Failed to fetch"?"연결을 확인한 뒤 다시 시도해 주세요.":error.message;
   }finally{
     joining=false;serverButtons.forEach(button=>{button.disabled=false;});
   }
 }
 function storeArrivedTicket(){
-  if(onCoast)sessionStorage.setItem("palace-coast-ticket",JSON.stringify({...session,ktxTrack,region:"pohang"}));
+  if(regional)sessionStorage.setItem("palace-coast-ticket",JSON.stringify({...session,ktxTrack,region:activeCity}));
   else sessionStorage.removeItem("palace-coast-ticket");
 }
 $("profile-form").addEventListener("submit",event=>{
@@ -1510,7 +1527,7 @@ $("profile-form").addEventListener("submit",event=>{
 $("open-server").addEventListener("click",()=>enterRoom("open"));
 $("resume-coast").addEventListener("click",()=>{
   const name=nickname.value.trim(),room=lastCoastRoom(localStorage,name,true,suppliedCode);
-  if(room){rememberRegion(localStorage,name,room.code,true);enterRoom(room.code?"join":"open",room.code);}
+  if(room){rememberRegion(localStorage,name,room.code,room.region??"pohang");enterRoom(room.code?"join":"open",room.code);}
 });
 $("create-room").addEventListener("click",()=>enterRoom("create"));
 $("server-back").addEventListener("click",showProfile);
@@ -1585,7 +1602,7 @@ $("model-credits").addEventListener("click",()=>$("credits-dialog").showModal())
 window.addEventListener("pagehide",()=>{
   saveBag();
   rememberWalkPosition();
-  active=false;pageVersion++;clearSyncTimer();sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);if(!leavingByKtx&&!awaitingMapFrame&&!onCoast)leaveBeacon();
+  active=false;pageVersion++;clearSyncTimer();sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);if(!leavingByKtx&&!awaitingMapFrame&&!regional)leaveBeacon();
 });
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden){beginBackgroundTrip();rememberWalkPosition();clearManualInput();exitPress=null;sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);}
@@ -1637,7 +1654,7 @@ function benchNearby(){
       nearby=true;
       if(distance>=gap)return;
       for(const {avatar} of people.values()){
-        if(avatar.seat===index&&(avatar.seatSide??0)===side&&inCoastSpace(avatar)===onCoast)return;
+        if(avatar.seat===index&&(avatar.seatSide??0)===side&&pointCity(avatar)===activeCity)return;
       }
       choice={bench:index,side,approach:slot.approach,footBath:slot.footBath};gap=distance;
     });
@@ -1690,7 +1707,7 @@ async function coastalMapSteps(target){
   coastalMapCourses.add(steps);return steps;
 }
 function walkingSteps(target){
-  if(onCoast)return region.coastWalkable(target.x,target.y)?region.spaceWalkRoute(me,target)??[target]:[];
+  if(regional)return region.coastWalkable(target.x,target.y)?region.spaceWalkRoute(me,target)??[target]:[];
   const feet=feetHeight(gameTime());
   const stationRoute=approachRoute(me,target,(a,b)=>planWalk(a,b,feet));
   if(stationRoute)return stationRoute;
@@ -1727,7 +1744,7 @@ async function walkTo(target,seat=null,fromMap=false){
   stand();
   const request=++coastalWalkRequest,started={x:me.x,y:me.y},input=manualInputAt;
   let steps;
-  if(fromMap&&onCoast){
+  if(fromMap&&regional){
     course=[];pendingSeat=null;
     steps=await coastalMapSteps(target);
     if(request!==coastalWalkRequest||input!==manualInputAt||near(started,me.x,me.y)>.4||!canWalkTo())return;
@@ -1779,7 +1796,7 @@ shortcutRegion.id="shortcut-region";
 shortcutRegion.className="quiet";
 shortcutRegion.setAttribute("aria-label","순간이동 구역");
 shortcutRegion.add(new Option("현재 구역",""));
-for(const region of onCoast?["포항"]:Object.keys(localDestinations))shortcutRegion.add(new Option(region==="열린송현녹지광장"?"열린송현":region,region));
+for(const label of regional?[inGyeongju?"경주":"포항"]:Object.keys(localDestinations))shortcutRegion.add(new Option(label==="열린송현녹지광장"?"열린송현":label,label));
 $("model-credits").after(shortcutRegion);
 const shortcutButtons=Array.from(document.querySelectorAll('#map-links [data-shortcut]'));
 const extraShortcut=document.createElement("button");
@@ -1788,8 +1805,13 @@ extraShortcut.className="quiet";
 extraShortcut.hidden=true;
 $("map-links").append(extraShortcut);
 shortcutButtons.push(extraShortcut);
-if(onCoast)while(shortcutButtons.length<region.destinations.length){const button=document.createElement("button");button.type="button";button.className="quiet";$("map-links").append(button);shortcutButtons.push(button);}
-const shortcutsHere=()=>onCoast?region.destinations:localDestinations[shortcutRegion.value||outdoorMap(me)]??mapDestinations;
+if(regional)while(shortcutButtons.length<region.destinations.length){const button=document.createElement("button");button.type="button";button.className="quiet";$("map-links").append(button);shortcutButtons.push(button);}
+const stationShortcuts=inGyeongju?[region.travelStops.stationExit,region.travelStops.stationBus,region.travelStops.townBus]:null;
+const townShortcuts=inGyeongju?region.destinations.filter(p=>p!==region.travelStops.stationBus):null;
+function shortcutsHere(){
+  if(inGyeongju)return region.sameGyeongjuArea(me,region.travelStops.stationExit)?stationShortcuts:townShortcuts;
+  return onCoast?region.destinations:localDestinations[shortcutRegion.value||outdoorMap(me)]??mapDestinations;
+}
 let shownShortcuts=null;
 function refreshShortcuts(){
   const shortcuts=shortcutsHere();
@@ -1800,8 +1822,10 @@ function refreshShortcuts(){
     const shortcut=shortcuts[index];
     button.hidden=!shortcut;
     if(!shortcut)return;
-    button.textContent=shortcut.label;
-    button.setAttribute("aria-label",shortcut.aria??shortcut.name+"으로 순간이동");
+    const viaBus=inGyeongju&&!region.sameGyeongjuArea(me,shortcut);
+    const label=viaBus?(shortcut===region.travelStops.townBus?"황리단길행 버스":"경주역행 버스"):shortcut.label;
+    button.textContent=label;
+    button.setAttribute("aria-label",viaBus?label+" 정류장 가는 길":shortcut.aria??shortcut.name+"으로 순간이동");
   });
 }
 shortcutRegion.addEventListener("change",refreshShortcuts);
@@ -1809,6 +1833,7 @@ shortcutButtons.forEach((button,index)=>button.addEventListener("click",()=>{
   const destination=shortcutsHere()[index];
   if(!session||riding||clinkLocked(gameTime())||!destination)return;
   if(coastPlay?.atSea()){toast("내린 뒤 순간이동할 수 있어요.");return;}
+  if(inGyeongju&&!region.sameGyeongjuArea(me,destination)){showMapRoute(destination);return;}
   const feet=platformAt(destination.x,destination.y)+stepUp;
   if(!walkable(destination.x,destination.y,feet))return;
   if(me.bus||isCycling(me)||queuedBus||queuedBike){
@@ -2753,16 +2778,26 @@ function movePlayerTo(destination,place){
   ownView={...ownView,pan:heading,tilt:destination.tilt??0};
   $("location").textContent=place;dirty=true;wakeSync();
 }
-$("pohang-trip").addEventListener("click",()=>{
+const destinationDialog=$("ktx-destinations");
+$("ktx-destination").addEventListener("click",()=>{
   if(!session||leavingByKtx||interiorAt(me.x,me.y)!=="ktx-coach")return;
-  void travelTo(true);
+  closeActionMenus();resetInput();destinationDialog.showModal();
 });
-async function travelTo(outward){
+$("ktx-destinations-close").addEventListener("click",()=>destinationDialog.close());
+destinationDialog.addEventListener("close",focusGame);
+for(const destination of ["pohang","gyeongju"]){
+  $(destination+"-trip").addEventListener("click",()=>{
+    if(!destinationDialog.open||interiorAt(me.x,me.y)!=="ktx-coach")return;
+    destinationDialog.close();void travelTo(destination);
+  });
+}
+async function travelTo(destination){
   if(!session||leavingByKtx)return;
   if(bagLocked()){toast("물건을 주고받은 뒤 승차해 주세요.");return;}
   leavingByKtx=true;
   const visit=session;
-  document.documentElement.dataset.ktxTransfer=outward?"pohang":"seoul";
+  const outward=destination!=="seoul";
+  document.documentElement.dataset.ktxTransfer=destination;
   resetInput();clearSyncTimer();
   try{
     await pendingRoomSync;
@@ -2773,11 +2808,11 @@ async function travelTo(outward){
         hand:{action:"release",id:link.id,...(isUmbrellaLink(link)?{kind:"umbrella"}:{})}});
       if(!result.ok)throw Error("train");
     }
-    rememberWalkPosition();saveBag();const ticket={...session,avatar:{...me},view:{...ownView},ktxTrack,region:outward?"boarding":"returning"};
+    rememberWalkPosition();saveBag();const ticket={...session,avatar:{...me},view:{...ownView},ktxTrack,destination,region:outward?"boarding":"returning"};
     if(!outward)await coastPlay?.leaveStation();
     sessionStorage.setItem("palace-coast-ticket",JSON.stringify(ticket));
     if(!outward)coastPlay?.stop();
-    const url=new URL("index.html",location.href);if(outward)url.searchParams.set("region","pohang");
+    const url=new URL("index.html",location.href);if(outward)url.searchParams.set("region",destination);
     location.replace(url);
   }catch{
     leavingByKtx=false;delete document.documentElement.dataset.ktxTransfer;
@@ -2793,6 +2828,34 @@ function tasteCoastFood(kind){
  const time=gameTime(),spec=ITEMS[kind];if(!spec)return;
  me.coast.tasting={kind,at:time};dirty=true;wakeSync();updateCoastActivities();
  if(spec.alcohol)alcoholSip={at:time+spec.duration,empty:true};
+}
+function gyeongjuBus(destination,label){
+ const link=myLink()?.id??(queuedHand?.action==="offer"?queuedHand.id:null);
+ if(link){queuedHand={action:"release",id:link};changeLinks(links);}
+ closeActionMenus();clearMapRoute();setMap(false);
+ movePlayerTo(destination,label);rememberWalkPosition();
+ toast(label+"에 도착했어요.");
+}
+function gyeongjuMenu(){
+ const actions=gyeongjuActivities?.menu()??new Map();
+ if(!session||me.seat!=null||me.groundSit||riding||leavingByKtx)return actions;
+ const {stationExit,stationBus,townBus,townReturnBus}=region.travelStops;
+ if(near(stationExit,me.x,me.y)<6)actions.set("train",{label:"서울행 KTX 타기",marker:stationExit,run:()=>void travelTo("seoul")});
+ if(near(stationBus,me.x,me.y)<5)actions.set("stationBus",{label:"황리단길행 버스 타기",marker:stationBus,run:()=>gyeongjuBus(townBus,"황리단길 정류장")});
+ if(near(townReturnBus,me.x,me.y)<5)actions.set("townBus",{label:"경주역행 버스 타기",marker:townReturnBus,run:()=>gyeongjuBus(stationBus,"경주역 앞 정류장")});
+ return actions;
+}
+function updateGyeongjuActivities(markers){
+ const actions=gyeongjuMenu();
+ for(const id of gyeongjuButtons){
+  const action=actions.get(id),buttonId="gyeongju-"+id;
+  setActivity(buttonId,action?.label);
+  if(action?.marker){
+   const {x,y}=action.marker;
+   markers.set(buttonId,{x:x-region.gyeongjuOrigin.x,z:y-region.gyeongjuOrigin.y,h:action.marker.h??0,label:action.label});
+  }
+ }
+ setText($("location"),region.coastName(me));
 }
 function updateCoastActivities(markers){
  const {actions,hint}=coastPlay.menu();
@@ -2849,7 +2912,7 @@ function useVenueDoor(portal){
   const place=inside?(venue===ktxCoach?placeName(destination):venue.outsideName??venue.name+" 앞"):venue.name;
   movePlayerTo(destination,place);
   if(venue===ktxCoach)rememberWalkPosition();
-  if(portal.boarding)toast("포항행 KTX 일반실에 탔어요.");
+  if(portal.boarding)toast("KTX 일반실에 탔어요. 목적지를 선택하세요.");
   focusGame();
 }
 venueDoorButton.addEventListener("click",()=>{
@@ -3333,7 +3396,8 @@ function updateActivities(time,guideNearby,coastMarkers){
     packAtCounter?ITEMS[station.kind].name+" 가방에 담기":"손이나 가방을 비워 주세요");
   setActivity("take-item",pickup,busy||!free&&!packAtCounter);
   if(coastMarkers&&pickup&&!busy&&(free||packAtCounter)){
-    coastMarkers.set("take-item",{...seaPoint(station),h:world.floorHeight(station),label:pickup});
+    const local=inGyeongju?{x:station.x-region.gyeongjuOrigin.x,z:station.y-region.gyeongjuOrigin.y}:seaPoint(station);
+    coastMarkers.set("take-item",{...local,h:world.floorHeight(station),label:pickup});
   }
   if(station)attr($("take-item"),"data-action-target",station.kind);
   const feedSlot=queuedFeed?.slot??me.feed?.slot??"item";
@@ -3360,7 +3424,7 @@ function updateActivities(time,guideNearby,coastMarkers){
   setActivity("subway",stop?"지하철 타기":null,riding||feeding||Boolean(myLink()?.active));
   const portal=eligible&&portalNearby();
   const entrance=portal?.venue===ARCADE_SITE?"오락실 입장":[mmcaVenue,semaVenue].includes(portal?.venue)?"미술관 입장":diningById[portal?.venue?.id]?"식당 입장":"입장하기";
-  setActivity("pohang-trip",interiorAt(me.x,me.y)==="ktx-coach"?"포항행 KTX 출발":null);
+  setActivity("ktx-destination",interiorAt(me.x,me.y)==="ktx-coach"?"KTX 목적지 선택":null);
   setActivity("museum-door",portal?(portal.label??(portal.inside?portal.venue.exitLabel??"나가기":portal.venue.enterLabel??entrance)):null,feeding||(!portal?.inside&&!portal?.boarding&&Boolean(myLink()?.active)));
   attr(venueDoorButton,"data-action-target",venueAction(portal));
   setActivity("venue-guestbook",eligible&&guestbookVenue()?"방명록":null);
@@ -3566,7 +3630,7 @@ function actors(now,stepping){
 let lastFrame=performance.now(),interfaceAt=0,guideNearby=false;
 let coastMarker=null;
 function selectCoastMarker(markers){
-  const shore=seaPoint(me);
+  const shore=inGyeongju?{x:me.x-region.gyeongjuOrigin.x,z:me.y-region.gyeongjuOrigin.y}:seaPoint(me);
   let closest=null,best=Infinity;
   for(const [id,marker] of markers){
     if(nearbyControls.isPrimary($(id)))return marker;
@@ -3583,7 +3647,14 @@ function preferredNearbyAction(time){
       if(!button.hidden&&!button.disabled)return id;
     }
   }
-  if(!$("pohang-trip").hidden)return "pohang-trip";
+  if(!$("ktx-destination").hidden)return "ktx-destination";
+  if(inGyeongju){
+    if(me.seat!=null&&!$("sit").hidden)return "sit";
+    for(const id of ["stationBus","townBus","train",...gyeongjuModule.gyeongjuActionIds]){
+      const button=$("gyeongju-"+id);
+      if(!button.hidden&&!button.disabled)return button.id;
+    }
+  }
   if(me.bus||queuedBus)return "bus-action";
   // Keep shoreline interactions within reach while the avatar is seated.
   if(!$("boat-catch").hidden)return "boat-catch";
@@ -3667,11 +3738,12 @@ function frame(now){
     interfaceAt=now+95;
     guideNearby=!me.bus&&!isCycling(me)&&nearVisitorGuide();
     updateEnvironment(time);
-    const coastMarkers=coastPlay?new Map():null;
+    const coastMarkers=regional?new Map():null;
     updateActivities(time,guideNearby,coastMarkers);
     updateTransport(time);
     if(coastPlay)updateCoastActivities(coastMarkers);
-    if(world&&!onCoast)passport.visit(me);
+    if(inGyeongju)updateGyeongjuActivities(coastMarkers);
+    if(world&&!regional)passport.visit(me);
     const tutorialPaused=Boolean(photoMode.camera||riding||minigames.active()||document.hidden||document.querySelector("dialog[open]"));
     if(tutorial.needsStart&&world&&!tutorialPaused)tutorial.start();
     tutorial.update(now,tutorialPaused);
@@ -3684,7 +3756,8 @@ function frame(now){
     setActivity("sit",seatEnabled?seatLabel:null,eating||me.seat==null&&!bench?.choice);
     if(coastMarkers&&bench?.choice&&!eating){
       const point=bench.choice.approach;
-      coastMarkers.set("sit",{...seaPoint(point),h:world.floorHeight({...point,coast:me.coast}),label:seatLabel});
+      const local=inGyeongju?{x:point.x-region.gyeongjuOrigin.x,z:point.y-region.gyeongjuOrigin.y}:seaPoint(point);
+      coastMarkers.set("sit",{...local,h:world.floorHeight({...point,coast:me.coast}),label:seatLabel});
     }
     const seatTarget=me.seat!=null?"leave-"+me.seat:bench?.choice?"sit-"+bench.choice.bench:"pending";
     attr($("sit"),"data-action-target",seatTarget);
@@ -3703,7 +3776,7 @@ function frame(now){
     leaveWater();
     updateLocationGuides();updateMaps(self,others);
   }
-  lastScene={paperBoats:paperBoats.states(),me:self,peers:[...others.values()],parkedBikes,view:ownView,coastMarker,
+  lastScene={paperBoats:paperBoats.states(),me:self,peers:[...others.values()],parkedBikes,view:ownView,coastMarker,gyeongjuMarker:inGyeongju?coastMarker:null,
     firstPerson:Boolean(bungeoMode||arcade.kind==="mole"||firstPerson&&!arcade.kind)&&!photoMode.camera,
     photoCamera:photoMode.camera,photoCapture:Boolean(photoMode.camera),environment,guideNearby,destination:course.at(-1),clock:time,fountainShow,galleryLight,
     diningService:diningService?.venue===currentDining()?.id?diningService?.tickets??[]:[],
@@ -4123,15 +4196,15 @@ const miniMapWidth=126,miniMapHeight=126;
 function attr(node,key,value){if(node.getAttribute(key)!==String(value))node.setAttribute(key,value);}
 function setMapView(view){
   const {base}=mapViewport;
-  const x=Math.min(base.x+base.w*.96,Math.max(base.x-base.w*.66,view.x));
-  const y=Math.min(base.y+base.h*.96,Math.max(base.y-base.h*.66,view.y));
+  const centerX=regional?me.x-view.w/2:base.x,centerY=regional?me.y-view.h/2:base.y;
+  const x=Math.min(Math.max(base.x+base.w*.96,centerX),Math.max(Math.min(base.x-base.w*.66,centerX),view.x));
+  const y=Math.min(Math.max(base.y+base.h*.96,centerY),Math.max(Math.min(base.y-base.h*.66,centerY),view.y));
   mapViewport.view={...view,x,y};
   attr(mapSurface,"viewBox",[x,y,view.w,view.h].join(" "));
   mapLabels.setView(base,mapViewport.view,overviewOpen);
 }
 const clearMapGestures=bindMapGestures(mapSurface,{getView:()=>mapViewport,setView:setMapView,onTap:walkFromMap});
-// On a desktop the big map is always in view. Left alone for a few seconds, it drifts back
-// to keep the walker in the middle, as far as the edges of the district allow.
+// Give manual browsing priority. Moving again resumes tracking after the gesture ends.
 const MAP_FOLLOW_AFTER_MS=3000;
 let mapTouched=-Infinity,mapFollowed=0,mapBrowseOrigin=null;
 function markMapActivity(){
@@ -4143,10 +4216,16 @@ mapSurface.addEventListener("pointermove",event=>{if(event.buttons)markMapActivi
 function followOnMap(self){
   const now=performance.now(),elapsed=Math.min(.5,(now-mapFollowed)/1000);
   mapFollowed=now;
-  if(mobileHeader.matches||!mapViewport||overviewOpen||mapRoute&&!mapRoute.walking||now-mapTouched<MAP_FOLLOW_AFTER_MS)return;
+  if(!mapViewport||overviewOpen||mapRoute&&!mapRoute.walking&&!mapRoute.followPlayer||now-mapTouched<MAP_FOLLOW_AFTER_MS)return;
+  if(mobileHeader.matches&&!regional)return;
   if(mapBrowseOrigin&&near(mapBrowseOrigin,self.x,self.y)<2)return;
   mapBrowseOrigin=null;
   const {base,view}=mapViewport;
+  if(regional){
+    const x=self.x-view.w/2,y=self.y-view.h/2;
+    if(Math.abs(x-view.x)+Math.abs(y-view.y)>.02)setMapView({...view,x,y});
+    return;
+  }
   const fit=(low,size,span,at)=>span>=size?low+(size-span)/2:Math.min(low+size-span,Math.max(low,at-span/2));
   const dx=fit(base.x,base.w,view.w,self.x)-view.x,dy=fit(base.y,base.h,view.h,self.y)-view.y;
   if(Math.abs(dx)<view.w*.002&&Math.abs(dy)<view.h*.002)return;
@@ -4163,15 +4242,20 @@ function showMapRegion(box){
   if(mapViewport?.key===box)return;
   clearMapGestures();
   const base=fitMapRegion(box);
-  mapViewport={key:box,base,view:base};setMapView(base);
+  mapViewport={key:box,base,view:base};
+  if(regional&&!overviewOpen){
+    const zoom=Math.max(.23,Math.min(1,340/Math.min(base.w,base.h))),w=base.w*zoom,h=base.h*zoom;
+    setMapView({x:me.x-w/2,y:me.y-h/2,w,h});
+  }else setMapView(base);
 }
 function centerMapOnPlayer(){
   setOverview(false);
+  if(regional&&mapRoute)mapRoute.followPlayer=true;
   const box=mapRegionAt(me,interiorAt(me.x,me.y),false);
   showMapRegion(box);
   const {view}=mapViewport;
   setMapView({...view,x:me.x-view.w/2,y:me.y-view.h/2});
-  markMapActivity();
+  mapTouched=-Infinity;mapBrowseOrigin=null;
 }
 $("map-center").addEventListener("click",centerMapOnPlayer);
 mapSurface.addEventListener("keydown",event=>{
@@ -4194,7 +4278,7 @@ if(typeof ResizeObserver!=="undefined")new ResizeObserver(()=>{
   setMapView({x:view.x+(view.w-w)*.5,y:view.y+(view.h-h)*.5,w,h});
 }).observe(mapSurface);
 function mapRegionAt(point,inside,overview){
-  if(onCoast)return region.coastBox(point,overview);
+  if(regional)return region.coastBox(point,overview);
   if(sameStation(inside,"station-hall"))return stationFloorView;
   if(inside)return indoorViewBoxes[inside];
   if(overview)return fieldViewBox;
@@ -4215,8 +4299,12 @@ function mapRegionAt(point,inside,overview){
 const mapRoutePanel=$("map-route"),mapRoutePath=$("map-route-path"),mapRouteEnd=$("map-route-end");
 const mapRouteWalk=$("map-route-walk");
 function showMapRoute(site,{fit=true}={}){
-  if(onCoast&&!inCoastSpace(site)){toast("서울에서 이 장소의 도보 경로를 볼 수 있어요.");return;}
+  if(pointCity(site)!==activeCity){toast("이 장소가 있는 도시에서 도보 경로를 볼 수 있어요.");return;}
   if(!session)return;
+  if(inGyeongju&&!region.sameGyeongjuArea(me,site)){
+    site=region.sameGyeongjuArea(me,region.travelStops.stationBus)?region.travelStops.stationBus:region.travelStops.townReturnBus;
+    toast("표시된 정류장에서 버스로 이동할 수 있어요.");
+  }
   resetInput();
   mapRoute={site,start:{x:me.x,y:me.y},steps:[]};
   refreshMapRoute(fit);
@@ -4235,7 +4323,7 @@ function mapRouteDestination(site){
       const bearing=i*Math.PI/4;
       const along=Math.cos(bearing)*(width+padding),across=Math.sin(bearing)*(depth+padding);
       const point={x:site.x+c*along+s*across,y:site.y-s*along+c*across};
-      if(onCoast?region.coastDrySpot(point.x,point.y):walkable(point.x,point.y,platformAt(point.x,point.y)+.19))candidates.push(point);
+      if(regional?region.coastDrySpot(point.x,point.y):walkable(point.x,point.y,platformAt(point.x,point.y)+.19))candidates.push(point);
     }
     if(candidates.length)return candidates.sort((a,b)=>near(me,a.x,a.y)-near(me,b.x,b.y))[0];
   }
@@ -4256,7 +4344,7 @@ async function refreshMapRoute(fit=false){
   const request=(guide.request??0)+1;guide.request=request;
   mapRoutePanel.hidden=false;setText($("map-route-name"),guide.site.name);
   if(guide.destination&&!guide.loading){
-    if(onCoast){
+    if(regional){
       guide.planning=true;drawMapRoute();
       const steps=await coastalMapSteps(guide.destination);
       if(mapRoute!==guide||guide.request!==request)return;
@@ -4266,13 +4354,13 @@ async function refreshMapRoute(fit=false){
   const end=guide.steps.at(-1);
   // The pathfinder may end at the nearest reachable cell when a path is obstructed.
   if(end&&near(guide.destination,end.x,end.y)>1.2)guide.steps=[];
-  if(fit){
+  if(fit&&!guide.followPlayer){
     showMapRegion(mapRegionAt(me,guide.inside,false));
     const {base}=mapViewport,destination=guide.destination;
     const wide=!guide.indoors&&[guide.start,...guide.steps,destination].some(p=>
       p.x<base.x||p.x>base.x+base.w||p.y<base.y||p.y>base.y+base.h);
     setOverview(wide);
-    if(wide)showMapRegion(fieldViewBox);
+    if(wide)showMapRegion(regional?region.coastBox(me,true):fieldViewBox);
     if(destination)fitMapRoute([guide.start,...guide.steps,destination]);
   }
   drawMapRoute();
@@ -4339,13 +4427,12 @@ function updateMaps(self,others){
   const fullMap=$("map-panel").classList.contains("expanded")||!mobileHeader.matches&&!gameShell.classList.contains("game-fullscreen");
   const coat=hexCoat(self.coat??0xe5b672);
   if(fullMap){
-    const mapArea=onCoast?"포항":["북촌","환구단","청계천","열린송현녹지광장","경희궁","정동길","서울역"].includes(area)?area:
+    const mapArea=regional?(inGyeongju?"경주":"포항"):["북촌","환구단","청계천","열린송현녹지광장","경희궁","정동길","서울역"].includes(area)?area:
       palace?"경복궁":plaza||corridor&&self.y<-58?"광화문광장":"덕수궁";
     setText($("map-panel").querySelector("h2"),indoors?`${inside==="museum"?"전시관":venueById[inside].name} 지도`:overview?"전체 지도":mapArea+" 지도");
     $("world").classList.toggle("overview-map",overview);
     attr(overviewLayer,"visibility",overview?"visible":"hidden");
     overviewButton.hidden=indoors;
-    attr($("my-avatar"),"transform","translate("+self.x+" "+self.y+")"+(indoors?" scale(.18)":overview?" scale(2.8)":palace?" scale(2.2)":plaza||corridor?" scale(1.55)":""));
     const parked=self.bike?.parked,parkedPin=$("parked-bike-pin");
     attr(parkedPin,"visibility",parked&&!indoors?"visible":"hidden");
     if(parked){
@@ -4365,6 +4452,16 @@ function updateMaps(self,others){
   $("mini-world").classList.toggle("museum-map",indoors);
   showMapRegion(mapRegionAt(self,inside,overview));
   followOnMap(self);
+  let mapActorUnit=1;
+  if(fullMap){
+    if(regional){
+      const {view}=mapViewport;
+      // The regional maps range from a single bus stop to several kilometres.
+      mapActorUnit=Math.max(view.w/Math.max(1,mapSurface.clientWidth),view.h/Math.max(1,mapSurface.clientHeight));
+    }
+    const scale=regional?mapActorUnit*.72:indoors?.18:overview?2.8:palace?2.2:plaza||corridor?1.55:1;
+    attr($("my-avatar"),"transform","translate("+self.x+" "+self.y+") scale("+scale+")");
+  }
   attr($("mini-world"),"viewBox",indoors?(sameStation(inside,"station-hall")?[self.x-23,self.y-23,46,46].join(" "):indoorViewBoxes[inside]):[
     (self.x-miniMapWidth/2).toFixed(1),(self.y-miniMapHeight/2).toFixed(1),miniMapWidth,miniMapHeight
   ].join(" "));
@@ -4397,7 +4494,7 @@ function updateMaps(self,others){
     attr(mark.mini,"r",indoors?1.1:3.75);attr(mark.mini,"visibility",visible);
     if(fullMap){
       attr(mark.big,"cx",actor.x);attr(mark.big,"cy",actor.y);
-      attr(mark.big,"r",indoors?1.45:overview?20:palace?17:plaza||corridor?12:8);attr(mark.big,"visibility",visible);
+      attr(mark.big,"r",regional?mapActorUnit*5:indoors?1.45:overview?20:palace?17:plaza||corridor?12:8);attr(mark.big,"visibility",visible);
     }
   }
   for(const [id,mark] of markers)if(!others.has(id)){mark.big.remove();mark.mini.remove();markers.delete(id);}
@@ -4412,14 +4509,14 @@ for(const exhibit of Object.values(museumExhibits)){
   link.textContent=exhibit.title+" · "+exhibit.sourceLabel;
   item.append(link);$("exhibit-credits").append(item);
 }
-if(onCoast){
+if(regional){
   region.drawCoastMap($("map-landscape"),svg,drawMapPoint);region.drawCoastMap($("mini-landscape"),svg,drawMapPoint,true);
   overviewLayer=svg($("map-landscape"),"g",{});
 }else{
   drawMap($("map-landscape"));overviewLayer=drawOverview($("map-landscape"));drawMap($("mini-landscape"),true);
 }
 const stampById=new Map(passportStamps.map(stamp=>[stamp.id,stamp]));
-const stampPins=new Map((onCoast?[]:passportStamps).map(stamp=>{
+const stampPins=new Map((regional?[]:passportStamps).map(stamp=>{
   const mark=svg($("stamp-pins"),"g",{"data-stamp-id":stamp.id,"data-map-category":"stamp"});
   const pin=svg(mark,"circle",{cx:stamp.x,cy:stamp.y,role:"button",tabindex:"0","aria-label":stamp.name,
     "data-stamp-id":stamp.id});
@@ -4445,10 +4542,14 @@ if(arrivalRegion){
 }else if(document.documentElement.dataset.ktxTransfer==="resume")delete document.documentElement.dataset.ktxTransfer;
 function loadWorld(){
   if(world||worldLoading)return worldLoading;
-  worldLoading=Promise.all([import("./world3d.js"),onCoast?import("./coast-scene.js"):null]).then(([{makeWorld},stage])=>{
-    if(onCoast&&!coastPlay)coastPlay=coastModule.createCoastPlay({me,visit:()=>session,view:()=>ownView,request,now:gameTime,changed:()=>{dirty=true;},reset:resetInput,notice:toast,openMonitor:openStudioMonitor,goSeoul:()=>travelTo(false),canReceiveFood:()=>!bagLocked()&&Boolean(freeItemSlot(me,gameTime())),receiveFood:takeCoastFood,tasteFood:tasteCoastFood,chooseOrder:async submit=>{const {openTavernOrder}=await import("./tavern-client.js");if(me.coast?.mode==="table")openTavernOrder(submit);},chooseSeat:(index,stop)=>{selectedBus={coast:true,index,stop};resetInput();busDialog.showModal();refreshBusSeats(gameTime());}});
-    world=makeWorld($("game"),{onCatFlee,catSeed:session?.room,graphics:graphicsSelect.value,coast:stage?{origin:coastOrigin,create:stage.createCoastScene,visitors:stage.coastVisitors,play:coastPlay,stations:region.counters}:null});worldFailed=false;
-    if(!onCoast)drawDestinations(world);$("loading-game").hidden=true;
+  worldLoading=Promise.all([import("./world3d.js"),onCoast?import("./coast-scene.js"):inGyeongju?import("./gyeongju-scene.js"):null]).then(([{makeWorld},stage])=>{
+    if(onCoast&&!coastPlay)coastPlay=coastModule.createCoastPlay({me,visit:()=>session,view:()=>ownView,request,now:gameTime,changed:()=>{dirty=true;},reset:resetInput,notice:toast,openMonitor:openStudioMonitor,goSeoul:()=>travelTo("seoul"),canReceiveFood:()=>!bagLocked()&&Boolean(freeItemSlot(me,gameTime())),receiveFood:takeCoastFood,tasteFood:tasteCoastFood,chooseOrder:async submit=>{const {openTavernOrder}=await import("./tavern-client.js");if(me.coast?.mode==="table")openTavernOrder(submit);},chooseSeat:(index,stop)=>{selectedBus={coast:true,index,stop};resetInput();busDialog.showModal();refreshBusSeats(gameTime());}});
+    if(inGyeongju&&!gyeongjuActivities)gyeongjuActivities=gyeongjuModule.createGyeongjuActivities({me,now:gameTime,environment:()=>currentEnvironment,takeItem:takeCoastFood,notice:toast,
+      say:text=>{if(queuedChat||chatInput.value.trim())return false;chatInput.value=text;$("chat-form").requestSubmit();return true;}});
+    world=makeWorld($("game"),{onCatFlee,catSeed:session?.room,graphics:graphicsSelect.value,
+      coast:onCoast?{origin:coastOrigin,create:stage.createCoastScene,visitors:stage.coastVisitors,play:coastPlay,stations:region.counters}:null,
+      gyeongju:inGyeongju?{origin:region.gyeongjuOrigin,create:stage.createGyeongjuScene,stations:region.counters??[]}:null});worldFailed=false;
+    if(!regional)drawDestinations(world);$("loading-game").hidden=true;
     if($("character-dialog").open)refreshCharacterPreview();
   }).catch(error=>{
     console.error("산책길 초기화",error);worldFailed=true;$("loading-game").textContent="이 브라우저에서 3D 산책을 열 수 없어요.";

@@ -1,11 +1,14 @@
 import {ITEMS,diningTray} from "./activities.js";
 import {freeItemSlot,itemAnimating,validItemSlot} from "./held-items.js";
 import {plushItems} from "./plush-items.js";
+import {inCoastSpace} from "./region-coordinates.js";
 
 export const BAG_SIZE=15;
 export const wearSlots=["plushHead","plushBack"];
 export const portable=kind=>Object.hasOwn(ITEMS,kind)&&!ITEMS[kind].meal;
-export const validPacked=p=>p&&portable(p.kind)&&Number.isInteger(p.remaining)&&p.remaining>0&&p.remaining<=ITEMS[p.kind].uses;
+export const packedBoard={kind:"surfboard",remaining:1,started:0};
+export const canPackBoard=a=>inCoastSpace(a)&&Boolean(a.coast)&&a.coast.mode!=="surf";
+export const validPacked=p=>p&&(p.kind==="surfboard"?p.remaining===1:portable(p.kind)&&Number.isInteger(p.remaining)&&p.remaining>0&&p.remaining<=ITEMS[p.kind].uses);
 const pack=p=>({kind:p.kind,remaining:p.remaining,started:0});
 export function belongings(a){
   return {bag:(Array.isArray(a?.bag)?a.bag:[]).slice(0,BAG_SIZE).filter(validPacked).map(pack),
@@ -14,6 +17,17 @@ export function belongings(a){
 }
 export function inventoryAction(a,cmd,now,recipient){
   const bag=a.bag??=[],i=cmd.index,slot=cmd.slot,wear=cmd.wear;
+  if(cmd.kind==="surfboard"){
+    if(!canPackBoard(a))return "포항에서 보드를 탄 상태를 끝낸 뒤 옮길 수 있어요.";
+    if(cmd.action==="storeBoard"&&a.coast.board&&!bag.some(p=>p.kind==="surfboard")){
+      if(bag.length>=BAG_SIZE)return "가방을 한 칸 비워 주세요.";
+      a.bag=[...bag,{...packedBoard}];a.coast.board=false;return;
+    }
+    if(cmd.action==="unpackBoard"&&!a.coast.board&&Number.isInteger(i)&&bag[i]?.kind==="surfboard"){
+      a.bag=bag.filter((_,index)=>index!==i);a.coast.board=true;return;
+    }
+    return "보드 위치를 다시 확인해 주세요.";
+  }
   if(cmd.action==="prize"||cmd.action==="collect"){
     if(!portable(cmd.kind)||cmd.action==="prize"&&!Object.hasOwn(plushItems,cmd.kind)||bag.length>=BAG_SIZE)return "가방을 한 칸 비워 주세요.";
     a.bag=[...bag,{kind:cmd.kind,remaining:ITEMS[cmd.kind].uses,started:0}];return;

@@ -12,15 +12,16 @@
   <script>
     try {
       const ticket = JSON.parse(sessionStorage.getItem("palace-coast-ticket"));
-      const pohang = new URLSearchParams(location.search).get("region") === "pohang";
+      const region = new URLSearchParams(location.search).get("region");
+      const regional = region === "pohang" || region === "gyeongju";
       if (ticket?.room && ticket.id && ticket.key && ticket.nickname) {
-        if (pohang && ticket.region === "boarding") document.documentElement.dataset.ktxTransfer = "pohang";
-        if (!pohang && ticket.region === "returning") document.documentElement.dataset.ktxTransfer = "seoul";
+        if (regional && ticket.region === "boarding" && (ticket.destination ?? "pohang") === region) document.documentElement.dataset.ktxTransfer = region;
+        if (!regional && ticket.region === "returning") document.documentElement.dataset.ktxTransfer = "seoul";
       }
-      if (pohang && !document.documentElement.dataset.ktxTransfer) {
+      if (regional && !document.documentElement.dataset.ktxTransfer) {
         const entry = JSON.parse(sessionStorage.getItem("palace-map-entry"));
         const nickname = localStorage.getItem("jeongdong-nickname");
-        if (nickname && (entry?.name === nickname || (ticket?.region === "pohang" && ticket.nickname === nickname))) {
+        if (nickname && (entry?.name === nickname || (ticket?.region === region && ticket.nickname === nickname))) {
           document.documentElement.dataset.ktxTransfer = "resume";
         }
       }
@@ -37,6 +38,7 @@
       font: 650 clamp(1.25rem, 4vw, 1.75rem)/1.45 "Segoe UI", "Malgun Gothic", sans-serif;
     }
     html[data-ktx-transfer="pohang"] #ktx-transfer-loading .ktx-to-pohang,
+    html[data-ktx-transfer="gyeongju"] #ktx-transfer-loading .ktx-to-gyeongju,
     html[data-ktx-transfer="seoul"] #ktx-transfer-loading .ktx-to-seoul,
     html[data-ktx-transfer="resume"] #ktx-transfer-loading .coast-resume { display: inline; }
     .ktx-loading-track { display: block; width: 8rem; height: 3px; border-radius: 2px; overflow: hidden; background: #42594b; }
@@ -60,7 +62,7 @@
 </head>
 <body>
   <div id="ktx-transfer-loading" role="status" aria-live="polite" aria-atomic="true">
-    <span class="ktx-to-pohang">포항역으로 이동 중</span><span class="ktx-to-seoul">서울역으로 이동 중</span><span class="coast-resume">포항 산책을 이어가는 중</span>
+    <span class="ktx-to-pohang">포항역으로 이동 중</span><span class="ktx-to-gyeongju">경주역으로 이동 중</span><span class="ktx-to-seoul">서울역으로 이동 중</span><span class="coast-resume">마지막 산책 장소로 이동 중</span>
     <i class="ktx-loading-track" aria-hidden="true"></i>
   </div>
   <main id="entry-flow" class="entry-flow" aria-label="산책 시작">
@@ -240,7 +242,7 @@
                   <button id="bike-action" type="button" class="quiet activity-button" hidden>따릉이 빌리기</button>
                   <button id="bike-park" type="button" class="quiet activity-button" hidden>따릉이에서 내리기</button>
                   <button id="subway" type="button" class="quiet activity-button" aria-haspopup="dialog" aria-controls="transit-dialog" hidden>지하철 타기</button>
-                  <button id="pohang-trip" type="button" class="primary activity-button" hidden>포항행 KTX 출발</button>
+                  <button id="ktx-destination" type="button" class="primary activity-button" hidden>KTX 목적지 선택</button>
                   <button id="museum-door" type="button" class="quiet activity-button" hidden>입장하기</button>
                   <button id="venue-guestbook" type="button" class="quiet activity-button" aria-haspopup="dialog" aria-controls="guestbook-dialog" hidden>방명록</button>
                   <button id="dining-call" type="button" class="quiet activity-button" hidden>벨 누르기</button>
@@ -589,6 +591,7 @@
   <dialog id="credits-dialog" aria-labelledby="credits-title">
     <div class="dialog-top"><span class="tag" lang="en">Seoul Palace Walk</span><button type="button" class="quiet close" aria-label="닫기">×</button></div>
     <h2 id="credits-title">자료 출처</h2>
+    <p>경주 도로·유적지 지형 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> · <a href="./gyeongju-geography.js" download>경주 지리 데이터</a></p>
     <p>국가유산청이 제공한 3D 실측 자료를 웹에서 볼 수 있도록 경량화했습니다.</p>
     <ul class="credits">
       <li>국가유산청 경복궁 실측 자료 · <a href="https://www.data.go.kr/data/15115251/fileData.do" target="_blank" rel="noopener">경회루</a> · <a href="https://www.data.go.kr/data/15115294/fileData.do" target="_blank" rel="noopener">사정전</a> · <a href="https://www.data.go.kr/data/15115247/fileData.do" target="_blank" rel="noopener">강녕전</a> · <a href="https://www.data.go.kr/data/15115286/fileData.do" target="_blank" rel="noopener">태원전</a> · <a href="https://www.data.go.kr/data/15115265/fileData.do" target="_blank" rel="noopener">건춘문</a> · <a href="https://www.data.go.kr/data/15115249/fileData.do" target="_blank" rel="noopener">비현각</a> · <a href="https://www.data.go.kr/data/15115248/fileData.do" target="_blank" rel="noopener">만춘전</a> · <a href="https://www.data.go.kr/data/15115253/fileData.do" target="_blank" rel="noopener">천추전</a> · <a href="https://www.data.go.kr/data/15115291/fileData.do" target="_blank" rel="noopener">함원전</a> · <a href="https://www.data.go.kr/data/15115295/fileData.do" target="_blank" rel="noopener">자선당</a> · <a href="https://www.data.go.kr/data/15115269/fileData.do" target="_blank" rel="noopener">대전내소주방</a> · <a href="https://www.data.go.kr/data/15092148/fileData.do" target="_blank" rel="noopener">사정문</a></li>
@@ -818,6 +821,14 @@
       <button id="leave-save-confirm" class="primary" type="button">저장하고 나가기</button>
       <button id="leave-without-save" class="quiet" type="button">바로 나가기</button>
       <button id="leave-save-cancel" class="quiet" type="button" autofocus>계속 산책</button>
+    </div>
+  </dialog>
+  <dialog id="ktx-destinations" aria-labelledby="ktx-destinations-title">
+    <h2 id="ktx-destinations-title">KTX 목적지</h2>
+    <div class="dialog-actions">
+      <button id="pohang-trip" type="button">포항행 KTX 출발</button>
+      <button id="gyeongju-trip" type="button">경주행 KTX 출발</button>
+      <button id="ktx-destinations-close" type="button" class="quiet">닫기</button>
     </div>
   </dialog>
 </body>

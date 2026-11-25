@@ -15,6 +15,7 @@ import {HEADWEAR,KEEPSAKES} from "./public/wearable-options.js";
 import {LOOK_OPTIONS} from "./public/look-options.js";
 import {GITHUB_PAGES_ORIGIN} from "./public/hosting.js";
 import {inGameWorld} from "./public/world-extent.js";
+import {gyeongjuBounds,inGyeongjuSpace} from "./public/region-coordinates.js";
 import {exchangeMotion} from "./server/motion.mjs";
 import {ensureLiftTables,readLifts,roomLifts,validLift} from "./server/station-lifts.mjs";
 import {ensureSocialTables} from "./database/social-schema.mjs";
@@ -261,7 +262,9 @@ function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeA
       (json_type(avatar,'$.feed')='object' AND json_extract(avatar,'$.feed.claim') IS NOT ?)
       OR (json_type(avatar,'$.picnicClaim')='text' AND json_extract(avatar,'$.picnicClaim') IS NOT ?)
       OR (json_type(avatar,'$.bungeoClaim')='text' AND json_extract(avatar,'$.bungeoClaim') IS NOT ?)
-    THEN json_object('item',json_extract(avatar,'$.item'),'secondItem',json_extract(avatar,'$.secondItem'))
+    THEN json_patch(json_object('item',json_extract(avatar,'$.item'),'secondItem',json_extract(avatar,'$.secondItem')),
+      ${avatar.coast?`CASE WHEN json_type(avatar,'$.coast.board') IN ('true','false')
+        THEN json_object('coast',json_object('board',json(json_type(avatar,'$.coast.board')))) ELSE '{}' END`:"'{}'"})
     ELSE '{}' END`;
   const applySnapshot=base=>`json_set(json_patch(json_patch(json_patch(${base},${snapshotPatch}),${inventoryPatch}),${transportPatch}),
     '$.bag',coalesce(json_extract(avatar,'$.bag'),json('[]')),'$.bagClaim',json_extract(avatar,'$.bagClaim'),
@@ -307,6 +310,8 @@ function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeA
         WHERE peer.room=? AND peer.id<>? AND peer.updated>=?
         AND json_extract(peer.avatar,'$.seat')=?
         AND (json_type(peer.avatar,'$.coast.mode') IS NOT NULL)=?
+        AND (json_extract(peer.avatar,'$.x') BETWEEN ${gyeongjuBounds.minX} AND ${gyeongjuBounds.maxX}
+          AND json_extract(peer.avatar,'$.y') BETWEEN ${gyeongjuBounds.minY} AND ${gyeongjuBounds.maxY})=?
         AND COALESCE(json_extract(peer.avatar,'$.seatSide'),0)=slot
       ) ORDER BY slot=? DESC LIMIT 1
     ), json_set(?, '$.seat', NULL, '$.seatSide', NULL))`;
@@ -315,7 +320,7 @@ function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeA
     view=?
     WHERE room=? AND id=? AND player_key IS ?
       AND json_extract(avatar,'$.feed.claim') IS NOT ? ${picnicGuard} ${bungeoGuard}
-  `).bind(now,snapshot,preferred,1-preferred,room,id,active,avatar.seat,Number(Boolean(avatar.coast)),preferred,snapshot,inheritWish,now-chatLifetime,
+  `).bind(now,snapshot,preferred,1-preferred,room,id,active,avatar.seat,Number(Boolean(avatar.coast)),Number(inGyeongjuSpace(avatar)),preferred,snapshot,inheritWish,now-chatLifetime,
     bagClaim??null,acknowledgedFeed,picnicClaim??null,bungeoClaim??null,bikeCutoff,active,JSON.stringify(view),room,id,key,pendingFeed,...picnicArgs,...bungeoArgs);
 }
 

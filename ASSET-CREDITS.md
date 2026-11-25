@@ -90,3 +90,13 @@
 | 두호 그릴펍 | Tilt Bar N Grill · 포항시 북구 삼호로 243, 1층 | 36.0599322, 129.3785183 | [매장 주소·층](https://opengo.kr/5601fb3f0e887edf2ce33799) · [지도 핀](https://www.openstreetmap.org/node/2699055767) · [건물 윤곽](https://www.openstreetmap.org/way/874079368) · [삼호로 구간](https://www.openstreetmap.org/way/1305750384) |
 
 영일대 오션뷰 카페는 해안로 191-1 오브레멘, 바다야장은 해안로 107 미남 대게 회 새우의 지도 위치를 기준으로 배치했습니다. 상호와 좌석, 야외 영업 공간, 메뉴는 게임에 맞게 구성했습니다. [한국관광공사 오브레멘](https://korean.visitkorea.or.kr/detail/ms_detail.do?cotid=5c41872b-747e-4f80-9c83-d74ab662b296) · [네이버 미남 대게 회 새우](https://m.booking.naver.com/booking/6/bizes/642298)
+
+## 경주
+
+경주역과 황리단길에서 첨성대까지의 도로 중심선, 건물 윤곽, 봉분, 대릉원 담장, 산책로, 연못과 녹지는 OpenStreetMap의 공개 좌표를 경주 시내 기준의 미터 좌표로 변환했습니다. 변환한 지도 데이터는 ODbL 1.0으로 제공합니다. [© OpenStreetMap 기여자](https://www.openstreetmap.org/copyright) · [변환 지도 데이터](public/gyeongju-geography.js) · [황리단길 포석로](https://www.openstreetmap.org/way/1000945164) · [대릉원 경계](https://www.openstreetmap.org/way/42435919) · [첨성대](https://www.openstreetmap.org/way/382132601)
+
+카카오맵에서 황리단길의 태종로 입구와 포석로 상점가, 팔우정 방면 정류장 01313을 확인했습니다. 네이버 지도에서 대릉원돌담길을 따라 휘는 계림로, 대릉원 안 산책로와 봉분 사진을 대조했습니다. Google 지도에서 첨성로 남쪽의 첨성대와 관람길, 건천읍 신경주역로 80의 현 KTX 경주역을 확인했습니다. [카카오맵 황리단길](https://map.kakao.com/?q=경주%20황리단길) · [네이버 지도 경주대릉원](https://map.naver.com/p/entry/place/13491270) · [Google 지도 첨성대](https://www.google.com/maps/search/?api=1&query=경주%20첨성대) · [Google 지도 경주역](https://www.google.com/maps/search/?api=1&query=경주역%20KTX)
+
+경주역 광장 정류장과 천마총후문·황리단길의 시내행 및 경주역행 정류장은 개별 지도 핀을 사용했습니다. 두 지역 사이는 게임 안에서 버스로 즉시 이동합니다. 횡단보도 폭, 광장의 보행 동선과 목련 촬영 위치는 게임에 맞춰 조정했습니다. [경주시 황리단길 관광지도](https://www.gyeongju.go.kr/hwangridan/images/gj_map_kor.pdf) · [경주역 승차 지점](https://www.openstreetmap.org/node/5909942985) · [관광지 하차 지점](https://www.openstreetmap.org/node/12203446586) · [경주역 방면 승차 지점](https://www.openstreetmap.org/node/4401101890)
+
+황남 한옥카페는 포석로1095번길의 실제 카페 자리에 게임용 상호, 실내 구조와 좌석을 구성했습니다. [카페 지도 핀](https://www.openstreetmap.org/node/10857201306) · [건물 윤곽](https://www.openstreetmap.org/way/1480372663)

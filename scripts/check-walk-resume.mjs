@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {lastCoastRoom,rememberRegion,savedInPohang} from "../public/walk-resume.js";
+import {lastCoastRoom,rememberRegion,savedInPohang,savedRegion} from "../public/walk-resume.js";
 
 const values=new Map();
 const storage={
@@ -23,4 +23,16 @@ assert.equal(lastCoastRoom(storage,name,true,first),null);
 rememberRegion(storage,name,null,true);
 assert.deepEqual(lastCoastRoom(storage,name),{code:null});
 assert.equal(lastCoastRoom(storage,name,false,second),null);
-console.log("Checked Pohang resume per nickname and room, existing positions and returning to Seoul.");
+rememberRegion(storage,name,first,"gyeongju");
+assert.equal(savedRegion(storage,name,first),"gyeongju");
+assert.equal(savedInPohang(storage,name,first),false);
+assert.deepEqual(lastCoastRoom(storage,name),{code:first,region:"gyeongju"});
+assert.equal(lastCoastRoom(storage,name,false,second),null);
+assert.equal(savedRegion(storage,"다른 사람",first),"seoul");
+rememberRegion(storage,name,first,"pohang");
+assert.deepEqual(lastCoastRoom(storage,name),{code:first});
+rememberRegion(storage,name,first,"gyeongju");
+rememberRegion(storage,name,first,"seoul");
+assert.equal(savedRegion(storage,name,first),"seoul");
+assert.equal(lastCoastRoom(storage,name,true,first),null);
+console.log("Checked Pohang and Gyeongju resume by nickname and room, legacy positions and returning to Seoul.");
