@@ -1,12 +1,19 @@
 import * as T from "three";
-import {roads,buildings,mounds,parks,walls,places,cafeLayout} from "./gyeongju-layout.js";
+import {roads,buildings,mounds,parks,walls,places,cafeLayout,woljeongBridge} from "./gyeongju-layout.js";
+import {drawWoljeong,woljeongFooting} from "./woljeong-model.js";
+import {gyeongjuPlantings} from "./gyeongju-planting-layout.js";
+import {makeTreeBuilder} from "./lowpoly-trees.js";
+import {buildPalacePond} from "./palace-pond-model.js";
+import {pondWater,tickWater} from "./water-shader.js";
 import {cafeFittings} from "./gyeongju-cafe.js";
+import {tower,insideObservatory,observatoryCameraBlocked} from "./gyeongju-observatory.js";
 import {districtMeshes,randomSeed} from "./gyeongju-mesh.js";
-import {drawBuilding,drawCafe} from "./gyeongju-architecture.js";
+import {drawBuilding,drawCafe,illuminatedRoofMaterial} from "./gyeongju-architecture.js";
 import {observatory,magnolia,stationHall,busShelter,stoneGate} from "./gyeongju-landmarks.js";
 import {buildCoastActionMarker} from "./coast-action-marker.js";
 
 const stationSide=x=>x < -3000;
+const footbridge=woljeongFooting(woljeongBridge);
 const grass=0x96a966;
 function roadIndex(lines){
  const cells=new Map(),unit=46,key=(i,j)=>i+":"+j;
@@ -63,7 +70,7 @@ function drawRoad(k,r){
   }
   return;
  }
- const surface={street:[0x868783,.011],lane:[0xb6ada0,.017,"pavers"],path:[0xcbb796,.021,"dirt"],
+ const surface={street:[0x868783,.011],lane:[0xb6ada0,.017,"pavers"],path:[0xcbb796,.021,"dirt"],footbridge:[0xa99371,.11,"pavers"],
   sidewalk:[0xc0b8a9,.026,"pavers"],platform:[0xc4c0b6,.013,"pavers"]}[r.kind];
  if(!surface)return;
  k.strip(p,w,surface[1],surface[0],surface[2]);
@@ -108,15 +115,6 @@ function drawWall(k,wall){
   }
  }
 }
-function shadeTree(k,x,z,size,rng){
- const y=size*.48;
- k.column(x,y/2,z,size*.05,y,size*.05,0x89755b);
- for(let i=0;i<4;i++){
-  const a=2.40*i+rng(),r=i===3?0:size*.15;
-  k.crown(x+Math.cos(a)*r,y+size*(i===3?.31:.16),z+Math.sin(a)*r,
-   size*.23,size*(i===3?.22:.24),size*.24,[0x708653,0x879655,0x798f58,0x8b9b63][i],a);
- }
-}
 function contains(p,polygon){
  let inside=false;
  for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){
@@ -125,14 +123,25 @@ function contains(p,polygon){
  }
  return inside;
 }
-function woodland(k,park,nearest,rng){
- const xs=park.points.map(p=>p.x),zs=park.points.map(p=>p.z),x0=Math.min(...xs),x1=Math.max(...xs),z0=Math.min(...zs),z1=Math.max(...zs);
- const samples=Math.min(520,Math.ceil((x1-x0)*(z1-z0)/115));
- for(let i=0;i<samples;i++){
-  const x=x0+rng()*(x1-x0),z=z0+rng()*(z1-z0),r=nearest(x,z);
-  if(!contains({x,z},park.points)||r&&r.gap<r.width/2+2)continue;
-  shadeTree(k,x,z,5+rng()*5,rng);
+function waterFeature(root,k,park,rng){
+ const outline=park.points.map(({x,z})=>({x,y:z}));
+ function plot(points,material,y){
+  const shape=new T.Shape(points.map(p=>new T.Vector2(p.x,-p.y)));
+  const mesh=new T.Mesh(new T.ShapeGeometry(shape),material);
+  mesh.rotation.x=-Math.PI/2;mesh.position.y=y;root.add(mesh);return mesh;
  }
+ if(park.name==="남천"){
+  const water=pondWater(T);plot(outline,water,.018);return water;
+ }
+ const x=outline.reduce((n,p)=>n+p.x,0)/outline.length,y=outline.reduce((n,p)=>n+p.y,0)/outline.length;
+ const placed=p=>({x:p.x,z:p.y});
+ const line=(a,b)=>{
+  const dx=b.x-a.x,dz=b.y-a.y,len=Math.hypot(dx,dz);
+  return {len,at:(t,o=0)=>({x:a.x+dx*t+dz/len*o,z:a.y+dz*t-dx/len*o})};
+ };
+ return buildPalacePond(T,{x,y,outline},{plot,placed,line,rand:rng,
+  matte:color=>new T.MeshStandardMaterial({color,roughness:.86}),
+  decorate:(color,x,y,z,w,h,d,yaw)=>k.crown(x,y,z,w,h,d,color,yaw)});
 }
 function busYaw(p,nearest){
  const r=nearest(p.x,p.z);return r?Math.atan2(r.x-p.x,r.z-p.z):Math.PI*.7;
@@ -176,7 +185,7 @@ function streetFurniture(k,p,nearest,isStation,glowMat,bulb){
 function obstacleGrid(){
  const cells=new Map(),size=32,tag=(x,z)=>Math.floor(x/size)+":"+Math.floor(z/size);
  for(const b of buildings){
-  if(b.kind==="cafe"||b.kind==="gate")continue;
+  if(b.kind==="cafe"||b.kind==="gate"||b.kind==="observatory")continue;
   const xs=b.points.map(p=>p.x),zs=b.points.map(p=>p.z),bound={x0:Math.min(...xs),x1:Math.max(...xs),z0:Math.min(...zs),z1:Math.max(...zs)};
   for(let x=Math.floor(bound.x0/size);x<=Math.floor(bound.x1/size);x++)for(let z=Math.floor(bound.z0/size);z<=Math.floor(bound.z1/size);z++){
    const id=x+":"+z;let list=cells.get(id);if(!list)cells.set(id,list=[]);list.push(b);
@@ -184,7 +193,7 @@ function obstacleGrid(){
  }
  return p=>(cells.get(tag(p.x,p.z))??[]).some(b=>contains(p,b.points));
 }
-function buildDistrict(root,isStation,fit,glowMat,bulb){
+function buildDistrict(root,isStation,fit,glowMat,bulb,waterMaterials,bridgeRoof){
  const k=districtMeshes(root),relevant=x=>stationSide(x)===isStation;
  const lines=roads.filter(r=>relevant(r.points[0].x)),nearest=roadIndex(lines),rng=randomSeed(2155);
  if(isStation){
@@ -196,23 +205,25 @@ function buildDistrict(root,isStation,fit,glowMat,bulb){
    const u=side*(18+i*5.7),v=9+(i%2)*2,angle=2.53;
    const x=at.x+u*Math.cos(angle)+v*Math.sin(angle),z=at.z-u*Math.sin(angle)+v*Math.cos(angle);
    k.piece(x,.21,z,2.1,.40,1.55,0xb5b0a4,angle);
-   shadeTree(k,x,z,4+rng()*2,rng);
   }
  }else{
-  terrain(k,200,-110,1450,1300);hills(k,200,-110,1050,821);
+  terrain(k,240,150,1950,1800);hills(k,240,150,1620,821);
   for(const p of parks){
    if(!relevant(p.points[0].x))continue;
-   k.polygon(p.points,p.kind==="water"?-.003:-.045,p.kind==="water"?0x779f9a:p.kind==="wood"?0x879858:0x9cb16d,p.kind==="water"?undefined:"grass");
-   if(p.kind==="wood")woodland(k,p,nearest,rng);
+   if(p.kind==="water"){waterMaterials.push(waterFeature(root,k,p,rng));continue;}
+   k.polygon(p.points,-.045,p.kind==="wood"?0x879858:0x9cb16d,"grass");
   }
   mounds.forEach((m,i)=>grassyMound(k,m,i));
   for(const wall of walls)drawWall(k,wall);
   drawCafe(k,cafeLayout,fit);observatory(k,places.cheomseongdae);magnolia(k,places.magnolia);
+  drawWoljeong(k,footbridge,glowMat,bridgeRoof);
   stoneGate(k,places.northGate,-.25,false);stoneGate(k,places.mainGate,-.64,true);
   busShelter(k,places.townBus,busYaw(places.townBus,nearest),"천마총후문 · 황리단길");
   busShelter(k,places.townReturnBus,busYaw(places.townReturnBus,nearest),"경주역 방면");
  }
  lines.forEach(r=>drawRoad(k,r));
+ const treeKit=makeTreeBuilder(T,{add:mesh=>k.treePart(mesh)},{rand:rng,clearance:{meshFits:()=>true,trim:()=>true}});
+ for(const tree of gyeongjuPlantings(parks,roads,places.stationExit).trees)if(relevant(tree.x))treeKit.grow(tree.x,tree.z,tree);
  streetFurniture(k,places.stationExit,nearest,isStation,glowMat,bulb);
  buildings.forEach((b,i)=>{if(b.kind==="building"&&relevant(b.points[0].x))drawBuilding(k,b,i,nearest);});
  k.finish();
@@ -220,6 +231,7 @@ function buildDistrict(root,isStation,fit,glowMat,bulb){
 export function createGyeongjuScene(outdoors,origin){
  const station=new T.Group(),town=new T.Group(),fit=cafeFittings(cafeLayout);
  const lampMaterial=new T.MeshStandardMaterial({color:0xffe1b5,emissive:0xffcc79,emissiveIntensity:0,roughness:.5});
+ const bridgeRoof=illuminatedRoofMaterial();
  const bulb=new T.CylinderGeometry(.5,.45,1,8),insideSolid=obstacleGrid();
  station.name="경주역 광장";town.name="경주 역사유적지구";outdoors.add(station,town);
  const marker=buildCoastActionMarker(outdoors,outdoors,()=>.01);
@@ -232,12 +244,19 @@ export function createGyeongjuScene(outdoors,origin){
   })};
  });
  const glow=new T.PointLight(0xffc576,0,28,1.3);glow.position.set(places.cheomseongdae.x+2,3.2,places.cheomseongdae.z+5);town.add(glow);
- const built=new Set(),lastEye=new T.Vector3(Infinity,0,0);
+ const bridgeLight=new T.PointLight(0xffc48a,0,45,1.0);
+ bridgeLight.position.set(places.woljeong.x,7,places.woljeong.z);town.add(bridgeLight);
+ const built=new Set(),lastEye=new T.Vector3(Infinity,0,0),waterMaterials=[];
  function ensure(isStation){
-  if(!built.has(isStation)){buildDistrict(isStation?station:town,isStation,fit,lampMaterial,bulb);built.add(isStation);}
+  if(!built.has(isStation)){buildDistrict(isStation?station:town,isStation,fit,lampMaterial,bulb,waterMaterials,bridgeRoof);built.add(isStation);}
   station.visible=isStation;town.visible=!isStation;
  }
- return {benches,surface:()=>0,cameraBlocked(world,y){
+ return {benches,surface(world){
+   const p={x:world.x-origin.x,z:world.y-origin.y};
+   return insideObservatory(p)?tower.landing:footbridge.surface(p);
+  },cameraBlocked(world,y){
+   const local={x:world.x-origin.x,z:world.y-origin.y};
+   if(observatoryCameraBlocked(local,y)||footbridge.cameraBlocked(local,y))return true;
    if(y<.04||y>7)return false;
    const p={x:world.x-origin.x,z:world.y-origin.y},q=fit.local(p);
    if(Math.abs(q.x)<5&&Math.abs(q.z)<5){
@@ -256,6 +275,7 @@ export function createGyeongjuScene(outdoors,origin){
    return y<4.2&&insideSolid(p);
   },update(state,night,camera){
    const isStation=stationSide(camera.position.x);ensure(isStation);
+   if(!isStation)tickWater(waterMaterials,((state.clock??0)/1000)%14400,night);
    if(lastEye.distanceToSquared(camera.position)>64){
     lastEye.copy(camera.position);
     for(const mesh of (isStation?station:town).children){
@@ -265,7 +285,9 @@ export function createGyeongjuScene(outdoors,origin){
     }
    }
    lampMaterial.emissiveIntensity=night*1.25;
+   bridgeRoof.emissiveIntensity=night*.16;
    glow.intensity=night*13;
+   bridgeLight.intensity=night*22;
    marker(state.photoCapture?null:state.gyeongjuMarker,camera);
   }};
 }

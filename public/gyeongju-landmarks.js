@@ -1,15 +1,31 @@
 import * as T from "three";
 import {localFrame,randomSeed} from "./gyeongju-mesh.js";
 import {roof} from "./gyeongju-architecture.js";
+import {tower} from "./gyeongju-observatory.js";
 
 export function observatory(k,p){
  const rng=randomSeed(673),stone=[0xb9ad92,0xb4a88e,0xc1b397,0xaba18b,0xc3b8a0,0xb6aa91];
- const color=()=>stone[Math.floor(rng()*stone.length)],turn=.20;
+ const color=()=>stone[Math.floor(rng()*stone.length)],turn=tower.yaw;
  const radius=t=>1.46+1.04*(1-t)*(1-t);
  const vertex=(r,y,a)=>[p.x+r*Math.sin(a+turn),y,p.z+r*Math.cos(a+turn)];
  const frame=localFrame(p.x,p.z,turn);
  const box=(x,y,z,w,h,d,c)=>{const a=frame(x,z);k.piece(a.x,y,a.z,w,h,d,c,turn);};
  for(let i=0;i<4;i++)for(let j=0;j<4;j++)box((i-1.5)*1.38,.23,(j-1.5)*1.38,1.37,.45,1.37,color());
+ // Mortar behind the individual stones keeps daylight from leaking through every joint.
+ function backing(first,last,from,to){
+  const vertices=[],indices=[],steps=Math.ceil((to-from)*9);
+  for(let course=first;course<=last;course++){
+   for(let j=0;j<=steps;j++){
+    vertices.push(vertex(radius(course/27)-.14,.445+course*.288,from+(to-from)*j/steps));
+    if(j===steps||course===last)continue;
+    const i=(course-first)*(steps+1)+j;
+    indices.push(i,i+steps+1,i+1,i+1,i+steps+1,i+steps+2);
+   }
+  }
+  k.face(vertices,indices,0x776f60);
+ }
+ backing(0,12,-Math.PI,Math.PI);backing(15,27,-Math.PI,Math.PI);
+ backing(12,15,-Math.PI,-.275);backing(12,15,.275,Math.PI);
  function masonry(a,b,y,h,r,rt){
   const n=4,outer=[],top=[],inside=[];
   for(let j=0;j<=n;j++){
@@ -40,6 +56,17 @@ export function observatory(k,p){
  }
  box(0,.445+12*.288-.06,radius(12/27)-.05,1.18,.15,.48,color());
  box(0,.445+15*.288+.06,radius(15/27)-.07,1.17,.15,.46,color());
+ // The packed lower courses support the visitor just below the window.
+ k.column(p.x,tower.landing-.10,p.z,3.50,.20,3.50,0x968871);
+ for(const y of [5.66,7.47]){
+  for(const side of [-1,1]){
+   box(side*.83,y,0,.23,.23,2.56,color());
+   box(0,y+.21,side*.83,2.52,.23,.23,color());
+  }
+ }
+ const ladder=(across,t)=>({...frame(across,3.45-1.78*t),y:.04+4.04*t});
+ for(const side of [-1,1])k.beam(ladder(side*.32,0),ladder(side*.32,1),.06,0x72543e);
+ for(let i=1;i<=11;i++)k.beam(ladder(-.32,i/12),ladder(.32,i/12),.039,0x97764f);
  for(const side of [-1,1]){
   box(side*1.19,8.44,0,.46,.43,3.28,color());
   box(0,8.86,side*1.19,3.32,.42,.49,color());

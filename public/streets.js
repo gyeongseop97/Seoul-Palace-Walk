@@ -9,7 +9,8 @@ import {standPlantingFootprints} from "./street-stands.js";
 import {diningVenues} from "./dining-data.js";
 import {makePalaceClearance} from "./palace-plantings.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
-import {pondWater,tickWater} from "./water-shader.js";
+import {tickWater} from "./water-shader.js";
+import {buildPalacePond} from "./palace-pond-model.js";
 import {buildGyeongbok,buildSubwayExit} from "./gyeongbok.js";
 import {cityHallStation,cityHallExit3} from "./gyeongbok-layout.js";
 import {gyeongbokObstacles,gyeongbokBenches} from "./gyeongbok-obstacles.js";
@@ -32,7 +33,6 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
   const leaf=new T.IcosahedronGeometry(1,1);
   const up=new T.Vector3(0,1,0);
   const singleLeaf=new T.PlaneGeometry(1,1);
-  const stone=[0x939188,0xa19e92,0x807f76,0xb7b0a4,0x9e9b90];
   const buildingPlots=[
     ...standPlantingFootprints,
     ...diningVenues.filter(venue=>venue.area==="jeongdong").map(({plot})=>({...plot,w:plot.w+1,d:plot.d+1,h:4.6})),
@@ -451,39 +451,10 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
   }
   let waterMaterial;
   function addPond(){
-    const {outline,x,y,island}=palacePond;
-    const bank=outline.map(p=>{
-      const dx=p.x-x,dy=p.y-y,scale=1+.72/(Math.hypot(dx,dy)||1);
-      return {x:x+dx*scale,y:y+dy*scale};
-    });
-    plot(bank,matte(0x7e8070),.026);
-    waterMaterial=pondWater(T);
-    const lake=plot(outline,waterMaterial,.043);
-    lake.userData.followTerrain=false;
-    lake.userData.terrainAnchor={x,y};
-    for(let i=0;i<bank.length;i++){
-      const edge=line(bank[i],bank[(i+1)%bank.length]),count=Math.ceil(edge.len/.76);
-      for(let j=0;j<count;j++){
-        const point=edge.at((j+.5)/count,(rand()-.5)*.18);
-        const rock=shape(leaf,stone[j%stone.length],point.x,.084,point.z);
-        rock.scale.set(.38+rand()*.17,.115+rand()*.10,.27+rand()*.13);
-        rock.rotation.y=rand()*6.28;
-      }
-    }
-    function islandOutline(scale){
-      return Array.from({length:20},(_,i)=>{
-        const angle=i*Math.PI/10,r=scale*(1+.064*Math.sin(angle*3+.4));
-        return {x:island.x+Math.cos(angle)*island.radiusX*r,y:island.y+Math.sin(angle)*island.radiusY*r};
-      });
-    }
-    plot(islandOutline(1),matte(0x888873),.105);
-    plot(islandOutline(.85),gardenMaterials.lawn,.134);
-    const centre=placed(island);
-    for(let i=0;i<4;i++){
-      const angle=i*2.39996;
-      const shrub=shape(leaf,i%2?0x718152:0x586945,centre.x+Math.cos(angle)*.72,.29+i*.03,centre.z+Math.sin(angle)*.55);
-      shrub.scale.set(.53,.34,.46);shrub.rotation.y=angle;
-    }
+    waterMaterial=buildPalacePond(T,palacePond,{plot,matte,lawn:gardenMaterials.lawn,placed,line,rand,
+      decorate(color,x,y,z,w,h,d,angle){
+        const mesh=shape(leaf,color,x,y,z);mesh.scale.set(w,h,d);mesh.rotation.y=angle;
+      }});
     return (clock,night)=>tickWater([waterMaterial],clock,night);
   }
   for(let i=1;i<route.length;i++){

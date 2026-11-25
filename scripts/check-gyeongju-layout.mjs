@@ -16,8 +16,22 @@ function walk(from,to){
  }
  return length;
 }
-const stops=["townBus","townReturnBus","hwangnidan","cafe","cafeCounter","northGate","photo","mainGate","stars"];
+const stops=["townBus","townReturnBus","hwangnidan","cafe","cafeCounter","northGate","photo","mainGate","stars",
+ "gyerimEntry","gyerim","woljeongNorth","woljeong","woljeongSouth"];
 for(const a of stops)for(const b of stops)if(a!==b)walk(places[a],places[b]);
+for(const [from,to] of [[places.stars,places.woljeongSouth],[places.woljeongSouth,places.stars]]){
+ const steps=gyeongjuRoute(from,to);
+ assert.ok(steps.some(q=>distance(q,places.gyerim)<.1),"scenic route goes through Gyerim");
+ const length=walk(from,to);
+ assert.ok(length>590&&length<1060,`scenic walk length ${length}`);
+}
+assert.ok(gyeongjuClear(places.woljeongNorth,places.woljeongSouth),"both gatehouses open onto the bridge");
+for(const side of [-1,1]){
+ const offset=(p,width)=>({x:p.x+side*width,z:p.z});
+ assert.ok(gyeongjuWalkable(offset(places.woljeong,3)));
+ for(const width of [3.8,7,17,35])assert.equal(gyeongjuWalkable(offset(places.woljeong,width)),false,"Namcheon outside the deck");
+ assert.equal(gyeongjuWalkable(offset({x:554.4,z:702.7},8)),false,"gatehouse side wall");
+}
 assert.ok(walk(places.stationExit,places.stationBus)<65);
 walk(places.stationBus,places.stationExit);
 assert.deepEqual(gyeongjuRoute(places.stationBus,places.townBus),[]);
@@ -32,10 +46,19 @@ for(const table of room.tables)for(const seat of table.seats){
 }
 assert.ok(!gyeongjuWalkable(room.point(cafeLayout.width/2,0)));
 assert.ok(!gyeongjuWalkable(room.point(room.counter.x,room.counter.z)));
-assert.ok(!gyeongjuWalkable(places.cheomseongdae));
+assert.ok(gyeongjuWalkable(places.cheomseongdae),"enterable upper chamber");
+assert.ok(!gyeongjuWalkable({x:places.cheomseongdae.x+1.8,z:places.cheomseongdae.z}),"observatory masonry");
 for(const mound of mounds)assert.ok(!gyeongjuWalkable(mound));
 assert.ok(!gyeongjuClear(places.northGate,places.photo));
 const street=roads.find(r=>r.kind==="street"&&r.name==="포석로"&&r.width===4);
 assert.ok(street,"one-way section of Hwangnidan-gil");
-assert.equal(gyeongjuWalkable({x:-190.2,z:-361.1}),false,"road centre outside a crossing");
-console.log(`Gyeongju: ${stops.length} destinations linked in both directions, KTX forecourt and all four cafe chairs reachable.`);
+assert.ok(gyeongjuWalkable({x:-190.2,z:-361.1}),"the Hwangnidan road itself is walkable");
+assert.ok(gyeongjuClear({x:-193.2,z:-361.1},{x:-186.8,z:-361.1}),"Hwangnidan-gil from kerb to kerb");
+assert.equal(gyeongjuWalkable({x:155.3,z:-310}),false,"Gyerim-ro carriageway outside a crossing");
+for(const lawn of [{x:600,z:252},{x:640,z:590},{x:701,z:-412}]){
+ walk(places.stars,lawn);walk(lawn,places.stars);
+}
+for(const verge of [{x:-6412,z:4098},{x:-6595,z:4086},{x:-6542,z:4272}]){
+ walk(places.stationExit,verge);walk(verge,places.stationBus);
+}
+console.log(`Gyeongju: ${stops.length} connected destinations, café seating, Gyerim scenic route and Woljeonggyo river crossing passed.`);

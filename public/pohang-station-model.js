@@ -205,7 +205,7 @@ export function buildPohangStation(root,{box,post,rod,sign,street}){
   paintMap:(w,h,draw)=>{const c=document.createElement("canvas");c.width=w;c.height=h;draw(c.getContext("2d"),w,h);const tx=new T.CanvasTexture(c);tx.colorSpace=T.SRGBColorSpace;return tx;}
  });
  const railDoor=group(rolling,-1.76,12,-Math.PI/2);
- standSign(T,railDoor,"서울행 KTX","2호차  ·  일반실",2.3,0,2.77,0,"#1d4f91","#ffffff",.46);
+ standSign(T,railDoor,"열차 타는 곳","서울  ·  경주",2.3,0,2.77,0,"#1d4f91","#ffffff",.46);
  box(rolling,0x26333b,-1.71,1.05,12,.05,2.26,1.04);
  box(rolling,0xa3b2b2,-2.4,-.05,12,1.55,.10,1.18);
 }

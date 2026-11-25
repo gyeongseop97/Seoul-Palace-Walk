@@ -1,8 +1,10 @@
 import {places,cafeLayout} from "./gyeongju-layout.js";
 import {cafeFittings} from "./gyeongju-cafe.js";
 import {gyeongjuPoint,localGyeongju} from "./region-coordinates.js";
+import {insideObservatory,ladderFoot,chamberEntry} from "./gyeongju-observatory.js";
 
-export const gyeongjuActionIds=["gjCoffee","gjStars"];
+export const gyeongjuActionIds=["gjCoffee","gjStars","gjLadder"];
+const ladder=gyeongjuPoint(ladderFoot),chamber=gyeongjuPoint(chamberEntry);
 const cafe=cafeFittings(cafeLayout),counter=gyeongjuPoint(cafe.order),stars=gyeongjuPoint(places.stars);
 const orderWords=/커피|아메리카노|라테|라떼/;
 const cupCounts={한:1,하나:1,두:2,둘:2,세:3,네:4};
@@ -29,7 +31,7 @@ function starChart(say,notice){
  document.body.append(chart);chart.showModal();
 }
 
-export function createGyeongjuActivities({me,takeItem,environment,notice,say}){
+export function createGyeongjuActivities({me,takeItem,environment,notice,say,movePlayer}){
  const distance=p=>Math.hypot(me.x-p.x,me.y-p.y);
  const insideCafe=()=>{
   const p=cafe.local(localGyeongju(me));
@@ -51,9 +53,15 @@ export function createGyeongjuActivities({me,takeItem,environment,notice,say}){
  }
  function menu(){
   const actions=new Map();
+  const inside=insideObservatory(localGyeongju(me));
+  if(!me.groundSit&&me.seat==null&&(inside||distance(ladder)<1.85)){
+   actions.set("gjLadder",inside?
+    {label:"사다리로 내려가기",run:()=>movePlayer({...ladder,heading:349},"첨성대 사다리 앞")}:
+    {label:"첨성대 안으로",marker:ladder,run:()=>movePlayer({...chamber,heading:169},"첨성대 내부")});
+  }
   if(insideCafe()&&distance(counter)<3.2)actions.set("gjCoffee",{label:"커피 주문하기",marker:counter,run:()=>order(1)});
   if(distance(stars)<14&&environment().night>.55)actions.set("gjStars",{label:"별자리 보기",marker:stars,run:()=>starChart(say,notice)});
   return actions;
  }
- return {menu,chat};
+ return {menu,chat,insideTower:()=>insideObservatory(localGyeongju(me))};
 }

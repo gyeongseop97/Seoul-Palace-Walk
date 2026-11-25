@@ -1,24 +1,38 @@
 import {addLandmarks,addZone} from "./layout.js";
+import {gyeongjuGuides} from "./gyeongju-guide.js";
+import {insideObservatory} from "./gyeongju-observatory.js";
 import {gyeongjuPoint,localGyeongju,inGyeongjuSpace} from "./region-coordinates.js";
 import {places,roads,buildings,walls,mounds,parks,gyeongjuRoute,gyeongjuWalkable} from "./gyeongju-layout.js";
 export {gyeongjuOrigin,gyeongjuPoint,inGyeongjuSpace} from "./region-coordinates.js";
 
-const describe=(local,name,heading=local.heading??0)=>({...gyeongjuPoint(local),name,label:name,heading});
+const describe=(id,name)=>{
+ const p=places[id];
+ return {...gyeongjuPoint(p),name,label:name,heading:p.heading??0,guide:{...gyeongjuGuides[id],title:name}};
+};
 export const travelStops={
- stationExit:describe(places.stationExit,"경주역 출입구"),
- stationBus:describe(places.stationBus,"경주역 버스정류장"),
- townBus:describe(places.townBus,"황리단길 정류장"),
- townReturnBus:describe(places.townReturnBus,"경주역행 정류장")
+ stationExit:describe("stationExit","경주역 출입구"),stationBus:describe("stationBus","경주역 버스정류장"),
+ townBus:describe("townBus","황리단길 정류장"),townReturnBus:describe("townReturnBus","경주역행 정류장")
 };
 export const platformArrival=travelStops.stationExit;
 export const counters=[];
 const sites=[
  [travelStops.stationExit,"railway"],[travelStops.stationBus,"bus"],[travelStops.townBus,"bus"],[travelStops.townReturnBus,"bus"],
- [describe(places.hwangnidan,"황리단길"),"activity"],[describe(places.cafe,"황리단길 한옥 카페"),"shop"],
- [describe(places.northGate,"대릉원 후문"),"heritage"],[describe(places.photo,"대릉원 목련 포토존"),"heritage"],
- [describe(places.mainGate,"대릉원 정문"),"heritage"],[describe(places.stars,"첨성대 관람길"),"heritage"]
+ [describe("hwangnidan","황리단길"),"activity"],[describe("cafe","황리단길 한옥 카페"),"shop"],
+ [describe("northGate","대릉원 후문"),"heritage"],[describe("photo","대릉원 목련 포토존"),"heritage"],
+ [describe("mainGate","대릉원 정문"),"heritage"],[describe("stars","첨성대 관람길"),"heritage"],
+ [describe("observatoryEntrance","첨성대 사다리"),"heritage"],[describe("gyerimEntry","계림 북쪽 입구"),"park"],
+ [describe("gyerim","계림 숲길"),"park"],[describe("woljeongNorth","월정교 북쪽 입구"),"heritage"],
+ [describe("woljeong","월정교"),"heritage"],[describe("woljeongSouth","월정교 남쪽 입구"),"heritage"]
 ];
 export const destinations=sites.map(([p])=>p);
+export function nearbyGuide(p){
+ let closest=null,reach=12;
+ for(const site of destinations){
+  const d=Math.hypot(p.x-site.x,p.y-site.y);
+  if(d<reach){closest=site.guide;reach=d;}
+ }
+ return closest;
+}
 const atStation=p=>Math.hypot(p.x-places.stationExit.x,p.z-places.stationExit.z)<680;
 export const sameGyeongjuArea=(a,b)=>atStation(localGyeongju(a))===atStation(localGyeongju(b));
 export const coastWalkable=(x,y)=>gyeongjuWalkable(localGyeongju({x,y}));
@@ -38,6 +52,7 @@ export function registerGyeongju(){
  addLandmarks(destinations);
 }
 export function coastName(p){
+ if(insideObservatory(localGyeongju(p)))return "첨성대 내부";
  let nearest=null,best=Infinity;
  for(const site of destinations){
   const d=Math.hypot(site.x-p.x,site.y-p.y);

@@ -11,7 +11,7 @@ export function localFrame(x,z,yaw=0){
 // Static pieces share both geometry and material. Small spatial batches let the
 // renderer discard entire streets, including the distant KTX forecourt.
 export function districtMeshes(root){
- const cells=new Map(),o=new T.Object3D(),up=new T.Vector3(0,1,0);
+ const cells=new Map(),o=new T.Object3D(),up=new T.Vector3(0,1,0),treeMaterials=new Map();
  const materials=new Map(),labels=new Map(),box=new T.BoxGeometry(),post=new T.CylinderGeometry(.5,.5,1,10);
  const oval=new T.IcosahedronGeometry(1,1),plane=new T.PlaneGeometry(),rough=new T.MeshStandardMaterial({roughness:.86,side:T.DoubleSide});
  function cell(x,z){
@@ -32,6 +32,14 @@ export function districtMeshes(root){
  const column=(x,y,z,w,h,d,color)=>add(post,rough,color,x,y,z,w,h,d);
  const crown=(x,y,z,w,h,d,color,yaw=0)=>add(oval,rough,color,x,y,z,w,h,d,yaw);
  const geo=(geometry,x,y,z,w,h,d,color,yaw=0,mat=rough)=>add(geometry,mat,color,x,y,z,w,h,d,yaw);
+ function treePart(mesh){
+  const material=mesh.material,key=material.userData.seasonFoliage??"trunk";
+  if(!treeMaterials.has(key)){
+   const shared=material.clone();shared.color.set(0xffffff);treeMaterials.set(key,shared);
+  }
+  const {position:p,scale:s}=mesh;
+  add(mesh.geometry,treeMaterials.get(key),material.color,p.x,p.y,p.z,s.x,s.y,s.z,0,0,0,mesh.quaternion);
+ }
  function beam(a,b,r,color){
   const v=new T.Vector3(b.x-a.x,b.y-a.y,b.z-a.z),len=v.length();
   if(len<.002)return;
@@ -124,5 +132,5 @@ export function districtMeshes(root){
   }
   cells.clear();
  }
- return {piece,column,crown,geo,beam,face,polygon,strip,sign,finish};
+ return {piece,column,crown,geo,beam,face,polygon,strip,sign,treePart,finish};
 }

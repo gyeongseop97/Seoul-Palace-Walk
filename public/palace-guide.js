@@ -195,6 +195,10 @@ const cultureDescriptions={
  conference:"옛 회의실입니다. 중앙홀 위의 빈 공간을 돌아 이곳까지 이어지는 복도를 살펴보세요.",
  rto:"RTO는 군용 철도 수송 업무에 쓰였습니다. 지금은 문화역서울284의 공연과 체험을 위한 공간입니다."
 };
+export function palaceGuideForPlace(place){
+  return guides.find(({site,entry})=>place.name===entry.title||place.name===site.name||
+    place.id===entry.id||squaredDistance(place,site)<.36)?.entry;
+}
 export function nearbyPalaceGuide(position){
   const room=culturePart(position.x,position.y)?.r,description=room&&cultureDescriptions[room.key];
   if(description)return {title:room.name,description,source:"https://www.kcdf.or.kr/cms/content/view/217"};

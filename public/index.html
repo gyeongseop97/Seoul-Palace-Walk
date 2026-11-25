@@ -412,6 +412,7 @@
           <div role="status"><strong id="map-route-name"></strong><span id="map-route-distance"></span></div>
           <button id="map-route-walk" class="quiet" type="button">이 길로 걷기</button>
           <button id="map-route-clear" class="quiet" type="button" aria-label="도보 경로 지우기">×</button>
+          <p class="map-place-note" id="map-place-note" hidden><span id="map-place-description"></span> <a id="map-place-source" target="_blank" rel="noopener"></a></p>
         </div>
         <div class="map-wrap">
           <svg id="world" viewBox="58 28 520 397" role="group" tabindex="0" aria-label="산책 지도. 휠이나 두 손가락으로 확대·축소하고, 마우스나 손가락으로 끌어서 둘러보세요.">
@@ -548,6 +549,7 @@
       <button class="quiet close" type="button" aria-label="닫기">×</button>
     </div>
     <p id="landmark-guide-description"></p>
+    <p id="landmark-guide-directions" hidden></p>
     <a id="landmark-guide-source" target="_blank" rel="noopener">공식 자료 보기 ↗</a>
   </dialog>
   <dialog id="wish-drawing" aria-labelledby="wish-drawing-title">
@@ -591,7 +593,7 @@
   <dialog id="credits-dialog" aria-labelledby="credits-title">
     <div class="dialog-top"><span class="tag" lang="en">Seoul Palace Walk</span><button type="button" class="quiet close" aria-label="닫기">×</button></div>
     <h2 id="credits-title">자료 출처</h2>
-    <p>경주 도로·유적지 지형 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> · <a href="./gyeongju-geography.js" download>경주 지리 데이터</a></p>
+    <p>경주 도로·유적지 지형 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> · <a href="./gyeongju-geography.js" download>경주 지리 데이터</a> · <a href="./gyeongju-southern-geography.js" download>계림·월정교 지리 데이터</a></p>
     <p>국가유산청이 제공한 3D 실측 자료를 웹에서 볼 수 있도록 경량화했습니다.</p>
     <ul class="credits">
       <li>국가유산청 경복궁 실측 자료 · <a href="https://www.data.go.kr/data/15115251/fileData.do" target="_blank" rel="noopener">경회루</a> · <a href="https://www.data.go.kr/data/15115294/fileData.do" target="_blank" rel="noopener">사정전</a> · <a href="https://www.data.go.kr/data/15115247/fileData.do" target="_blank" rel="noopener">강녕전</a> · <a href="https://www.data.go.kr/data/15115286/fileData.do" target="_blank" rel="noopener">태원전</a> · <a href="https://www.data.go.kr/data/15115265/fileData.do" target="_blank" rel="noopener">건춘문</a> · <a href="https://www.data.go.kr/data/15115249/fileData.do" target="_blank" rel="noopener">비현각</a> · <a href="https://www.data.go.kr/data/15115248/fileData.do" target="_blank" rel="noopener">만춘전</a> · <a href="https://www.data.go.kr/data/15115253/fileData.do" target="_blank" rel="noopener">천추전</a> · <a href="https://www.data.go.kr/data/15115291/fileData.do" target="_blank" rel="noopener">함원전</a> · <a href="https://www.data.go.kr/data/15115295/fileData.do" target="_blank" rel="noopener">자선당</a> · <a href="https://www.data.go.kr/data/15115269/fileData.do" target="_blank" rel="noopener">대전내소주방</a> · <a href="https://www.data.go.kr/data/15092148/fileData.do" target="_blank" rel="noopener">사정문</a></li>
@@ -826,6 +828,7 @@
   <dialog id="ktx-destinations" aria-labelledby="ktx-destinations-title">
     <h2 id="ktx-destinations-title">KTX 목적지</h2>
     <div class="dialog-actions">
+      <button id="seoul-trip" type="button" hidden>서울역으로 이동</button>
       <button id="pohang-trip" type="button">포항행 KTX 출발</button>
       <button id="gyeongju-trip" type="button">경주행 KTX 출발</button>
       <button id="ktx-destinations-close" type="button" class="quiet">닫기</button>

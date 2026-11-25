@@ -1,5 +1,8 @@
 import {mappedRoads,mappedBuildings,mappedWalls,mappedMounds,mappedParks} from "./gyeongju-geography.js";
+import {southernRoads,southernBuildings,southernWalls,southernMounds,southernParks} from "./gyeongju-southern-geography.js";
 import {cafeFittings} from "./gyeongju-cafe.js";
+import {gyeongjuPlantings} from "./gyeongju-planting-layout.js";
+import {tower,ladderFoot,insideObservatory} from "./gyeongju-observatory.js";
 
 // Local survey frame in metres, east and south of 129.212 E, 35.836 N.
 const point=([x,z])=>({x,z});
@@ -13,6 +16,9 @@ function project(p,a,b){
 function distanceTo(p,a,b){return dist(p,project(p,a,b));}
 export const cafeLayout={x:-228.6,z:-304.2,yaw:-2.70,width:9,depth:9.4};
 const cafe=cafeFittings(cafeLayout);
+// Surveyed pedestrian axis and the two plazas beyond the gatehouses.
+export const woljeongBridge={north:point([554.3,714.3]),south:point([553.4,782.3]),halfWidth:3.4,
+ northPlaza:point([554.5,693.4]),southPlaza:point([553.3,800.2])};
 export const places={
  station:place(-6591.3,4187,"경주역 KTX 역사"),
  stationExit:place(-6522,4181,"경주역 광장 출입구",53),
@@ -26,16 +32,35 @@ export const places={
  mainGate:place(288.4,53.9,"대릉원 정문",140),
  magnolia:place(62.1,-268,"대릉원 목련"),
  photo:place(62.3,-264.3,"대릉원 목련 포토존",356),
- cheomseongdae:place(630.3,144,"첨성대"),
+ cheomseongdae:place(tower.x,tower.z,"첨성대"),
+ observatoryEntrance:{...ladderFoot,name:"첨성대 사다리",heading:349},
  stars:place(609.1,169.4,"첨성대 별자리 산책길",40),
+ gyerimEntry:place(656.8,311.4,"계림 북쪽 산책길",153),
+ gyerim:place(593.1,429.4,"계림 숲길",155),
+ woljeongNorth:{...woljeongBridge.northPlaza,name:"월정교 북쪽 입구",heading:181},
+ woljeong:place(553.85,748.3,"월정교 누교",181),
+ woljeongSouth:{...woljeongBridge.southPlaza,name:"월정교 남쪽 입구",heading:1},
 };
-export const buildings=mappedBuildings.map(([kind,name,ring])=>({kind,name,points:ring.map(point)}));
-export const walls=mappedWalls.map(([kind,line])=>({kind,points:line.map(point)}));
-export const parks=mappedParks.map(([kind,name,ring])=>({kind,name,points:ring.map(point)}));
-export const mounds=mappedMounds.map(([name,x,z,rx,rz,height,yaw])=>({name,x,z,rx,rz,height,yaw}));
-export const roads=mappedRoads.map(([kind,width,name,line])=>({kind,width,name,points:line.map(point)}));
+export const buildings=[...mappedBuildings,...southernBuildings].map(([kind,name,ring])=>({kind,name,points:ring.map(point)}));
+export const walls=[...mappedWalls,...southernWalls].map(([kind,line])=>({kind,points:line.map(point)}));
+export const parks=[...mappedParks,...southernParks].map(([kind,name,ring])=>({kind,name,points:ring.map(point)}));
+export const mounds=[...mappedMounds,...southernMounds].map(([name,x,z,rx,rz,height,yaw])=>({name,x,z,rx,rz,height,yaw}));
+export const roads=[...mappedRoads,...southernRoads].map(([kind,width,name,line])=>({kind,width,name,points:line.map(point)}));
 function road(kind,width,name,points){roads.push({kind,width,name,points});}
 const fromPairs=pairs=>pairs.map(point);
+// Open a gap in the surveyed visitor fence facing the south window.
+const towerFence=walls.find(w=>w.kind==="fence"&&w.points.some(p=>Math.hypot(p.x-tower.x,p.z-tower.z)<22));
+if(towerFence){
+ const gap=towerFence.points.findIndex(p=>Math.abs(p.x-631)<.25&&Math.abs(p.z-160.2)<.25);
+ if(gap>0&&gap<towerFence.points.length-1){
+  const a=towerFence.points[gap-1],mid=towerFence.points[gap],b=towerFence.points[gap+1];
+  walls.splice(walls.indexOf(towerFence),1,
+   {...towerFence,points:[...towerFence.points.slice(0,gap),mix(mid,a,1.35/dist(mid,a))]},
+   {...towerFence,points:[mix(mid,b,1.35/dist(mid,b)),...towerFence.points.slice(gap+1)]});
+  road("path",2.0,"첨성대 사다리 진입로",[mid,places.observatoryEntrance]);
+  road("path",2.0,"첨성대 관람 울타리 출입구",[places.stars,mid]);
+ }
+}
 // Follow both curbs on the larger roads. Their offset polylines retain the turns in each survey.
 const arteries=roads.filter(r=>r.kind==="street");
 for(const r of arteries){
@@ -93,7 +118,7 @@ function index(points,margin,label,object){
  const left=Math.floor((Math.min(...xs)-margin)/cellSize),right=Math.floor((Math.max(...xs)+margin)/cellSize);
  const top=Math.floor((Math.min(...zs)-margin)/cellSize),bottom=Math.floor((Math.max(...zs)+margin)/cellSize);
  for(let x=left;x<=right;x++)for(let z=top;z<=bottom;z++){
-  const id=key(x,z);if(!cells.has(id))cells.set(id,{surfaces:[],walls:[],solids:[],mounds:[]});
+  const id=key(x,z);if(!cells.has(id))cells.set(id,{surfaces:[],traffic:[],lawns:[],water:[],bridges:[],walls:[],solids:[],mounds:[]});
   cells.get(id)[label].push(object);
  }
 }
@@ -105,23 +130,49 @@ function inside(p,line){
  }
  return hit;
 }
+const pedestrianStreet=r=>r.kind!=="street"||r.name==="포석로";
+// The same surveyed districts as the buildings and roads. Unmarked ground between the
+// features is grass, including the verge around the station forecourt.
+function openGround(p){
+ return p.x>=-323&&p.x<=706&&p.z>=-522&&p.z<=223||
+  p.x>=270&&p.x<=860&&p.z>=223&&p.z<=870||
+  p.x>=-6770&&p.x<=-6398&&p.z>=4036&&p.z<=4342;
+}
+for(const park of parks)if(park.kind==="lawn"||park.kind==="wood")index(park.points,0,"lawns",park.points);
 for(const r of roads)for(let i=1;i<r.points.length;i++){
  const a=r.points[i-1],b=r.points[i],radius=r.width/2;
- if(r.kind!=="street")index([a,b],radius,"surfaces",{a,b,radius});
+ if(pedestrianStreet(r))index([a,b],radius,"surfaces",{a,b,radius});
+ else index([a,b],radius,"traffic",{a,b,radius});
+ if(r.kind==="bridge"||r.kind==="footbridge"||r.kind==="bridgeApproach")index([a,b],radius,"bridges",{a,b,radius});
 }
 for(const w of walls)for(let i=1;i<w.points.length;i++){
  const a=w.points[i-1],b=w.points[i];index([a,b],.28,"walls",{a,b});
 }
 for(const b of buildings)if(b.kind==="building"||b.kind==="station"||b.kind==="observatory")index(b.points,.12,"solids",b.points);
-for(const p of parks)if(p.kind==="water")index(p.points,0,"solids",p.points);
+for(const p of parks)if(p.kind==="water")index(p.points,0,"water",p.points);
+// Each gatehouse footprint straddles a visitor passage, with solid wings on either side.
+for(const [z0,z1] of [[693.8,711.6],[784.4,799.5]]){
+ const mid=z=>554.3-(z-714.3)*.9/68;
+ for(const side of [-1,1]){
+  const ring=[[z0,3.4],[z0,12],[z1,12],[z1,3.4]].map(([z,w])=>({x:mid(z)+side*w,z}));
+  index(ring,0,"solids",ring);
+ }
+}
 for(const m of mounds)index([m],Math.max(m.rx,m.rz),"mounds",{...m,c:Math.cos(m.yaw),s:Math.sin(m.yaw)});
+const plantings=gyeongjuPlantings(parks,roads,places.stationExit);
 export function gyeongjuWalkable(p){
  if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.z))return false;
+ if(insideObservatory(p))return true;
  const cell=cells.get(key(Math.floor(p.x/cellSize),Math.floor(p.z/cellSize)));
- if(!cell)return false;
+ if(plantings.blocked(p))return false;
+ if(!cell)return openGround(p);
+ if(cell.water.some(ring=>inside(p,ring))&&!cell.bridges.some(({a,b,radius})=>distanceTo(p,a,b)<=radius))return false;
  const q=cafe.local(p),atCafe=Math.abs(q.x)<cafeLayout.width/2+.24&&Math.abs(q.z)<cafeLayout.depth/2+.24;
  if(atCafe&&cafe.blocked(p))return false;
- if(!atCafe&&!cell.surfaces.some(({a,b,radius})=>distanceTo(p,a,b)<=radius))return false;
+ const onLane=segments=>segments.some(({a,b,radius})=>distanceTo(p,a,b)<=radius);
+ if(!atCafe&&!onLane(cell.surfaces)){
+  if(onLane(cell.traffic)||!openGround(p)&&!cell.lawns.some(poly=>inside(p,poly)))return false;
+ }
  if(cell.walls.some(({a,b})=>distanceTo(p,a,b)<.27)||cell.solids.some(poly=>inside(p,poly)))return false;
  for(const m of cell.mounds){
   const dx=p.x-m.x,dz=p.z-m.z;
@@ -166,7 +217,7 @@ function walkingNetwork(){
   }
  }
  for(const r of roads){
-  if(r.kind==="street")continue;
+  if(!pedestrianStreet(r))continue;
   let previous=add(r.points[0]);
   for(let k=1;k<r.points.length;k++){
    const a=r.points[k-1],b=r.points[k],steps=Math.max(1,Math.ceil(dist(a,b)/6.8));
@@ -177,14 +228,73 @@ function walkingNetwork(){
   }
  }
  for(let i=0;i<nodes.length;i++)for(const j of nearby(nodes[i].p,7.5))if(j<i)join(i,j);
- network={nodes,nearby};return network;
+ // Mark the connected visitor paths in each district; short, isolated service paths
+ // can also be the nearest road to a lawn, but cannot by themselves reach town.
+ const linked=new Set();
+ for(const origin of [places.stars,places.stationExit]){
+  const first=nearby(origin,16).sort((i,j)=>dist(nodes[i].p,origin)-dist(nodes[j].p,origin)).find(i=>gyeongjuClear(origin,nodes[i].p));
+  const queue=first===undefined?[]:[first];
+  for(let head=0;head<queue.length;head++){
+   const i=queue[head];if(linked.has(i))continue;linked.add(i);
+   for(const j of nodes[i].edges)if(!linked.has(j))queue.push(j);
+  }
+ }
+ network={nodes,nearby,linked};return network;
 }
 export function gyeongjuRoute(from,to){
+ if(!from||!to)return [];
+ const observatory=p=>dist(p,places.stars)<32,bridge=p=>dist(p,places.woljeongNorth)<6||
+  dist(p,places.woljeong)<6||dist(p,places.woljeongSouth)<6;
+ // The visitor route continues through the forest fork before rejoining the lane to Gyochon.
+ if(observatory(from)&&bridge(to)||bridge(from)&&observatory(to)){
+  const first=walkingRoute(from,places.gyerim),second=walkingRoute(places.gyerim,to);
+  if(first.length&&second.length)return first.concat(second);
+ }
+ return walkingRoute(from,to);
+}
+// A distant lawn or the grass behind a wall corner may have no direct sightline to a
+// connected path. Only then search the local ground, checking every step for collisions.
+function lawnApproach(origin,{nearby,nodes,linked},contacts){
+ if(contacts.some(i=>linked.has(i)))return [origin];
+ const step=6,queue=[{x:origin.x,z:origin.z,dx:0,dz:0,parent:-1}],seen=new Set(["0,0"]);
+ for(let i=0;i<queue.length&&i<5500;i++){
+  const p=queue[i];
+  const target=nearby(p,8).find(j=>linked.has(j)&&gyeongjuClear(p,nodes[j].p));
+  if(target!==undefined){
+   const steps=[nodes[target].p];
+   for(let n=i;n>=0;n=queue[n].parent)steps.push({x:queue[n].x,z:queue[n].z});
+   return steps.reverse();
+  }
+  for(const [ax,az] of groundDirections){
+   const dx=p.dx+ax,dz=p.dz+az,id=key(dx,dz);
+   if(seen.has(id))continue;
+   const q={x:origin.x+dx*step,z:origin.z+dz*step,dx,dz,parent:i};
+   if(gyeongjuClear(p,q)){seen.add(id);queue.push(q);}
+  }
+ }
+ return [];
+}
+const groundDirections=[[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[-1,-1],[1,-1]];
+function walkingRoute(from,to,tryGround=true){
  if(!gyeongjuWalkable(from)||!gyeongjuWalkable(to)||dist(from,to)>2500)return [];
  if(dist(from,to)<28&&gyeongjuClear(from,to))return [{x:to.x,z:to.z}];
- const {nodes,nearby}=walkingNetwork();
- const connectors=p=>nearby(p,18).sort((i,j)=>dist(nodes[i].p,p)-dist(nodes[j].p,p))
-   .filter(i=>gyeongjuClear(p,nodes[i].p)).slice(0,9);
+ const graph=walkingNetwork(),{nodes,nearby}=graph;
+ // A lawn destination can be well outside the road index's normal junction radius.
+ // Widen only as needed and require a traversable approach all the way to a real path.
+ const connectors=p=>{
+  const checked=new Set();
+  for(const radius of [18,54,108,210]){
+   const candidates=nearby(p,radius).filter(i=>!checked.has(i)).sort((i,j)=>dist(nodes[i].p,p)-dist(nodes[j].p,p));
+   const found=[];
+   for(const i of candidates){
+    if(gyeongjuClear(p,nodes[i].p))found.push(i);
+    if(found.length===9)break;
+    checked.add(i);
+   }
+   if(found.length)return found;
+  }
+  return [];
+ };
  const starts=connectors(from),ends=new Set(connectors(to));
  const costs=new Map(),previous=new Map(),queue=[];
  function push(i,c,parent){
@@ -213,5 +323,9 @@ export function gyeongjuRoute(from,to){
   }
   for(const j of nodes[i].edges)push(j,c+dist(nodes[i].p,nodes[j].p),i);
  }
- return [];
+ if(!tryGround)return [];
+ const a=lawnApproach(from,graph,starts),b=lawnApproach(to,graph,[...ends]);
+ if(!a.length||!b.length||a.length===1&&b.length===1)return [];
+ const mid=walkingRoute(a.at(-1),b.at(-1),false);
+ return mid.length?[...a.slice(1),...mid,...b.reverse().slice(1)]:[];
 }

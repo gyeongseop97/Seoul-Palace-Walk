@@ -100,3 +100,9 @@
 경주역 광장 정류장과 천마총후문·황리단길의 시내행 및 경주역행 정류장은 개별 지도 핀을 사용했습니다. 두 지역 사이는 게임 안에서 버스로 즉시 이동합니다. 횡단보도 폭, 광장의 보행 동선과 목련 촬영 위치는 게임에 맞춰 조정했습니다. [경주시 황리단길 관광지도](https://www.gyeongju.go.kr/hwangridan/images/gj_map_kor.pdf) · [경주역 승차 지점](https://www.openstreetmap.org/node/5909942985) · [관광지 하차 지점](https://www.openstreetmap.org/node/12203446586) · [경주역 방면 승차 지점](https://www.openstreetmap.org/node/4401101890)
 
 황남 한옥카페는 포석로1095번길의 실제 카페 자리에 게임용 상호, 실내 구조와 좌석을 구성했습니다. [카페 지도 핀](https://www.openstreetmap.org/node/10857201306) · [건물 윤곽](https://www.openstreetmap.org/way/1480372663)
+
+첨성대 남쪽에서 계림 안쪽 갈림길과 교촌안길을 거쳐 월정교를 건너는 동선은 경주시 코스와 공개 지도에서 확인했습니다. 카카오맵에서 계림과 내물왕릉 사이 숲길, 네이버 지도에서 첨성대·계림과 월성 해자의 갈림길, 구글 지도에서 교촌안길·일정로와 두 문루 사이의 회랑을 대조했습니다. [경주시 왕경지구 코스](https://www.gyeongju.go.kr/tour/page.do?mnu_uid=4896) · [카카오맵 경주계림](https://map.kakao.com/?q=경주계림) · [네이버 지도 월정교](https://map.naver.com/p/search/경주%20월정교) · [Google 지도 월정교](https://www.google.com/maps/search/?api=1&query=경주%20월정교)
+
+계림 숲의 경계와 산책로, 남천 양안, 월정교의 보행축 및 문루의 위치는 OpenStreetMap을 기준으로 배치했습니다. 다리 통행 폭과 경사도는 게임 속 보행에 맞췄습니다. [© OpenStreetMap contributors, ODbL](https://www.openstreetmap.org/copyright) · [계림](https://www.openstreetmap.org/way/382133881) · [남천 수면](https://www.openstreetmap.org/relation/18648119) · [월정교 보행로](https://www.openstreetmap.org/way/539995254) · [북쪽 문루](https://www.openstreetmap.org/way/712570839) · [남쪽 문루](https://www.openstreetmap.org/way/712570833) · [게임용 지리 데이터](public/gyeongju-southern-geography.js)
+
+게임 안에서 읽는 계림 설화와 월정교 복원 이야기는 경주시 문화관광 자료를, 첨성대의 석축과 중간 창에 관한 설명은 국가유산청 안내를 참고했습니다. [경주시 신라 왕경 유적 안내](https://www.gyeongju.go.kr/tour/page.do?mnu_uid=4724) · [국가유산청 경주 첨성대](https://www.heritage.go.kr/heri/cul/culGuidePostDetail.do?ccbaCpno=1113700310000&ccgbGbtype=IND&ccgbGbtypeNo=2&pageNo=1_5_0_0)

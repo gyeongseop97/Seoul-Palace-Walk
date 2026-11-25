@@ -420,6 +420,10 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 #map-route-end{fill:none;stroke:var(--gold-1);stroke-width:5}
 .map-route{display:flex;align-items:center;gap:7px;padding:7px 12px;background:var(--pine-4);border-top:1px solid var(--pine-8)}
 .map-route[hidden]{display:none}
+.map-route:has(.map-place-note:not([hidden])){flex-wrap:wrap}
+.map-place-note{flex-basis:100%;margin:0;line-height:1.5;overflow-wrap:anywhere}
+.map-place-note span,.map-place-note a{font-size:12px;color:var(--ivory-2)}
+.map-place-note a{color:var(--gold-1);white-space:nowrap}
 .map-route [role=status]{display:grid;gap:2px;min-width:0;flex:1;font-size:13px;line-height:1.25}
 .map-route strong{color:var(--ivory-1)}
 .map-route span{color:var(--sage-3);font-size:12px}

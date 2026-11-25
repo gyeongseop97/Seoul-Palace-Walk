@@ -39,7 +39,7 @@ export function deckOffset(ship,p){
  return {x:x*c-z*s,z:x*s+z*c};
 }
 export const coastActions=["cafeCoffee","changing","rinse","scooter","parkScooter","bus","cityBus","exitBus","train","board","surf","embark","deckSit","deckStand","disembark","helm","release","tour","wine","cheese","return","moor","table","stand","bell","order","fish","drink","grill","clam","festival","studioClimb","studioWater","studioDoor","studioConsole"];
-export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,goSeoul,receiveFood,canReceiveFood=()=>true,tasteFood,chooseOrder,chooseSeat,openMonitor}){
+export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,chooseTrainDestination,receiveFood,canReceiveFood=()=>true,tasteFood,chooseOrder,chooseSeat,openMonitor}){
  const boat={...mooring,yaw:0,helm:null,festival:0},ship={...boat};
  const remoteVessel=createVesselTrack();
  let deckYaw=null,lastSailingTime=null;
@@ -488,7 +488,7 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
     }else messages.push(line.name+" · "+h.direction+" "+Math.ceil(next.seconds)+"초 후 도착");
    }
    hint=messages.join(" / ");
-   if(s.mode==="walk"&&distance(p,platformDoor)<3)add("train","서울행 KTX 타기",goSeoul,platformDoor);
+   if(s.mode==="walk"&&distance(p,platformDoor)<3)add("train","열차 타기",chooseTrainDestination,platformDoor);
    if(distance(p,boardRack)<5&&!me.bag?.some(item=>item.kind==="surfboard"))add("board",s.board?"서핑보드 반납":"서핑보드 빌리기",()=>{
     s.board=!s.board;
     if(s.board)notice("해변으로 내려가 노란 부표 사이에서 파도를 타 보세요.");

@@ -29,9 +29,14 @@ function roofMaterial(){
 }
 let tileMat;
 const roofColors=[0x667078,0x626b72,0x57616b,0x737976],plaster=[0xefdec1,0xe4d5b8,0xe5ded0,0xcfbfa8,0xcfc5b9];
-export function roof(k,x,y,z,w,h,d,yaw,color=0x64727a){
- tileMat??=roofMaterial();k.geo(tile,x,y,z,w,h,d,color,yaw,tileMat);
+export function roof(k,x,y,z,w,h,d,yaw,color=0x64727a,material=null){
+ tileMat??=roofMaterial();k.geo(tile,x,y,z,w,h,d,color,yaw,material??tileMat);
  k.piece(x,y+h+.05,z,w*.65,.16,.17,0x657079,yaw);
+}
+export function illuminatedRoofMaterial(){
+ tileMat??=roofMaterial();
+ const mat=tileMat.clone();mat.emissive.set(0xffb866);mat.emissiveMap=mat.map;mat.emissiveIntensity=0;
+ return mat;
 }
 export function buildingFrame(points){
  let longest=-1,yaw=0;

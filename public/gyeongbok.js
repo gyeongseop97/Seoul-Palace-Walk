@@ -1,3 +1,4 @@
+import {dancheongTexture} from "./palace-dancheong.js";
 import {
   gwanghwamun,gbSites,gbSite,gbCourts,gbLake,gbPond,gbPaths,gbLawns,gbStation,subwayStops,
   gbFrontApron,gbWoldae,gbHaetae,gbRoyalPavilion,gyeongbokWater,at
@@ -45,24 +46,7 @@ export function* buildGyeongbok(T,scene,kit,tools){
   // Paper windows lit from inside, and the red-and-blue silk of cheongsachorong lanterns.
   const paper=glow(0xd9d0b6,0xffb260,.95),silkRed=glow(0xb5382f,0xff5a3c,1.5,.05),silkBlue=glow(0x2f4f9a,0x4a7dff,1.4,.05);
   const unitBox=new T.BoxGeometry(1,1,1),shade=new T.CylinderGeometry(1,1,1,8);
-  // Dancheong: the painted band of lotus medallions that runs under palace eaves.
-  function dancheongTexture(){
-    const c=document.createElement("canvas");c.width=256;c.height=64;
-    const ctx=c.getContext("2d");
-    ctx.fillStyle="#2f6f58";ctx.fillRect(0,0,256,64);
-    for(let i=0;i<4;i++){
-      const x=i*64,disc=(radius,color)=>{ctx.fillStyle=color;ctx.beginPath();ctx.arc(x+32,32,radius,0,7);ctx.fill();};
-      ctx.fillStyle="#b7402f";ctx.fillRect(x,0,64,9);ctx.fillRect(x,55,64,9);
-      ctx.fillStyle="#e9dfc4";ctx.fillRect(x,9,64,3);ctx.fillRect(x,52,64,3);
-      ctx.fillStyle="#46966f";
-      ctx.beginPath();ctx.moveTo(x,14);ctx.lineTo(x+15,32);ctx.lineTo(x,50);ctx.fill();
-      ctx.beginPath();ctx.moveTo(x+64,14);ctx.lineTo(x+49,32);ctx.lineTo(x+64,50);ctx.fill();
-      disc(16,"#2d5fa8");disc(11,"#e9dfc4");disc(7,"#c8452f");disc(3,"#e2b43c");
-    }
-    const map=new T.CanvasTexture(c);map.colorSpace=T.SRGBColorSpace;map.wrapS=T.RepeatWrapping;map.anisotropy=4;
-    return map;
-  }
-  const dancheong=new T.MeshStandardMaterial({map:dancheongTexture(),roughness:.82});
+  const dancheong=new T.MeshStandardMaterial({map:dancheongTexture(T),roughness:.82});
   function band(group,x,y,z,length,turn=0){
     const mesh=new T.Mesh(new T.BoxGeometry(length,.36,.05),dancheong);
     mesh.position.set(x,y,z);mesh.rotation.y=turn;group.add(uvScale(mesh,length/3.2,1));
