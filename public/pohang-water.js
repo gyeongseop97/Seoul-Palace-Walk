@@ -141,16 +141,34 @@ export function ocean(scene){
    ${waterNoise}
    void main(){if(depth<5. && shoreline(w.xz,(rip(w.xz)-.5)*5.)< -2.)discard;gl_FragColor=vec4(0.);}
   `});
+ const patches=[];
+ // At maximum storm strength the swell is below 3.53 m; the breaking surf adds
+ // at most 2.71 m. Both passes must keep even crests that cross the frame edge.
+ const waveEnvelope=7;
  for(const tile of grid.tiles){
   const geometry=new T.BufferGeometry();
   for(const [name,attribute] of Object.entries(g.attributes))geometry.setAttribute(name,attribute);
   geometry.setIndex(g.index);geometry.setDrawRange(tile.start,tile.count);
-  const center=new T.Vector3((tile.minX+tile.maxX)/2,0,(tile.minZ+tile.maxZ)/2);
-  geometry.boundingSphere=new T.Sphere(center,Math.hypot(tile.maxX-center.x,6,tile.maxZ-center.z));
+  const bounds=new T.Box3(new T.Vector3(tile.minX,-waveEnvelope,tile.minZ),new T.Vector3(tile.maxX,waveEnvelope,tile.maxZ));
+  geometry.boundingSphere=bounds.getBoundingSphere(new T.Sphere());
   const depth=new T.Mesh(geometry,tile.minDepth<5?beachDepth:offshoreDepth),water=new T.Mesh(geometry,material);
   depth.renderOrder=-8;water.renderOrder=-7;scene.add(depth,water);
+  patches.push({bounds,depth,water});
  }
- return uniforms;
+ const frustum=new T.Frustum(),clip=new T.Matrix4(),lastClip=new T.Matrix4();
+ let hasView=false;
+ function updateVisibility(camera){
+  camera.updateWorldMatrix(true,false);
+  scene.updateWorldMatrix(true,false);
+  clip.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse).multiply(scene.matrixWorld);
+  if(hasView&&lastClip.equals(clip))return;
+  frustum.setFromProjectionMatrix(clip);lastClip.copy(clip);hasView=true;
+  for(const {bounds,depth,water} of patches){
+   const visible=frustum.intersectsBox(bounds);
+   depth.visible=water.visible=visible;
+  }
+ }
+ return {...uniforms,updateVisibility};
 }
 export function skyDome(scene){
  const uniforms={night:{value:0},storm:{value:0},clock:{value:0}};

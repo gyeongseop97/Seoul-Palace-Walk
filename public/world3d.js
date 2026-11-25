@@ -433,11 +433,14 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   }
   async function loadLandmark({name,point,groups,angle,root,onLoaded}){
     try{
-      const asset=await loadGltf(`./${name}.glb`);
+      const northSurvey=gbSurveyModels.includes(name);
+      const [asset,lighting]=await Promise.all([
+        loadGltf(`./${name}.glb`),
+        northSurvey?null:import("./survey-normals.js")
+      ]);
       const replaced=prepareSurveyTerrain(T,asset.scene,name,groups);
       asset.scene.position.set(wx(point.x),outsideGroundOffset(point),wz(point.y));
       asset.scene.rotation.y=angle;
-      const northSurvey=gbSurveyModels.includes(name);
       const bay=groups[0]?.userData.door;
       const entrance=surveyDoors[name]??(northSurvey&&bay?{
         x:0,z:point.d*.5,width:(bay.b-bay.a+1)*point.w/point.bays-.6,
@@ -449,12 +452,16 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
         if(name==="gyeonghoeru")asset.scene.rotation.y+=Math.PI/2;
       }
       const anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
-      asset.scene.traverse(mesh=>{
-        if(!mesh.isMesh)return;
-        if(northSurvey&&!mesh.geometry.attributes.normal)mesh.geometry.computeVertexNormals();
-        if(!mesh.geometry.attributes.normal){
-          const smoothed=smoothSurveyNormals(mesh.geometry);
-          if(smoothed!==mesh.geometry){mesh.geometry.dispose();mesh.geometry=smoothed;}
+      const surfaces=[];
+      asset.scene.traverse(mesh=>{if(mesh.isMesh)surfaces.push(mesh);});
+      for(const mesh of surfaces){
+        const original=mesh.geometry;
+        if(!original.attributes.normal){
+          if(northSurvey)original.computeVertexNormals();
+          else{
+            const restored=await lighting.restoreSurveyNormals(T,original,asset.parser)??lighting.smoothSurveyNormals(T,original);
+            if(restored!==original){original.dispose();mesh.geometry=restored;}
+          }
         }
         const material=mesh.material;
         material.flatShading=false;material.metalness=0;material.roughness=.92;
@@ -466,7 +473,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
         if(material.map){material.map.anisotropy=anisotropy;material.map.needsUpdate=true;}
         material.needsUpdate=true;
         mesh.castShadow=mesh.receiveShadow=true;
-      });
+      }
       root.add(asset.scene);
       if(!northSurvey)scannedGrounds.push(surveyGroundField(T,asset.scene,asset.scene.position.y));
       for(const group of replaced)group.visible=false;
@@ -1255,10 +1262,6 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     });
     buses?.update(clock,indoors?null:anchor);
     if(palaceRoot.parent===outdoors)for(const {material,rest,strength} of gbNightGlow)material.emissiveIntensity=rest+night*strength;
-    if(plazaRoot.parent===outdoors){
-      const viewer=indoors?null:anchor;
-      updatePlaza(now,night,viewer,fountainShow?.startedAt??0,clock);
-    }
     const cookingId=state.bungeoStall??(state.bungeoMolds?BUNGEO_STALL.id:baking?.id);
     const watching=indoors?null:cookingScenes.get(cookingId);
     if(viewedCooking&&viewedCooking!==watching)viewedCooking.update(null,clock,null);
@@ -1566,6 +1569,9 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       if(camera.fov!==photo.fov){camera.fov=photo.fov;camera.updateProjectionMatrix();}
       cameraDistance=camera.position.distanceTo(anchorPoint);
       guideMarker.visible=false;showMarker.visible=false;
+    }
+    if(plazaRoot.parent===outdoors){
+      updatePlaza(now,night,indoors?null:anchor,fountainShow?.startedAt??0,clock,camera);
     }
     cameraUp.set(0,1,0).applyQuaternion(camera.quaternion);
     for(const model of models.values())if(model.group.visible&&model.chatSprite)walkerModels.placeChat(model,cameraUp);
@@ -1888,45 +1894,6 @@ function* consolidate(scene,fallbackGroups,registerSeason,cell=48){
     return {object,parent:object.parent,x:centre.x,z:centre.z,radius:sphere.radius*object.matrixWorld.getMaxScaleOnAxis(),
       ownsGeometry,detail,releaseAt:0};
   });
-}
-
-// Survey models arrive without normals and would be shaded one hard facet at a time. This
-// rebuilds them so neighbouring faces blend smoothly while real edges (eaves, columns,
-// steps) stay crisp.
-function smoothSurveyNormals(geometry,creaseDegrees=48){
-  const source=geometry.index?geometry.toNonIndexed():geometry;
-  const position=source.attributes.position,count=position.count,faces=count/3;
-  const faceNormal=new Float32Array(faces*3),unit=new Float32Array(faces*3);
-  const a=new T.Vector3(),b=new T.Vector3(),c=new T.Vector3();
-  const around=new Map();
-  for(let face=0;face<faces;face++){
-    a.fromBufferAttribute(position,face*3);b.fromBufferAttribute(position,face*3+1);c.fromBufferAttribute(position,face*3+2);
-    b.sub(a);c.sub(a);b.cross(c);
-    faceNormal[face*3]=b.x;faceNormal[face*3+1]=b.y;faceNormal[face*3+2]=b.z;
-    const length=b.length()||1;
-    unit[face*3]=b.x/length;unit[face*3+1]=b.y/length;unit[face*3+2]=b.z/length;
-    for(let corner=0;corner<3;corner++){
-      const i=face*3+corner,key=position.getX(i)+"/"+position.getY(i)+"/"+position.getZ(i);
-      const list=around.get(key);
-      if(list)list.push(face);else around.set(key,[face]);
-    }
-  }
-  const limit=Math.cos(creaseDegrees*Math.PI/180),normals=new Float32Array(count*3);
-  for(let face=0;face<faces;face++){
-    const ux=unit[face*3],uy=unit[face*3+1],uz=unit[face*3+2];
-    for(let corner=0;corner<3;corner++){
-      const i=face*3+corner,key=position.getX(i)+"/"+position.getY(i)+"/"+position.getZ(i);
-      let x=0,y=0,z=0;
-      for(const other of around.get(key)){
-        if(ux*unit[other*3]+uy*unit[other*3+1]+uz*unit[other*3+2]<limit)continue;
-        x+=faceNormal[other*3];y+=faceNormal[other*3+1];z+=faceNormal[other*3+2];
-      }
-      const length=Math.hypot(x,y,z)||1;
-      normals[i*3]=x/length;normals[i*3+1]=y/length;normals[i*3+2]=z/length;
-    }
-  }
-  source.setAttribute("normal",new T.BufferAttribute(normals,3));
-  return source;
 }
 
 function makeGuideMarker(music){

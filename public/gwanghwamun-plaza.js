@@ -465,14 +465,14 @@ export function* assembleGwanghwamunPlaza(T,scene,kit,{birdPerches,terrainHeight
   yield* assemblePlazaCity(T,group,kit);
   yield;
   const fountains=addPlazaFountains({T,group,world,block,water,random,terrainHeight});
-  return function updatePlaza(now,night,anchor,showStart=0,clock=now){
+  return function updatePlaza(now,night,anchor,showStart=0,clock=now,camera){
     if(!anchor){fountains(now,night,null);return;}
     for(const item of glow)item.material.emissiveIntensity=item.day+night*item.strength;
     tickWater([water],now*.001,night);
     for(const [i,material] of mediaMaterials.entries()){
       material.emissive.setHSL(.51+Math.sin(now*.00036+i*.09)*.095,.48,.43+Math.sin(now*.0012-i*.45)*.17);
     }
-    fountains(now,night,anchor,showStart,clock);
+    fountains(now,night,anchor,showStart,clock,camera);
   };
 }
 
@@ -542,30 +542,47 @@ function addPlazaFountains({T,group,world,block,water,random,terrainHeight}){
         block(water,value.e,value.n,.072,.071,.022,.065);
       }
     }
+    // Bound the entire flight, including the show at full pressure, at all times.
+    const bounds=new T.Box3(),point=new T.Vector3();
     source.splash=fountainImpact(T,group,source.jets.map(j=>{
       const floor=terrainHeight(plazaAt(j.e+j.dx,j.n+j.dn));
+      const peak=j.fall?1.19:(source.basin?.68:.079)+j.h*(source===showFountain?1.85:.90);
+      bounds.expandByPoint(point.set(j.x,j.base,j.z));
+      bounds.expandByPoint(point.set(j.x,j.base+peak,j.z));
+      bounds.expandByPoint(point.set(j.x+j.dx,floor,j.z-j.dn));
       return [j.x+j.dx,floor+(source.basin?.47:j.fall?.292:.044),j.z-j.dn,j.fall?.92:.74];
     }));
+    // Include stretched drop tips, impact billboards and the floor light quads.
+    source.bounds=bounds.expandByScalar(1.5);
   }
   const lights=addMyeongnyangShowLights(T,group,myeongnyang,world);
   const palette=[[0x47dcff,0xa8e0ff],[0x77b6ff,0xffbd64],[0x9cf5e4,0xff9ed1],[0xffc879,0xb3ebff]]
     .map(row=>row.map(color=>new T.Color(color)));
-  const color=new T.Color();
+  const color=new T.Color(),frustum=new T.Frustum(),projection=new T.Matrix4();
   let showed=false;
 
-  return (now,night,anchor,showStart=0,clock=now)=>{
+  return (now,night,anchor,showStart=0,clock=now,camera)=>{
     const closeToShow=anchor&&Math.hypot(showFountain.centre.x-anchor.x,showFountain.centre.y-anchor.y)<PLAZA_SHOW_VIEW_METRES;
     const frame=closeToShow?plazaShowFrame(showStart,clock):null;
-    lights.visible=Boolean(frame);
     if(!anchor){
+      lights.visible=false;
       for(const {mesh,splash} of sources)mesh.visible=splash.mesh.visible=false;
       return;
     }
+    let viewReady=false;
     dropColor.color.copy(dayColor).lerp(nightColor,night);
     for(const source of sources){
       const {centre,jets,mesh}=source,isShow=source===showFountain;
-      mesh.visible=Boolean(anchor&&Math.hypot(centre.x-anchor.x,centre.y-anchor.y)<85);
-      source.splash.mesh.visible=mesh.visible&&Math.hypot(centre.x-anchor.x,centre.y-anchor.y)<52;
+      const distance=Math.hypot(centre.x-anchor.x,centre.y-anchor.y);
+      if(distance<85&&camera&&!viewReady){
+        camera.updateWorldMatrix(true,false);
+        group.updateWorldMatrix(true,false);
+        projection.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse).multiply(group.matrixWorld);
+        frustum.setFromProjectionMatrix(projection);viewReady=true;
+      }
+      mesh.visible=distance<85&&(!camera||frustum.intersectsBox(source.bounds));
+      source.splash.mesh.visible=mesh.visible&&distance<52;
+      if(isShow)lights.visible=mesh.visible&&Boolean(frame);
       if(!mesh.visible)continue;
       let index=0;
       const performance=isShow?frame:null;

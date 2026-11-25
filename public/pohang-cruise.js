@@ -5,14 +5,22 @@ import {cruiseSeats,cruiseTables} from "./coast-vessel-seats.js";
 export function makeCruise(){
  const root=new T.Group(),batches=new Map(),box=new T.BoxGeometry(),cyl=new T.CylinderGeometry(1,1,1,12),ball=new T.SphereGeometry(1,16,10);
  const cream=0xf5f0e5,navy=0x172e45,brass=0xbf965c,glass=0x315868,wood=0xb4865c;
- const material=c=>new T.MeshStandardMaterial({color:c,roughness:c===glass?.16:.51,metalness:c===brass?.64:.09});
+ const finish=c=>c===brass?brass:c===glass?glass:cream;
+ const material=(c,surface=c)=>new T.MeshStandardMaterial({color:c,roughness:surface===glass?.16:.51,metalness:surface===brass?.64:.09});
+ function addPart(geo,c,matrix){
+  const surface=finish(c),key=geo.id+"/"+surface;
+  if(!batches.has(key))batches.set(key,{geo,surface,colors:new Map(),count:0});
+  const batch=batches.get(key);
+  if(!batch.colors.has(c))batch.colors.set(c,[]);
+  batch.colors.get(c).push(matrix);batch.count++;
+ }
  function piece(geo,c,x,y,z,w,h,d,rx=0,ry=0,rz=0){
   const obj=new T.Object3D();obj.position.set(x,y,z);obj.scale.set(w,h,d);obj.rotation.set(rx,ry,rz);obj.updateMatrix();
-  const k=geo.uuid+c;if(!batches.has(k))batches.set(k,{geo,c,ms:[]});batches.get(k).ms.push(obj.matrix);
+  addPart(geo,c,obj.matrix);
  }
  function beam(a,b,r,c){const v=new T.Vector3(...a),q=new T.Vector3(...b),length=v.distanceTo(q),o=new T.Object3D();
   o.position.copy(v.clone().lerp(q,.5));o.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),q.sub(v).normalize());o.scale.set(r,length,r);o.updateMatrix();
-  const k=cyl.uuid+c;if(!batches.has(k))batches.set(k,{geo:cyl,c,ms:[]});batches.get(k).ms.push(o.matrix);}
+  addPart(cyl,c,o.matrix);}
  const stations=cruiseHullStations;
  const outline=(w,z0,z1)=>stations.map(([z,f])=>[w*f,z0+(z+18)/38*(z1-z0)]);
  function shell(rows,c){
@@ -222,6 +230,17 @@ export function makeCruise(){
   }
  }
 
- for(const {geo,c,ms} of batches.values()){const m=new T.InstancedMesh(geo,material(c),ms.length);ms.forEach((a,i)=>m.setMatrixAt(i,a));root.add(m);}
+ const tint=new T.Color();
+ // At flush rail-to-panel joints the final opaque sample belongs to the panel.
+ const ordered=[...batches.values()].sort((a,b)=>Number(a.geo===box)-Number(b.geo===box));
+ for(const {geo,surface,colors,count} of ordered){
+  const mesh=new T.InstancedMesh(geo,material(0xffffff,surface),count);
+  let i=0;
+  for(const [color,matrices] of colors){
+   tint.setHex(color);
+   for(const matrix of matrices){mesh.setMatrixAt(i,matrix);mesh.setColorAt(i++,tint);}
+  }
+  root.add(mesh);
+ }
  return root;
 }

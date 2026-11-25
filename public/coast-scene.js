@@ -132,6 +132,7 @@ export function createCoastScene(root,play,walkers,kit){
   sky.uniforms.storm.value=water.storm.value=studioStorm(p);sky.uniforms.clock.value=t;
   lights(night,players,lastClock);parkLights(night);water.night.value=night;water.uTime.value=t;
   water.reducedDetail.value=reducedDetail;
+  water.updateVisibility(camera);
   updateSurfBuoys(t,p);
   updateSurfSpray(players,p,t,night,height);
   updateWake(b,lastClock,night,water);
