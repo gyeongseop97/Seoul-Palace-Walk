@@ -1,13 +1,34 @@
 import * as T from "three";
 import {districtMeshes} from "./gyeongju-mesh.js";
-import {RAFT_DECK_HEIGHT,RAFT_DOCK_WIDTH,RAFT_LENGTH,RAFT_SEAT_HEIGHT,RAFT_WIDTH,raftAt,raftHeave,
+import {RAFT_DECK_HEIGHT,RAFT_DOCK_WIDTH,RAFT_LENGTH,RAFT_SEAT_HEIGHT,RAFT_WIDTH,raftHeave,
  raftPierHeight,raftSeatOffsets,raftStops} from "./gyeongju-raft-layout.js";
+import {footBathSeatBase} from "./walker-model.js";
 import {localGyeongju} from "./region-coordinates.js";
 
 const p=(x,y,z)=>({x,y,z});
 const bark=[0x816443,0x735435,0x8b6846,0x6d503a,0x957150];
 const cedar=[0xaa865c,0xb49368,0x987652,0xaf8a63];
 const hemp=0xb99c6f,weathered=0x755a40;
+
+// Wrist targets use the walker's seated frame. The shaft starts at the same upper grip in hull space.
+export function makeRaftStroke(){
+ const hands=[new T.Vector3(),new T.Vector3()],origin=new T.Vector3(),axis=new T.Vector3();
+ const stroke={hands,origin,axis},base=footBathSeatBase(RAFT_SEAT_HEIGHT);
+ return function at(boat,seat,time){
+  const slot=raftSeatOffsets[seat];
+  if(!boat?.helm||!slot)return null;
+  const side=slot.side<0?-1:1,outer=side>0?1:0;
+  const effort=Math.min(1,Math.abs(boat.throttle||0)+Math.abs(boat.turn||0));
+  const phase=(time%1700)*2*Math.PI/1700*(boat.throttle<0?-1:1);
+  const sweep=Math.sin(phase)*effort,dip=Math.cos(phase)*effort;
+  const top=hands[1-outer],lower=hands[outer];
+  top.set(-side*.075,RAFT_SEAT_HEIGHT+.385-base,.158-.034*sweep);
+  lower.set(side*.20,RAFT_SEAT_HEIGHT+.210-base+.040*dip,.174+.113*sweep);
+  origin.set(slot.side+top.x,base+top.y,slot.forward+top.z);
+  axis.subVectors(lower,top).normalize();
+  return stroke;
+ };
+}
 
 function rope(k,points,r,color=hemp){
  for(let i=1;i<points.length;i++)k.beam(points[i-1],points[i],r,color);
@@ -84,26 +105,37 @@ function buildLogRaft(parent){
   k.piece(x,h-.012,z,.56,.024,.32,0xbda46b,yaw);
   for(const strip of [-.19,.19])k.piece(x+strip,h+.0006,z,.022,.003,.32,0x8e754f,yaw);
  }
- // A wooden sweep rests in its fork at the stern, outside the passage between the seats.
+ // The stern fork holds the sweep when nobody has the helm.
  k.beam(p(.92,.31,-1.16),p(.92,.68,-1.16),.037,weathered);
  for(const u of [-1,1])k.beam(p(.92,.63,-1.16),p(.92+u*.085,.75,-1.16),.025,weathered);
- const grip=p(.59,.93,-.25),tip=p(1.31,.37,-2.18);
- k.beam(grip,tip,.032,0xa87f50);
- const blade=p(1.39,.31,-2.4);
- k.beam(tip,blade,.059,0x9a744b);
- k.piece(blade.x,blade.y,blade.z,.145,.05,.45,0xa17a4e,-.36,-.30);
  k.finish();
- return hull;
+ const oar=new T.Group(),wood=new T.MeshStandardMaterial({color:0x9f784c,roughness:.86});
+ oar.name="뱃사공의 노";hull.add(oar);
+ const shaft=new T.Mesh(new T.CylinderGeometry(.029,.034,1.59,8),wood);
+ shaft.position.y=.756;shaft.castShadow=true;oar.add(shaft);
+ const bladeShape=new T.Shape();
+ bladeShape.moveTo(-.025,1.49);bladeShape.lineTo(-.105,1.69);bladeShape.lineTo(-.091,1.98);
+ bladeShape.quadraticCurveTo(0,2.065,.091,1.98);bladeShape.lineTo(.105,1.69);bladeShape.lineTo(.025,1.49);bladeShape.closePath();
+ const blade=new T.Mesh(new T.ExtrudeGeometry(bladeShape,{depth:.025,bevelEnabled:true,bevelThickness:.008,bevelSize:.008,bevelSegments:1,curveSegments:3}),wood);
+ blade.position.z=-.0125;blade.castShadow=true;oar.add(blade);
+ const cap=new T.Mesh(new T.CylinderGeometry(.041,.039,.08,8),wood);oar.add(cap);
+ return {hull,oar};
 }
 
 export function createRaftScene(town){
- let hull;
- return function update(time,eye){
-  const berth=raftStops[0].berth;
-  if(Math.hypot(eye.x-berth.x,eye.z-berth.z)>420){if(hull)hull.visible=false;return;}
-  hull??=buildLogRaft(town);
-  const pose=raftAt(time),local=localGyeongju(pose);
+ let model;
+ const rest=new T.Vector3(.59,.93,-.25),restAxis=new T.Vector3(.72,-.56,-1.93).normalize();
+ const across=new T.Vector3(),normal=new T.Vector3(),forward=new T.Vector3(0,0,1),rotation=new T.Matrix4();
+ return function update(time,eye,pose,stroke){
+  const local=pose&&localGyeongju(pose);
+  if(!local||Math.hypot(eye.x-local.x,eye.z-local.z)>420){if(model)model.hull.visible=false;return;}
+  model??=buildLogRaft(town);
+  const {hull,oar}=model;
   hull.visible=true;hull.position.set(local.x,raftHeave(time),local.z);
   hull.rotation.y=(180-pose.heading)*Math.PI/180;
+  const axis=stroke?.axis??restAxis;
+  oar.position.copy(stroke?.origin??rest);
+  across.crossVectors(axis,forward).normalize();normal.crossVectors(across,axis);
+  oar.quaternion.setFromRotationMatrix(rotation.makeBasis(across,axis,normal));
  };
 }

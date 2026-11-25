@@ -45,7 +45,10 @@ function riverCourse(t){
  const z=uu*u*north.z+3*uu*t*a.z+3*u*tt*b.z+tt*t*south.z;
  const dx=uu*(a.x-north.x)+2*u*t*(b.x-a.x)+tt*(south.x-b.x);
  const dz=uu*(a.z-north.z)+2*u*t*(b.z-a.z)+tt*(south.z-b.z);
- return world({x,z},(Math.atan2(dx,-dz)*180/Math.PI+360)%360);
+ const tangent=(Math.atan2(dx,-dz)*180/Math.PI+360)%360,bank=t<.5?north:south,docked=t<.5?90:270;
+ // Leave the pole raft parallel to the landing until its stern clears the tip.
+ const f=Math.max(0,Math.min(1,(Math.hypot(x-bank.x,z-bank.z)-3.4)/4.5));
+ return world({x,z},docked+((tangent-docked+540)%360-180)*f*f*(3-2*f));
 }
 const distances=[0],samples=64;
 let previous=riverCourse(0);
@@ -74,12 +77,13 @@ export function raftAt(time){
  return {...common,...riverCourse(progressAt(bank?1-fraction:fraction)),stopId:null,
   remaining:0,elapsed:moving,traveling:true,eta:RAFT_TRAVEL_MS-moving};
 }
-export function raftSeatPose(time,seat){
+export function raftSeatAtPose(boat,seat){
  if(!Number.isInteger(seat)||seat<0||seat>=RAFT_SEATS)return null;
- const boat=raftAt(time);if(!boat)return null;
+ if(!boat)return null;
  const {side,forward,headingOffset}=raftSeatOffsets[seat],yaw=(180-boat.heading)*Math.PI/180,c=Math.cos(yaw),s=Math.sin(yaw);
  return {x:boat.x+side*c+forward*s,y:boat.y-side*s+forward*c,heading:(boat.heading+headingOffset)%360};
 }
+export const raftSeatPose=(time,seat)=>raftSeatAtPose(raftAt(time),seat);
 export function raftStopTimes(id,time){
  const bank=raftStops.findIndex(s=>s.id===id);
  if(bank<0||!Number.isFinite(time))return null;

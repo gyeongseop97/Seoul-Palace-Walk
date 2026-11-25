@@ -8,6 +8,8 @@ import {BIKE_FALL_DURATION_MS,GESTURE_DURATIONS,MAX_ALCOHOL_DRINKS,MAX_ALCOHOL_L
 import {interiorAt} from "./public/interior-layout.js";
 import {arcadeFloorAt} from "./public/arcade-layout.js";
 import {BUS_COUNT,BUS_SEATS,RAFT_INDEX,busAt,busBoardReach,busSeatCount,busStopById,busSeatPose} from "./public/bus-network.js";
+import {raftPoseAt} from "./public/gyeongju-raft-navigation.js";
+import {validRaftCommand,readRaft,currentRaft,settleRaft,dropRaftHelm,applyRaftCommand} from "./server/gyeongju-raft.mjs";
 import {bikeDockReach,bikeDocks,bikeMountReach,bikeParkDuration,bikePassengerPose} from "./public/sejong-bike.js";
 import {gyeongjuBikeDocks} from "./public/gyeongju-bike.js";
 import {acceptBikeRide,bikePassenger,closeBikeOffer,dismountBikePassenger,dropBikePassengers,ensureBikeOffers,
@@ -369,9 +371,17 @@ const availableRider=`json_extract(avatar,'$.bus') IS NULL AND NOT ${ridingBike(
   AND json_extract(avatar,'$.seat') IS NULL AND COALESCE(json_extract(avatar,'$.feed.at'),0)<=?
   AND COALESCE(json_extract(avatar,'$.bikeFallAt'),0)<=?`;
 
-function busStatements(db,room,id,key,action,now,active){
+const needsRaftPose=bus=>bus&&(bus.index===RAFT_INDEX||bus.action==="exit"&&bus.index==null);
+function busStatements(db,room,id,key,action,now,active,raftRaw=null){
+  const raftPose=needsRaftPose(action)?raftPoseAt(currentRaft(raftRaw,now),now):null;
+  // Boarding and alighting use the same mooring as the transaction which claims the seat.
+  // A neutral helm heartbeat changes the lease but leaves the same berth open.
+  const raftGuard=`AND NOT EXISTS (SELECT 1 FROM gyeongju_rafts WHERE room=? AND state IS NOT ?
+    AND NOT coalesce(json_extract(state,'$.mode')='manual' AND json_extract(state,'$.stopId')=?
+      AND json_extract(state,'$.at')<=? AND json_extract(state,'$.leaseUntil')>?
+      AND json_type(state,'$.waypoints') IS NULL,0))`;
   if(action.action==="board"){
-    const bus=busAt(action.index,now),stop=busStopById(bus?.stopId);
+    const bus=busAt(action.index,now,undefined,raftPose),stop=busStopById(bus?.stopId);
     if(!stop||bus.traveling)return [];
     const {x,y,heading}=busSeatPose(bus,action.seat);
     return [db.prepare(`
@@ -382,20 +392,21 @@ function busStatements(db,room,id,key,action,now,active){
         AND NOT EXISTS (
           SELECT 1 FROM walkers peer WHERE peer.room=walkers.room AND peer.id<>walkers.id AND peer.updated>=?
             AND json_extract(peer.avatar,'$.bus.index')=? AND json_extract(peer.avatar,'$.bus.seat')=?
-        )
+        ) ${action.index===RAFT_INDEX?raftGuard:""}
     `).bind(JSON.stringify({index:action.index,seat:action.seat,resume:stop.exit}),x,y,heading,room,id,key,active,now-FEED_MS,now-BIKE_FALL_DURATION_MS,
-      ...accessArguments(stop.board,busBoardReach(action.index)),active,action.index,action.seat)];
+      ...accessArguments(stop.board,busBoardReach(action.index)),active,action.index,action.seat,...(action.index===RAFT_INDEX?[room,raftRaw,stop.id,now,now]:[]))];
   }
   const buses=action.index==null?Array.from({length:BUS_COUNT},(_,index)=>index):[action.index];
   return buses.flatMap(index=>{
-    const bus=busAt(index,now),stop=busStopById(bus?.stopId);
+    const bus=busAt(index,now,undefined,raftPose),stop=busStopById(bus?.stopId);
     if(!stop||bus.traveling)return [];
     const {x,y,heading}=stop.exit;
     return [db.prepare(`
       UPDATE walkers SET avatar=json_remove(json_set(avatar,'$.x',?,'$.y',?,'$.heading',?,
         '$.vx',0,'$.vy',0,'$.jump',0,'$.running',json('false'),'$.blocked',json('false'),'$.up',json('false')), '$.bus')
       WHERE room=? AND id=? AND player_key=? AND updated>=? AND json_extract(avatar,'$.bus.index')=?
-    `).bind(x,y,heading,room,id,key,active,index)];
+        ${index===RAFT_INDEX?raftGuard:""}
+    `).bind(x,y,heading,room,id,key,active,index,...(index===RAFT_INDEX?[room,raftRaw,stop.id,now,now]:[]))];
   });
 }
 
@@ -450,12 +461,12 @@ function releaseTransportHands(db,room,id,key){
   `).bind(room,id,id,room,id,key);
 }
 
-function transportAvatar(row,now,yields){
+function transportAvatar(row,now,yields,raftPose){
   const avatar=JSON.parse(row.avatar);
   if(busIndex(avatar.bus?.index)&&busSeat(avatar.bus.index,avatar.bus.seat)){
     const {index,seat}=avatar.bus;
     avatar.bus={index,seat};
-    Object.assign(avatar,busSeatPose(busAt(index,now,yields),seat));
+    Object.assign(avatar,busSeatPose(busAt(index,now,yields,raftPose),seat));
   }else{
     if(validPoint(avatar.bus?.resume))Object.assign(avatar,avatar.bus.resume);
     delete avatar.bus;
@@ -465,12 +476,12 @@ function transportAvatar(row,now,yields){
   return avatar;
 }
 
-function transportResult(bus,bike,avatar,walkers,id,now,bikeOffer,bikeReply){
+function transportResult(bus,bike,avatar,walkers,id,now,bikeOffer,bikeReply,raftPose){
   if(!bus&&!bike)return undefined;
   const result={};
   if(bus?.action==="board"){
     const matches=rider=>rider?.index===bus.index&&rider.seat===bus.seat;
-    const stop=busStopById(busAt(bus.index,now)?.stopId);
+    const stop=busStopById(busAt(bus.index,now,undefined,raftPose)?.stopId);
     const atBerth=stop&&Math.hypot(avatar.x-stop.board.x,avatar.y-stop.board.y)<=busBoardReach(bus.index);
     result.bus=matches(avatar.bus)?"boarded":atBerth&&walkers.some(peer=>peer.id!==id&&matches(peer.avatar.bus))?"occupied":"unavailable";
   }else if(bus)result.bus=avatar.bus?"unavailable":"exited";
@@ -554,7 +565,7 @@ export async function api(request,env){
   if(!validId(body?.room)||!validId(body.id)||(body.key!==undefined&&!validId(body.key))){
     return json({error:"잘못된 산책방 정보예요."},400);
   }
-  const {room,id,key=null,avatar,view,hand,feed,bus,bike,show,clink,leave}=body;
+  const {room,id,key=null,avatar,view,hand,feed,bus,bike,show,clink,leave,raft}=body;
   if(body.coast!==undefined){
     const {coastRequest}=await import("./server/pohang.mjs");
     return coastRequest(db,body,Date.now());
@@ -590,6 +601,7 @@ export async function api(request,env){
       clearUmbrellaMarkers(db,room),
       dropBikePassengers(db,{room,id,key,leaving:true}),
       leaveBikeOffers(db,{room,id,key}),
+      dropRaftHelm(db,room,id,key,Date.now()),
       db.prepare("DELETE FROM walkers WHERE room=? AND id=? AND player_key IS ?").bind(room,id,key)
     ]);
     return json({ok:true});
@@ -598,6 +610,7 @@ export async function api(request,env){
   if(hand!=null&&(!key||!validHand(hand)))return json({error:"함께 걷기 요청을 읽을 수 없어요."},400);
   if(feed!=null&&(!key||avatar===undefined||!validFeed(feed)))return json({error:"간식 주기 요청을 읽을 수 없어요."},400);
   if(bus!=null&&(!key||avatar===undefined||!validBus(bus)))return json({error:"버스 요청을 읽을 수 없어요."},400);
+  if(raft!=null&&(!key||!validRaftCommand(raft)))return json({error:"뗏목 조종 요청을 확인해 주세요."},400);
   if(bike!=null&&(!key||avatar===undefined||!validBike(bike,id)))return json({error:"자전거 요청을 읽을 수 없어요."},400);
   if(show!=null&&(!key||avatar===undefined||!validShow(show)))return json({error:"분수 공연 요청을 읽을 수 없어요."},400);
   if(clink!=null&&(!key||avatar===undefined||!validClink(clink,id)))return json({error:"건배 요청을 읽을 수 없어요."},400);
@@ -671,7 +684,9 @@ export async function api(request,env){
       operations.push(dropBikePassengers(db,{room,id,key,fallAt:bike.action==="fall"?now:undefined}));
   }
   const bikeOfferSelection=tandem?operations.push(selectBikeOffer(db,bikeContext))-1:-1;
-  if(bus)operations.push(...busStatements(db,room,id,key,bus,now,active));
+  const raftBefore=needsRaftPose(bus)?await readRaft(db,room):null;
+  if(bus)operations.push(...busStatements(db,room,id,key,bus,now,active,raftBefore));
+  if(needsRaftPose(bus)&&bus.action==="exit")operations.push(dropRaftHelm(db,room,id,key,now,true));
   if(bus||bike)operations.push(releaseTransportHands(db,room,id,key),clearUmbrellaMarkers(db,room));
   if(hand){
     if(hand.action!=="release")operations.push(...purgeUmbrellaPairs(db,{room,now,online,wet}));
@@ -717,7 +732,12 @@ export async function api(request,env){
   const busYields=await roomYields(db,room,now,results[yieldsSelection].results,
     rows.filter(row=>row.updated>=online).map(row=>JSON.parse(row.avatar)));
   const yields=new Map(busYields);
-  const avatars=new Map(rows.map(row=>[row.id,transportAvatar(row,now,yields)]));
+  const rawRaft=results.at(-3).results[0].raftState;
+  const raftFeedback=raft?await applyRaftCommand(db,{room,id,key,now,active,cmd:raft,raw:rawRaft,
+    seated:JSON.parse(ownRow.avatar).bus?.index===RAFT_INDEX,refresh:avatar===undefined}):null;
+  const raftState=raftFeedback?raftFeedback.raft:await settleRaft(db,room,rawRaft,now);
+  const raftPose=raftState?raftPoseAt(raftState,now):null;
+  const avatars=new Map(rows.map(row=>[row.id,transportAvatar(row,now,yields,raftPose)]));
   const onlineRows=new Set(rows.filter(row=>row.updated>=online).map(row=>row.id));
   for(const [passenger,avatar] of avatars){
     const driverId=avatar.bikeRide?.driver;
@@ -767,6 +787,7 @@ export async function api(request,env){
   }
   return json({
     serverTime:now,busYields,bagResult,
+    raft:body.raftWatch===true||raft||needsRaftPose(bus)?raftState:undefined,raftResult:raftFeedback?.raftResult,
     ...(watchLifts?await roomLifts(db,room,receiver.avatar,body.lift,now,results[liftSelection].results):{}),
     weather,
     ...socialPayload(results.at(-3).results[0],{...socialContext,avatar:receiver.avatar}),
@@ -778,6 +799,6 @@ export async function api(request,env){
     dining:tableService,
     handholds,umbrellas,
     bikeOffer:tandem?bikeOffer:undefined,
-    transport:transportResult(bus,bike,receiver.avatar,walkers,id,now,bikeOffer,results[bikeReplySelection]?.results[0]),walkers,parkedBikes
+    transport:transportResult(bus,bike,receiver.avatar,walkers,id,now,bikeOffer,results[bikeReplySelection]?.results[0],raftPose),walkers,parkedBikes
   });
 }

@@ -128,8 +128,9 @@ export function selectSocial(db,{room,id,now,online,show,clink}){
     ) AS clinks, (
       SELECT json_object('from',sender,'to',recipient,'state',state,'expires',expires)
       FROM clink_requests WHERE room=? AND id=? AND (sender=? OR recipient=?)
-    ) AS requestedClink
-  `).bind(room,now,room,show?.id??null,id,room,now,id,id,online,online,room,clink?.id??null,id,id);
+    ) AS requestedClink,
+    (SELECT state FROM gyeongju_rafts WHERE room=?) AS raftState
+  `).bind(room,now,room,show?.id??null,id,room,now,id,id,online,online,room,clink?.id??null,id,id,room);
 }
 
 function clinkOutcome(request,event,id,now){

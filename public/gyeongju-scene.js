@@ -288,7 +288,7 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
     }
    }
    return y<4.2&&insideSolid(p);
-  },update(state,night,camera){
+  },update(state,night,camera,raft,rowing){
    const isStation=stationSide(camera.position.x);ensure(isStation);
    displayLamp.visible=!isStation&&Math.hypot(camera.position.x-displayLamp.position.x,camera.position.z-displayLamp.position.z)<38;
    if(!isStation&&Math.hypot(camera.position.x-restaurant.x,camera.position.z-restaurant.z)<55){
@@ -297,7 +297,7 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
    }
    if(!isStation){
     const clock=state.clock??Date.now();
-    raftLift=raftHeave(clock);updateRaft(clock,camera.position);
+    raftLift=raftHeave(clock);updateRaft(clock,camera.position,raft,rowing);
     tickWater(waterMaterials,(clock/1000)%14400,night);
    }
    if(lastEye.distanceToSquared(camera.position)>64){

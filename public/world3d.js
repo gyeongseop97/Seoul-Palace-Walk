@@ -56,8 +56,10 @@ import { corridorBounds, corridorWalkable } from "./sejong-corridor-layout.js";
 import { buildBikeDocks, makeRidingBike, registerBikeDocks } from "./sejong-bike-model.js";
 import { bikeDocks, isBikePassenger, isCycling } from "./sejong-bike.js";
 import { buildSejongBusModels } from "./sejong-bus-model.js";
-import {BUS_FLOOR,busAt,busSeatPose,stopsForRegion} from "./bus-network.js";
+import {BUS_FLOOR,busSeatPose,isRaftBus,stopsForRegion} from "./bus-network.js";
+import {busAt,clientRaftAt,watchesRaft} from "./raft-client.js";
 import {RAFT_SEAT_HEIGHT,raftHeave} from "./gyeongju-raft-layout.js";
+import {makeRaftStroke} from "./gyeongju-raft-model.js";
 import {buildGyeongjuBuses} from "./gyeongju-bus-model.js";
 import { transitStops } from "./transit-routes.js";
 import { addPalacePeople } from "./palace-people.js";
@@ -888,13 +890,16 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     }
     context.putImageData(preview.image,0,0);
   }
+  const helmStroke=makeRaftStroke();
   function seatAt(position,clock){
     if(seaside&&position.coast?.mode==="deck"&&position.coast.deckSeat){
       const seat=seaside.cruiseSeatPose(position.coast.deckSeat);
       if(seat)return {...seat,base:footBathSeatBase(seat.top)};
     }
     const bus=position.bus&&busAt(position.bus.index,clock),pose=bus&&busSeatPose(bus,position.bus.seat);
-    if(pose)return {...pose,base:bus.kind==="raft"?footBathSeatBase(RAFT_SEAT_HEIGHT+raftHeave(clock)):BUS_FLOOR+.015+busGround(bus)};
+    if(pose&&bus.kind==="raft")return {...pose,heading:position.id===bus.helm?bus.heading:pose.heading,
+      base:footBathSeatBase(RAFT_SEAT_HEIGHT+raftHeave(clock))};
+    if(pose)return {...pose,base:BUS_FLOOR+.015+busGround(bus)};
     if(seaside&&position.coast?.mode==="table"){
       const dish=seaside.tavernDiningPlate(position.coast.seat);
       return {x:position.x,y:position.y,heading:position.heading,base:footBathSeatBase(seaside.tavernStoolTop),
@@ -1334,6 +1339,9 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     }
     const bus=anchor.bus&&busAt(anchor.bus.index,clock);
     const firstPersonRaft=firstPerson&&bus?.kind==="raft";
+    const raft=historicCity&&(isRaftBus(anchor.bus?.index)||watchesRaft(state.photoCamera??anchor))?clientRaftAt(clock):null;
+    const pilot=raft?.helm&&roster.find(player=>player.id===raft.helm&&isRaftBus(player.bus?.index));
+    const rowing=pilot&&helmStroke(raft,pilot.bus.seat,clock);
     roster.forEach(player=>{
       let model=models.get(player.id);
       const visible=sameStation(interiorAt(player.x,player.y),insideId)&&Math.hypot(player.x-anchor.x,player.y-anchor.y)<135;
@@ -1348,7 +1356,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
         waterPoint?{...waterPoint,level:outsideGroundOffset(waterPoint)+CHEONGGYE_WATER_LEVEL+.016,seat:tableSeat,kick:footKickAge(player,clock)}:null);
       updateTableTray(player,tableSeat,clock);
       walkerModels.update(model,diningPose(player),{now,clock,delta,seat:tableSeat,floor,jump:renderedJumpLift(player,clock,floor),emojiTexture,chatTexture,
-        turnEase:player===me?1-Math.exp(-delta*22):1});
+        turnEase:player===me?1-Math.exp(-delta*22):1,steeringGrips:player===pilot?rowing?.hands:null});
       seaside?.pose(player,model);
       minigameWorld.pose(player,model,state.photoCapture);
       if(arcadeFloors.has(insideId)){
@@ -1411,7 +1419,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const ridingScooterView=firstPerson&&anchor.coast?.mode==="scooter"&&!state.photoCamera;
     const tavernView=firstPerson&&anchor.coast?.mode==="table"&&!state.photoCamera;
     const carryingBoardView=firstPerson&&!state.photoCamera&&Boolean(anchorModel?.surfboardCarrySide);
-    const bodyView=ridingScooterView||tavernView||carryingBoardView;
+    const rowingView=firstPersonRaft&&anchor.id===pilot?.id&&!state.photoCamera;
+    const bodyView=ridingScooterView||tavernView||carryingBoardView||rowingView;
     const shipOrbit=atCoastHelm&&!firstPerson;
     const outsideRaft=bus?.kind==="raft"&&!firstPerson;
     const outsideBus=(bus||coastBus)&&!outsideRaft&&!firstPerson;
@@ -1424,7 +1433,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const cameraPoint=(outsideBus||outsideRaft)&&bus?bus:seat??anchor;
     const watchLift=seaside?.watchLift()??0;
     anchorPoint.set(wx(cameraPoint.x),eyeHeight+watchLift,wz(cameraPoint.y));
-    if(tavernView)anchorModel?.headJoint.localToWorld(anchorPoint.set(0,.266,.22));
+    if(tavernView||rowingView)anchorModel?.headJoint.localToWorld(anchorPoint.set(0,.266,.22));
     if(carryingBoardView){
       // Lean over the carrying shoulder when looking down so the gripping hand fits even on a phone.
       const glance=Math.max(0,Math.min(1,(view.tilt-22)/38));
@@ -1437,7 +1446,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     if(shipOrbit)anchorPoint.set(coast.play.ship.x,5.1+watchLift,coast.play.ship.z);
     const anchorKey=bus?`${anchor.id}-${bus.index}-${firstPerson}`:anchor.bikeRide?.driver??anchor.id;
     const changed=cameraAnchor!==anchorKey||pivot.distanceToSquared(anchorPoint)>144;
-    if(changed||bodyView||anchor.coast?.mode==="deck"||firstPerson&&(bus||isBikePassenger(anchor)))pivot.copy(anchorPoint);
+    if(changed||outsideRaft||bodyView||anchor.coast?.mode==="deck"||firstPerson&&(bus||isBikePassenger(anchor)))pivot.copy(anchorPoint);
     else pivot.lerp(anchorPoint,1-Math.exp(-delta*20));
     cameraAnchor=anchorKey;
     const streamLevel=cheonggyeLevel(anchor);
@@ -1675,7 +1684,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       sheltered:Boolean(shelter||anchor.umbrella),sharedShelter:Boolean(shelter),inside:indoors||Boolean(bus&&firstPerson&&!firstPersonRaft),
       sparse:quality.sparse,pixelRatio:quality.pinned?quality.max:quality.ratio,night});
     seaside?.update(state,night,camera,renderer.domElement.height,quality.sparse||quality.ratio<.9);
-    historicCity?.update(state,night,camera);
+    historicCity?.update(state,night,camera,raft,rowing);
     renderer.render(scene,camera);
     if(firstPerson&&!state.bungeoMode&&!bodyView){
       firstPersonView??=makeFirstPersonView(T,createItemProp);

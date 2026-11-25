@@ -43,7 +43,7 @@ const sites=[
  ...cityBusSites.map(p=>[p,"bus"]),
  ...raftStops.map(stop=>[{...stop.board,name:stop.name,label:stop.name,district:"교촌·월정교",
   guide:{title:stop.name,description:"남천을 건너며 동쪽으로 월정교를 바라볼 수 있는 게임 속 뗏목 선착장이에요.",
-   directions:"강가의 나무 발판 끝에서 뗏목이 닿으면 ‘뗏목 타기’를 누르고 자리를 고르세요. 반대편 선착장에 닿으면 내릴 수 있어요.",
+   directions:"나무 발판 끝에서 뗏목이 닿으면 자리를 골라 타세요. ‘노 잡기’를 누르면 직접 저을 수 있어요. 어느 쪽 나루든 가까이 가서 ‘나루에 대기’를 누르면 내릴 수 있어요.",
    source:"https://www.gyeongju.go.kr/design/tour2019/file/tourMap/tourMap2_250821.pdf",sourceLabel:"경주시 교촌마을 안내도"}},"activity"]),
  [describe("northGate","대릉원 후문"),"heritage"],[describe("photo","대릉원 목련 포토존"),"heritage"],
  [describe("cheonmaDoor","천마총 전시관 입구"),"heritage"],[describe("cheonmaGallery","천마총 전시실"),"heritage"],

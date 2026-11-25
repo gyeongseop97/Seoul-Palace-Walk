@@ -38,7 +38,9 @@ import {cheonggyeBounds,cheonggyeDeckExits,cheonggyeDeckStep,cheonggyeLandmarks,
 import {FOOT_BATH_PERIOD,footKickAge} from "./walker-model.js";
 import {inSonghyeon,songhyeonBounds,songhyeonOutline,songhyeonPaths,songhyeonLawns,songhyeonLandmarks} from "./songhyeon-layout.js";
 import {uijeongbuOutline,uijeongbuEntry,uijeongbuGarden,uijeongbuWalks,uijeongbuConnections,uijeongbuSideRoad,uijeongbuBusPavement,uijeongbuRemains,sajikEastRoad,uijeongbuPavedConnections,uijeongbuCrossings,gardenSidewalk,gardenVerge} from "./uijeongbu-layout.js";
-import {BUS_SEATS,bukchonBusRoads,busAt,busSeatPose,busSeatCount,isRaftBus,busServiceName,busStopById,busesForRegion,stopsForRegion,busStopTimes,nearBus,setBusYields} from "./bus-network.js";
+import {BUS_SEATS,RAFT_INDEX,bukchonBusRoads,busSeatPose,busSeatCount,isRaftBus,busServiceName,busStopById,busesForRegion,stopsForRegion,setBusYields} from "./bus-network.js";
+import {busAt,busStopTimes,nearBus,resetRaft,receiveRaft,raftCommand,drivePacket,setRaftAxes,watchesRaft} from "./raft-client.js";
+import {raftMooring} from "./gyeongju-raft-navigation.js";
 import {approachingTraffic,clearingLane,sidewalkRefuge} from "./crossing-traffic.js";
 import {bikeDocks,bikeMountReach,bikeParkDuration,bikePassengerBoardSpeed,bikePassengerOffset,bikePassengerPose,
   isBikeDriver,isBikePassenger,isCycling,nearBikeDock} from "./sejong-bike.js";
@@ -180,6 +182,7 @@ let syncTimer,syncDue=Infinity,syncInFlight=null,syncStarted=-Infinity,syncFailu
 let pendingRoomSync=null;
 let links=[],queuedHand=null,queuedFeed=null,queuedChat=null,toastTimer;
 let queuedBus=null,queuedBike=null,lastBusHeading=null,lastBikeHeading=null;
+let queuedRaft=null,raftBoardingStop=null;
 let tandemOffer=null;
 let queuedDining=null,diningService=null;
 let alcoholSip=null,bikeFallHintSeen=false;
@@ -1118,7 +1121,7 @@ function movingCadence(){
 }
 function wakeSync(){
   if(!session||document.hidden||syncFailures)return;
-  const command=queuedLift||queuedHand||queuedClink||queuedBus||queuedBike||queuedDining||queuedMinigame||queuedChat||bungeoQueue.length||bowlingQueue.length;
+  const command=queuedRaft||queuedLift||queuedHand||queuedClink||queuedBus||queuedBike||queuedDining||queuedMinigame||queuedChat||bungeoQueue.length||bowlingQueue.length;
   scheduleSync(Math.max(0,syncStarted+(command?45:movingCadence())-performance.now()));
 }
 function syncCadence(){
@@ -1138,6 +1141,8 @@ async function sync(){
   syncInFlight=visit;
   const sent=performance.now(),hand=queuedHand,claim=seatClaim,feed=queuedFeed,chat=queuedChat;
   const bus=queuedBus,bike=queuedBike;
+  const raft=queuedRaft??(isRaftBus(me.bus?.index)?drivePacket(gameTime(sent),!document.hidden):null);
+  const raftWatch=inGyeongju&&(Boolean(raft)||isRaftBus(me.bus?.index)||watchesRaft(me));
   const dining=queuedDining,serviceVenue=dining?.venue??currentDining()?.id??(diningService?.self?diningService.venue:undefined);
   const show=queuedShow,clink=queuedClink,photo=queuedPhoto,minigame=queuedMinigame,picnicCommand=queuedPicnic;
   const bungeo=bungeoQueue[0],bungeoWatch=bungeo?.stall??nearbyCookingStall(me)?.id;
@@ -1151,6 +1156,7 @@ async function sync(){
   const post=lift||inventory||dirty||hand||claim||feed||chat||bus||bike||show||clink||photo||minigame||picnicCommand||dining||bungeo||bowling||
     sincePost>=3800||sincePost>=125&&arcadeKey!==lastArcadePost;
   const base={room:visit.room,id:visit.id,key:visit.key,
+    ...(raftWatch?{raftWatch:true}:null),...(raft?{raft}:null),
     ...(lift?{lift}:null),...(partAt(me.x,me.y)?{liftWatch:true}:null),
     bikeOffers:isBikeDriver(me)||Boolean(tandemOffer),diningVenue:serviceVenue,...(bungeoWatch?{bungeoWatch}:null),
     ...(bowlingWatch?{bowlingWatch}:null)};
@@ -1171,6 +1177,16 @@ async function sync(){
     const received=performance.now();
     updateClock(data.serverTime,sent,received);
     setBusYields(data.busYields);
+    if(Object.hasOwn(data,"raft"))receiveRaft(data.raft,visit.id,gameTime(received));
+    if(raft&&queuedRaft===raft){
+      queuedRaft=null;
+      if(data.raftResult==="taken"){
+        const boat=busAt(RAFT_INDEX,gameTime(received));
+        ownView.pan=lastBusHeading=boat.heading;
+        toast("노를 잡았어요. 위아래로 젓고 좌우로 방향을 바꿔 보세요.");
+      }else if(data.raftResult==="occupied")toast("친구가 먼저 노를 잡았어요.");
+      else if(data.raftResult==="unavailable")toast(raft.action==="moor"?"나루의 발판 가까이에서 다시 대 주세요.":"지금은 노를 잡거나 놓을 수 없어요.");
+    }
     if(data.weather)environment.liveWeather=data.weather;
     syncFailures=0;
     if(post){lastPost=Date.now();lastWishSynced=avatar.wish;lastArcadePost=arcadeKey;}
@@ -1355,6 +1371,7 @@ function returnToLobby(message=""){
   nearbyControls.reset();peerControls.reset();paperBoats.reset();
   queuedHand=queuedFeed=queuedChat=null;people.clear();changeLinks([]);resetLocationGuides();
   queuedBus=queuedBike=lastBusHeading=lastBikeHeading=selectedBus=null;
+  queuedRaft=raftBoardingStop=null;resetRaft();
   tandemOffer=null;$("bike-offer").hidden=true;
   alcoholSip=null;bikeFallHintSeen=false;hideBikeFallTip();
   fountainShow=queuedShow=queuedClink=null;clinks=[];heardClinks.clear();nextShowAudio=0;
@@ -1909,7 +1926,7 @@ function releaseThumb(){
 const finishThumb=event=>{if(event.pointerId===thumbId)releaseThumb();};
 for(const type of ["pointerup","pointercancel"])window.addEventListener(type,finishThumb,true);
 joystick.addEventListener("lostpointercapture",finishThumb);
-function clearManualInput(){keys.clear();shiftHeld=false;releaseThumb();clearSceneTouch();}
+function clearManualInput(){keys.clear();shiftHeld=false;releaseThumb();clearSceneTouch();if(setRaftAxes(0,0,gameTime()))wakeSync();}
 function resetInput(){coastalWalkRequest++;backgroundTrip=null;clearManualInput();course=[];pendingSeat=seatClaim=null;}
 function beginBackgroundTrip(){
   if(backgroundTrip||!session||!world||riding||photoMode.camera||me.bus||me.coast?.mode==="surf"||me.seat!=null||isBikePassenger(me)||amFollowingHands()||
@@ -2344,7 +2361,9 @@ function refreshBusSeats(time){
   const {index,stop}=selectedBus,bus=busAt(index,time),here=bus?.stopId===stop.id;
   const {arrivalMs,departureMs}=busStopTimes(stop.id,time);
   if(raft){
-    setText($("bus-seat-time"),here?stop.direction+" · "+travelTime(bus.remaining)+" 뒤 출발":"뗏목이 떠났어요. "+travelTime(arrivalMs)+" 뒤에 돌아와요.");
+    const status=bus.mode==="manual"?(here?"나루에 정박 중이에요.":"뗏목이 나루를 떠났어요."):
+      here?stop.direction+" · "+travelTime(bus.remaining)+" 뒤 출발":arrivalMs!=null?"뗏목이 "+travelTime(arrivalMs)+" 뒤에 돌아와요.":"뗏목이 나루로 돌아오는 중이에요.";
+    setText($("bus-seat-time"),status);
   }else{
     const status=here?`${stop.direction} · ${travelTime(bus.remaining)} 뒤 출발`:
       departureMs===null?"선택한 버스가 출발했어요.":"다른 버스가 정차했어요. 창을 닫고 좌석을 다시 골라 주세요.";
@@ -2485,6 +2504,19 @@ function showCountdown(row,ms){
   if(ms!=null)setText(row.lastElementChild,travelTime(ms));
 }
 function updateBusStatus(bus,stop,time){
+  const raftBus=isRaftBus(bus?.index)?bus:stop?.kind==="raft"?busAt(RAFT_INDEX,time):null;
+  if(raftBus?.mode==="manual"){
+    busStatus.hidden=false;
+    const pilot=raftBus.helm===session?.id,moored=busStopById(raftBus.stopId);
+    const helmName=people.get(raftBus.helm)?.nickname;
+    setText($("bus-status-stop"),stop?.name??moored?.name??"남천 뗏목");
+    const rowing=helmName?helmName+" 님이 조종 중":"다른 사람이 조종 중";
+    const target=busStopById(raftBus.mooringTarget);
+    setText($("bus-status-direction"),target?target.name+"에 대는 중":pilot?"내가 조종 중 · ↑↓ 앞뒤 · ←→ 회전":bus?rowing:
+      moored?.id===stop?.id?"뗏목 정박 중":rowing+" · 도착 시간 미정");
+    showCountdown(busArrival,null);showCountdown(busDeparture,null);
+    return;
+  }
   const next=bus?.traveling?busStopById(bus.nextStopId):null;
   const shown=stop??next;
   busStatus.hidden=!shown;
@@ -2522,8 +2554,16 @@ function updateTransport(time,markers){
   $("bike-accept").disabled=!incoming||!acceptBikeOffer(incoming,time);
   $("bike-decline").disabled=Boolean(queuedBike);
   const button=$("bus-action");
+  const aboardRaft=isRaftBus(bus?.index),pilot=aboardRaft&&bus.helm===session.id;
+  if(!aboardRaft||!bus.stopId||pilot)raftBoardingStop=null;
+  const helmAction=aboardRaft&&(pilot||!bus.helm)?(pilot?"release":"take"):null;
+  setActivity("raft-helm",helmAction?(pilot?"노 놓기":"노 잡기"):null,Boolean(queuedRaft||queuedBus));
+  attr($("raft-helm"),"data-action-target",helmAction??"");
+  const mooring=pilot&&!bus.stopId&&raftMooring(bus);
+  setActivity("raft-moor",mooring?"나루에 대기":null,Boolean(queuedRaft||queuedBus));
   const vehicle=isRaftBus(queuedBus?.index??bus?.index??boarding?.bus.index)?"뗏목":"버스";
-  setActivity("bus-action",queuedBus?vehicle+" 확인 중":bus&&stop?vehicle+" 내리기":boarding?vehicle+" 타기":null,Boolean(queuedBus));
+  setActivity("bus-action",queuedBus?vehicle+" 확인 중":bus&&stop?vehicle+" 내리기":boarding?vehicle+" 타기":null,Boolean(queuedBus||queuedRaft));
+  attr(button,"data-action-target",boarding?"board-"+boarding.stop.id:bus&&stop?"exit-"+stop.id:"");
   if(inGyeongju&&boarding&&markers)markers.set("bus-action",{x:boarding.stop.board.x-region.gyeongjuOrigin.x,z:boarding.stop.board.y-region.gyeongjuOrigin.y,h:boarding.stop.kind==="raft"?world.floorHeight(boarding.stop.board):0,label:vehicle+" 타기"});
   if(boarding)attr(button,"aria-haspopup","dialog");else button.removeAttribute("aria-haspopup");
   const label=passenger?(people.get(me.bikeRide.driver)?.nickname??"친구")+" 님과 "+bikeName+" 동승 중":driver?
@@ -2533,8 +2573,18 @@ function updateTransport(time,markers){
   updateBusStatus(bus,stop,time);
   refreshBusSeats(time);
 }
+function commandRaft(action){
+  if(queuedRaft||queuedBus||!isRaftBus(me.bus?.index))return;
+  queuedRaft=raftCommand(action);
+  if(queuedRaft){resetInput();wakeSync();focusGame();}
+}
+$("raft-helm").addEventListener("click",()=>{
+  const boat=busAt(RAFT_INDEX,gameTime());
+  if(!boat.helm||boat.helm===session?.id)commandRaft(boat.helm?"release":"take");
+});
+$("raft-moor").addEventListener("click",()=>commandRaft("moor"));
 $("bus-action").addEventListener("click",()=>{
-  if(queuedBus)return;
+  if(queuedBus||queuedRaft)return;
   const time=gameTime();
   if(me.bus){
     if(!busAt(me.bus.index,time)?.stopId)return;
@@ -2605,7 +2655,9 @@ function confirmTransport(avatar,result,bus,bike){
   if(ridingBus?.index!==me.bus?.index||ridingBus?.seat!==me.bus?.seat){
     resetInput();
     Object.assign(me,{x:avatar.x,y:avatar.y,heading:avatar.heading,vx:0,vy:0,jump:0,vaultBase:null,blocked:false,running:false,up:false});
-    lastBusHeading=me.bus?avatar.heading:null;
+    const vehicle=me.bus&&busAt(me.bus.index,gameTime());
+    lastBusHeading=vehicle?.heading??null;
+    raftBoardingStop=vehicle?.kind==="raft"?vehicle.stopId:null;
     ownView={...ownView,pan:avatar.heading,tilt:0};
     setText($("location"),me.bus?busServiceName(me.bus.index):placeName(me));
   }
@@ -3555,6 +3607,7 @@ function motion(now,elapsed){
     const bus=busAt(me.bus.index,gameTime(now)),seat=busSeatPose(bus,me.bus.seat);
     if(!seat)return false;
     Object.assign(me,seat,{vx:0,vy:0,blocked:false,running:false});
+    if(bus.helm===session.id)me.heading=bus.heading;
     if(lastBusHeading!=null)ownView.pan=normalize(ownView.pan+angleDelta(lastBusHeading,bus.heading));
     lastBusHeading=bus.heading;
     setText($("location"),busStopById(bus.stopId)?.name??busServiceName(bus.index));
@@ -3717,7 +3770,10 @@ function preferredNearbyAction(time){
   }
   if(!$("ktx-destination").hidden)return "ktx-destination";
   if(inGyeongju){
+    if(!($("raft-moor").hidden||$("raft-moor").disabled))return "raft-moor";
+    if(raftBoardingStop&&$("raft-helm").dataset.actionTarget==="take"&&!$("raft-helm").hidden&&!$("raft-helm").disabled)return "raft-helm";
     if(!$("bus-action").hidden&&!$("bus-action").disabled)return "bus-action";
+    if(!$("raft-helm").hidden&&!$("raft-helm").disabled)return "raft-helm";
     if(me.seat!=null&&currentDining()){
       for(const id of ["dining-eat","dining-order","dining-call"]){
         if(!$(id).hidden&&!$(id).disabled)return id;
@@ -3781,6 +3837,11 @@ function frame(now){
       resetInput();
     }
     dirty=true;wakeSync();
+  }
+  if(isRaftBus(me.bus?.index)){
+    const [right,back]=Array.from(keys,key=>vectors[key]).reduce(([x,y],[u,v])=>[x+u,y+v],thumb);
+    const paused=queuedRaft||photoMode.camera||document.hidden||document.querySelector("dialog[open]");
+    if(setRaftAxes(paused?0:-back,paused?0:right,time))wakeSync();
   }
   smoothPeople(people,elapsed,time,roundTrip);
   if(coastPlay){

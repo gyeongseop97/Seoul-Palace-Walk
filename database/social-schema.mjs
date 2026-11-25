@@ -1,4 +1,5 @@
 export const socialSchema=[
+  "CREATE TABLE IF NOT EXISTS gyeongju_rafts(room TEXT PRIMARY KEY,state TEXT NOT NULL)",
   "CREATE TABLE IF NOT EXISTS motion_frames(room TEXT,player TEXT,seq INTEGER NOT NULL,updated INTEGER NOT NULL,x REAL,y REAL,packet TEXT NOT NULL,PRIMARY KEY(room,player))",
   "CREATE INDEX IF NOT EXISTS motion_frames_updated ON motion_frames(updated)",
   "CREATE TABLE IF NOT EXISTS bag_receipts(room TEXT,player TEXT,request TEXT,at INTEGER NOT NULL,PRIMARY KEY(room,player,request))",
