@@ -1,8 +1,10 @@
 import {mappedRoads,mappedBuildings,mappedWalls,mappedMounds,mappedParks} from "./gyeongju-geography.js";
 import {southernRoads,southernBuildings,southernWalls,southernMounds,southernParks} from "./gyeongju-southern-geography.js";
-import {cafeFittings} from "./gyeongju-cafe.js";
+import {marketRooms,marketBuilding,marketRoomAt} from "./gyeongju-market.js";
 import {gyeongjuPlantings} from "./gyeongju-planting-layout.js";
-import {tower,ladderFoot,insideObservatory} from "./gyeongju-observatory.js";
+import {tower,observatoryApproach,insideObservatory} from "./gyeongju-observatory.js";
+import {daereungwonPlaces,inCheonmaHall,cheonmaExhibit,michuStoneAt,twinTombName,twinHeight,cheonmaPoint} from "./daereungwon.js";
+import {gyeongjuBikeDocks,crossesBikeRack} from "./gyeongju-bike.js";
 
 // Local survey frame in metres, east and south of 129.212 E, 35.836 N.
 const point=([x,z])=>({x,z});
@@ -14,12 +16,13 @@ function project(p,a,b){
  return mix(a,b,Math.max(0,Math.min(1,((p.x-a.x)*x+(p.z-a.z)*z)/(x*x+z*z||1))));
 }
 function distanceTo(p,a,b){return dist(p,project(p,a,b));}
-export const cafeLayout={x:-228.6,z:-304.2,yaw:-2.70,width:9,depth:9.4};
-const cafe=cafeFittings(cafeLayout);
+export const cafeLayout=marketRooms.find(r=>r.id==="cafe");
+const cafe=cafeLayout.fit;
 // Surveyed pedestrian axis and the two plazas beyond the gatehouses.
 export const woljeongBridge={north:point([554.3,714.3]),south:point([553.4,782.3]),halfWidth:3.4,
  northPlaza:point([554.5,693.4]),southPlaza:point([553.3,800.2])};
 export const places={
+ ...daereungwonPlaces,
  station:place(-6591.3,4187,"경주역 KTX 역사"),
  stationExit:place(-6522,4181,"경주역 광장 출입구",53),
  stationBus:place(-6491.3,4158.8,"경주역(KTX) 정류장",304),
@@ -33,7 +36,7 @@ export const places={
  magnolia:place(62.1,-268,"대릉원 목련"),
  photo:place(62.3,-264.3,"대릉원 목련 포토존",356),
  cheomseongdae:place(tower.x,tower.z,"첨성대"),
- observatoryEntrance:{...ladderFoot,name:"첨성대 사다리",heading:349},
+ observatoryEntrance:{...observatoryApproach,name:"첨성대 남쪽 창",heading:349},
  stars:place(609.1,169.4,"첨성대 별자리 산책길",40),
  gyerimEntry:place(656.8,311.4,"계림 북쪽 산책길",153),
  gyerim:place(593.1,429.4,"계림 숲길",155),
@@ -42,12 +45,18 @@ export const places={
  woljeongSouth:{...woljeongBridge.southPlaza,name:"월정교 남쪽 입구",heading:1},
 };
 export const buildings=[...mappedBuildings,...southernBuildings].map(([kind,name,ring])=>({kind,name,points:ring.map(point)}));
+for(const building of buildings){
+ const tenant=marketBuilding(building.points[0]);
+ if(tenant){building.kind="market";building.name=tenant.name;}
+}
 export const walls=[...mappedWalls,...southernWalls].map(([kind,line])=>({kind,points:line.map(point)}));
 export const parks=[...mappedParks,...southernParks].map(([kind,name,ring])=>({kind,name,points:ring.map(point)}));
 export const mounds=[...mappedMounds,...southernMounds].map(([name,x,z,rx,rz,height,yaw])=>({name,x,z,rx,rz,height,yaw}));
 export const roads=[...mappedRoads,...southernRoads].map(([kind,width,name,line])=>({kind,width,name,points:line.map(point)}));
 function road(kind,width,name,points){roads.push({kind,width,name,points});}
 const fromPairs=pairs=>pairs.map(point);
+road("path",3.6,"천마총 전시관 진입로",[point([-139,-260.2]),places.cheonmaDoor]);
+road("interior",2.3,"천마총 전시실 통로",[places.cheonmaDoor,cheonmaPoint(0,23),places.cheonmaGallery]);
 // Open a gap in the surveyed visitor fence facing the south window.
 const towerFence=walls.find(w=>w.kind==="fence"&&w.points.some(p=>Math.hypot(p.x-tower.x,p.z-tower.z)<22));
 if(towerFence){
@@ -57,7 +66,7 @@ if(towerFence){
   walls.splice(walls.indexOf(towerFence),1,
    {...towerFence,points:[...towerFence.points.slice(0,gap),mix(mid,a,1.35/dist(mid,a))]},
    {...towerFence,points:[mix(mid,b,1.35/dist(mid,b)),...towerFence.points.slice(gap+1)]});
-  road("path",2.0,"첨성대 사다리 진입로",[mid,places.observatoryEntrance]);
+  road("path",2.0,"첨성대 남쪽 관람로",[mid,places.observatoryEntrance]);
   road("path",2.0,"첨성대 관람 울타리 출입구",[places.stars,mid]);
  }
 }
@@ -97,9 +106,13 @@ for(const p of fromPairs(junctions)){
 road("platform",9,"경주역 보행광장",fromPairs([[-6527,4179],[-6519,4172],[-6510,4165],[-6502,4158],[-6491.3,4158.8],[-6481.8,4144.5]]));
 road("crossing",4,"경주역 버스승강장 횡단보도",fromPairs([[-6499.0,4158.7],[-6491.3,4158.8]]));
 road("path",3.1,"경주역 출입구",[places.stationExit,point([-6519,4172])]);
-road("path",2.6,"황남 한옥카페 입구",[point([-233.6,-309.5]),cafe.point(0,cafeLayout.depth/2+.85),cafe.door,cafe.point(0,.48),cafe.order]);
-for(const t of cafe.tables)for(const seat of t.seats){
- road("interior",1.15,"카페 좌석 통로",[cafe.point(0,seat.z),seat.approach]);
+for(const room of marketRooms){
+ const f=room.fit;
+ road("path",2.6,room.name+" 입구",[point(room.street),room.entry,f.door]);
+ road("interior",2.6,room.name+" 계산대 통로",[f.door,f.point(0,.48),f.order]);
+ for(const t of f.tables)for(const seat of t.seats){
+  road("interior",1.15,room.name+" 좌석 통로",[f.point(0,seat.z),seat.approach]);
+ }
 }
 for(const key of ["townBus","townReturnBus"]){
  const stop=places[key];let end=null,best=Infinity;
@@ -149,6 +162,7 @@ for(const w of walls)for(let i=1;i<w.points.length;i++){
  const a=w.points[i-1],b=w.points[i];index([a,b],.28,"walls",{a,b});
 }
 for(const b of buildings)if(b.kind==="building"||b.kind==="station"||b.kind==="observatory")index(b.points,.12,"solids",b.points);
+for(const dock of gyeongjuBikeDocks)index(dock.footprint,0,"solids",dock.footprint);
 for(const p of parks)if(p.kind==="water")index(p.points,0,"water",p.points);
 // Each gatehouse footprint straddles a visitor passage, with solid wings on either side.
 for(const [z0,z1] of [[693.8,711.6],[784.4,799.5]]){
@@ -158,30 +172,33 @@ for(const [z0,z1] of [[693.8,711.6],[784.4,799.5]]){
   index(ring,0,"solids",ring);
  }
 }
-for(const m of mounds)index([m],Math.max(m.rx,m.rz),"mounds",{...m,c:Math.cos(m.yaw),s:Math.sin(m.yaw)});
-const plantings=gyeongjuPlantings(parks,roads,places.stationExit);
+for(const m of mounds)index([m],m.name===twinTombName?60:Math.max(m.rx,m.rz),"mounds",{...m,c:Math.cos(m.yaw),s:Math.sin(m.yaw)});
+const plantings=gyeongjuPlantings(parks,roads,places.stationExit,mounds);
 export function gyeongjuWalkable(p){
  if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.z))return false;
  if(insideObservatory(p))return true;
+ if(inCheonmaHall(p))return !cheonmaExhibit(p);
+ if(michuStoneAt(p))return false;
  const cell=cells.get(key(Math.floor(p.x/cellSize),Math.floor(p.z/cellSize)));
  if(plantings.blocked(p))return false;
  if(!cell)return openGround(p);
  if(cell.water.some(ring=>inside(p,ring))&&!cell.bridges.some(({a,b,radius})=>distanceTo(p,a,b)<=radius))return false;
- const q=cafe.local(p),atCafe=Math.abs(q.x)<cafeLayout.width/2+.24&&Math.abs(q.z)<cafeLayout.depth/2+.24;
- if(atCafe&&cafe.blocked(p))return false;
+ const shop=marketRoomAt(p,.24);
+ if(shop?.fit.blocked(p))return false;
  const onLane=segments=>segments.some(({a,b,radius})=>distanceTo(p,a,b)<=radius);
- if(!atCafe&&!onLane(cell.surfaces)){
+ if(!shop&&!onLane(cell.surfaces)){
   if(onLane(cell.traffic)||!openGround(p)&&!cell.lawns.some(poly=>inside(p,poly)))return false;
  }
  if(cell.walls.some(({a,b})=>distanceTo(p,a,b)<.27)||cell.solids.some(poly=>inside(p,poly)))return false;
  for(const m of cell.mounds){
+  if(m.name===twinTombName){if(twinHeight(m,p)>.14)return false;continue;}
   const dx=p.x-m.x,dz=p.z-m.z;
   if(((m.c*dx-m.s*dz)/m.rx)**2+((m.s*dx+m.c*dz)/m.rz)**2<.98)return false;
  }
  return true;
 }
 export function gyeongjuClear(a,b){
- if(!gyeongjuWalkable(a)||!gyeongjuWalkable(b))return false;
+ if(!gyeongjuWalkable(a)||!gyeongjuWalkable(b)||crossesBikeRack(a,b))return false;
  const n=Math.ceil(dist(a,b)/.48);
  for(let i=1;i<n;i++)if(!gyeongjuWalkable(mix(a,b,i/n)))return false;
  return true;

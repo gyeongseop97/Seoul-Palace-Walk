@@ -1,4 +1,5 @@
 import {worldExtent} from "../public/world-extent.js";
+import {gyeongjuBounds} from "../public/region-coordinates.js";
 import {bikeMountReach,bikePassengerBoardSpeed,bikePassengerOffset} from "../public/sejong-bike.js";
 import {interiorBounds} from "../public/interior-layout.js";
 
@@ -30,9 +31,15 @@ const heading=field=>`COALESCE(${at(field,"heading")},0)`;
 const outdoors=field=>Object.values(interiorBounds).map(bounds=>`NOT (
   ${at(field,"x")} BETWEEN ${bounds.minX} AND ${bounds.maxX}
   AND ${at(field,"y")} BETWEEN ${bounds.minY} AND ${bounds.maxY})`).join(" AND ");
-const rearPose=field=>`'$.x',MAX(${worldExtent.minX},MIN(${worldExtent.maxX},${at(field,"x")}-SIN(RADIANS(${heading(field)}))*${bikePassengerOffset})),
-  '$.y',MAX(${worldExtent.minY},MIN(${worldExtent.maxY},${at(field,"y")}+COS(RADIANS(${heading(field)}))*${bikePassengerOffset})),
-  '$.heading',${heading(field)},'$.vx',0,'$.vy',0,'$.jump',0,'$.running',json('false'),'$.blocked',json('false'),'$.up',json('false')`;
+function rearPose(field){
+  const x=at(field,"x"),y=at(field,"y"),angle=`RADIANS(${heading(field)})`;
+  const inGyeongju=`${x} BETWEEN ${gyeongjuBounds.minX} AND ${gyeongjuBounds.maxX} AND ${y} BETWEEN ${gyeongjuBounds.minY} AND ${gyeongjuBounds.maxY}`;
+  const bounded=(v,min,max)=>`CASE WHEN ${inGyeongju} THEN MAX(${gyeongjuBounds[min]},MIN(${gyeongjuBounds[max]},${v}))
+    ELSE MAX(${worldExtent[min]},MIN(${worldExtent[max]},${v})) END`;
+  return `'$.x',${bounded(x+"-SIN("+angle+")*"+bikePassengerOffset,"minX","maxX")},
+    '$.y',${bounded(y+"+COS("+angle+")*"+bikePassengerOffset,"minY","maxY")},
+    '$.heading',${heading(field)},'$.vx',0,'$.vy',0,'$.jump',0,'$.running',json('false'),'$.blocked',json('false'),'$.up',json('false')`;
+}
 const driverOf="d.room=walkers.room AND d.id=json_extract(walkers.avatar,'$.bikeRide.driver')";
 
 const freeSeat=`NOT EXISTS(SELECT 1 FROM walkers occupied WHERE occupied.room=d.room

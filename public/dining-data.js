@@ -76,6 +76,10 @@ export const diningRobotDock={x:0,z:-7.22};
 export const DINING_SERVICE_SPEED=4.3;
 
 export function diningServiceRoute(table,venue){
+  if(venue.servicePath){
+    const {points,face}=venue.servicePath(table);
+    return serviceRoute(points,face);
+  }
   const approach=2.75,aisleOffset=1.06;
   const x=table.x-venue.center.x+table.side*approach,z=table.y-venue.center.y+aisleOffset;
   const end={x,z},face=Math.atan2(table.side*(1.46-approach),-aisleOffset);
@@ -84,6 +88,9 @@ export function diningServiceRoute(table,venue){
   const points=venue.service==="robot"?[diningRobotDock,{x:0,z},end]:[
     diningStaffStation,{x:counterEnd,z:diningStaffStation.z},{x:counterEnd,z:customerSide},{x,z:customerSide},end
   ];
+  return serviceRoute(points,face);
+}
+function serviceRoute(points,face){
   const segments=points.slice(1).map((to,index)=>{
     const from=points[index];
     return {from,to,length:Math.hypot(to.x-from.x,to.z-from.z)};
@@ -96,5 +103,6 @@ export const diningTables=[[-5.8,-3.0],[5.8,-3.0],[-5.8,4.45],[5.8,4.45]].map(([
 }));
 
 export function diningTrayPose(table){
+  if(table.tray)return table.tray;
   return {x:table.x+table.side*.94,y:table.y,heading:table.side<0?90:270,height:.843};
 }

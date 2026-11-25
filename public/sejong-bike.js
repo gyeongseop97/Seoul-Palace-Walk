@@ -1,5 +1,7 @@
 import {worldExtent} from "./world-extent.js";
 import {plazaAt} from "./plaza-layout.js";
+import {gyeongjuBounds,inGyeongjuSpace} from "./region-coordinates.js";
+import {gyeongjuBikeDocks} from "./gyeongju-bike.js";
 
 // The game racks sit on public sidewalks next to the real neighbourhoods they serve.
 export const bikeDocks=[
@@ -44,8 +46,9 @@ export const isCycling=position=>isBikeDriver(position)||isBikePassenger(positio
 
 export function bikePassengerPose(driver){
   const heading=driver.heading??0,angle=heading*Math.PI/180;
-  return {x:Math.max(worldExtent.minX,Math.min(worldExtent.maxX,driver.x-Math.sin(angle)*bikePassengerOffset)),
-    y:Math.max(worldExtent.minY,Math.min(worldExtent.maxY,driver.y+Math.cos(angle)*bikePassengerOffset)),heading};
+  const bounds=inGyeongjuSpace(driver)?gyeongjuBounds:worldExtent;
+  return {x:Math.max(bounds.minX,Math.min(bounds.maxX,driver.x-Math.sin(angle)*bikePassengerOffset)),
+    y:Math.max(bounds.minY,Math.min(bounds.maxY,driver.y+Math.cos(angle)*bikePassengerOffset)),heading};
 }
 
 function rackApproach(dock,point){
@@ -66,7 +69,8 @@ function rackApproach(dock,point){
 export function nearBikeDock(point,canReach=()=>true){
   if(!point)return null;
   const within=target=>Math.hypot(point.x-target.x,point.y-target.y)<=bikeDockReach;
-  return bikeDocks.find(dock=>
+  const docks=inGyeongjuSpace(point)?gyeongjuBikeDocks:bikeDocks;
+  return docks.find(dock=>
     within(dock.access)&&canReach(dock.access)||
     within(dock)&&canReach(rackApproach(dock,point)))??null;
 }

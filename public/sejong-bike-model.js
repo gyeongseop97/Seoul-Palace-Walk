@@ -58,16 +58,20 @@ function bikeParts(T){
       corners+=geometry.index?.count??geometry.attributes.position.count;
     }
     const positions=new Float32Array(vertices*3),normals=new Float32Array(vertices*3),colors=new Float32Array(vertices*3);
-    const indices=new Uint16Array(corners),vertex=new T.Vector3(),normalMatrix=new T.Matrix3(),tint=new T.Color();
+    const indices=vertices>65535?new Uint32Array(corners):new Uint16Array(corners);
+    const vertex=new T.Vector3(),normalMatrix=new T.Matrix3(),tint=new T.Color();
     let vertexOffset=0,indexOffset=0;
     for(const {geometry,color,matrix} of parts){
       const {position,normal}=geometry.attributes;
-      normalMatrix.getNormalMatrix(matrix);tint.setHex(color);
+      normalMatrix.getNormalMatrix(matrix);
+      if(color!=null)tint.setHex(color);
+      const painted=geometry.attributes.color;
+      if(painted)colors.set(painted.array,vertexOffset*3);
       for(let i=0;i<position.count;i++){
         const offset=(vertexOffset+i)*3;
         vertex.fromBufferAttribute(position,i).applyMatrix4(matrix).toArray(positions,offset);
         vertex.fromBufferAttribute(normal,i).applyNormalMatrix(normalMatrix).toArray(normals,offset);
-        tint.toArray(colors,offset);
+        if(!painted)tint.toArray(colors,offset);
       }
       const count=geometry.index?.count??position.count;
       for(let i=0;i<count;i++)indices[indexOffset+i]=vertexOffset+(geometry.index?.getX(i)??i);
@@ -150,7 +154,16 @@ function bikeParts(T){
   const material=new T.MeshStandardMaterial({vertexColors:true,roughness:.69,metalness:.055});
   const result={wheel:combine(wheel),frame:combine(frame),rear:combine(rear),front:combine(front),crank:combine(crank),pedal:combine(pedal),
     rack:combine(rack),material,steerY,steerZ};
-  modelCache.set(T,result);return result;
+  modelCache.set(T,result);
+  // Stationary display bikes share the rider's exact wheels, colours and zero-angle pose.
+  // Fold the seven independently animated meshes into one reusable mesh for dock instances.
+  result.makeParkedBike=()=>{
+    const {group}=makeRidingBike(T),meshes=[];
+    group.updateMatrixWorld(true);
+    group.traverse(mesh=>{if(mesh.isMesh)meshes.push({geometry:mesh.geometry,matrix:mesh.matrixWorld});});
+    return combine(meshes);
+  };
+  return result;
 }
 
 function paintedMesh(T,geometry,material){
@@ -188,13 +201,13 @@ export function makeRidingBike(T,{rearSeat=false}={}){
   }};
 }
 
-function dockSign(T){
+function dockSign(T,name){
   const canvas=document.createElement("canvas");canvas.width=384;canvas.height=192;
   const context=canvas.getContext("2d");
   context.fillStyle="#e7eed8";context.fillRect(0,0,384,192);
   context.fillStyle="#176447";context.fillRect(7,7,370,178);
   context.textAlign="center";context.textBaseline="middle";context.fillStyle="#f2f6dd";
-  context.font="700 74px sans-serif";context.fillText("따릉이",192,74);
+  context.font="700 74px sans-serif";context.fillText(name,192,74);
   context.font="600 30px sans-serif";context.fillText("대여 · 반납",192,146);
   const texture=new T.CanvasTexture(canvas);texture.colorSpace=T.SRGBColorSpace;
   return new T.MeshStandardMaterial({map:texture,roughness:.84});
@@ -210,9 +223,12 @@ export function registerBikeDocks(docks=bikeDocks){
   }
 }
 
-export function buildBikeDocks(T,scene,{wx,wz,box,cylinder},{docks=bikeDocks,register=true,height=()=>0}={}){
+export function buildBikeDocks(T,scene,{wx,wz,box,cylinder},{docks=bikeDocks,register=true,height=()=>0,signName="따릉이"}={}){
   if(register)registerBikeDocks(docks);
-  const parts=bikeParts(T),signMaterial=parts.dockSign??=dockSign(T),signPanel=new T.PlaneGeometry(.76,.38);
+  const parts=bikeParts(T),signs=parts.dockSigns??=new Map(),signPanel=new T.PlaneGeometry(.76,.38);
+  const parkedGeometry=parts.parkedGeometry??=parts.makeParkedBike();
+  if(!signs.has(signName))signs.set(signName,dockSign(T,signName));
+  const signMaterial=signs.get(signName);
   for(const dock of docks){
     const group=new T.Group(),angle=Math.PI-dock.heading*Math.PI/180;
     group.name=dock.name;
@@ -221,7 +237,7 @@ export function buildBikeDocks(T,scene,{wx,wz,box,cylinder},{docks=bikeDocks,reg
     scene.add(group);
     group.add(paintedMesh(T,parts.rack,parts.material));
     for(const x of [-1.40,-.47,1.40]){
-      const {group:parked}=makeRidingBike(T);
+      const parked=paintedMesh(T,parkedGeometry,parts.material);
       parked.position.x=x;group.add(parked);
     }
     cylinder(0x759186,1.61,.62,-.61,.043,1.24,8,group);

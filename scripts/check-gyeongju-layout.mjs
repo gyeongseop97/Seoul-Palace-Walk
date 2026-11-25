@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import {cafeLayout,gyeongjuClear,gyeongjuRoute,gyeongjuWalkable,mounds,places,roads} from "../public/gyeongju-layout.js";
 import {cafeFittings} from "../public/gyeongju-cafe.js";
+import {destinations,travelDistricts} from "../public/gyeongju-region.js";
+import {localGyeongju} from "../public/region-coordinates.js";
+import {cheonmaPoint,twinHeight,twinTombName} from "../public/daereungwon.js";
 
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 function walk(from,to){
@@ -18,6 +21,17 @@ function walk(from,to){
 }
 const stops=["townBus","townReturnBus","hwangnidan","cafe","cafeCounter","northGate","photo","mainGate","stars",
  "gyerimEntry","gyerim","woljeongNorth","woljeong","woljeongSouth"];
+assert.equal(Object.keys(travelDistricts).length,5);
+assert.deepEqual(new Set(Object.values(travelDistricts).flat()),new Set(destinations));
+for(const site of destinations)assert.ok(gyeongjuWalkable(localGyeongju(site)),site.name+" 순간이동");
+assert.deepEqual(destinations.filter(p=>p.caption).map(p=>p.caption.name).sort(),["검총","내물왕릉","미추왕릉","천마총","황남대총"].sort());
+for(const id of ["cheonmaDoor","cheonmaGallery","twinTomb","michu","geomchong","naemul"]){
+ walk(places.northGate,places[id]);walk(places[id],places.photo);
+}
+assert.ok(gyeongjuClear(places.cheonmaDoor,places.cheonmaGallery));
+assert.ok(!gyeongjuWalkable(cheonmaPoint(0,12.8)),"천마총 전시대");
+const twin=mounds.find(m=>m.name===twinTombName);
+for(const dz of [-23,23])assert.ok(twinHeight(twin,{x:twin.x,z:twin.z+dz})>twinHeight(twin,twin)+3);
 for(const a of stops)for(const b of stops)if(a!==b)walk(places[a],places[b]);
 for(const [from,to] of [[places.stars,places.woljeongSouth],[places.woljeongSouth,places.stars]]){
  const steps=gyeongjuRoute(from,to);

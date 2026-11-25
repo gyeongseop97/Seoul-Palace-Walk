@@ -1,7 +1,8 @@
 import {ITEMS} from "../public/activities.js";
 import {DINING_SERVICE_SPEED,diningServiceRoute,diningTables,diningVenues} from "../public/dining-data.js";
+import {marketDining,marketDiningAt} from "../public/gyeongju-market.js";
 
-const venues=new Map(diningVenues.map(venue=>[venue.id,venue]));
+const venues=new Map([...diningVenues,marketDining].map(venue=>[venue.id,venue]));
 const readyDatabases=new WeakMap();
 const orderWait=18000,kioskWait=90000,prepareTime=3600;
 const counterActions=new Set(["counter","kiosk"]);
@@ -41,14 +42,25 @@ export function pruneDiningService(db,now){
   return db.prepare("DELETE FROM room_dining_service WHERE updated<?").bind(now-86400000);
 }
 
-const atVenue=(a,{minX,maxX,minY,maxY})=>a&&a.x>minX&&a.x<maxX&&a.y>minY&&a.y<maxY;
+const atVenue=(a,venue)=>{
+  if(!a)return false;
+  const {minX,maxX,minY,maxY}=venue.bounds;
+  if(a.x<=minX||a.x>=maxX||a.y<=minY||a.y>=maxY)return false;
+  return venue!==marketDining||marketDiningAt(a)===venue;
+};
 const sameSlot=(a,b)=>Boolean(a&&b&&a.index===b.index&&a.side===b.side);
 const sameSeat=(a,b)=>sameSlot(a,b)&&a.seat===b.seat;
 const near=(p,x,y)=>Math.hypot(p.x-x,p.y-y);
 
 function findSeat(avatar,venue){
-  if(!atVenue(avatar,venue.bounds)||!Number.isInteger(avatar.seat)||avatar.bus||avatar.bikeRide||avatar.bike&&!avatar.bike.parked)return null;
+  if(!atVenue(avatar,venue)||!Number.isInteger(avatar.seat)||avatar.bus||avatar.bikeRide||avatar.bike&&!avatar.bike.parked)return null;
   const side=avatar.seatSide??0;
+  if(venue.benchAt){
+    const b=venue.benchAt(avatar.seat),slot=b?.slots[side];
+    if(slot&&(near(avatar,slot.approach.x,slot.approach.y)<.76||near(avatar,slot.x,slot.y)<.52))
+      return {x:b.x,y:b.y,side:side*2-1,index:b.tableIndex,seat:avatar.seat,tray:slot.tray};
+    return null;
+  }
   for(const [index,table] of diningTables.entries()){
     const chair=table.chairs[side];
     if(!chair)continue;
@@ -70,7 +82,7 @@ const occupied=(tickets,table,except)=>tickets.some(ticket=>ticket!==except&&sam
 
 function progressTickets(tickets,venue,players,now){
   return tickets.filter(ticket=>{
-    const avatar=players.get(ticket.player),present=atVenue(avatar,venue.bounds),currentSeat=findSeat(avatar,venue);
+    const avatar=players.get(ticket.player),present=atVenue(avatar,venue),currentSeat=findSeat(avatar,venue);
     const seated=sameSeat(ticket.table,currentSeat),due=ticket.phaseUntil!==null&&now>=ticket.phaseUntil;
     switch(ticket.phase){
       case "queued":
@@ -142,7 +154,7 @@ function orderRequest(tickets,context){
   const {venue,id,command,players,now}=context;
   if(!command)return null;
   const own=tickets.find(ticket=>ticket.player===id),avatar=players.get(id);
-  if(!atVenue(avatar,venue.bounds))return "unavailable";
+  if(!atVenue(avatar,venue))return "unavailable";
   const table=findSeat(avatar,venue);
   switch(command.action){
     case "bell":case "kiosk":case "counter":{
@@ -180,7 +192,7 @@ function publicTicket({id,player,venue,kind,phase,table,phaseAt,phaseUntil,remai
 
 export async function diningService(db,{room,id,key,venueId,command,players,now,active,state}){
   const venue=venues.get(venueId),lifetime=now-active;
-  if(!atVenue(players.get(id),venue.bounds)&&!state)return {self:null,tickets:[],result:command?"unavailable":null};
+  if(!atVenue(players.get(id),venue)&&!state)return {self:null,tickets:[],result:command?"unavailable":null};
   for(let attempt=0;attempt<4;attempt++){
     const current=state?.tickets??"[]";
     const tickets=progressTickets(JSON.parse(current),venue,players,now);
@@ -206,8 +218,8 @@ export async function diningService(db,{room,id,key,venueId,command,players,now,
       }
     }
     const visible=tickets.map(publicTicket);
-    return {self:visible.find(ticket=>ticket.player===id)??null,tickets:atVenue(players.get(id),venue.bounds)?visible:[],result};
+    return {self:visible.find(ticket=>ticket.player===id)??null,tickets:atVenue(players.get(id),venue)?visible:[],result};
   }
   const visible=JSON.parse(state?.tickets??"[]").map(publicTicket);
-  return {self:visible.find(ticket=>ticket.player===id)??null,tickets:atVenue(players.get(id),venue.bounds)?visible:[],result:command?"unavailable":null};
+  return {self:visible.find(ticket=>ticket.player===id)??null,tickets:atVenue(players.get(id),venue)?visible:[],result:command?"unavailable":null};
 }

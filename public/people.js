@@ -1,6 +1,6 @@
 import {clearSegment,distance,platformAt,loftStair} from "./layout.js";
 import {JUMP_HEIGHT,jumpDuration,jumpLift} from "./activities.js";
-import {busAt,busSeatPose} from "./sejong-bus.js";
+import {busAt,busSeatPose} from "./bus-network.js";
 import {canRideBikeSegment} from "./bike-movement.js";
 import {isBikeDriver,isCycling} from "./sejong-bike.js";
 import {drawLiveMotion} from "./motion-stream.js";

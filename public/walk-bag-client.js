@@ -2,6 +2,7 @@ import {ITEMS} from "./activities.js";
 import {BAG_SIZE,portable,wearSlots,packedBoard,canPackBoard} from "./walk-inventory.js";
 import {ITEM_SLOTS,handLabel} from "./held-items.js";
 const icons={bear:"🧸",rabbit:"🐰",cat:"🐱",duck:"🐤",panda:"🐼",star:"⭐",frog:"🐸",penguin:"🐧",
+  ssambap:"🥬",hwangnamBread:"🥮",sikhye:"🥤",beopju:"🍶",
   coffee:"☕",cannedBeer:"🍺",cupNoodles:"🍜",cheese:"🧀",beer:"🍺",wine:"🍷",fruitWine:"🍷",highball:"🥃",makgeolli:"🍶",crepe:"🥞",cake:"🍰",
   triangleRice:"🍙",fruitMochi:"🍓",stationBurger:"🍔",churu:"🐾",riceCake:"🍡",sparkler:"🎇",yakgwa:"🌼",bingsu:"🍧"};
 

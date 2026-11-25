@@ -12,6 +12,7 @@ export const PICNIC_SLOTS=[
 ];
 
 export const picnicKinds=["cannedBeer","cupNoodles","cheese","soju","sashimi","grilledClam","coffee","crepe","parfait","beer","yakgwa","cake","bingsu","bungeoppang","riceCake",
+  "ssambap","hwangnamBread","sikhye","beopju",
   "makgeolli","wine","fruitWine","highball","bungeoppangCustard","bungeoppangBurnt","bungeoppangTorn","hotteok","hotteokBurnt","hotteokTorn"];
 export const isPicnicItem=kind=>picnicKinds.includes(kind);
 export const picnicGap=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);

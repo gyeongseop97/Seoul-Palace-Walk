@@ -64,9 +64,6 @@ export function observatory(k,p){
    box(0,y+.21,side*.83,2.52,.23,.23,color());
   }
  }
- const ladder=(across,t)=>({...frame(across,3.45-1.78*t),y:.04+4.04*t});
- for(const side of [-1,1])k.beam(ladder(side*.32,0),ladder(side*.32,1),.06,0x72543e);
- for(let i=1;i<=11;i++)k.beam(ladder(-.32,i/12),ladder(.32,i/12),.039,0x97764f);
  for(const side of [-1,1]){
   box(side*1.19,8.44,0,.46,.43,3.28,color());
   box(0,8.86,side*1.19,3.32,.42,.49,color());

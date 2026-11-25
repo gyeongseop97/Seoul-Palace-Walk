@@ -7,8 +7,9 @@ import {validItemSlot} from "./public/held-items.js";
 import {BIKE_FALL_DURATION_MS,GESTURE_DURATIONS,MAX_ALCOHOL_DRINKS,MAX_ALCOHOL_LEVEL} from "./public/avatar-gestures.js";
 import {interiorAt} from "./public/interior-layout.js";
 import {arcadeFloorAt} from "./public/arcade-layout.js";
-import {BUS_COUNT,BUS_SEATS,BUS_BOARD_REACH,busAt,busStopById,busSeatPose} from "./public/sejong-bus.js";
+import {BUS_COUNT,BUS_SEATS,BUS_BOARD_REACH,busAt,busStopById,busSeatPose} from "./public/bus-network.js";
 import {bikeDockReach,bikeDocks,bikeMountReach,bikeParkDuration,bikePassengerPose} from "./public/sejong-bike.js";
+import {gyeongjuBikeDocks} from "./public/gyeongju-bike.js";
 import {acceptBikeRide,bikePassenger,closeBikeOffer,dismountBikePassenger,dropBikePassengers,ensureBikeOffers,
   leaveBikeOffers,mountedBike,refreshBikePassenger,requestBikeRide,ridingBike,selectBikeOffer} from "./server/bike-passengers.mjs";
 import {HEADWEAR,KEEPSAKES} from "./public/wearable-options.js";
@@ -121,7 +122,7 @@ const busIndex = index => Number.isInteger(index)&&index>=0&&index<BUS_COUNT;
 const busSeat = seat => Number.isInteger(seat)&&seat>=0&&seat<BUS_SEATS;
 const validBus = bus => bus?.action==="board"?busIndex(bus.index)&&busSeat(bus.seat):
   bus?.action==="exit"&&(bus.index==null||busIndex(bus.index));
-const docksById=new Map(bikeDocks.map(dock=>[dock.id,dock]));
+const docksById=new Map([...bikeDocks,...gyeongjuBikeDocks].map(dock=>[dock.id,dock]));
 const tandemActions=new Set(["requestRide","acceptRide","declineRide","cancelRide"]);
 const validBike = (bike,id) => tandemActions.has(bike?.action)?validId(bike.id)&&
   (bike.action!=="requestRide"||validId(bike.driver)&&bike.driver!==id):

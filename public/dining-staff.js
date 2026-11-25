@@ -33,14 +33,14 @@ function walkPose(route,progress,back){
   return {...atDistance(route,distance),face,walking:progress<.998,travel:progress*length};
 }
 
-function cookingPose(clock,ready,finished){
+function cookingPose(clock,ready,finished,idle=idleStaff){
   const lean=clamp((clock-ready)/320)*clamp((finished-clock)/320);
-  return {...idleStaff,z:idleStaff.z+.30*lean,cooking:true};
+  return {...idle,z:idle.z+.30*lean,cooking:true};
 }
 
 export function diningStaffPose(venue,ticket,clock){
   const robot=venue.service==="robot";
-  const idle=robot?{...idleStaff,...diningRobotDock}:idleStaff;
+  const idle=venue.staffStation?{...idleStaff,...venue.staffStation}:robot?{...idleStaff,...diningRobotDock}:idleStaff;
   if(!ticket?.table)return idle;
   const {phase,phaseAt,phaseUntil}=ticket;
   const route=diningServiceRoute(ticket.table,venue);
@@ -50,7 +50,7 @@ export function diningStaffPose(venue,ticket,clock){
     const travel=1000*route.length/DINING_SERVICE_SPEED;
     const time=clock-phaseAt;
     if(time<travel)return {...idle,...walkPose(route,clamp(time/travel),true)};
-    return cookingPose(clock,phaseAt+travel,phaseUntil);
+    return cookingPose(clock,phaseAt+travel,phaseUntil,idle);
   }
   if(!travelPhases.has(phase)||!phaseUntil)return idle;
   const back=phase==="served"||phase==="returning";
@@ -112,6 +112,7 @@ export function buildDiningKitchen(T,room,kit,venue){
 }
 
 const uniforms={
+  "gj-hwangnam-table":{character:"woman",hair:"bob",eyes:"soft",outfit:"tee",shirt:0xe3c8a0,apron:0x526743,hat:0xc3af87},
   "coast-tavern":{character:"woman",hair:"bob",eyes:"soft",outfit:"tee",shirt:0xeadac2,apron:0x375f64,hat:0xdfcaaa},
   "station-foodhall":{character:"woman",hair:"bob",eyes:"soft",outfit:"tee",shirt:0xd4e1de,apron:0x385565,hat:0xe9dcc8},
   "bukchon-dining":{character:"woman",hair:"bob",eyes:"soft",outfit:"tee",shirt:0xc1a988,apron:0x425a4d,hat:0xefdec1},
@@ -300,8 +301,10 @@ export function makeDiningStaff(T,room,kit,venue,walkerModels){
       puff.visible=person.cooking;
       if(!person.cooking)return;
       const rise=(time*.66+index/steam.length)%1;
-      puff.position.set(diningStaffStation.x+burner.x+Math.sin(time*2.1+index)*rise*.14,1.47+stoveLift+rise*.58,
-        stoveZ+burner.z+Math.cos(time*1.5+index)*rise*.14);
+      const x=venue.staffStation?.x??diningStaffStation.x+burner.x;
+      const z=venue.staffStation?venue.staffStation.z+.84:stoveZ+burner.z;
+      puff.position.set(x+Math.sin(time*2.1+index)*rise*.14,1.47+stoveLift+rise*.58,
+        z+Math.cos(time*1.5+index)*rise*.14);
       puff.scale.setScalar(.042+rise*.082);puff.material.opacity=.23*(1-rise);
     });
   }

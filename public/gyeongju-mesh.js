@@ -12,6 +12,7 @@ export function localFrame(x,z,yaw=0){
 // renderer discard entire streets, including the distant KTX forecourt.
 export function districtMeshes(root){
  const cells=new Map(),o=new T.Object3D(),up=new T.Vector3(0,1,0),treeMaterials=new Map();
+ const tint=new T.Color(),beamDirection=new T.Vector3(),beamRotation=new T.Quaternion();
  const materials=new Map(),labels=new Map(),box=new T.BoxGeometry(),post=new T.CylinderGeometry(.5,.5,1,10);
  const oval=new T.IcosahedronGeometry(1,1),plane=new T.PlaneGeometry(),rough=new T.MeshStandardMaterial({roughness:.86,side:T.DoubleSide});
  function cell(x,z){
@@ -23,15 +24,25 @@ export function districtMeshes(root){
  function add(geo,mat,color,x,y,z,w,h,d,yaw=0,pitch=0,roll=0,quaternion){
   const batches=cell(x,z).batches,key=geo.id+"/"+mat.id;
   let b=batches.get(key);
-  if(!b){b={geo,mat,parts:[]};batches.set(key,b);}
+  if(!b){b={geo,mat,matrices:[],colors:[]};batches.set(key,b);}
   o.position.set(x,y,z);o.scale.set(w,h,d);
   if(quaternion)o.quaternion.copy(quaternion);else o.rotation.set(pitch,yaw,roll,"YXZ");
-  o.updateMatrix();b.parts.push([o.matrix.clone(),color]);
+  o.updateMatrix();o.matrix.toArray(b.matrices,b.matrices.length);
+  tint.set(color).toArray(b.colors,b.colors.length);
  }
  const piece=(x,y,z,w,h,d,color,yaw=0,pitch=0,roll=0)=>add(box,rough,color,x,y,z,w,h,d,yaw,pitch,roll);
  const column=(x,y,z,w,h,d,color)=>add(post,rough,color,x,y,z,w,h,d);
  const crown=(x,y,z,w,h,d,color,yaw=0)=>add(oval,rough,color,x,y,z,w,h,d,yaw);
  const geo=(geometry,x,y,z,w,h,d,color,yaw=0,mat=rough)=>add(geometry,mat,color,x,y,z,w,h,d,yaw);
+ function staticModel(group){
+  const p=new T.Vector3(),s=new T.Vector3(),q=new T.Quaternion();
+  group.updateMatrixWorld(true);
+  group.traverse(mesh=>{
+   if(!mesh.isMesh)return;
+   mesh.matrixWorld.decompose(p,q,s);
+   add(mesh.geometry,mesh.material,0xffffff,p.x,p.y,p.z,s.x,s.y,s.z,0,0,0,q);
+  });
+ }
  function treePart(mesh){
   const material=mesh.material,key=material.userData.seasonFoliage??"trunk";
   if(!treeMaterials.has(key)){
@@ -41,9 +52,9 @@ export function districtMeshes(root){
   add(mesh.geometry,treeMaterials.get(key),material.color,p.x,p.y,p.z,s.x,s.y,s.z,0,0,0,mesh.quaternion);
  }
  function beam(a,b,r,color){
-  const v=new T.Vector3(b.x-a.x,b.y-a.y,b.z-a.z),len=v.length();
+  const v=beamDirection.set(b.x-a.x,b.y-a.y,b.z-a.z),len=v.length();
   if(len<.002)return;
-  const q=new T.Quaternion().setFromUnitVectors(up,v.multiplyScalar(1/len));
+  const q=beamRotation.setFromUnitVectors(up,v.multiplyScalar(1/len));
   add(post,rough,color,(a.x+b.x)/2,(a.y+b.y)/2,(a.z+b.z)/2,r*2,len,r*2,0,0,0,q);
  }
  // A shared world-aligned texture prevents seams where two paved paths meet.
@@ -78,7 +89,8 @@ export function districtMeshes(root){
   const shadow=vertices.some(v=>v[1]>.20),key=mat.id+":"+shadow;
   let b=store.get(key);
   if(!b){b={mat,shadow,pos:[],uv:[],col:[],idx:[]};store.set(key,b);}
-  const off=b.pos.length/3,tint=new T.Color(color),unit=kind==="pavers"?1.32:3.8;
+  const off=b.pos.length/3,unit=kind==="pavers"?1.32:3.8;
+  tint.set(color);
   for(const [x,y,z] of vertices){b.pos.push(x,y,z);b.uv.push(x/unit,z/unit);b.col.push(tint.r,tint.g,tint.b);}
   for(const i of indices)b.idx.push(off+i);
  }
@@ -114,23 +126,26 @@ export function districtMeshes(root){
   add(plane,mat,0xffffff,x,y,z,w,h,1,yaw);
  }
  function finish(){
-  const tint=new T.Color();
+  // District coordinates are baked into the surfaces and instance matrices.
+  // Moving the camera or a shop worker does not move this district.
+  root.updateMatrix();root.matrixAutoUpdate=false;
   for(const c of cells.values()){
    for(const b of c.surfaces.values()){
     const g=new T.BufferGeometry();
     g.setAttribute("position",new T.Float32BufferAttribute(b.pos,3));g.setAttribute("uv",new T.Float32BufferAttribute(b.uv,2));
     g.setAttribute("color",new T.Float32BufferAttribute(b.col,3));g.setIndex(b.idx);g.computeVertexNormals();g.computeBoundingSphere();
-    const mesh=new T.Mesh(g,b.mat);mesh.receiveShadow=true;mesh.castShadow=b.shadow;root.add(mesh);
+    const mesh=new T.Mesh(g,b.mat);mesh.matrixAutoUpdate=false;mesh.receiveShadow=true;mesh.castShadow=b.shadow;root.add(mesh);
     mesh.userData.viewRange=Infinity;
    }
-   for(const {geo,mat,parts} of c.batches.values()){
-    const m=new T.InstancedMesh(geo,mat,parts.length);
-    parts.forEach(([matrix,color],i)=>{m.setMatrixAt(i,matrix);m.setColorAt(i,tint.set(color));});
-    m.computeBoundingSphere();m.castShadow=geo!==plane&&!mat.transparent;m.receiveShadow=true;root.add(m);
+   for(const {geo,mat,matrices,colors} of c.batches.values()){
+    const m=new T.InstancedMesh(geo,mat,colors.length/3);
+    m.instanceMatrix.array.set(matrices);
+    m.instanceColor=new T.InstancedBufferAttribute(new Float32Array(colors),3);
+    m.computeBoundingSphere();m.matrixAutoUpdate=false;m.castShadow=geo!==plane&&!mat.transparent;m.receiveShadow=true;root.add(m);
     m.userData.viewRange=geo===box||geo===post||geo===plane?245:530;
    }
   }
   cells.clear();
  }
- return {piece,column,crown,geo,beam,face,polygon,strip,sign,treePart,finish};
+ return {piece,column,crown,geo,beam,face,polygon,strip,sign,treePart,staticModel,finish};
 }

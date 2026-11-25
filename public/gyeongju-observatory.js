@@ -2,7 +2,7 @@
 export const tower={x:630.3,z:144,yaw:.20,landing:3.08};
 const c=Math.cos(tower.yaw),s=Math.sin(tower.yaw);
 export const towerPoint=(across,along)=>({x:tower.x+c*across+s*along,z:tower.z-s*across+c*along});
-export const ladderFoot=towerPoint(0,4.0);
+export const observatoryApproach=towerPoint(0,4.0);
 export const chamberEntry=towerPoint(0,.24);
 export const insideObservatory=p=>Math.hypot(p.x-tower.x,p.z-tower.z)<=1.10;
 export function observatoryCameraBlocked(p,y){

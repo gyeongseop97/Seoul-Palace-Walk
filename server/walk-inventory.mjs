@@ -1,4 +1,4 @@
-import {inCoastSpace} from "../public/region-coordinates.js";
+import {inCoastSpace,inGyeongjuSpace} from "../public/region-coordinates.js";
 import {inventoryAction} from "../public/walk-inventory.js";
 import {ARCADE_CLAW} from "../public/arcade-layout.js";
 import {regionalStations,streetCounters} from "../public/street-stands.js";
@@ -15,7 +15,11 @@ export async function applyInventory(db,{room,id,key,now,cmd,rows}){
   const own=rows.find(row=>row.id===id&&row.player_key===key),other=cmd.action==="give"&&rows.find(row=>row.id===cmd.to&&row.updated>=now-9000);
   if(!own)return {id:cmd.id,error:"산책방에 다시 들어와 주세요."};
   const a=JSON.parse(own.avatar),b=other&&JSON.parse(other.avatar);
-  const sources=cmd.action==="collect"&&inCoastSpace(a)?(await import("../public/coast-shops.js")).coastCounters:counters;
+  let sources=counters;
+  if(cmd.action==="collect"){
+    if(inGyeongjuSpace(a))sources=(await import("../public/gyeongju-market.js")).marketCounters;
+    else if(inCoastSpace(a))sources=(await import("../public/coast-shops.js")).coastCounters;
+  }
   if(cmd.action==="collect"&&(a.coast?.mode&&a.coast.mode!=="walk"||a.bus||a.bikeRide||a.seat!=null||!sources.some(s=>(s.stock??[s.kind]).includes(cmd.kind)&&(s.up==null||Boolean(a.up)===s.up)&&Math.hypot(s.x-a.x,s.y-a.y)<2.65)))
     return {id:cmd.id,error:"매장 앞에서 받아 주세요."};
   if(cmd.action==="prize"&&Math.hypot(a.x-ARCADE_CLAW.x,a.y-ARCADE_CLAW.y)>ARCADE_CLAW.reach+1)

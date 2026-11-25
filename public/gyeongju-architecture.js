@@ -147,17 +147,17 @@ export function drawCafe(k,r,f){
  piece(0,1.53,-front,w,3,.18,white);piece(0,2.96,front,w+.18,.31,.3,timber);
  for(let i=0;i<4;i++)piece(0,2.95,-d*.45+d*.3*i,w+.6,.17,.23,timber);
  roof(k,r.x,3.04,r.z,w+1.35,1.89,d+1.35,yaw);
- const sign=at(0,front+.185);k.sign("황남 한옥카페",sign.x,2.93,sign.z,2.63,.45,yaw,"#56412e");
+ const sign=at(0,front+.185);k.sign(r.name,sign.x,2.93,sign.z,Math.min(w*.52,r.name.length*.39+.52),.45,yaw,r.sign);
  const counter=f.counter;
  piece(counter.x,.48,counter.z,counter.width,.9,counter.depth,0x97775b);
  piece(counter.x,.98,counter.z,counter.width+.16,.12,counter.depth+.15,0xe5d3b5);
- for(const x of [-2.1,-1.35,-.6,.15,.9,1.65]){
+ for(const x of r.id==="pub"?[]:[-2.1,-1.35,-.6,.15,.9,1.65]){
   const p=at(x,-front+.48);k.column(p.x,1.49,p.z,.18,.23,.18,0xede0c5);
  }
  piece(0,1.34,-front+.4,w*.67,.085,.48,timber);
  piece(0,1.99,-front+.4,w*.67,.085,.48,timber);
- piece(-.97,1.18,counter.z,.58,.26,.39,0x424b46);
- const menu=at(.85,-front+.12);k.sign("경주차   ·   한옥라테",menu.x,2.39,menu.z,2.0,.36,yaw,"#536452");
+ if(r.id==="cafe")piece(-.97,1.18,counter.z,.58,.26,.39,0x424b46);
+ const menu=at(.85,-front+.12);k.sign(r.board,menu.x,2.39,menu.z,3.08,.38,yaw,r.sign);
  for(const u of [-2.65,0,2.65]){
   const p=at(u,-.38);k.column(p.x,2.70,p.z,.038,.51,.038,timber);k.crown(p.x,2.37,p.z,.22,.19,.22,0xf2d7a5);
  }

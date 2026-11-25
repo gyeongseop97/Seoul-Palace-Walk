@@ -7,7 +7,7 @@ export function cafeFittings(room){
   return {x:c*x-s*z,z:s*x+c*z};
  };
  const counter={x:0,z:-d/2+1.35,width:Math.min(w*.62,5.4),depth:.8};
- const tables=[-1,1].map(side=>{
+ const tables=(room.id==="store"?[]:[-1,1]).map(side=>{
   const x=side*w*.29,z=.48;
   return {x,z,seats:[-1,1].map(sign=>({x,z:z+sign*.97,yaw:sign===1?Math.PI:0,
    approach:point(x-side*.94,z+sign*.97)}))};
@@ -18,6 +18,7 @@ export function cafeFittings(room){
   if(Math.abs(Math.abs(q.x)-w*.5)<.22||Math.abs(q.z+d*.5)<.22||
      Math.abs(q.z-d*.5)<.22&&Math.abs(q.x)>1.09)return true;
   if(Math.abs(q.x-counter.x)<counter.width*.5+.16&&Math.abs(q.z-counter.z)<.56)return true;
+  if(room.id==="store"&&Math.abs(q.x)>w/2-1.12&&Math.abs(q.z-.4)<2.50)return true;
   return tables.some(t=>Math.hypot(q.x-t.x,q.z-t.z)<.68||
    t.seats.some(a=>Math.abs(q.x-a.x)<.39&&Math.abs(q.z-a.z)<.36));
  }

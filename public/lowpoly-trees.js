@@ -17,7 +17,7 @@ function noise(x,y,z,seed){
   return value-Math.floor(value);
 }
 
-export function makeTreeBuilder(T,scene,{clearance,rand,fits=()=>true}){
+export function makeTreeBuilder(T,scene,{clearance,rand,fits=()=>true,snapshotPart}){
   // Shared vertices move together, so the facets stay watertight.
   function lumpy(detail,seed,amount){
     const geometry=new T.IcosahedronGeometry(1,detail),points=geometry.attributes.position;
@@ -47,10 +47,25 @@ export function makeTreeBuilder(T,scene,{clearance,rand,fits=()=>true}){
   }
   const up=new T.Vector3(0,1,0),axis=new T.Vector3();
   const pick=list=>list[Math.floor(rand()*list.length)];
+  // An instancer copies each finished tree's transforms synchronously. Its working
+  // meshes can be reused for the next tree; ordinary scene builders retain theirs.
+  const working=snapshotPart?[]:null;
+  let partCount=0;
+  function part(geometry,material){
+    if(!working)return new T.Mesh(geometry,material);
+    const index=partCount++;
+    let mesh=working[index];
+    if(!mesh){
+      mesh=new T.Mesh(geometry,material);working[index]=mesh;
+    }else{
+      mesh.geometry=geometry;mesh.material=material;
+    }
+    return mesh;
+  }
 
   function limb(parts,from,to,radius,color){
     axis.set(to.x-from.x,to.y-from.y,to.z-from.z);
-    const mesh=new T.Mesh(wood,facet(color));
+    const mesh=part(wood,facet(color));
     mesh.position.set((from.x+to.x)/2,(from.y+to.y)/2,(from.z+to.z)/2);
     mesh.scale.set(radius,axis.length(),radius);
     mesh.quaternion.setFromUnitVectors(up,axis.normalize());
@@ -61,7 +76,7 @@ export function makeTreeBuilder(T,scene,{clearance,rand,fits=()=>true}){
   function blob(parts,state,set,palette,x,y,z,rx,ry=rx,rz=rx,tone=rand()){
     if(!fits(x,y,z,Math.max(rx,rz)))return null;
     const shade=Math.min(palette.leaf.length-1,Math.max(0,Math.floor(tone*palette.leaf.length)));
-    const mesh=new T.Mesh(pick(set),facet(palette.leaf[shade],palette===treePalettes.pine?"evergreen":"leaf"));
+    const mesh=part(pick(set),facet(palette.leaf[shade],palette===treePalettes.pine?"evergreen":"leaf"));
     mesh.position.set(x,y,z);mesh.scale.set(rx,ry,rz);
     mesh.rotation.set(rand()*.5,rand()*6.283,rand()*.5);
     mesh.name="Tree crown";
@@ -182,6 +197,7 @@ export function makeTreeBuilder(T,scene,{clearance,rand,fits=()=>true}){
 
   // Returns {radius,top,reach} when the tree stands clear of buildings, otherwise null.
   function grow(x,z,{height,spread=height*.62,style=pick(treeStyles),palette=treePalettes.fresh,terrainAnchor}){
+    partCount=0;
     const parts=[],state={x,z,top:{x,y:0,z},reach:0};
     const colors=typeof palette==="string"?treePalettes[palette]:palette;
     if(!shapes[style](parts,state,colors,x,z,height,spread)||!state.top.y){
@@ -189,7 +205,8 @@ export function makeTreeBuilder(T,scene,{clearance,rand,fits=()=>true}){
     }
     for(const mesh of parts){
       if(terrainAnchor)mesh.userData.terrainAnchor=terrainAnchor;
-      scene.add(mesh);
+      else if(working)delete mesh.userData.terrainAnchor;
+      if(snapshotPart)snapshotPart(mesh);else scene.add(mesh);
     }
     return {radius:height*.04,top:state.top,reach:state.reach,autumn:Boolean(colors.autumn),leaf:colors.leaf};
   }
@@ -198,7 +215,12 @@ export function makeTreeBuilder(T,scene,{clearance,rand,fits=()=>true}){
     const colors=typeof palette==="string"?treePalettes[palette]:palette;
     const mesh=new T.Mesh(pick(medium),facet(pick(colors.leaf),"evergreen"));
     mesh.position.set(x,size*.36,z);mesh.scale.set(size,size*.64,size*.86);mesh.rotation.y=rand()*6.283;
-    mesh.name="Garden shrub";scene.add(mesh);
+    mesh.name="Garden shrub";
+    if(snapshotPart){
+      if(!clearance.trim(mesh))return null;
+      snapshotPart(mesh);return mesh;
+    }
+    scene.add(mesh);
     return clearance.trim(mesh)?mesh:null;
   }
   return {grow,shrub,facet};

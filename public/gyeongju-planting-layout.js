@@ -1,6 +1,6 @@
 // Rendering and pedestrian clearance use the same seeded positions in local metres.
 const cache=new WeakMap();
-export function gyeongjuPlantings(parks,roads,stationExit){
+export function gyeongjuPlantings(parks,roads,stationExit,mounds=[]){
  if(cache.has(parks))return cache.get(parks);
  let seed=817204;
  const rand=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
@@ -72,6 +72,15 @@ export function gyeongjuPlantings(parks,roads,stationExit){
    const u=side*(18+i*5.7),v=9+(i%2)*2;
    add({x:stationExit.x+u*c+v*s,z:stationExit.z-u*s+v*c,height:4+rand()*2,style:"round",palette:"deep"});
   }
+ }
+ // Older pines frame the pond and the approach to Michu; keep the sightline across the water open.
+ const groups=[[-75,-344],[-68,-275],[-103,-282],[-59,-348],[92,-85],[156,-92],[158,-62],[116,-61],[235,23],[213,10]];
+ for(const [cx,cz] of groups)for(let i=0;i<4;i++){
+  const x=cx+(rand()-.5)*18,z=cz+(rand()-.5)*16;
+  if(onPath(x,z)||parks.some(p=>p.kind==="water"&&contains(x,z,p.points))||
+   mounds.some(m=>((x-m.x)/(m.rx+2))**2+((z-m.z)/(m.rz+3))**2<1.08))continue;
+  const height=6.4+rand()*3.9;
+  add({x,z,height,spread:height*.80,style:i===2?"branchy":"cloud",palette:i===2?"deep":"pine"});
  }
  function blocked(p){
   for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)

@@ -106,3 +106,7 @@
 계림 숲의 경계와 산책로, 남천 양안, 월정교의 보행축 및 문루의 위치는 OpenStreetMap을 기준으로 배치했습니다. 다리 통행 폭과 경사도는 게임 속 보행에 맞췄습니다. [© OpenStreetMap contributors, ODbL](https://www.openstreetmap.org/copyright) · [계림](https://www.openstreetmap.org/way/382133881) · [남천 수면](https://www.openstreetmap.org/relation/18648119) · [월정교 보행로](https://www.openstreetmap.org/way/539995254) · [북쪽 문루](https://www.openstreetmap.org/way/712570839) · [남쪽 문루](https://www.openstreetmap.org/way/712570833) · [게임용 지리 데이터](public/gyeongju-southern-geography.js)
 
 게임 안에서 읽는 계림 설화와 월정교 복원 이야기는 경주시 문화관광 자료를, 첨성대의 석축과 중간 창에 관한 설명은 국가유산청 안내를 참고했습니다. [경주시 신라 왕경 유적 안내](https://www.gyeongju.go.kr/tour/page.do?mnu_uid=4724) · [국가유산청 경주 첨성대](https://www.heritage.go.kr/heri/cul/culGuidePostDetail.do?ccbaCpno=1113700310000&ccgbGbtype=IND&ccgbGbtypeNo=2&pageNo=1_5_0_0)
+
+대릉원 황남대총의 남북 쌍분, 천마총 입구와 미추왕릉 상석은 경주시 안내 사진과 지도를 바탕으로 구현했습니다. 천마총 내부 전시 공간과 금관 모형은 게임용으로 구성했습니다. [경주시 대릉원 안내도](https://gyeongju.go.kr/design/tour2019/file/tourMap/01/tourMap1_front.pdf) · [국립문화유산연구원 검총](https://portal.nrich.go.kr/kor/archeologyUsrView.do?idx=2708&menuIdx=567)
+
+황리단길과 교촌의 가게, 황남 순환버스, 타실라 거치대는 경주의 음식 문화와 교통을 담아 게임용으로 배치했습니다. [경주시 황리단길 안내도](https://www.gyeongju.go.kr/hwangridan/images/gj_map_kor.pdf) · [경주시 교촌마을 안내도](https://www.gyeongju.go.kr/design/tour2019/file/tourMap/tourMap2_250821.pdf) · [타실라 대여 안내](https://tasilla.gyeongju.go.kr/Guide/rental.do)

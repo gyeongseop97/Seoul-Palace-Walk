@@ -56,7 +56,8 @@ import { corridorBounds, corridorWalkable } from "./sejong-corridor-layout.js";
 import { buildBikeDocks, makeRidingBike, registerBikeDocks } from "./sejong-bike-model.js";
 import { bikeDocks, isBikePassenger, isCycling } from "./sejong-bike.js";
 import { buildSejongBusModels } from "./sejong-bus-model.js";
-import { BUS_FLOOR, busAt, busSeatPose,busStops } from "./sejong-bus.js";
+import {BUS_FLOOR,busAt,busSeatPose,stopsForRegion} from "./bus-network.js";
+import {buildGyeongjuBuses} from "./gyeongju-bus-model.js";
 import { transitStops } from "./transit-routes.js";
 import { addPalacePeople } from "./palace-people.js";
 import { addStreetPeople } from "./street-people.js";
@@ -229,7 +230,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   const createItemProp=makeItemProps(T,kit);
   const walkerModels=makeWalkerModels(T,scene,kit,createItemProp);
   const seaside=coast?.create(outdoors,coast.play,walkerModels,{...kit,chatTexture});
-  const historicCity=gyeongju?.create(outdoors,gyeongju.origin);
+  const historicCity=gyeongju?.create(outdoors,gyeongju.origin,{...kit,chatTexture},walkerModels);
   if(seaside){heavens.visible=false;camera.far=3900;camera.updateProjectionMatrix();}
   const outdoorWalkers={...walkerModels,create(...args){
     const model=walkerModels.create(...args);
@@ -238,8 +239,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   }};
   const bungeoCustomer=makeBungeoCustomer(outdoorWalkers,{floorHeight,labelSprite,chatTexture});
   const busInBukchon=point=>point.x>=680&&point.y< -890;
-  const busGround=point=>busInBukchon(point)?sampleMeshHeight(bukchonSurfaceGrade,point):southWorldSurfaceHeight(point);
-  const buses=regional?null:buildSejongBusModels(T,transportRoot,kit,walkerModels,busGround,
+  const busGround=point=>gyeongju?0:busInBukchon(point)?sampleMeshHeight(bukchonSurfaceGrade,point):southWorldSurfaceHeight(point);
+  const buses=gyeongju?buildGyeongjuBuses(T,transportRoot,kit,walkerModels):coast?null:buildSejongBusModels(T,transportRoot,kit,walkerModels,busGround,
     point=>busInBukchon(point)?bukchonGroundHeight(point)??busGround(point):busGround(point));
   registerPlazaNavigation(benches);
   const drawWater=regional?null:addWater(T,deoksExtras,fountains,{...makeKit(deoksExtras),terrain:southWorldSurfaceHeight});
@@ -365,7 +366,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     ...diningVenues.map(venue=>({...(venue.kioskPoint??venue.menuPoint),kind:"food",
       label:venue.kioskPoint?"키오스크 주문":"카운터 주문"})),
     ...bikeDocks.map(dock=>amenity(dock.access,"따릉이 대여")),
-    ...busStops.map(stop=>amenity(stop.board,"버스 정류장")),
+    ...stopsForRegion(gyeongju).map(stop=>amenity(stop.board,"버스 정류장")),
     ...transitStops.filter(stop=>stop.mode==="subway").map(stop=>amenity(stop.door,"지하철 타기")),
     ...traditionalGames.map(game=>{
       if(game.id!=="tuho")return amenity(game.point,game.action);
@@ -1131,7 +1132,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const anchor=state.monitorFocus??me,angle=view.pan*Math.PI/180,insideId=state.monitorFocus?null:interiorAt(anchor.x,anchor.y),indoors=Boolean(insideId),
       atPlaza=inGwanghwamunPlaza(anchor.x,anchor.y);
     const interior=indoorsById[insideId];
-    const service=diningById[insideId]?state.diningService??[]:[];
+    const service=gyeongju||diningById[insideId]?state.diningService??[]:[];
     const baking=state.bungeoMode&&(cookingStallById(state.bungeoMode.stall)??BUNGEO_STALL);
     const waiting=!regional&&advanceWorld(anchor,interior);
     const blocked=waiting&&(indoors||cameraAnchor==null||Math.hypot(anchor.x-300-pivot.x,anchor.y-225-pivot.z)>65);

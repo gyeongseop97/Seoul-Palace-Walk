@@ -285,7 +285,20 @@ export function makeDiningDishes(T,{shape,cylinder,box}){
       }};
     };
   }
-  return {bibimbap:tray(bibimbap,0x453c32),mushroomSoup:tray(mushroomSoup,0xdccca5),
+  function ssambap(group){
+    for(let i=0;i<5;i++){
+      const angle=i*2.4,x=Math.cos(angle)*.059,z=Math.sin(angle)*.054;
+      const leaf=topping(group,i%2?0x6c8f47:0x829b4c,x,-.012+i*.004,z,.054,.012,.036);
+      leaf.rotation.y=-angle;
+      box(0xa9b96b,x,.008+i*.003,z,.067,.003,.003,group).rotation.y=-angle;
+    }
+    for(const [x,z] of [[.04,.033],[-.037,-.032],[.010,-.055]]){
+      topping(group,0xf4e4c5,x,.018,z,.032,.016,.027);
+      topping(group,0x96623b,x+.004,.031,z+.004,.012,.007,.014);
+    }
+  }
+  return {ssambapSet:tray(ssambap,0xd9ceac,{plate:true,utensilKind:"chopsticks"}),
+    bibimbap:tray(bibimbap,0x453c32),mushroomSoup:tray(mushroomSoup,0xdccca5),
     buckwheatNoodles:tray(buckwheatNoodles,0x393635,{utensilKind:"chopsticks"}),jangGukbap:tray(jangGukbap,0x4c4138),
     sujebi:tray(sujebi,0xd7ccb1),mushroomPasta:tray(mushroomPasta,0x576a65,{plate:true,utensilKind:"fork"}),
     beefCurry:tray(beefCurry,0xeadbc3,{plate:true}),chickenSandwich:tray(chickenSandwich,0xeee4ca,{plate:true,utensilKind:"fork",fries:true}),

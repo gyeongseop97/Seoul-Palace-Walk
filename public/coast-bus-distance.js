@@ -40,6 +40,10 @@ export function createDistantFleet(T,group,route){
   if(!liveries.has(service)){
    const batch=new T.InstancedMesh(exterior(T,service),material,route.count);
    batch.name=service.name+" 원경";batch.instanceMatrix.setUsage(T.DynamicDrawUsage);
+   if(route.distantBounds){
+    const {x,y,z,radius}=route.distantBounds;
+    batch.boundingSphere=new T.Sphere(new T.Vector3(x,y,z),radius);
+   }
    batch.count=0;batch.visible=false;
    group.add(batch);liveries.set(service,batch);
   }
@@ -55,7 +59,10 @@ export function createDistantFleet(T,group,route){
   finish(){
    for(const batch of liveries.values()){
     batch.visible=batch.count>0;
-    if(batch.visible){batch.instanceMatrix.needsUpdate=true;batch.computeBoundingSphere();}
+    if(batch.visible){
+     batch.instanceMatrix.needsUpdate=true;
+     if(!route.distantBounds)batch.computeBoundingSphere();
+    }
    }
   }
  };

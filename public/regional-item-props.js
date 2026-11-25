@@ -167,6 +167,38 @@ export function makeRegionalItemProps(T,{box,cylinder,shape}){
       const piece=shape(cheeseWedge,0xe9b654,0,-.006,0,parent);piece.rotation.x=-Math.PI/2;
       for(const [x,z] of [[-.034,.022],[.021,.007],[.029,-.02]])berry(parent,0xc78e35,x,.049,z,.009,.002,.008);
     },
+    ssambap(parent){
+      berry(parent,0x598448,0,-.01,0,.074,.020,.082);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3;
+        const leaf=berry(parent,i%2?0x79a553:0x53854c,Math.cos(a)*.044,.007,Math.sin(a)*.044,.044,.030,.032);
+        leaf.rotation.z=.35*Math.cos(a);
+      }
+      berry(parent,0xf7e6c5,0,.029,0,.032,.021,.035);
+      berry(parent,0x98523a,.004,.044,-.003,.023,.012,.021);
+    },
+    hwangnamBread(parent){
+      berry(parent,0xc57d37,0,-.005,0,.080,.039,.080);
+      berry(parent,0xd59b56,0,.010,0,.074,.033,.074);
+      for(let i=0;i<12;i++){
+        const a=i*Math.PI/6;
+        berry(parent,0xaf733a,.031*Math.sin(a),.041,.031*Math.cos(a),.004,.002,.012).rotation.y=a;
+      }
+      berry(parent,0x995d33,0,.043,0,.009,.002,.009);
+    },
+    sikhye(parent){
+      shape(bowlGeometry,0xe6e9d5,0,0,0,parent);
+      cylinder(0xeacb83,0,.037,0,.11,.008,24,parent);
+      for(let i=0;i<9;i++){
+        const a=i*2.4,r=.018+.007*i;
+        berry(parent,0xfff4da,r*Math.sin(a),.042,r*Math.cos(a),.004,.002,.008).rotation.y=a;
+      }
+    },
+    beopju(parent){
+      shape(plumCup,0xc2d7c6,0,0,0,parent);
+      cylinder(0xe0be72,0,.050,0,.060,.006,24,parent);
+      cylinder(0x80a28c,0,-.063,0,.042,.008,18,parent);
+    },
     soju(parent){
       const glass=new T.Mesh(shotGlass,clearGlass),liquid=new T.Mesh(pour,clearSoju);
       glass.name="소주잔";glass.renderOrder=2;liquid.position.y=-.003;liquid.renderOrder=1;
