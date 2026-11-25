@@ -1,6 +1,6 @@
 import {busCount as coastBusCount} from "./public/coast-fleet.js";
 import {cruiseSeatById} from "./public/coast-vessel-seats.js";
-import {mainDeckRail} from "./public/coast-vessel-layout.js";
+import {mainDeckRail,gangwayHeight} from "./public/coast-vessel-layout.js";
 import {validWishArt, WISH_FLIGHT_MS} from "./public/wish-art.js";
 import {FEED_MS, ITEMS} from "./public/activities.js";
 import {validItemSlot} from "./public/held-items.js";
@@ -55,14 +55,20 @@ const validItem=item=>item==null||typeof item.kind==="string"&&Object.hasOwn(ITE
 // Benches, dining chairs and the places along the Cheonggyecheon water's edge.
 const lastBenchIndex=1023;
 const coastModes=new Set(["scooter","walk","swim","surf","deck","bus","table"]);
+function validCruiseFooting(s){
+  if((s.floor==null||finite(s.floor,2.45,7.86))&&(s.deckX==null||finite(s.deckX,-5,5)))return true;
+  if(s.mode!=="deck"||!Number.isFinite(s.deckX)||!Number.isFinite(s.deckZ))return false;
+  const h=gangwayHeight({x:s.deckX,z:s.deckZ});
+  return h!=null&&finite(s.floor,h-.02,h+.02);
+}
 const validCoast=s=>s==null||coastModes.has(s.mode)&&typeof s.board==="boolean"&&
   (s.beachJumpY==null||s.beachJumpY===1.85)&&
+  (s.deckJumpY==null||finite(s.deckJumpY,2.45,7.86))&&
   (s.tableGlass==null||typeof s.tableGlass==="boolean")&&
   (s.surf==null||s.mode==="surf"&&s.board&&finite(s.surf.speed,0,11)&&finite(s.surf.rise,0,1)&&finite(s.surf.bank,-1,1))&&
   (s.swimwear==null||["navy","tide","coral"].includes(s.swimwear))&&
   (s.rinse==null||["north-rinse","south-rinse"].includes(s.rinse.site)&&validTime(s.rinse.at))&&
-  (s.track==null||finite(s.track,0,62))&&(s.floor==null||finite(s.floor,2.45,7.86))&&
-  (s.deckX==null||finite(s.deckX,-5,5))&&(s.deckZ==null||finite(s.deckZ,-18,mainDeckRail.front))&&
+  (s.track==null||finite(s.track,0,62))&&validCruiseFooting(s)&&(s.deckZ==null||finite(s.deckZ,-18,mainDeckRail.front))&&
   (s.deckSeat==null||s.mode==="deck"&&cruiseSeatById.has(s.deckSeat))&&
   (s.cafeFloor==null||finite(s.cafeFloor,1.84,6.11))&&
   (s.mode!=="bus"||Number.isInteger(s.coach)&&finite(s.coach,0,coastBusCount-1)&&Number.isInteger(s.chair)&&finite(s.chair,0,7));

@@ -1,5 +1,6 @@
 import * as T from "three";
-import {bridge,cruiseHullStations,exitGate,helmStation,mainDeckRail,mainFloor,salonBowDoor,salonSideHalfWidth,salonTaperStart} from "./coast-vessel-layout.js";
+import {bridge,cruiseHullStations,cruiseStairs,exitGate,helmStation,loungePorch,loungeRails,mainDeckRail,
+ mainFloor,midFloor,salonBowDoor,salonPortDoor,salonSideHalfWidth,salonTaperStart} from "./coast-vessel-layout.js";
 import {cruiseSeats,cruiseTables} from "./coast-vessel-seats.js";
 // Three connected decks aboard a 51 m excursion yacht.
 export function makeCruise(){
@@ -39,10 +40,12 @@ export function makeCruise(){
  function salonWindow(x,y,z,width,height,yaw=0){
   const m=new T.Mesh(panePlane,salonPanes);m.position.set(x,y,z);m.scale.set(width,height,1);m.rotation.y=yaw;root.add(m);
  }
+ const portAft=salonPortDoor.z-salonPortDoor.half,portFore=salonPortDoor.z+salonPortDoor.half;
  for(const side of [-1,1]){
-  const sides=[-7.82,salonTaperStart,salonBowDoor.z];
-  for(let i=1;i<sides.length;i++){
-   const back=sides[i-1],front=sides[i],x0=side*salonSideHalfWidth(back),x1=side*salonSideHalfWidth(front);
+  const panels=side<0?[[-7.82,portAft],[portFore,salonTaperStart]]:[[-7.82,salonTaperStart]];
+  panels.push([salonTaperStart,salonBowDoor.z]);
+  for(const [back,front] of panels){
+   const x0=side*salonSideHalfWidth(back),x1=side*salonSideHalfWidth(front);
    const length=Math.hypot(x1-x0,front-back),yaw=Math.atan2(x1-x0,front-back),x=(x0+x1)/2,z=(back+front)/2;
    piece(box,cream,x,2.75,z,.14,.56,length,0,yaw);
    salonWindow(x,3.91,z,length,1.82,yaw+Math.PI/2);
@@ -50,7 +53,8 @@ export function makeCruise(){
   piece(box,cream,side*2.28,2.74,-7.82,3.03,.56,.15);
   salonWindow(side*2.28,3.91,-7.82,3.02,1.83);
   piece(box,cream,side*.75,3.7,-7.82,.082,2.46,.115);
-  for(const z of [-7.81,-5.16,-2.5,.1,2.7,salonTaperStart,7.9,salonBowDoor.z])
+  const midPosts=side<0?[portAft,portFore]:[.1];
+  for(const z of [-7.81,-5.16,-2.5,...midPosts,2.7,salonTaperStart,7.9,salonBowDoor.z])
    piece(box,cream,side*salonSideHalfWidth(z),3.8,z,.105,2.47,.095);
   const wing=salonSideHalfWidth(salonBowDoor.z)-salonBowDoor.half,mid=side*(salonBowDoor.half+wing/2);
   piece(box,cream,mid,2.75,salonBowDoor.z,wing,.56,.13);
@@ -59,6 +63,9 @@ export function makeCruise(){
   piece(box,cream,mid,3.91,salonBowDoor.z,.075,1.82,.095);
  }
  piece(box,cream,0,4.82,salonBowDoor.z,salonBowDoor.half*2,.16,.13);
+ piece(box,cream,-salonSideHalfWidth(salonPortDoor.z),4.82,salonPortDoor.z,.14,.16,salonPortDoor.half*2);
+ // The mat connects the threshold to the fore-and-aft aisle without a raised sill.
+ piece(box,0x405d60,-2.55,2.472,salonPortDoor.z,3.42,.017,1.98);
  const aisleStart=-7.78,aisleEnd=salonBowDoor.z+.15,aisleCentre=(aisleStart+aisleEnd)/2;
  piece(box,0x405d60,0,2.472,aisleCentre,1.68,.017,aisleEnd-aisleStart);
  for(const side of [-1,1]){
@@ -76,18 +83,26 @@ export function makeCruise(){
  for(const x of [-2.66,2.66])for(const z of [-5.8,-2.3,1.2,4.7,8.2])piece(cyl,0xf9e9be,x,4.895,z,.104,.025,.104);
  shell([[5.0,4.53,-11.77,13.25],[5.38,4.44,-11.78,13.1]],cream);
  shell([[5.39,4.28,-11.78,12.8],[5.43,4.28,-11.78,12.8]],wood);
- piece(box,cream,.77,5.20,-12.46,5.03,.36,1.40);
- piece(box,wood,.77,5.415,-12.46,5.03,.045,1.40);
+ const [aftStair,upperStair]=cruiseStairs;
+ const porchX=(loungePorch.left+loungePorch.right)/2,porchZ=(loungePorch.aft+loungePorch.front)/2;
+ const porchWidth=loungePorch.right-loungePorch.left,porchRun=loungePorch.front-loungePorch.aft;
+ piece(box,cream,porchX,midFloor-.23,porchZ,porchWidth,.36,porchRun);
+ piece(box,wood,porchX,midFloor-.025,porchZ,porchWidth,.05,porchRun);
+ // The full width of each flight meets a flat turning space, including its outer corner.
+ piece(box,wood,0,midFloor-.055,aftStair.end+.56,7.22,.11,1.12);
  shell([[5.44,3.47,-5.4,10.2],[5.89,3.56,-5.5,10.3]],cream);
  shell([[5.89,3.56,-5.5,10.3],[7.5,3.15,-4.9,9.45]],0x25495c);
  shell([[7.51,3.75,-5.54,10.45],[7.84,3.66,-5.55,10.3]],cream);
+ piece(box,wood,0,bridge.floor-.045,upperStair.end+.49,5.68,.09,.98);
  for(const side of [-1,1]){
   for(let i=0;i<4;i++)piece(box,cream,side*3.36,6.7,-3.5+i*1.55,.15,1.55,.16,.15);
   for(let i=0;i<12;i++){const m=0.78+.22*Math.sin((i+1)/14*Math.PI);piece(ball,0x7c9cab,side*5.01*m,1.18,-13+i*2.04,.17,.23,.39);}
-  for(const [height,w,z0,z1] of [[2.48,mainDeckRail.half,mainDeckRail.aft,mainDeckRail.front],[5.44,4.26,-13.05,12.75]]){
-   const edge=outline(w,z0,z1);for(let i=1;i<edge.length;i++){const [x,z]=edge[i-1],[u,v]=edge[i];
+  const mainEdge=outline(mainDeckRail.half,mainDeckRail.aft,mainDeckRail.front);
+  const loungeEdge=side<0?loungeRails.port:loungeRails.starboard;
+  for(const [height,edge,gated] of [[2.48,mainEdge,side<0],[5.44,loungeEdge,false]]){
+   for(let i=1;i<edge.length;i++){const [x,z]=edge[i-1],[u,v]=edge[i];
     const railX=at=>side*(x+(u-x)*(at-z)/(v-z));
-    const spans=side===-1&&w===mainDeckRail.half?
+    const spans=gated?
      [[z,Math.min(v,exitGate.z-exitGate.half)],[Math.max(z,exitGate.z+exitGate.half),v]]:[[z,v]];
     for(const [start,end] of spans){
      if(start>=end)continue;
@@ -95,13 +110,13 @@ export function makeCruise(){
      const bays=Math.ceil((end-start)/1.8);
      for(let k=0;k<bays;k++){
       const at=start+(end-start)*k/bays;
-      if(side===-1&&w===mainDeckRail.half&&at===exitGate.z+exitGate.half)continue;
+      if(gated&&at===exitGate.z+exitGate.half)continue;
       piece(cyl,cream,railX(at),height+.5,at,.035,1,.035);
      }
     }
    }}
-  beam([side*2.9,5.52,-5.1],[side*2.65,7.9,-6.4],.12,cream);
-  piece(box,0xe1b77c,side*4.23,2.52,-5,.09,.1,11);
+  const trimEnd=side<0?portAft:.5;
+  piece(box,0xe1b77c,side*4.23,2.52,(trimEnd-10.5)/2,.09,.1,trimEnd+10.5);
  }
  // The port gangway bridges the drop to the pier and folds up across the opening at sea.
  const {x:gateX,z:gateZ,half:gateHalf,run,drop}=exitGate,portalTop=mainFloor+2.14;
@@ -151,13 +166,26 @@ export function makeCruise(){
    piece(cyl,cream,-half+2*half*i/bays,2.98,z,.035,1,.035);
   }
  }
- for(let i=0;i<12;i++)piece(box,wood,-2.55,2.47+i*.266,-15.6+i*.34,1.45,.16,.48);
- beam([-3.29,3.5,-15.7],[-3.29,6.29,-11.9],.07,brass);
+ for(const stair of cruiseStairs){
+  const run=(stair.end-stair.start)/stair.steps,rise=(stair.to-stair.from)/stair.steps;
+  for(let i=0;i<stair.steps;i++){
+   const top=stair.from+(i+.5)*rise,z=stair.start+(i+.5)*run;
+   piece(box,wood,stair.x,top-rise/2,z,stair.half*2,rise,run);
+  }
+  for(const side of [-1,1]){
+   const x=stair.x+side*(stair.half-.055);
+   beam([x,stair.from-.10,stair.start],[x,stair.to-.10,stair.end],.075,cream);
+  }
+  const railX=stair.x+stair.side*stair.half;
+  beam([railX,stair.from+.94,stair.start],[railX,stair.to+.94,stair.end],.05,brass);
+  const posts=stair===aftStair?3:4; // the lounge rail supplies the aft flight's top post
+  for(let i=0;i<posts;i++){
+   const t=i/3,y=stair.from+t*(stair.to-stair.from),z=stair.start+t*(stair.end-stair.start);
+   piece(cyl,cream,railX,y+.47,z,.035,.94,.035);
+  }
+ }
  piece(cyl,cream,-1.44,11.19,4.45,.12,1.20,.12);piece(box,navy,-1.44,11.75,4.45,1.34,.09,.20);
  piece(ball,cream,1.49,10.97,4.2,.43,.38,.43);
- // Open companionway from the aft promenade to the flybridge helm.
- for(let i=0;i<11;i++)piece(box,wood,1.7,5.48+i*.233,-9.45+i*.38,1.18,.15,.48);
- beam([2.32,6.32,-9.65],[2.32,8.63,-5.55],.045,brass);
  // A sheltered service counter opens onto the aft lounge alongside the companionway.
  piece(box,wood,-1.65,5.90,-7.02,2.3,.88,.62);
  piece(box,cream,-1.65,6.39,-7.02,2.44,.10,.73);

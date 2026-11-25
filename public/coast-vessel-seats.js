@@ -8,7 +8,8 @@ function seat(id, name, x, z, floor, yaw, approach, width, tableId = null) {
 
 for (const side of [-1, 1]) {
   const sideId = side < 0 ? "port" : "starboard";
-  for (const [index, z] of [-4.30, 2.35].entries()) {
+  // Leave the cross-aisle from the boarding gate clear all the way to the salon aisle.
+  for (const [index, z] of [-4.30, side < 0 ? 3.15 : 2.35].entries()) {
     const tableId = "salon-" + sideId + "-" + index;
     const x = side * 2.77;
     cruiseTables.push({id: tableId, x, z, floor: 2.46, radius: .53, height: .79});
@@ -24,11 +25,12 @@ for (const side of [-1, 1]) {
   }
 }
 
-cruiseTables.push({id: "lounge", x: -.05, z: -11.13, floor: 5.46, radius: .43, height: .69});
+// Set the lounge group across the starboard porch, clear of the turn between flights.
+cruiseTables.push({id: "lounge", x: 1.65, z: -11.85, floor: 5.46, radius: .43, height: .69});
 for (const direction of [-1, 1]) {
-  const z = -11.13 + direction * .96;
-  seat("lounge-" + (direction < 0 ? "aft" : "fore"), "라운지 테이블 좌석", -.05, z, 5.46,
-    direction < 0 ? 0 : Math.PI, {x: .98, z}, .79, "lounge");
+  const x = 1.65 + direction * .96;
+  seat("lounge-" + (direction < 0 ? "aft" : "fore"), "라운지 테이블 좌석", x, -11.85, 5.46,
+    -direction * Math.PI / 2, {x, z: -10.82}, .79, "lounge");
 }
 for (const [index, x] of [.15, 2.05].entries()) {
   seat("stern-" + index, "후미 갑판 좌석", x, -15.75, 2.46, 0, {x, z: -14.78}, 1.15);

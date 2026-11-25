@@ -9,7 +9,7 @@ import {beachBenches} from "./coast-beach-seats.js";
 import {cafeBenches,cafeLevel,pickCafe} from "./coast-cafe.js";
 import {breaststroke,swimSeed,swimStroke} from "./beach-swimming.js";
 import {surferPose,boardAttitude} from "./coast-surfing.js";
-import {hullAttitude,deckToSea,seaToDeck,deckHeight,cruiseScale,mainFloor,salonBowDoor,salonSideHalfWidth} from "./coast-vessel-layout.js";
+import {hullAttitude,deckToSea,seaToDeck,deckHeight,gangwayHeight,exitGate,cruiseScale,mainFloor,salonBowDoor,salonSideHalfWidth,inSalonPortDoor} from "./coast-vessel-layout.js";
 import {cruiseSeatById,cruiseSeatHeading,cruiseSeatSpot} from "./coast-vessel-seats.js";
 export {coastVisitors} from "./coast-visitors.js";
 import {coastObstacle} from "./coast-region.js";
@@ -62,13 +62,19 @@ export function createCoastScene(root,play,walkers,kit){
  let studioViewer={x:0,z:0};
  function setClock(clock){lastClock=clock;}
  function waterline(x,z){return waterAt(x,z,lastClock/1000%14400);}
+ function vesselFloor(p,h){
+  if(h<=mainFloor+.01){
+   const ramp=gangwayHeight(p);if(ramp!=null&&play.gangwayOpen())return ramp;
+  }
+  return deckHeight(p,h);
+ }
  function pickDeck({origin:o,direction:d}){
   if(!deckViewer)return null;
   let above=true;
   for(let distance=.2;distance<72;distance+=.22){
    const p={x:o.x+d.x*distance,z:o.z+d.z*distance};
    if(Math.hypot(p.x-play.ship.x,p.z-play.ship.z)>31)continue;
-   const local=seaToDeck(play.ship,p,lastClock,deckViewer.floor),h=deckHeight(local,deckViewer.floor);
+   const local=seaToDeck(play.ship,p,lastClock,deckViewer.floor),h=vesselFloor(local,deckViewer.floor);
    if(h==null)continue;
    const level=deckToSea(play.ship,local,lastClock,h).h,y=o.y+d.y*distance;
    if(above&&y<=level+.035)return {distance,point:coastPoint(p)};
@@ -94,7 +100,10 @@ export function createCoastScene(root,play,walkers,kit){
   const x=Math.abs(local.x);
   if(Math.abs(local.z-salonBowDoor.z)<.20&&x>salonBowDoor.half-.12)return true;
   if(Math.abs(local.z+7.82)<.20&&x>.64)return true;
-  return local.z>=-7.82&&local.z<=salonBowDoor.z&&(height-localFloor>2.37||x>salonSideHalfWidth(local.z)-.13);
+  if(local.z< -7.82||local.z>salonBowDoor.z)return false;
+  const half=salonSideHalfWidth(local.z);
+  if(x<=half&&height-localFloor>2.37)return true;
+  return Math.abs(x-half)<.16&&(!inSalonPortDoor(local,.13)||height-localFloor>2.27);
  }
  function cruiseSeatPose(id){
   const seat=cruiseSeatById.get(id);
@@ -108,7 +117,7 @@ export function createCoastScene(root,play,walkers,kit){
   const cafe=cafeLevel(local,s?.cafeFloor);if(cafe!=null)return cafe;
   if(s?.mode==="deck"){
    const spot=Number.isFinite(s.deckX)&&Number.isFinite(s.deckZ)?{x:s.deckX,z:s.deckZ}:seaToDeck(play.ship,local,lastClock,s.floor);
-   return deckToSea(play.ship,spot,lastClock,clamp(s.floor??deckHeight(spot)??mainFloor,mainFloor,7.85)).h;
+   return deckToSea(play.ship,spot,lastClock,clamp(s.floor??deckHeight(spot)??mainFloor,mainFloor-exitGate.drop,7.85)).h;
   }
   if(s?.mode==="bus")return 3.12;
   const pierLevel=pavilionFloor(local,s?.track);if(pierLevel!=null)return pierLevel;
@@ -147,7 +156,7 @@ export function createCoastScene(root,play,walkers,kit){
  function pose(player,model){
   const s=player.coast,wet=s?.mode==="swim",surf=s?.mode==="surf",t=lastClock/1000%14400,p=seaPoint(player);
   if(s?.mode==="deck"&&Number.isFinite(s.deckX)&&Number.isFinite(s.deckZ)){
-   const seat=cruiseSeatById.get(s.deckSeat),local={x:s.deckX,z:s.deckZ},height=deckHeight(local,s.floor);
+   const seat=cruiseSeatById.get(s.deckSeat),local={x:s.deckX,z:s.deckZ},height=vesselFloor(local,s.floor);
    if(seat){
     const attitude=hullAttitude(play.ship,lastClock);
     hullEuler.set(attitude.pitch,play.ship.yaw,attitude.roll,"YXZ");

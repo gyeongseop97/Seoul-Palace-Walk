@@ -1,6 +1,6 @@
 import {tavernOps,tavernSchema} from "./coast-tavern.mjs";
 import {voyageSchema,deckSeatSchema,deckSeatLease,harborSnapshot,vesselSnapshot,appendVesselOps,passengerDeckPoint} from "./coast-voyages.mjs";
-import {bridge,cruiseBerth,mainDeckRail,mainDeckRailHalfWidth,mainFloor} from "../public/coast-vessel-layout.js";
+import {bridge,cruiseBerth,mainDeckRail,mainDeckRailHalfWidth,mainFloor,gangwayToe,gangwayHeight,exitGate} from "../public/coast-vessel-layout.js";
 import {inCoastSpace,seaPoint} from "../public/region-coordinates.js";
 import {scooterSchema,scooterOps,rentalState} from "./coast-scooter-rentals.mjs";
 import {canStartFestival as atFestivalBooth,festivalBooth} from "../public/pohang-festival-site.js";
@@ -26,7 +26,7 @@ async function canLaunchFireworks(read,room,p,avatar,now){
  const position=seaPoint(avatar);
  if(p.mode!=="deck")return atFestivalBooth(p)&&avatar.coast?.mode==="walk"&&
   avatar.seat==null&&!avatar.groundSit&&distance(position,festivalBooth)<11;
- if(!Number.isFinite(p.floor)||p.floor<mainFloor-.01||p.floor>bridge.floor+.01)return false;
+ if(!Number.isFinite(p.floor)||p.floor<mainFloor-exitGate.drop-.01||p.floor>bridge.floor+.01)return false;
  const row=(await read(harborSnapshot,room).all()).results[0];
  const ship=row?vesselSnapshot(row,now):{...mooring,yaw:0,speed:0};
  if(avatar.coast?.mode!=="deck"){
@@ -36,6 +36,9 @@ async function canLaunchFireworks(read,room,p,avatar,now){
  }
  const local=passengerDeckPoint(p,ship,now);
  if(!local)return false;
+ const ramp=gangwayHeight(local);
+ if(ramp!=null&&cruiseBerth(ship)&&!ship.helm&&Math.abs(p.floor-ramp)<.04)return true;
+ if(p.floor<mainFloor-.01)return false;
  const halfWidth=mainDeckRailHalfWidth(local.z);
  return halfWidth>0&&Math.abs(local.x)<=halfWidth;
 }
@@ -55,7 +58,7 @@ export async function coastRequest(db,{room,id,key,coast},now){
  const avatar=JSON.parse(owner.avatar),pose=JSON.stringify({x:p.x,z:p.z,yaw:p.yaw,mode:p.mode,walk:!!p.walk,hasBoard:!!p.hasBoard,
   character:avatar.character,look:avatar.look,chat:typeof p.chat==="string"?p.chat.trim().slice(0,80):"",chatAt:Math.min(now,Number(p.chatAt)||0),
   gesture:["fish","clam","drink"].includes(p.gesture)?p.gesture:null,gestureAt:Math.min(now,Number(p.gestureAt)||0),blush:Math.min(now+120000,Number(p.blush)||0),
-  coach:Number.isInteger(p.coach)?p.coach:null,slot:Number.isInteger(p.slot)?Math.max(0,Math.min(5,p.slot)):0,deckX:Number.isFinite(p.deckX)?clampDeck(p.deckX,-5,5):null,deckZ:Number.isFinite(p.deckZ)?clampDeck(p.deckZ,-18,mainDeckRail.front):null});
+  coach:Number.isInteger(p.coach)?p.coach:null,slot:Number.isInteger(p.slot)?Math.max(0,Math.min(5,p.slot)):0,deckX:Number.isFinite(p.deckX)?clampDeck(p.deckX,gangwayToe,5):null,deckZ:Number.isFinite(p.deckZ)?clampDeck(p.deckZ,-18,mainDeckRail.front):null});
  const ops=[read("INSERT INTO coast_visitors(room,id,updated,pose) VALUES(?,?,?,?) ON CONFLICT(room,id) DO UPDATE SET updated=excluded.updated,pose=excluded.pose,seat=CASE WHEN coast_visitors.updated<? THEN NULL ELSE coast_visitors.seat END",room,id,now,pose,now-15000),
   read("INSERT OR IGNORE INTO coast_harbor(room,x,z,yaw,updated) VALUES(?,?,?,?,0)",room,mooring.x,mooring.z,0)];
  const scooterCommand=["rentScooter","returnScooter","mountScooter","parkScooter"].includes(cmd);

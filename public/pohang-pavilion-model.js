@@ -1,5 +1,5 @@
 import * as T from "three";
-import {pavilionPoint,pavilionYaw,bridgeStart,pierHeight,lowerLevel,upperLevel,stairRun,pillars,upperBounds} from "./pohang-pavilion-layout.js";
+import {pavilionPoint,pavilionYaw,apronStart,bridgeStart,pierHeight,lowerLevel,upperLevel,stairRun,pillars,upperBounds} from "./pohang-pavilion-layout.js";
 
 export function buildYeongildae(parent,{box,post,rod,oval,sign}){
  const base=pavilionPoint(0,0),g=new T.Group();g.position.set(base.x,0,base.z);g.rotation.y=pavilionYaw;parent.add(g);
@@ -36,6 +36,7 @@ export function buildYeongildae(parent,{box,post,rod,oval,sign}){
   }
  }
  const end=-13.45,length=end-bridgeStart,count=9,step=length/count;
+ span(0,apronStart,pierHeight(apronStart)-.16,0,bridgeStart,pierHeight(bridgeStart)-.16,5.38,.32,cap);
  for(let j=0;j<count;j++){
   const z=bridgeStart+j*step,Z=z+step,h=pierHeight(z),H=pierHeight(Z);
   span(0,z,h-.22,0,Z,H-.22,5.38,.44,cap);

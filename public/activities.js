@@ -2,6 +2,7 @@ import {plushItems} from "./plush-items.js";
 export const PET_MS=1450;
 export const FEED_MS=5000;
 export const JUMP_MS=740;
+export const BEACH_JUMP_MS=JUMP_MS*1.5;
 export const JUMP_HEIGHT=.88;
 export const WOLDAE_VAULT_HEIGHT=1.80;
 export const jumpDuration=avatar=>avatar.vaultBase==null?JUMP_MS:1150;
@@ -13,10 +14,19 @@ export function jumpLift(avatar,clock){
   const height=avatar.vaultBase==null?JUMP_HEIGHT:WOLDAE_VAULT_HEIGHT;
   return height*4*phase*(1-phase);
 }
+// The takeoff and support heights share the moving ship's frame of reference.
+// Continue the trajectory past its usual duration when the landing is below takeoff.
+export function deckJumpLift(avatar,clock){
+  const s=avatar.coast;
+  if(!avatar.jump||s?.mode!=="deck"||!Number.isFinite(s.deckJumpY)||!Number.isFinite(s.floor))return 0;
+  const phase=(clock-avatar.jump)/JUMP_MS;
+  return phase<0?0:Math.max(0,s.deckJumpY-s.floor+4*JUMP_HEIGHT*phase*(1-phase));
+}
 export function renderedJumpLift(avatar,clock,floor){
+  if(avatar.coast?.mode==="deck"&&Number.isFinite(avatar.coast.deckJumpY))return deckJumpLift(avatar,clock);
   if(avatar.jump&&avatar.coast?.mode==="walk"&&Number.isFinite(avatar.coast.beachJumpY)){
     const phase=(clock-avatar.jump)/JUMP_MS;
-    if(phase>=0&&phase<1.5)return Math.max(0,avatar.coast.beachJumpY-floor+4*JUMP_HEIGHT*phase*(1-phase));
+    if(phase>=0&&clock-avatar.jump<BEACH_JUMP_MS)return Math.max(0,avatar.coast.beachJumpY-floor+4*JUMP_HEIGHT*phase*(1-phase));
   }
   const lift=jumpLift(avatar,clock);
   if(!lift||avatar.vaultBase==null)return lift;

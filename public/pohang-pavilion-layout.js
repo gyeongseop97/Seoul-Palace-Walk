@@ -1,5 +1,6 @@
 import geo from "./pohang-geography.js";
 import {coastPoint,seaPoint} from "./region-coordinates.js";
+import {beachFloor,walkDeckY} from "./pohang-beach-profile.js";
 
 // OSM 541695869 / 541695871 / 892267632: ridge runs across the bridge; hall occupies its seaward half.
 const [cx,cz]=geo.pavilion,[sx,sz]=geo.pier[0];
@@ -8,15 +9,17 @@ const c=Math.cos(pavilionYaw),s=Math.sin(pavilionYaw);
 export const pavilionPoint=(u,v)=>({x:cx+c*u+s*v,z:cz-s*u+c*v});
 export const pavilionAxes=p=>({u:(p.x-cx)*c-(p.z-cz)*s,v:(p.x-cx)*s+(p.z-cz)*c});
 export const bridgeStart=-Math.hypot(cx-sx,cz-sz);
+// The shore meets this angled bridge at a different station on either side.
+export const apronStart=bridgeStart-3.2;
 export const upperLevel=6.13,lowerLevel=2.83,stairRun={from:-3.7,to:3.4,half:1.43,count:20};
 export const upperBounds={left:-7.9,right:7.9,front:2.96,back:11.24};
 export const pillars=[-7.25,-4.35,-1.45,1.45,4.35,7.25].flatMap(u=>[3.3,10.9].map(v=>({u,v})));
-export const pierHeight=v=>1.89+.94*Math.min(1,Math.max(0,(v-bridgeStart)/55));
+export const pierHeight=v=>v<bridgeStart?walkDeckY+(.04*Math.max(0,(v-apronStart)/(bridgeStart-apronStart))):1.89+.94*Math.min(1,(v-bridgeStart)/55);
 const inUpper=({u,v})=>u>upperBounds.left&&u<upperBounds.right&&v>=upperBounds.front&&v<upperBounds.back;
 const stair=({u,v})=>Math.abs(u)<stairRun.half&&v>=stairRun.from&&v<=stairRun.to;
 const stairHeight=v=>lowerLevel+(upperLevel-lowerLevel)*Math.min(1,Math.max(0,Math.ceil((v-stairRun.from)/(stairRun.to-stairRun.from)*stairRun.count-.00001)/stairRun.count));
 const deck=({u,v})=>Math.abs(u)<=14.5&&v>=-13.4&&v<=13.5;
-const bridge=({u,v})=>Math.abs(u)<=2.64&&v>=bridgeStart-.6&&v<=-12.9;
+const bridge=({u,v})=>Math.abs(u)<=2.64&&v>=apronStart&&v<=-12.9;
 export function nearPavilion(p){
  return Math.abs(p.x-cx)<105&&Math.abs(p.z-cz)<92;
 }
@@ -34,7 +37,7 @@ function railing(q,upper){
   if(Math.abs(u)>7.7||v>11.02)return true;
   return v<3.16&&Math.abs(u)>1.28;
  }
- if(v< -13)return v>bridgeStart+1&&Math.abs(u)>2.37;
+ if(v< -13)return v>=bridgeStart&&Math.abs(u)>2.37;
  if(Math.abs(u)>14.23||v>13.23||v< -13.12&&Math.abs(u)>2.36)return true;
  return Math.abs(Math.abs(u)-stairRun.half)<.18&&v>stairRun.from+.4&&v<stairRun.to+.1;
 }
@@ -51,6 +54,7 @@ export function pavilionStep(from,to,previous){
  if(old===null&&next===null)return undefined;
  if(old===null||next===null){
   const q=pavilionAxes(old===null?to:from);
+  if(q.v<bridgeStart)return Math.abs(beachFloor(old===null?from:to)-pierHeight(q.v))<.32;
   return q.v<bridgeStart+1.6&&Math.abs(q.u)<2.4;
  }
  return Math.abs(next-old)<.49&&!pavilionObstacle(to,next+.32);

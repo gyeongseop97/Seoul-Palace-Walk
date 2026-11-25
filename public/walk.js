@@ -3,7 +3,7 @@ import {
   middle,hall,stoneHall,stoneFountain,city,pavilions,estateOutline,nearest,distance as near,walkable,solidAt,clearSegment,loftStep,loftHeight,loftStair,planWalk,platformAt
 } from "./layout.js";
 import {normalize,angleDelta,hexCoat,moving,receivePeople,smoothPeople,handPosition,handSide,pairFits} from "./people.js";
-import {ITEMS,PET_MS,FEED_MS,diningTray,jumpDuration,jumpLift,renderedJumpLift} from "./activities.js";
+import {ITEMS,PET_MS,FEED_MS,BEACH_JUMP_MS,diningTray,jumpDuration,jumpLift,deckJumpLift,renderedJumpLift} from "./activities.js";
 import {makeWishDrawing} from "./wish-drawing.js";
 import {WISH_FLIGHT_MS} from "./wish-art.js";
 import {isInsideMuseum,museumBounds,museumGalleries,museumGalleryAt,museumHall,museumInteriorOffsetY} from "./visit-layout.js";
@@ -1606,11 +1606,15 @@ $("run").addEventListener("click",()=>{
   if(amFollowingHands()||sharingUmbrella()||me.bus||isCycling(me))return;
   runToggled=!runToggled;markPace();$("game").focus({preventScroll:true});
 });
+function canJump(time){
+  if(!session||!world||bungeoMode||arcade.kind||riding||me.bus||isCycling(me)||queuedBus||queuedBike||sharingUmbrella()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||carryingDiningTray(time)||mealBiteLocked(time)||time-me.jump<jumpDuration(me))return false;
+  if(onCoast&&(coastPlay?.locked()||["scooter","surf"].includes(me.coast?.mode)))return false;
+  if(me.coast?.deckJumpY!=null)return deckJumpLift(me,time)===0;
+  return me.coast?.beachJumpY==null||time-me.jump>=BEACH_JUMP_MS||renderedJumpLift(me,time,world.floorHeight(me))===0;
+}
 function jump(){
   const time=gameTime();
-  if(!session||!world||bungeoMode||arcade.kind||riding||me.bus||isCycling(me)||queuedBus||queuedBike||sharingUmbrella()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||carryingDiningTray(time)||mealBiteLocked(time)||time-me.jump<jumpDuration(me))return;
-  if(onCoast&&(coastPlay?.locked()||["scooter","surf"].includes(me.coast?.mode)))return;
-  if(me.coast?.beachJumpY!=null&&renderedJumpLift(me,time,world.floorHeight(me))>0)return;
+  if(!canJump(time))return;
   if(pendingSeat)course=[];
   pendingSeat=seatClaim=null;stand();
   rememberWalkPosition();
@@ -2074,8 +2078,9 @@ function move(x,y){
   const link=myLink();
   const heading=freeLookHeading(time)??(link?.active?normalize(me.heading+angleDelta(me.heading,aim)*.26):aim);
   if(link?.active&&!loft&&!pairFits(me,{x,y,heading},link.side))return false;
+  const from=coastPlay&&{x:me.x,y:me.y};
   stand();Object.assign(me,{x,y,heading,up:Boolean(loft?.up)});
-  coastPlay?.afterMove();dirty=true;return true;
+  coastPlay?.afterMove(undefined,from);dirty=true;return true;
 }
 function nearWishFountain(){
   // Lanterns rise from the Jeongdong fountain and from the pond around Hyangwonjeong.
@@ -3314,7 +3319,7 @@ function updateActivities(time,guideNearby,coastMarkers){
   const landmark=eligible&&nearbyPalaceGuide(me);
   setActivity("landmark-guide",landmark?"설명 읽기":null);
   if(landmark)attr($("landmark-guide"),"aria-label",landmark.title+" 설명 읽기");
-  $("jump").disabled=!eligible||riding||me.coast?.mode==="surf"||feeding||sharingUmbrella()||clinkLocked(time)||sickLocked(time)||carryingDiningTray(time)||mealBiteLocked(time)||time-me.jump<jumpDuration(me);
+  $("jump").disabled=!canJump(time);
   const atFountain=nearWishFountain();
   if($("wish").hidden===Boolean(atFountain))$("wish").hidden=$("wish").disabled=!atFountain;
   const cat=eligible&&me.seat==null&&!myLink()?.active&&world.parkLife.nearestCat(me.x,me.y);
@@ -3390,6 +3395,7 @@ function moveWithInput(dx,dy,speed,link,cameraRelative,gait){
   stand();
   const scale=speed/Math.max(1,Math.hypot(dx,dy));
   if(staggeredStep(me,me.x+dx*scale,me.y+dy*scale,gait,move))return false;
+  if(coastPlay?.slideAlongRail(dx*scale,dy*scale,move))return false;
   const heading=freeLookHeading(gameTime())??normalize(Math.atan2(dx,-dy)*180/Math.PI);
   if(me.heading!==heading&&(!link?.active||pairFits(me,{...me,heading},link.side))){
     me.heading=heading;dirty=true;
@@ -3447,7 +3453,7 @@ function motion(now,elapsed){
   if(leader){
     const next=pairedPose(link,leader.position,me,now);
     if(me.heading!==next.heading){me.heading=next.heading;dirty=true;}
-    if(next.x!==me.x||next.y!==me.y){me.x=next.x;me.y=next.y;coastPlay?.afterMove(leader.avatar?.coast);dirty=true;}
+    if(next.x!==me.x||next.y!==me.y){me.x=next.x;me.y=next.y;coastPlay?.afterMove(leader.avatar?.coast,{x:oldX,y:oldY});dirty=true;}
     blocked=Boolean(leader.avatar.blocked);
   }else if(!exitPress&&session&&elapsed>0&&!queuedBus&&!queuedBike&&!feedingLocked(gameTime(now))&&!clinkLocked(gameTime(now))&&!sickLocked(gameTime(now))){
     const manual=keys.size||thumbId!==undefined;
