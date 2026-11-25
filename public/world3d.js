@@ -1328,7 +1328,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     roster.forEach(player=>{
       let model=models.get(player.id);
       const visible=sameStation(interiorAt(player.x,player.y),insideId)&&Math.hypot(player.x-anchor.x,player.y-anchor.y)<135;
-      if(!visible){if(model){model.group.visible=false;model.group.removeFromParent();walkerModels.clearChat(model);}drawRipples(player.id,now);
+      if(!visible){if(model){model.group.visible=false;model.group.removeFromParent();walkerModels.clearChat(model);seaside?.hideBoard(player.id);}drawRipples(player.id,now);
         updateTableTray(player,null,clock);return;}
       if(!model){model=walkerModels.create(player.coat??0xab5947,player.nickname,labelSprite);models.set(player.id,model);}
       else if(!model.group.parent)scene.add(model.group);
@@ -1398,9 +1398,11 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const coastBus=coast&&anchor.coast?.mode==="bus";
     const atCoastHelm=coast&&anchor.coast?.mode==="deck"&&coast.play.boat.helm===anchor.id;
     const surfing=seaside&&anchor.coast?.mode==="surf";
+    const anchorModel=models.get(anchor.id);
     const ridingScooterView=firstPerson&&anchor.coast?.mode==="scooter"&&!state.photoCamera;
     const tavernView=firstPerson&&anchor.coast?.mode==="table"&&!state.photoCamera;
-    const bodyView=ridingScooterView||tavernView;
+    const carryingBoardView=firstPerson&&!state.photoCamera&&Boolean(anchorModel?.surfboardCarrySide);
+    const bodyView=ridingScooterView||tavernView||carryingBoardView;
     const shipOrbit=atCoastHelm&&!firstPerson;
     const outsideBus=(bus||coastBus)&&!firstPerson;
     const floor=seat?0:footing(anchor.bikeDriverPosition??anchor);
@@ -1412,7 +1414,14 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const cameraPoint=outsideBus&&bus?bus:seat??anchor;
     const watchLift=seaside?.watchLift()??0;
     anchorPoint.set(wx(cameraPoint.x),eyeHeight+watchLift,wz(cameraPoint.y));
-    if(tavernView)models.get(anchor.id)?.headJoint.localToWorld(anchorPoint.set(0,.266,.22));
+    if(tavernView)anchorModel?.headJoint.localToWorld(anchorPoint.set(0,.266,.22));
+    if(carryingBoardView){
+      // Lean over the carrying shoulder when looking down so the gripping hand fits even on a phone.
+      const glance=Math.max(0,Math.min(1,(view.tilt-22)/38));
+      const lean=-anchorModel.surfboardCarrySide*.14*glance;
+      anchorPoint.x+=lean*Math.cos(angle)-.04*Math.sin(angle)*glance;
+      anchorPoint.z+=lean*Math.sin(angle)+.04*Math.cos(angle)*glance;
+    }
     if(ridingScooterView){anchorPoint.x+=.08*Math.sin(angle);anchorPoint.z-=.08*Math.cos(angle);}
     if(surfing)anchorPoint.y-=(firstPerson?.87:.42)*(1-(anchor.coast.surf?.rise??0));
     if(shipOrbit)anchorPoint.set(coast.play.ship.x,5.1+watchLift,coast.play.ship.z);
@@ -1576,10 +1585,9 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     cameraUp.set(0,1,0).applyQuaternion(camera.quaternion);
     for(const model of models.values())if(model.group.visible&&model.chatSprite)walkerModels.placeChat(model,cameraUp);
     bungeoCustomer.placeChat(cameraUp);
-    const anchorModel=models.get(anchor.id);
     if(anchorModel&&cameraDistance<1.08)anchorModel.group.visible=false;
     if(arcadeFloors.has(insideId)&&cameraDistance<3.2&&anchorModel?.label)anchorModel.label.visible=false;
-    const umbrella=firstPerson&&anchor.sharedUmbrella&&anchorModel?.umbrella;
+    const umbrella=firstPerson&&!bodyView&&anchor.sharedUmbrella&&anchorModel?.umbrella;
     if(umbrella?.visible){
       if(!firstPersonUmbrella){firstPersonUmbrella=umbrella.clone();outdoors.add(firstPersonUmbrella);}
       umbrella.getWorldPosition(firstPersonUmbrella.position);

@@ -10,6 +10,7 @@ import {amenities,nearbyAmenity} from "../public/beach-amenities.js";
 import {coastPoint} from "../public/region-coordinates.js";
 import {coastObstacle,coastWalkable} from "../public/coast-region.js";
 import {ground,inWater,shore} from "../public/pohang-layout.js";
+import {renderedJumpLift} from "../public/activities.js";
 
 for(const a of amenities){
  assert.equal(nearbyAmenity(a.entry,a.kind),a);
@@ -23,12 +24,20 @@ for(const z of [-470,-121,111]){
 }
 const swimmer={...coastPoint({x:shore(30)+12,z:30}),coast:{mode:"walk"}};
 const swimming=createCoastPlay({me:swimmer});
+// A key event can arrive between crossing the shoreline and the next swimming tick.
+assert.equal(swimming.canJumpHere(),false);
 assert.equal(swimming.swimmingSpeed(false),swimSpeed(false));
 assert.equal(swimming.swimmingSpeed(true),swimSpeed(true));
-swimmer.coast.mode="surf";
+for(const mode of ["swim","surf"]){
+ swimmer.coast.mode=mode;
+ assert.equal(swimming.canJumpHere(),false);
+ assert.equal(renderedJumpLift({...swimmer,jump:1000},1200,0),0);
+}
 assert.equal(swimming.swimmingSpeed(true),null);
 Object.assign(swimmer,coastPoint({x:shore(30)-1,z:30}),{coast:{mode:"swim"}});
 assert.equal(swimming.swimmingSpeed(false),null);
+swimmer.coast.mode="walk";
+assert(swimming.canJumpHere());
 const rot=()=>({set(x,y,z){this.x=x;this.y=y;this.z=z;}});
 const limb=()=>({upper:{rotation:rot()},lower:{rotation:rot()},end:{rotation:rot()}});
 const rig={body:{position:rot(),rotation:rot()},chest:{rotation:rot()},pelvis:{rotation:rot()},headJoint:{rotation:rot()},arms:[limb(),limb()],legs:[limb(),limb()],itemPivots:[],tray:{}};

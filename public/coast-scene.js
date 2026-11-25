@@ -17,7 +17,8 @@ import {pickSpaceWalk} from "./space-walk-navigation.js";
 import {pavilionFloor,pickPavilion} from "./pohang-pavilion-layout.js";
 import {coastPoint,seaPoint} from "./region-coordinates.js";
 import {shore,ground,onDock,inWater,wave,showAge,busAt,busCount,clamp} from "./pohang-layout.js";
-import {buildCoast,cruiseModel,surfboard} from "./pohang-scenery.js";
+import {buildCoast,cruiseModel} from "./pohang-scenery.js";
+import {carrySurfboard,surfboard} from "./pohang-surfboard.js";
 import {ocean,skyDome,oceanSurface as waterAt} from "./pohang-water.js";
 import {createWake} from "./coast-wake.js";
 import {coastalGulls} from "./coast-gulls.js";
@@ -189,13 +190,13 @@ export function createCoastScene(root,play,walkers,kit){
   }
   let board=boards.get(player.id);
   if(!s?.board){if(board)board.visible=false;return;}
-  if(!board){board=surfboard();boards.set(player.id,board);root.add(board);}
-  board.visible=wet||surf||s.mode==="walk";
-  const a=Math.PI-player.heading*Math.PI/180,land=!wet&&!surf;
-  if(land){
-   board.position.set(p.x+.45*Math.cos(a),surface(player)+.72,p.z-.45*Math.sin(a));
-   board.rotation.set(0,a,1.4,'YXZ');
-  }else{
+  if(!board){board=surfboard();boards.set(player.id,board);}
+  board.visible=Boolean(model.surfboardCarrySide||wet||surf);
+  if(!board.visible)return;
+  if(model.surfboardCarrySide)carrySurfboard(board,model);
+  else{
+   if(board.parent!==root){root.add(board);board.scale.setScalar(1);}
+   const a=Math.PI-player.heading*Math.PI/180;
    const beside=wet?.70:0;
    const center={x:p.x+beside*Math.cos(a),z:p.z-beside*Math.sin(a)};
    const attitude=boardAttitude(center,a,t,waterAt,surf?s.surf?.bank:0);
@@ -207,5 +208,9 @@ export function createCoastScene(root,play,walkers,kit){
    }
   }
  }
- return {benches:[...beachBenches,...cafeBenches],stormAt:p=>studioStorm(seaPoint(p)),tavernStoolTop,tavernDiningPlate,cruiseSeatPose,setClock,waterline,surface,pose,update,pickTrack:ray=>pickDeck(ray)??pickCafe(ray,cafeViewerFloor)??pickSpaceWalk(ray)??pickPavilion(ray),cameraBlocked,watchLift:play.watchLift};
+ function hideBoard(id){
+  const board=boards.get(id);
+  if(board)board.visible=false;
+ }
+ return {benches:[...beachBenches,...cafeBenches],stormAt:p=>studioStorm(seaPoint(p)),tavernStoolTop,tavernDiningPlate,cruiseSeatPose,setClock,waterline,surface,pose,hideBoard,update,pickTrack:ray=>pickDeck(ray)??pickCafe(ray,cafeViewerFloor)??pickSpaceWalk(ray)??pickPavilion(ray),cameraBlocked,watchLift:play.watchLift};
 }

@@ -287,7 +287,11 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
    busHeading=pose.heading;Object.assign(me,pose);mark();
   }else if(s.mode!=="table"&&s.mode!=="scooter"){
    const mode=swimWater(seaPoint(me))?(s.mode==="surf"?"surf":"swim"):"walk";
-   if(mode!==s.mode){s.mode=mode;mark();}
+   if(mode!==s.mode){
+    s.mode=mode;
+    if(mode==="swim"){me.jump=0;me.vaultBase=null;delete s.beachJumpY;}
+    mark();
+   }
   }
   if(s.mode!=="bus")busHeading=null;
   if(s.mode!=="surf"&&(surfRide||s.surf)){surfRide=null;delete s.surf;mark();}
@@ -525,13 +529,21 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
   }
   return {actions,hint};
  }
- return {ship,boat,menu,tableChat,tick,startJump,beachPassage,canStep,afterMove,rideBoard,riderPose,gangwayOpen,selectSeat:(coach,seat,stop)=>command("board",{coach,seat,stop}),
+ function locked(){
+  const s=state();
+  return ["bus","table"].includes(s.mode)||s.mode==="deck"&&Boolean(boat.helm===visit()?.id||s.deckSeat||seatPending());
+ }
+ function canJumpHere(){
+  const mode=state().mode;
+  return mode==="deck"?!locked():mode==="walk"&&!swimWater(seaPoint(me));
+ }
+ return {ship,boat,menu,tableChat,tick,startJump,canJumpHere,beachPassage,canStep,afterMove,rideBoard,riderPose,gangwayOpen,selectSeat:(coach,seat,stop)=>command("board",{coach,seat,stop}),
   seatMap:(coach)=>({line:busLine(coach),bus:busAt(coach,now()/1000),occupied:riders.filter(row=>row.coach===coach).map(r=>r.seat)}),trigger:id=>actions.get(id)?.run(),get grills(){return grills;},get tavernOrders(){return orders;},
   swimmingSpeed:fast=>{
    const mode=state().mode;
    return (mode==="walk"||mode==="swim")&&swimWater(seaPoint(me))?swimSpeed(fast):null;
   },
-  locked:()=>["bus","table"].includes(state().mode)||state().mode==="deck"&&Boolean(boat.helm===visit()?.id||state().deckSeat||seatPending()),
+  locked,
   slideAlongRail,
   atSea:()=>["scooter","deck","bus","table"].includes(state().mode),
   deckCheckpoint:()=>state().mode==="deck"?(restoredDeckSpot(deck)??{...boardingSpot,h:mainFloor}):null,

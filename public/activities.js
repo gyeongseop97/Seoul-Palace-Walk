@@ -23,6 +23,7 @@ export function deckJumpLift(avatar,clock){
   return phase<0?0:Math.max(0,s.deckJumpY-s.floor+4*JUMP_HEIGHT*phase*(1-phase));
 }
 export function renderedJumpLift(avatar,clock,floor){
+  if(avatar.coast?.mode==="swim"||avatar.coast?.mode==="surf")return 0;
   if(avatar.coast?.mode==="deck"&&Number.isFinite(avatar.coast.deckJumpY))return deckJumpLift(avatar,clock);
   if(avatar.jump&&avatar.coast?.mode==="walk"&&Number.isFinite(avatar.coast.beachJumpY)){
     const phase=(clock-avatar.jump)/JUMP_MS;

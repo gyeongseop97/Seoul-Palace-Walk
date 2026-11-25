@@ -8,6 +8,19 @@ const sections=[
 ];
 const railSteps=18;
 const shapes=new Map(),materials=new Map();
+// The front of the wide midpoint is an actual vertex on each rail of the blank.
+const [gripZ,gripWidth,gripRocker]=sections[5];
+const railContact=new T.Vector3();
+export function carrySurfboard(board,model){
+ const side=model.surfboardCarrySide,hand=model.arms[side<0?0:1].hand;
+ if(board.parent===hand)return;
+ hand.add(board);
+ const scale=1/(model.body.scale.x*hand.scale.x);
+ board.scale.setScalar(scale);
+ board.rotation.set(-.035,0,side*1.46,"XYZ");
+ railContact.set(side*gripWidth,gripRocker,gripZ).applyQuaternion(board.quaternion).multiplyScalar(scale);
+ board.position.set(0,-.076,.024).sub(railContact);
+}
 function material(color){
  if(!materials.has(color))materials.set(color,new T.MeshStandardMaterial({color,roughness:.55}));
  return materials.get(color);

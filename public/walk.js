@@ -1608,7 +1608,7 @@ $("run").addEventListener("click",()=>{
 });
 function canJump(time){
   if(!session||!world||bungeoMode||arcade.kind||riding||me.bus||isCycling(me)||queuedBus||queuedBike||sharingUmbrella()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||carryingDiningTray(time)||mealBiteLocked(time)||time-me.jump<jumpDuration(me))return false;
-  if(onCoast&&(coastPlay?.locked()||["scooter","surf"].includes(me.coast?.mode)))return false;
+  if(onCoast&&!coastPlay?.canJumpHere())return false;
   if(me.coast?.deckJumpY!=null)return deckJumpLift(me,time)===0;
   return me.coast?.beachJumpY==null||time-me.jump>=BEACH_JUMP_MS||renderedJumpLift(me,time,world.floorHeight(me))===0;
 }

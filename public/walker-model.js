@@ -537,6 +537,16 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
   const fistGeometry=SIDE.map(side=>modeledDetails(T,sphere,[
     [0xf2bd98,0,-.044,.024,.083,.077,.077],[0xe9aa83,-side*.055,-.042,.071,.033,.044,.029]
   ]));
+  // A flat palm over the rounded rail, with the fingers and thumb curled down opposite faces.
+  const boardHands=[];
+  function boardGrip(i){
+    const side=SIDE[i];
+    return boardHands[i]??=modeledDetails(T,sphere,[
+      [0xf2bd98,0,-.042,.021,.067,.048,.088],
+      ...[-.029,.005,.039,.071].map((z,finger)=>[0xf2bd98,side*.053,-.078,z,.025,.051-finger*.003,.022]),
+      [0xeeb48f,-side*.050,-.069,.060,.030,.049,.031]
+    ]);
+  }
   const peaceGeometry=SIDE.map(side=>modeledDetails(T,sphere,peaceHandParts(side)));
   const knotGeometry = modeledDetails(T,sphere,[
     [0xc97c66,0,0,0,.048,.036,.027],[0xc97c66,-.045,-.017,.007,.062,.023,.016,-.36],
@@ -989,6 +999,9 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const contact=clink?Math.max(0,1-Math.abs(clinkAge-900)/170)*.045:0;
     const performance=gestureHands(position,clock,hands,{riding:riding||scooting,busy:Boolean(clink||carryingTray||eatingMeal)});
     const {pose:acting,sick,fall,umbrellaOpen,umbrellaSide}=performance;
+    model.surfboardCarrySide=position.coast?.board&&position.coast.mode==="walk"&&!seat&&!riding&&!position.bus&&
+      position.photograph==null&&!tray?[-1,1].find(side=>!itemFor(side)&&side!==claspSide&&side!==petSide&&
+        side!==umbrellaSide&&!performance.hand(side))??0:0;
     const bodyPose=acting&&gestureBody(acting);
     const blushLevel=alcoholLevel(position,clock);
     const woozy=alcoholGlasses(position,clock)>=2;
@@ -1153,6 +1166,17 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       const fist=performanceHand?.curl<-.8&&acting.weight>.4;
       const peace=smiling&&performanceHand&&!steeringGrips;
       arm.hand.geometry=peace?peaceGeometry[i]:fist||steeringGrips?fistGeometry[i]:handGeometry[i];
+      if(side===model.surfboardCarrySide){
+        arm.hand.geometry=boardGrip(i);
+        arm.target.set(arm.upper.position.x+side*.097,.437+strideDip,.127);
+        pole.set(side*.72,-.54,-.62);
+        solve(arm,arm.target,pole);
+        // Keep the nose steady as the walker leans forward into a run.
+        pitch.setFromAxisAngle(xAxis,-.76*chest.rotation.x);
+        arm.end.quaternion.copy(globalLower).invert().multiply(pitch);
+        show(null);
+        continue;
+      }
       if(tavern&&side===(tavern.side??1)){
         arm.hand.geometry=fistGeometry[i];tavernDining.hold(model,seat,tavern,i);continue;
       }
