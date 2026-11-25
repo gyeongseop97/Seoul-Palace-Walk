@@ -1332,6 +1332,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
         ticket.table.side===(player.seatSide??0)*2-1))return player;
       return {...player,diningMeal:{kind:ticket.kind,remaining:ticket.remaining,started:ticket.ateAt}};
     }
+    const bus=anchor.bus&&busAt(anchor.bus.index,clock);
+    const firstPersonRaft=firstPerson&&bus?.kind==="raft";
     roster.forEach(player=>{
       let model=models.get(player.id);
       const visible=sameStation(interiorAt(player.x,player.y),insideId)&&Math.hypot(player.x-anchor.x,player.y-anchor.y)<135;
@@ -1394,14 +1396,14 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
         }
       }else if(model.moleHammer)model.moleHammer.visible=false;
       if(insideId!==ARCADE_UPPER_SITE.id&&model.arcadeGear)model.arcadeGear.group.visible=false;
-      if(model.label)model.label.visible=!state.photoCapture;
+      if(model.label)model.label.visible=!state.photoCapture&&!(firstPersonRaft&&player.bus?.index===bus.index);
       if(state.photoCapture){
         model.emote.visible=false;
         if(model.chatSprite)model.chatSprite.visible=false;
       }
     });
     minigameWorld.live(models,indoors||state.photoCapture?null:state.minigameAimPreview);
-    const seat=seatAt(anchor,clock),bus=anchor.bus&&busAt(anchor.bus.index,clock);
+    const seat=seatAt(anchor,clock);
     const coastBus=coast&&anchor.coast?.mode==="bus";
     const atCoastHelm=coast&&anchor.coast?.mode==="deck"&&coast.play.boat.helm===anchor.id;
     const surfing=seaside&&anchor.coast?.mode==="surf";
@@ -1670,7 +1672,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const shelter=anchor.umbrellaShelter;
     drawPrecipitation({x:camera.position.x,z:camera.position.z,floor:photoGround??walkerFloor,
       walkerX:wx(shelter?.x??anchor.x),walkerZ:wz(shelter?.y??anchor.y),walkerFloor,clock,atmosphere,
-      sheltered:Boolean(shelter||anchor.umbrella),sharedShelter:Boolean(shelter),inside:indoors||Boolean(anchor.bus&&firstPerson),
+      sheltered:Boolean(shelter||anchor.umbrella),sharedShelter:Boolean(shelter),inside:indoors||Boolean(bus&&firstPerson&&!firstPersonRaft),
       sparse:quality.sparse,pixelRatio:quality.pinned?quality.max:quality.ratio,night});
     seaside?.update(state,night,camera,renderer.domElement.height,quality.sparse||quality.ratio<.9);
     historicCity?.update(state,night,camera);
