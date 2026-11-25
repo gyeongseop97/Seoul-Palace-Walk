@@ -38,7 +38,7 @@ import {cheonggyeBounds,cheonggyeDeckExits,cheonggyeDeckStep,cheonggyeLandmarks,
 import {FOOT_BATH_PERIOD,footKickAge} from "./walker-model.js";
 import {inSonghyeon,songhyeonBounds,songhyeonOutline,songhyeonPaths,songhyeonLawns,songhyeonLandmarks} from "./songhyeon-layout.js";
 import {uijeongbuOutline,uijeongbuEntry,uijeongbuGarden,uijeongbuWalks,uijeongbuConnections,uijeongbuSideRoad,uijeongbuBusPavement,uijeongbuRemains,sajikEastRoad,uijeongbuPavedConnections,uijeongbuCrossings,gardenSidewalk,gardenVerge} from "./uijeongbu-layout.js";
-import {BUS_SEATS,bukchonBusRoads,busAt,busSeatPose,busServiceName,busStopById,busesForRegion,stopsForRegion,busStopTimes,nearBus,setBusYields} from "./bus-network.js";
+import {BUS_SEATS,bukchonBusRoads,busAt,busSeatPose,busSeatCount,isRaftBus,busServiceName,busStopById,busesForRegion,stopsForRegion,busStopTimes,nearBus,setBusYields} from "./bus-network.js";
 import {approachingTraffic,clearingLane,sidewalkRefuge} from "./crossing-traffic.js";
 import {bikeDocks,bikeMountReach,bikeParkDuration,bikePassengerBoardSpeed,bikePassengerOffset,bikePassengerPose,
   isBikeDriver,isBikePassenger,isCycling,nearBikeDock} from "./sejong-bike.js";
@@ -622,7 +622,7 @@ window.addEventListener("pointerdown",event=>{if(event.pointerType==="mouse")sou
 window.addEventListener("pointerup",event=>{if(event.pointerType!=="mouse")sound.wake();},{passive:true});
 window.addEventListener("keydown",()=>sound.wake(),{passive:true});
 function updateBusSound(time,indoors){
-  if(indoors){sound.bus(null);return;}
+  if(indoors||me.bus&&isRaftBus(me.bus.index)){sound.bus(null);return;}
   const bus=me.bus&&busAt(me.bus.index,time);
   let source=bus,distance=bus?0:43;
   if(!bus&&!onCoast)for(const index of busesForRegion(inGyeongju,me)){
@@ -1854,7 +1854,8 @@ shortcutButtons.forEach((button,index)=>button.addEventListener("click",()=>{
   const feet=platformAt(destination.x,destination.y)+stepUp;
   if(!walkable(destination.x,destination.y,feet))return;
   if(me.bus||isCycling(me)||queuedBus||queuedBike){
-    toast(isCycling(me)?bikeName+"에서 내린 뒤 순간이동할 수 있어요.":"버스에서 내린 뒤 순간이동할 수 있어요.");return;
+    const name=isCycling(me)?bikeName:isRaftBus(me.bus?.index??queuedBus?.index)?"뗏목":"버스";
+    toast(name+"에서 내린 뒤 순간이동할 수 있어요.");return;
   }
   const linkId=myLink()?.id??(queuedHand?.action==="offer"?queuedHand.id:null);
   if(linkId){queuedHand={action:"release",id:linkId};changeLinks(links);}
@@ -2327,6 +2328,14 @@ function travelTime(ms){
 }
 function refreshBusSeats(time){
   if(!busDialog.open||!selectedBus)return;
+  const raft=!selectedBus.coast&&isRaftBus(selectedBus.index);
+  if(busDialog.dataset.vehicle!==(raft?"raft":"bus")){
+    busDialog.dataset.vehicle=raft?"raft":"bus";
+    const count=raft?busSeatCount(selectedBus.index):BUS_SEATS;
+    setText($("bus-seat-title"),raft?"뗏목 자리 고르기":"버스 좌석 고르기");
+    attr(busDialog.querySelector(".bus-seating"),"aria-label",(raft?"뗏목":"버스")+" 좌석 "+count+"개");
+    seatButtons.forEach((button,i)=>{button.hidden=i>=count;});
+  }
   if(selectedBus.coast&&coastPlay){
     const {bus,occupied,line}=coastPlay.seatMap(selectedBus.index),here=bus.stop===selectedBus.stop;
     setText($("bus-seat-time"),here?line.name+" · "+bus.left+"초 뒤 출발":"버스가 출발했어요.");
@@ -2334,10 +2343,15 @@ function refreshBusSeats(time){
   }
   const {index,stop}=selectedBus,bus=busAt(index,time),here=bus?.stopId===stop.id;
   const {arrivalMs,departureMs}=busStopTimes(stop.id,time);
-  const status=here?`${stop.direction} · ${travelTime(bus.remaining)} 뒤 출발`:
-    departureMs===null?"선택한 버스가 출발했어요.":"다른 버스가 정차했어요. 창을 닫고 좌석을 다시 골라 주세요.";
-  setText($("bus-seat-time"),`${status} · 다음 버스 ${travelTime(arrivalMs)} 뒤 도착`);
+  if(raft){
+    setText($("bus-seat-time"),here?stop.direction+" · "+travelTime(bus.remaining)+" 뒤 출발":"뗏목이 떠났어요. "+travelTime(arrivalMs)+" 뒤에 돌아와요.");
+  }else{
+    const status=here?`${stop.direction} · ${travelTime(bus.remaining)} 뒤 출발`:
+      departureMs===null?"선택한 버스가 출발했어요.":"다른 버스가 정차했어요. 창을 닫고 좌석을 다시 골라 주세요.";
+    setText($("bus-seat-time"),`${status} · 다음 버스 ${travelTime(arrivalMs)} 뒤 도착`);
+  }
   seatButtons.forEach((button,seat)=>{
+    if(button.hidden)return;
     const occupied=here&&seatTaken(index,seat);
     button.disabled=!here||occupied;
     setText(button,`${seat+1}번${occupied?" · 이용 중":""}`);
@@ -2450,6 +2464,10 @@ function acceptBikeOffer(offer,time){
     near(requester.position,me.x,me.y)<=bikeMountReach&&canRideBikeSegment(requester.position,me));
 }
 function nearbyBusStop(){
+  if(inGyeongju){
+    const pier=region.nearRaftStop(me,BUS_STOP_INFO_REACH);
+    if(pier)return pier;
+  }
   let closest=null,range=BUS_STOP_INFO_REACH;
   for(const stop of stopsForRegion(inGyeongju)){
     const distance=near(stop.board,me.x,me.y);
@@ -2474,8 +2492,11 @@ function updateBusStatus(bus,stop,time){
   const schedule=bus?null:busStopTimes(shown.id,time);
   setText($("bus-status-stop"),shown.name);
   setText($("bus-status-direction"),bus?busServiceName(bus.index)+" · 탑승 중":shown.direction);
-  setText($("bus-status-arrival-label"),bus?"다음 정류장 도착":"다음 버스 도착");
-  showCountdown(busArrival,next?bus.eta:schedule?.arrivalMs);
+  const raft=shown.kind==="raft";
+  setText($("bus-status-arrival-label"),raft?(bus?"다음 선착장 도착":"뗏목 도착"):bus?"다음 정류장 도착":"다음 버스 도착");
+  setText(busDeparture.firstElementChild,raft?"뗏목 출발":"정차 버스 출발");
+  const raftAtPier=raft&&schedule?.departureMs!=null;
+  showCountdown(busArrival,next?bus.eta:raftAtPier?null:schedule?.arrivalMs);
   showCountdown(busDeparture,bus?.stopId?bus.remaining:schedule?.departureMs);
 }
 function updateTransport(time,markers){
@@ -2501,8 +2522,9 @@ function updateTransport(time,markers){
   $("bike-accept").disabled=!incoming||!acceptBikeOffer(incoming,time);
   $("bike-decline").disabled=Boolean(queuedBike);
   const button=$("bus-action");
-  setActivity("bus-action",queuedBus?"버스 확인 중":bus&&stop?"버스 내리기":boarding?"버스 타기":null,Boolean(queuedBus));
-  if(inGyeongju&&boarding&&markers)markers.set("bus-action",{x:boarding.stop.board.x-region.gyeongjuOrigin.x,z:boarding.stop.board.y-region.gyeongjuOrigin.y,h:0,label:"버스 타기"});
+  const vehicle=isRaftBus(queuedBus?.index??bus?.index??boarding?.bus.index)?"뗏목":"버스";
+  setActivity("bus-action",queuedBus?vehicle+" 확인 중":bus&&stop?vehicle+" 내리기":boarding?vehicle+" 타기":null,Boolean(queuedBus));
+  if(inGyeongju&&boarding&&markers)markers.set("bus-action",{x:boarding.stop.board.x-region.gyeongjuOrigin.x,z:boarding.stop.board.y-region.gyeongjuOrigin.y,h:boarding.stop.kind==="raft"?world.floorHeight(boarding.stop.board):0,label:vehicle+" 타기"});
   if(boarding)attr(button,"aria-haspopup","dialog");else button.removeAttribute("aria-haspopup");
   const label=passenger?(people.get(me.bikeRide.driver)?.nickname??"친구")+" 님과 "+bikeName+" 동승 중":driver?
     bikeName+(me.bike.passenger?" · 둘이 타는 중":" 이용 중 · 지정 대여소에서 반납"):parked&&(dock||canRemount)?
@@ -2603,7 +2625,7 @@ function confirmTransport(avatar,result,bus,bike){
   if(bus&&queuedBus===bus){
     queuedBus=null;
     if(result?.bus==="occupied")toast("이미 앉은 사람이 있어요. 다른 좌석을 골라 주세요.");
-    else if(result?.bus==="unavailable")toast(bus.action==="board"?"버스가 정차한 곳에서 다시 타 주세요.":"다음 정류장에 도착한 뒤 내릴 수 있어요.");
+    else if(result?.bus==="unavailable")toast(isRaftBus(bus.index)?(bus.action==="board"?"뗏목이 선착장에 닿으면 타 주세요.":"다음 선착장에 닿으면 내릴 수 있어요."):bus.action==="board"?"버스가 정차한 곳에서 다시 타 주세요.":"다음 정류장에 도착한 뒤 내릴 수 있어요.");
   }
   if(bike&&queuedBike===bike){
     queuedBike=null;

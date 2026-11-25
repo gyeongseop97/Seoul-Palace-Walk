@@ -1,6 +1,9 @@
 import * as T from "three";
 import {roads,buildings,mounds,parks,walls,places,woljeongBridge} from "./gyeongju-layout.js";
 import {drawWoljeong,woljeongFooting} from "./woljeong-model.js";
+import {createRaftScene,drawRaftPiers} from "./gyeongju-raft-model.js";
+import {RAFT_DECK_HEIGHT,raftHeave,raftPierHeight} from "./gyeongju-raft-layout.js";
+import {isRaftBus} from "./bus-network.js";
 import {gyeongjuPlantings} from "./gyeongju-planting-layout.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {buildPalacePond} from "./palace-pond-model.js";
@@ -228,6 +231,7 @@ function buildDistrict(root,isStation,kit,glowMat,bulb,waterMaterials,bridgeRoof
   drawGyeongjuBikeDocks(k,kit);
   observatory(k,places.cheomseongdae);magnolia(k,places.magnolia);
   drawWoljeong(k,footbridge,glowMat,bridgeRoof);
+  drawRaftPiers(k);
   stoneGate(k,places.northGate,-.25,false);stoneGate(k,places.mainGate,-.64,true);
   busShelter(k,places.townBus,busYaw(places.townBus,nearest),"천마총후문 · 황리단길");
   busShelter(k,places.townReturnBus,busYaw(places.townReturnBus,nearest),"경주역 방면");
@@ -247,6 +251,8 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
  const bulb=new T.CylinderGeometry(.5,.45,1,8),insideSolid=obstacleGrid();
  station.name="경주역 광장";town.name="경주 역사유적지구";outdoors.add(station,town);
  const marker=buildCoastActionMarker(outdoors,outdoors,()=>.01);
+ const updateRaft=createRaftScene(town);
+ let raftLift=0;
  const glow=new T.PointLight(0xffc576,0,28,1.3);glow.position.set(places.cheomseongdae.x+2,3.2,places.cheomseongdae.z+5);town.add(glow);
  const bridgeLight=new T.PointLight(0xffc48a,0,45,1.0);
  bridgeLight.position.set(places.woljeong.x,7,places.woljeong.z);town.add(bridgeLight);
@@ -258,8 +264,9 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
   station.visible=isStation;town.visible=!isStation;
  }
  return {benches:marketBenches,surface(world){
+   if(isRaftBus(world.bus?.index))return RAFT_DECK_HEIGHT+raftLift;
    const p={x:world.x-origin.x,z:world.y-origin.y};
-   return insideObservatory(p)?tower.landing:footbridge.surface(p);
+   return insideObservatory(p)?tower.landing:raftPierHeight(p)||footbridge.surface(p);
   },cameraBlocked(world,y){
    const local={x:world.x-origin.x,z:world.y-origin.y};
    if(inCheonmaHall(local))return y>3.05;
@@ -288,7 +295,11 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
     staff??=createMarketStaff(town,kit,walkerModels);
     staff.update(state.clock??Date.now(),state.diningService??[]);
    }
-   if(!isStation)tickWater(waterMaterials,((state.clock??0)/1000)%14400,night);
+   if(!isStation){
+    const clock=state.clock??Date.now();
+    raftLift=raftHeave(clock);updateRaft(clock,camera.position);
+    tickWater(waterMaterials,(clock/1000)%14400,night);
+   }
    if(lastEye.distanceToSquared(camera.position)>64){
     lastEye.copy(camera.position);
     for(const mesh of (isStation?station:town).children){

@@ -57,6 +57,7 @@ import { buildBikeDocks, makeRidingBike, registerBikeDocks } from "./sejong-bike
 import { bikeDocks, isBikePassenger, isCycling } from "./sejong-bike.js";
 import { buildSejongBusModels } from "./sejong-bus-model.js";
 import {BUS_FLOOR,busAt,busSeatPose,stopsForRegion} from "./bus-network.js";
+import {RAFT_SEAT_HEIGHT,raftHeave} from "./gyeongju-raft-layout.js";
 import {buildGyeongjuBuses} from "./gyeongju-bus-model.js";
 import { transitStops } from "./transit-routes.js";
 import { addPalacePeople } from "./palace-people.js";
@@ -893,7 +894,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       if(seat)return {...seat,base:footBathSeatBase(seat.top)};
     }
     const bus=position.bus&&busAt(position.bus.index,clock),pose=bus&&busSeatPose(bus,position.bus.seat);
-    if(pose)return {...pose,base:BUS_FLOOR+.015+busGround(bus)};
+    if(pose)return {...pose,base:bus.kind==="raft"?footBathSeatBase(RAFT_SEAT_HEIGHT+raftHeave(clock)):BUS_FLOOR+.015+busGround(bus)};
     if(seaside&&position.coast?.mode==="table"){
       const dish=seaside.tavernDiningPlate(position.coast.seat);
       return {x:position.x,y:position.y,heading:position.heading,base:footBathSeatBase(seaside.tavernStoolTop),
@@ -1410,14 +1411,15 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const carryingBoardView=firstPerson&&!state.photoCamera&&Boolean(anchorModel?.surfboardCarrySide);
     const bodyView=ridingScooterView||tavernView||carryingBoardView;
     const shipOrbit=atCoastHelm&&!firstPerson;
-    const outsideBus=(bus||coastBus)&&!firstPerson;
+    const outsideRaft=bus?.kind==="raft"&&!firstPerson;
+    const outsideBus=(bus||coastBus)&&!outsideRaft&&!firstPerson;
     const floor=seat?0:footing(anchor.bikeDriverPosition??anchor);
     const fallWeight=firstPerson?(bikeFallAt(anchor,clock)?.weight??0):0;
     // In a train seat the lens rides above the headrests, so the rows behind never cover it.
     const coachSeat=insideId==="ktx-coach"&&Boolean(seat)&&!firstPerson;
     const eyeHeight=outsideBus?2.115+(coastBus?1.85:busGround(bus)):seat?(firstPerson?1.30:coachSeat?1.5:1.22)+(seat.base??0):
       (firstPerson?1.28:1.20)+floor+renderedJumpLift(anchor,clock,floor)+(isCycling(anchor)?.12:0)-fallWeight*.87;
-    const cameraPoint=outsideBus&&bus?bus:seat??anchor;
+    const cameraPoint=(outsideBus||outsideRaft)&&bus?bus:seat??anchor;
     const watchLift=seaside?.watchLift()??0;
     anchorPoint.set(wx(cameraPoint.x),eyeHeight+watchLift,wz(cameraPoint.y));
     if(tavernView)anchorModel?.headJoint.localToWorld(anchorPoint.set(0,.266,.22));
@@ -1452,7 +1454,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       camera.updateProjectionMatrix();
     }
     const viewPitch=firstPerson?Math.max(-87,Math.min(65,view.tilt+(tavernView?15:0))):
-      Math.max(-83,Math.min(62,(shipOrbit?24:outsideBus?23:14)+(view.tilt<0?view.tilt*1.22:view.tilt)));
+      Math.max(-83,Math.min(62,(shipOrbit?24:outsideBus?23:outsideRaft?18:14)+(view.tilt<0?view.tilt*1.22:view.tilt)));
     const bathView=!firstPerson&&seat?.footBath;
     const pitch=tightStreamView?Math.max(20,Math.min(41,viewPitch)):bathView?Math.max(23,viewPitch):viewPitch;
     const orbitPitch=firstPerson?pitch:Math.max(shipOrbit?8:outsideBus?4:coachSeat?9:-10,pitch);
@@ -1467,7 +1469,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       cameraDistance=0;
     }else{
       const ceiling=insideId==="ktx-coach"?2.4:sameStation(insideId,"station-hall")?(railHeight(anchor.x,anchor.y)??0)+8:arcadeFloors.has(insideId)?3.74:diningById[insideId]?4.5:4.97;
-      const distance=Math.min(shipOrbit?42-view.zoom*3:outsideBus?11.8-view.zoom*1.15:surfing?5.7-view.zoom*.50:4.55-view.zoom*.42,
+      const distance=Math.min(shipOrbit?42-view.zoom*3:outsideBus?11.8-view.zoom*1.15:outsideRaft?6.8-view.zoom*.6:surfing?5.7-view.zoom*.50:4.55-view.zoom*.42,
         indoors&&arm.y>0?(ceiling-pivot.y)/arm.y:Infinity,tightStreamView?2.36:bathView?3.3:Infinity);
       let available=distance;
       // Shorten the orbit arm at walls and let it ease back out as space opens.

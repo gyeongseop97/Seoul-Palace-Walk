@@ -7,7 +7,7 @@ import {validItemSlot} from "./public/held-items.js";
 import {BIKE_FALL_DURATION_MS,GESTURE_DURATIONS,MAX_ALCOHOL_DRINKS,MAX_ALCOHOL_LEVEL} from "./public/avatar-gestures.js";
 import {interiorAt} from "./public/interior-layout.js";
 import {arcadeFloorAt} from "./public/arcade-layout.js";
-import {BUS_COUNT,BUS_SEATS,BUS_BOARD_REACH,busAt,busStopById,busSeatPose} from "./public/bus-network.js";
+import {BUS_COUNT,BUS_SEATS,RAFT_INDEX,busAt,busBoardReach,busSeatCount,busStopById,busSeatPose} from "./public/bus-network.js";
 import {bikeDockReach,bikeDocks,bikeMountReach,bikeParkDuration,bikePassengerPose} from "./public/sejong-bike.js";
 import {gyeongjuBikeDocks} from "./public/gyeongju-bike.js";
 import {acceptBikeRide,bikePassenger,closeBikeOffer,dismountBikePassenger,dropBikePassengers,ensureBikeOffers,
@@ -119,8 +119,8 @@ const validFeed = (feed) => feed && validId(feed.claim) && validTime(feed.at) &&
   (feed.slot===undefined||validItemSlot(feed.slot)) &&
   typeof feed.id==="string" && /^[a-z0-9-]{1,32}$/.test(feed.id);
 const busIndex = index => Number.isInteger(index)&&index>=0&&index<BUS_COUNT;
-const busSeat = seat => Number.isInteger(seat)&&seat>=0&&seat<BUS_SEATS;
-const validBus = bus => bus?.action==="board"?busIndex(bus.index)&&busSeat(bus.seat):
+const busSeat = (index,seat) => Number.isInteger(seat)&&seat>=0&&seat<busSeatCount(index);
+const validBus = bus => bus?.action==="board"?busIndex(bus.index)&&busSeat(bus.index,bus.seat):
   bus?.action==="exit"&&(bus.index==null||busIndex(bus.index));
 const docksById=new Map([...bikeDocks,...gyeongjuBikeDocks].map(dock=>[dock.id,dock]));
 const tandemActions=new Set(["requestRide","acceptRide","declineRide","cancelRide"]);
@@ -164,6 +164,7 @@ const expiredRidePatch=`CASE WHEN json_type(avatar,'$.bus.resume')='object'
 const invalidBusRide=`(json_type(avatar,'$.bus') IS 'object' AND (
   json_type(avatar,'$.bus.index') IS NOT 'integer' OR json_extract(avatar,'$.bus.index') NOT BETWEEN 0 AND ${BUS_COUNT-1}
   OR json_type(avatar,'$.bus.seat') IS NOT 'integer' OR json_extract(avatar,'$.bus.seat') NOT BETWEEN 0 AND ${BUS_SEATS-1}
+  OR (json_extract(avatar,'$.bus.index')=${RAFT_INDEX} AND json_extract(avatar,'$.bus.seat')>=${busSeatCount(RAFT_INDEX)})
 ))`;
 async function enterRoom(db,body){
   const {action,id,key,avatar,view}=body||{};
@@ -233,7 +234,7 @@ async function enterRoom(db,body){
     serverTime:now,weather:await getRoomWeather(db,now)});
 }
 
-function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeAction,pendingPicnic,pendingBungeo){
+function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeAction,pendingPicnic,pendingBungeo,busAction){
   const {feed,chat,bus,bike,bikeRide,bikeFallAt,picnicClaim,bungeoClaim,arcade,bag,plushHead,plushBack,bagClaim,...snapshotData}=avatar;
   const activity=key&&cleanArcadeActivity(avatar);
   if(activity)snapshotData.arcade=activity;
@@ -277,6 +278,8 @@ function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeA
     'blocked',json('false'),'up',json('false'),'jump',0`;
   // The first mount changes the canonical pose. A retry still posts the old approach pose.
   const mountedPose=bikeAction==="mount"?`,${vehiclePose}`:"";
+  // A delayed ride packet or repeated exit can still carry a position from the river.
+  const stalePassenger=bikeRide?.driver||busIndex(bus?.index)||busAction==="exit";
   const transportPatch=`json_patch(json_patch(${parkedBikePatch},
     CASE WHEN json_extract(avatar,'$.bikeFallAt') IS NOT NULL
       THEN json_object('bikeFallAt',json_extract(avatar,'$.bikeFallAt')) ELSE '{}' END),
@@ -287,7 +290,7 @@ function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeA
       'seat',NULL,'seatSide',NULL,${vehiclePose})
     WHEN ${mountedBike()} THEN json_object(
       'bike',json_extract(avatar,'$.bike'),'seat',NULL,'seatSide',NULL${mountedPose})
-    ELSE ${bikeRide?.driver?`json_object('seat',NULL,'seatSide',NULL,${vehiclePose})`:"'{}'"} END)`;
+    ELSE ${stalePassenger?`json_object('seat',NULL,'seatSide',NULL,${vehiclePose})`:"'{}'"} END)`;
   const bikeCutoff=now-bikeParkDuration;
   const picnicGuard=pendingPicnic?`AND NOT EXISTS (SELECT 1 FROM picnic_requests p
     WHERE p.room=walkers.room AND p.player=walkers.id AND p.request=?)`:"";
@@ -381,7 +384,7 @@ function busStatements(db,room,id,key,action,now,active){
             AND json_extract(peer.avatar,'$.bus.index')=? AND json_extract(peer.avatar,'$.bus.seat')=?
         )
     `).bind(JSON.stringify({index:action.index,seat:action.seat,resume:stop.exit}),x,y,heading,room,id,key,active,now-FEED_MS,now-BIKE_FALL_DURATION_MS,
-      ...accessArguments(stop.board,BUS_BOARD_REACH),active,action.index,action.seat)];
+      ...accessArguments(stop.board,busBoardReach(action.index)),active,action.index,action.seat)];
   }
   const buses=action.index==null?Array.from({length:BUS_COUNT},(_,index)=>index):[action.index];
   return buses.flatMap(index=>{
@@ -449,7 +452,7 @@ function releaseTransportHands(db,room,id,key){
 
 function transportAvatar(row,now,yields){
   const avatar=JSON.parse(row.avatar);
-  if(busIndex(avatar.bus?.index)&&busSeat(avatar.bus.seat)){
+  if(busIndex(avatar.bus?.index)&&busSeat(avatar.bus.index,avatar.bus.seat)){
     const {index,seat}=avatar.bus;
     avatar.bus={index,seat};
     Object.assign(avatar,busSeatPose(busAt(index,now,yields),seat));
@@ -468,7 +471,7 @@ function transportResult(bus,bike,avatar,walkers,id,now,bikeOffer,bikeReply){
   if(bus?.action==="board"){
     const matches=rider=>rider?.index===bus.index&&rider.seat===bus.seat;
     const stop=busStopById(busAt(bus.index,now)?.stopId);
-    const atBerth=stop&&Math.hypot(avatar.x-stop.board.x,avatar.y-stop.board.y)<=BUS_BOARD_REACH;
+    const atBerth=stop&&Math.hypot(avatar.x-stop.board.x,avatar.y-stop.board.y)<=busBoardReach(bus.index);
     result.bus=matches(avatar.bus)?"boarded":atBerth&&walkers.some(peer=>peer.id!==id&&matches(peer.avatar.bus))?"occupied":"unavailable";
   }else if(bus)result.bus=avatar.bus?"unavailable":"exited";
   if(bike){
@@ -633,7 +636,7 @@ export async function api(request,env){
     if(key)operations.push(dismountBikePassenger(db,room,id,key,{online,expired:true}));
     const pendingPicnic=picnic?.action==="place"||picnic?.action==="take"?picnic.id:undefined;
     const pendingBungeo=["take","gift","putTray","takeTray"].includes(bungeo?.action)?bungeo.id:undefined;
-    if(!feed||currentFeed)operations.push(avatarUpdate(db,room,id,key,avatar,view,now,active,feed?.claim,bike?.action,pendingPicnic,pendingBungeo));
+    if(!feed||currentFeed)operations.push(avatarUpdate(db,room,id,key,avatar,view,now,active,feed?.claim,bike?.action,pendingPicnic,pendingBungeo,bus?.action));
     if(key&&avatar.bikeRide?.driver)operations.push(refreshBikePassenger(db,room,id,key,online));
     if(chat)operations.push(chatUpdate(db,room,id,key,chat,now,active));
     if(Math.random()<.004){

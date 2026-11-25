@@ -5,6 +5,7 @@ import {gyeongjuPlantings} from "./gyeongju-planting-layout.js";
 import {tower,observatoryApproach,insideObservatory} from "./gyeongju-observatory.js";
 import {daereungwonPlaces,inCheonmaHall,cheonmaExhibit,michuStoneAt,twinTombName,twinHeight,cheonmaPoint} from "./daereungwon.js";
 import {gyeongjuBikeDocks,crossesBikeRack} from "./gyeongju-bike.js";
+import {raftStops,RAFT_DOCK_WIDTH,onRaftPier} from "./gyeongju-raft-layout.js";
 
 // Local survey frame in metres, east and south of 129.212 E, 35.836 N.
 const point=([x,z])=>({x,z});
@@ -123,6 +124,10 @@ for(const key of ["townBus","townReturnBus"]){
  road("sidewalk",2.2,"황리단길 정류장 승차대",[stop,end]);
 }
 
+for(const stop of raftStops){
+ road("path",1.95,stop.name+" 강둑길",[stop.path,stop.land]);
+ road("riverLanding",RAFT_DOCK_WIDTH,stop.name+" 선착장",[stop.land,stop.dockEnd]);
+}
 // Spatial bins keep per-frame collisions local even among the dense hanok alleys.
 const cells=new Map(),cellSize=20;
 const key=(x,z)=>x+","+z;
@@ -182,7 +187,7 @@ export function gyeongjuWalkable(p){
  const cell=cells.get(key(Math.floor(p.x/cellSize),Math.floor(p.z/cellSize)));
  if(plantings.blocked(p))return false;
  if(!cell)return openGround(p);
- if(cell.water.some(ring=>inside(p,ring))&&!cell.bridges.some(({a,b,radius})=>distanceTo(p,a,b)<=radius))return false;
+ if(cell.water.some(ring=>inside(p,ring))&&!onRaftPier(p)&&!cell.bridges.some(({a,b,radius})=>distanceTo(p,a,b)<=radius))return false;
  const shop=marketRoomAt(p,.24);
  if(shop?.fit.blocked(p))return false;
  const onLane=segments=>segments.some(({a,b,radius})=>distanceTo(p,a,b)<=radius);

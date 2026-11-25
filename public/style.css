@@ -386,6 +386,8 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 #bus-seats{display:grid;grid-template-columns:1fr 1fr;column-gap:clamp(18px,10vw,60px);row-gap:7px;padding:12px;border:1px solid var(--pine-9);border-radius:22px;background:var(--pine-2)}
 #bus-seats button{min-height:44px;white-space:nowrap}
 #bus-seats button:disabled{opacity:.54}
+#bus-seat-dialog[data-vehicle="raft"] .bus-seating small{display:none}
+#bus-seat-dialog[data-vehicle="raft"] #bus-seats{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;border-radius:7px}
 .map-key{display:flex;flex-wrap:wrap;gap:2px 8px}
 .map-key span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
 .map-key span[hidden], [data-map-category][hidden]{display:none}
