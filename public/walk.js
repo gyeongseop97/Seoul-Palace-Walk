@@ -4615,7 +4615,7 @@ function drawMapRoute(){
   let text=(guide.stairs?"계단까지 ":guide.leaving?"출구까지 ":"도보 ")+distance;
   if(loading||guide.planning)text="도보 경로 찾는 중…";
   else if(length<.25&&near(destination??guide.site,me.x,me.y)<1.2)text=guide.stairs?.name??(guide.leaving?"출구":"도착");
-  else if(!steps.length)text="이 위치에서 걸어가는 길을 찾지 못했어요";
+  else if(!steps.length)text=me.coast?.mode==="deck"?"크루즈에서 내린 뒤 도보 안내를 시작하세요.":"이 위치에서 걸어가는 길을 찾지 못했어요";
   setText($("map-route-distance"),text);
   mapRouteWalk.disabled=!steps.length||length<.25||isCycling(me)||!canWalkTo();
   attr(mapRoutePath,"visibility",destination?"visible":"hidden");
