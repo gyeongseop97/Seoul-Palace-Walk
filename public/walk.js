@@ -355,15 +355,16 @@ graphicsSelect.addEventListener("change",()=>{
 });
 let fullscreenFallback=false;
 function placeViewControls(){
-  const mapLinks=$("map-links"),mapKey=$("map-key");
+  const overview=$("overview-map");
+  if(touchControls.matches)$("map-filter").after(overview);
+  else $("map-corner").prepend(overview);
+  const mapKey=$("map-key");
   mobileSettings.open=false;
   if(mobileHeader.matches){
     $("close-map").before($("presence"));
-    $("map-footer").append(mapKey,mapLinks);
+    $("map-footer").append(mapKey);
   }else{
     mobileSettings.before($("presence"));
-    // The teleport buttons stay under the map; only the legend moves into the settings menu.
-    $("map-footer").append(mapLinks);
     $("desktop-map-settings").append(mapKey);
   }
 }
@@ -420,9 +421,7 @@ mobileSettings.addEventListener("keydown",event=>{
   event.preventDefault();event.stopPropagation();
   mobileSettings.open=false;mobileSettings.querySelector("summary").focus();
 });
-for(const [id,other] of [["nearby-toggle",peerControls],["peer-toggle",nearbyControls]]){
-  $(id).addEventListener("click",()=>{other.close();setEmotes(false);setGestures(false);});
-}
+$("peer-toggle").addEventListener("click",()=>{setEmotes(false);setGestures(false);});
 
 let composingChat=false;
 function chatText(){return chatInput.value.normalize("NFC").replace(/\s+/gu," ").replace(/[\p{Cc}\p{Bidi_Control}]/gu,"").trim();}
@@ -1622,7 +1621,11 @@ document.querySelectorAll("dialog .close").forEach(button=>button.addEventListen
 document.querySelectorAll("dialog").forEach(dialog=>dialog.addEventListener("close",()=>{
   if(session&&document.activeElement===document.body)focusGame();
 }));
-$("model-credits").addEventListener("click",()=>$("credits-dialog").showModal());
+$("model-credits").addEventListener("click",event=>{
+  resetInput();
+  event.currentTarget.focus({preventScroll:true});
+  $("credits-dialog").showModal();
+});
 window.addEventListener("pagehide",()=>{
   saveBag();
   rememberWalkPosition();
@@ -1708,8 +1711,8 @@ function mapIsOpen(){
   return panel.classList.contains("expanded")||(!mobileHeader.matches&&!gameShell.classList.contains("game-fullscreen")&&!panel.classList.contains("desktop-folded"));
 }
 function setMapMode(mode){
-  const routing=mode==="route";
-  $("map-panel").dataset.mode=mode;
+  const routing=mode==="route"||!touchControls.matches;
+  $("map-panel").dataset.mode=routing?"route":"teleport";
   $("map-route-view").hidden=!routing;
   $("map-teleport-view").hidden=routing;
   $("map-mode-route").setAttribute("aria-pressed",String(routing));
@@ -1830,6 +1833,7 @@ const localDestinations={"덕수궁":mapDestinations,"광화문광장":plazaDest
   "서울역":[...stationSites,busShortcut("station-transfer","환승센터")],
   "정동길":[...westSites.slice(1,3),busShortcut("history-west","박물관 정류장")],"경희궁":[...westSites.slice(2),busShortcut("heunghwa-west","흥화문 정류장")]};
 const shortcutRegion=$("shortcut-region"),shortcutPlace=$("shortcut-place"),teleportGo=$("map-teleport-go");
+const quickDistrict=$("quick-travel-district"),quickPlace=$("quick-travel-place"),quickActions=$("quick-travel-actions");
 const shortcutDistricts=inGyeongju?region.travelDistricts:onCoast?{}:localDestinations;
 if(onCoast){
   for(const site of region.destinations){
@@ -1838,31 +1842,63 @@ if(onCoast){
   }
 }
 let chosenDistrict="",shownDistrict="";
+quickDistrict.hidden=onCoast;
+quickPlace.hidden=!inGyeongju;
+quickDistrict.add(new Option("현재 구역",""));
 for(const district of Object.keys(shortcutDistricts)){
+  quickDistrict.add(new Option(district,district));
   const button=document.createElement("button");
   button.type="button";button.textContent=district;button.dataset.district=district;
   button.setAttribute("aria-pressed","false");
   shortcutRegion.append(button);
 }
 function shortcutsHere(){return shortcutDistricts[shownDistrict]??[];}
+let quickSites=null;
+function refreshQuickTravel(){
+  if(quickDistrict.value!==chosenDistrict)quickDistrict.value=chosenDistrict;
+  const sites=onCoast?region.destinations:shortcutsHere();
+  if(sites===quickSites)return;
+  quickSites=sites;
+  if(inGyeongju)quickPlace.replaceChildren(...sites.map((site,index)=>new Option(site.name||site.label,index)));
+  const buttons=(inGyeongju?sites.slice(0,1):sites).map((site,index)=>{
+    const button=document.createElement("button");
+    button.type="button";button.className="quiet";button.dataset.shortcut=index;
+    button.textContent=inGyeongju?"순간이동":site.label||site.name;
+    if(!inGyeongju)button.setAttribute("aria-label",site.aria||(site.name||site.label)+"으로 순간이동");
+    return button;
+  });
+  quickActions.replaceChildren(quickPlace,...buttons);
+}
 function refreshShortcuts(){
+  if(!touchControls.matches&&!$("map-teleport-view").hidden)setMapMode("route");
   const district=chosenDistrict||(regional?region.coastDistrict(me):outdoorMap(me));
   const selected=Object.hasOwn(shortcutDistricts,district)?district:Object.keys(shortcutDistricts)[0];
-  if(shownDistrict===selected)return;
-  shownDistrict=selected;
-  for(const button of shortcutRegion.children)button.setAttribute("aria-pressed",String(button.dataset.district===selected));
-  const sites=shortcutsHere();
-  shortcutPlace.replaceChildren(...sites.map((site,index)=>new Option(site.name||site.label,index)));
-  teleportGo.disabled=!sites.length;
+  if(shownDistrict!==selected){
+    shownDistrict=selected;
+    for(const button of shortcutRegion.children)button.setAttribute("aria-pressed",String(button.dataset.district===selected));
+    const sites=shortcutsHere();
+    shortcutPlace.replaceChildren(...sites.map((site,index)=>new Option(site.name||site.label,index)));
+    teleportGo.disabled=!sites.length;
+  }
+  if(!touchControls.matches)refreshQuickTravel();
 }
+quickDistrict.addEventListener("change",()=>{chosenDistrict=quickDistrict.value;refreshShortcuts();});
+quickActions.addEventListener("click",event=>{
+  const button=event.target.closest("button[data-shortcut]");
+  if(button)teleportToShortcut(quickSites[inGyeongju?quickPlace.selectedIndex:Number(button.dataset.shortcut)],false);
+});
+touchControls.addEventListener("change",()=>{
+  placeViewControls();
+  if(!touchControls.matches)setMapMode("route");
+});
 shortcutRegion.addEventListener("click",event=>{
   const button=event.target.closest("button[data-district]");
   if(!button)return;
   chosenDistrict=button.dataset.district;
   refreshShortcuts();
 });
-teleportGo.addEventListener("click",()=>{
-  const destination=shortcutsHere()[shortcutPlace.selectedIndex];
+teleportGo.addEventListener("click",()=>teleportToShortcut(shortcutsHere()[shortcutPlace.selectedIndex],true));
+function teleportToShortcut(destination,fold){
   if(!session||riding||clinkLocked(gameTime())||!destination)return;
   if(coastPlay?.atSea()){toast("내린 뒤 순간이동할 수 있어요.");return;}
   const feet=platformAt(destination.x,destination.y)+stepUp;
@@ -1875,9 +1911,10 @@ teleportGo.addEventListener("click",()=>{
   if(linkId){queuedHand={action:"release",id:linkId};changeLinks(links);}
   movePlayerTo(destination,destination.name||destination.label);
   clearMapRoute();
-  chosenDistrict="";refreshShortcuts();
-  setMap(false,{fold:true});focusGame();
-});
+  if(fold||!inGyeongju)chosenDistrict="";
+  refreshShortcuts();
+  setMap(false,{fold});focusGame();
+}
 
 const joystick=$("joystick");
 const stickWalkLimit=.64;
@@ -3113,8 +3150,15 @@ $("dining-order").addEventListener("click",()=>{
   resetInput();diningMenu.open(venue,action);
 });
 $("dining-call").addEventListener("click",()=>{
-  const venue=currentDining();
-  if(venue?.service==="staff"&&!diningTicket()&&atDiningTable()&&queueDining("bell",venue))sound.diningBell();
+  const venue=currentDining(),ticket=diningTicket();
+  if(!session||!world||venue?.service!=="staff"||!atDiningTable()||queuedDining)return;
+  if(!ticket){
+    if(queueDining("bell",venue))sound.diningBell();
+  }else if(diningOrderAction(venue)==="order"){
+    resetInput();diningMenu.open(venue,"order");
+  }else{
+    toast(diningStatusMessage(venue,ticket,mealBiteLocked(gameTime()))||"주문 상태를 확인하고 있어요.");
+  }
 });
 $("dining-eat").addEventListener("click",()=>{
   const ticket=diningTicket(),venue=currentDining();
@@ -3483,24 +3527,32 @@ function canPicnic(time){
   return Boolean(session&&world&&!riding&&!me.bus&&!isCycling(me)&&!queuedBus&&!queuedBike&&
     me.seat==null&&!myLink()?.active&&!feedingLocked(time)&&!clinkLocked(time)&&!sickLocked(time)&&time-me.jump>=jumpDuration(me));
 }
+function diningStatusMessage(venue,ticket,eating){
+  if(!ticket)return "";
+  const staff=venue?.service==="robot"?"로봇":"직원";
+  switch(ticket.phase){
+    case "queued":return venue?.service==="robot"&&!atDiningTable()?"빈 식탁에 앉아 주세요.":`${staff}이 주문을 확인하는 중이에요.`;
+    case "summoned":return "직원이 식탁으로 오는 중이에요.";
+    case "ordering":return "직원이 주문을 기다려요.";
+    case "cooking":return "음식을 준비하고 있어요.";
+    case "serving":return `${staff}이 음식을 가져오는 중이에요.`;
+    case "carrying":return "트레이를 들고 있어요.";
+    case "served":return ticket.remaining===0&&!eating?"식사를 마쳤어요.":"식탁에 음식이 놓였어요.";
+    default:return "";
+  }
+}
 function updateDiningControls(eligible,busy,time){
   const venue=eligible?currentDining():null,ticket=venue&&diningTicket();
-  const order=diningOrderAction(venue),staff=venue?.service==="robot"?"로봇":"직원";
+  const order=diningOrderAction(venue);
   const handsBusy=order==="counter"&&(!handsFree(me,time)||myLink()||queuedHand);
   setActivity("dining-order",order==="kiosk"?"키오스크 주문":order==="order"?"주문하기":
     order==="counter"?(handsBusy?"두 손을 비워 주세요":"카운터 주문"):null,busy||Boolean(queuedDining||handsBusy));
-  setActivity("dining-call",venue?.service==="staff"&&!ticket&&atDiningTable()?"벨 누르기":null,busy||Boolean(queuedDining));
+  setActivity("dining-call",venue?.service==="staff"&&atDiningTable()?"벨 누르기":null,busy||Boolean(queuedDining));
   const eating=mealBiteLocked(time);
   const eat=ticket&&(ticket.phase==="carrying"||ticket.phase==="served"&&(ticket.remaining>0||eating));
   setActivity("dining-eat",eat?"먹기":null,busy||Boolean(queuedDining)||eating);
-  const messages={
-    queued:venue?.service==="robot"&&!atDiningTable()?"빈 식탁에 앉아 주세요.":`${staff}이 주문을 확인하는 중이에요.`,
-    summoned:"직원이 식탁으로 오는 중이에요.",ordering:"직원이 주문을 기다려요.",cooking:"음식을 준비하고 있어요.",
-    serving:`${staff}이 음식을 가져오는 중이에요.`,carrying:"트레이를 들고 있어요.",
-    served:ticket?.remaining===0&&!eating?"식사를 마쳤어요.":"식탁에 음식이 놓였어요.",
-  };
-  const message=ticket&&messages[ticket.phase];
-  const status=$("dining-status");status.hidden=!message;setText(status,message||"");
+  const message=diningStatusMessage(venue,ticket,eating);
+  const status=$("dining-status");status.hidden=!message;setText(status,message);
 }
 $("picnic").addEventListener("click",()=>{
   if(!canPicnic(gameTime()))return;
@@ -3565,7 +3617,7 @@ function updateActivities(time,guideNearby,coastMarkers){
     if(spec){
       attr(button,"data-action-target",item.kind);
       const itemLabel=spec.name+(item.remaining&&!feedingHere&&!spec.plush?` · ${item.remaining}회`:"");
-      setText(button.firstElementChild,itemLabel);
+      setText(button.firstElementChild,spec.meal?itemLabel:`${hand} · ${itemLabel}`);
       setText(button.lastElementChild,action);
       attr(button,"aria-label",`${hand} · ${itemLabel} · ${action}`);
     }
@@ -3802,6 +3854,12 @@ function selectCoastMarker(markers){
   return closest;
 }
 function preferredNearbyAction(time){
+  if(onCoast&&me.coast?.mode==="table"){
+    for(const id of ["coast-grill","coast-order","coast-clam","coast-drink","coast-fish","coast-bell"]){
+      const action=$(id);
+      if(!action.hidden&&!action.disabled)return id;
+    }
+  }
   if(onCoast&&me.coast?.mode==="deck"){
     for(const id of ["coast-deckStand","coast-deckSit"]){
       const button=$(id);
@@ -3847,8 +3905,9 @@ function preferredNearbyAction(time){
   if(parkAvailable&&!isBikeDriver(me))return "bike-park";
   if(!bike.hidden&&!bike.disabled)return "bike-action";
   if(parkAvailable)return "bike-park";
-  if(!$("dining-call").hidden&&!$("dining-call").disabled)return "dining-call";
+  if(!$("dining-call").hidden&&!$("dining-eat").hidden&&!$("dining-eat").disabled)return "dining-eat";
   if(!$("dining-order").hidden&&!$("dining-order").disabled)return "dining-order";
+  if(!$("dining-call").hidden&&!$("dining-call").disabled)return "dining-call";
   if(me.seat!=null)return "sit";
   if(!$("museum-door").hidden)return "museum-door";
   if(!$("dining-order").hidden)return "dining-order";
@@ -3946,7 +4005,7 @@ function frame(now){
     setActivity("foot-kick",seatEnabled&&bathing()?(kicking?"발장구치는 중":"발장구치기"):null,kicking);
     attr($("sit"),"aria-pressed",me.seat!=null);
     setText($("game-place"),$("location").textContent);
-    if($("map-panel").dataset.mode==="teleport"&&mapIsOpen())refreshShortcuts();
+    if(mapIsOpen()&&(!touchControls.matches||$("map-panel").dataset.mode==="teleport"))refreshShortcuts();
     updateHandControls();
     const heldGift=!me.bus&&!isCycling(me)&&ITEM_SLOTS.some(s=>validPacked(me[s]));
     setActivity("give-held",heldGift&&giftPeers().length?"물건 건네기":null,bagLocked());
@@ -4677,7 +4736,7 @@ function updateMaps(self,others){
     attr($("map-heading"),"title",city+" / "+district);
   }
   if(fullMap){
-    refreshRoutePicker(inside);
+    if(touchControls.matches)refreshRoutePicker(inside);
     $("world").classList.toggle("overview-map",overview);
     attr(overviewLayer,"visibility",overview?"visible":"hidden");
     overviewButton.hidden=indoors;

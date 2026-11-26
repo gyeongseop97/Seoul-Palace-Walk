@@ -23,7 +23,7 @@ const eventId=()=>(++sequence).toString(16).padStart(32,"0");
 const item=kind=>({kind,remaining:1,started:0});
 const spot=id=>tavernSeatSpot(Math.floor(id/4),id%4);
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-const avatars=new Map(),pending=[];
+const avatars=new Map(),pending=[],notices=new Map(),orderForms=new Map();
 async function send(body){
  const response=await api(new Request("http://localhost/api/room",{method:"POST",body:JSON.stringify(body)}),{DB:db});
  const data=await response.json();
@@ -42,7 +42,8 @@ function game(id,stool){
  const me={...coastPoint(spot(stool)),heading:0,coast:{mode:"walk",board:false},item:item("cheese"),secondItem:item("yakgwa")};
  avatars.set(id,me);
  const visitor={room,id,key},noop=()=>{};
- return createCoastPlay({me,visit:()=>visitor,now:()=>now,changed:noop,reset:noop,notice:noop,canReceiveFood:()=>false,
+ return createCoastPlay({me,visit:()=>visitor,now:()=>now,changed:noop,reset:noop,notice:text=>notices.set(id,text),
+  chooseOrder:submit=>orderForms.set(id,submit),canReceiveFood:()=>false,
   request:(_,body)=>{const result=send(body).then(data=>Response.json(data));pending.push(result);return result;}});
 }
 async function serveBottle(id,stool){
@@ -87,7 +88,22 @@ try{
  assert.equal(ma.coast.seat,0);assert.equal(mb.coast.seat,2);
  assert(!canClink(ma,now));await invite("unavailable");
 
- await serveBottle(alice,0);await poll(a,b);
+ const ring=game=>{assert(game.menu().actions.has("bell"));game.trigger("bell");};
+ ring(a);await poll(a);
+ const call=a.tavernOrders[0].called;
+ ring(a);assert.match(notices.get(alice),/갈게요/);
+ now+=2700;await poll(a,b);
+ assert(b.menu().actions.has("order"));ring(b);
+ orderForms.get(bob)({soju:1,sashimi:1,grilledClam:1});await poll(b);
+ assert.equal(b.tavernOrders[0].phase,"cooking");ring(b);assert.match(notices.get(bob),/준비/);
+ now+=5300;await poll(a);ring(a);assert.match(notices.get(alice),/나갑니다/);
+ now+=3000;await poll(a,b);
+ for(const diner of [a,b]){
+  const actions=diner.menu().actions;
+  for(const id of ["bell","grill","drink","fish","stand"])assert(actions.has(id),id);
+ }
+ assert.equal(a.tavernOrders[0].called,call);
+ const {soju,sashimi,rawClams}=a.tavernOrders[0];assert.deepEqual([soju,sashimi,rawClams],[4,3,3]);
  for(const avatar of [ma,mb]){
   assert.equal(avatar.coast.tableGlass,true);assert(canClink(avatar,now));
   assert.deepEqual([avatar.item,avatar.secondItem],[item("cheese"),item("yakgwa")]);
@@ -109,6 +125,7 @@ try{
  const interrupted=await invite("invited");
  await stand(bob);await poll(b);
  assert.equal(mb.coast.mode,"walk");assert.equal(mb.coast.tableGlass,undefined);
+ assert(!b.menu().actions.has("bell"));
  await accept(interrupted,"unavailable");
  await sync(alice,{id:interrupted,action:"cancel"});
 

@@ -167,6 +167,7 @@
           <button id="character" class="quiet" type="button" aria-haspopup="dialog" aria-controls="character-dialog">캐릭터</button>
           <button id="photo-mode-open" class="quiet" type="button" aria-controls="photo-controls">사진 모드<small>화면을 톡 누르면 도구 열기</small></button>
           <button id="invite" class="invite" type="button" data-native-touch aria-haspopup="dialog" aria-controls="invite-dialog" disabled>초대코드</button>
+          <button id="model-credits" class="quiet" type="button" data-native-touch aria-haspopup="dialog" aria-controls="credits-dialog">자료 출처</button>
           <button id="settings-leave" class="quiet" type="button" data-native-touch aria-haspopup="dialog" aria-controls="leave-save-dialog">방 나가기</button>
           <div id="desktop-map-settings" role="group" aria-label="지도와 장소 이동"></div>
         </div>
@@ -263,19 +264,17 @@
           </div>
           <div class="game-hud">
             <div class="play-command" id="nearby-controls">
-              <div id="nearby-grid" class="context-grid" role="group" aria-label="주변 행동">
+              <div id="nearby-grid" class="context-grid" role="group" aria-label="주변 행동" data-scroll-actions>
                 <button id="nearby-primary" type="button" class="primary context-choice" hidden><span></span><small id="nearby-primary-type" data-category-text aria-hidden="true"></small></button>
                 <button id="nearby-secondary" type="button" class="quiet context-choice" hidden><span></span><small id="nearby-secondary-type" data-category-text aria-hidden="true"></small></button>
                 <button id="nearby-third" type="button" class="quiet context-choice" hidden><span></span><small id="nearby-third-type" data-category-text aria-hidden="true"></small></button>
                 <button id="nearby-fourth" type="button" class="quiet context-choice" hidden><span></span><small id="nearby-fourth-type" data-category-text aria-hidden="true"></small></button>
               </div>
               <div class="play-secondary">
-                <button id="nearby-toggle" type="button" class="quiet" aria-expanded="false" aria-controls="nearby-actions" hidden>더보기</button>
                 <button id="jump" type="button" class="quiet" disabled>점프</button>
               </div>
               <small id="raft-control-hint" hidden>앞뒤로 젓기 · 좌우로 회전</small>
-              <div class="nearby-actions" id="nearby-actions" role="group" aria-label="추가 상호작용" tabindex="-1" data-scroll-actions hidden>
-                <div id="nearby-more-groups"></div>
+              <div id="nearby-actions" hidden>
                 <div class="play-context" id="context-actions">
                   <button id="visitor-guide" type="button" class="quiet activity-button" aria-haspopup="dialog" aria-controls="visitor-guide-dialog" hidden>관람 안내 읽기</button>
                   <button id="bus-action" type="button" class="quiet activity-button" hidden>버스 타기</button>
@@ -449,9 +448,20 @@
             <g id="map-labels" aria-hidden="true"></g>
           </svg>
           <button class="map-location" id="map-center" type="button" aria-label="지도를 내 위치로 이동"><span aria-hidden="true">⌖</span> 내 위치</button>
-          <a class="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>
+          <div class="map-corner" id="map-corner">
+            <a class="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>
+          </div>
           <span class="map-north" aria-hidden="true">↑ N</span>
         </div>
+        <section id="map-quick-travel" aria-labelledby="quick-travel-label">
+          <div class="quick-travel-head">
+            <h3 id="quick-travel-label">순간이동</h3>
+            <select id="quick-travel-district" aria-label="순간이동 구역"></select>
+          </div>
+          <div class="quick-travel-actions" id="quick-travel-actions">
+            <select id="quick-travel-place" aria-label="순간이동할 장소" hidden></select>
+          </div>
+        </section>
         <section class="map-itinerary" aria-labelledby="map-destination-label">
           <p class="map-departure">출발 <span aria-hidden="true">·</span> <strong id="location">매표소 앞</strong></p>
           <h3 id="map-destination-label" class="map-sr">도보 목적지</h3>
@@ -480,7 +490,7 @@
         </label>
             <button id="overview-map" class="quiet" type="button" aria-pressed="false" aria-controls="world">전체 지도</button>
           </div>
-        <div class="map-footer" id="map-footer"><span class="map-key" id="map-key" aria-label="지도 범례"><span><i class="dot mine"></i>나</span><span><i class="dot theirs"></i>동행</span><span data-map-legend="heritage"><i class="dot map-swatch"></i>유적·전시</span><span data-map-legend="park"><i class="dot map-swatch"></i>정원·광장</span><span data-map-legend="shop"><i class="dot map-swatch"></i>상점·식당</span><span data-map-legend="activity"><i class="dot map-swatch"></i>즐길거리</span><span data-map-legend="bus"><i class="dot map-swatch"></i>버스</span><span data-map-legend="railway"><i class="dot map-swatch"></i>철도역</span><span data-map-legend="subway"><i class="dot map-swatch"></i>지하철</span><span data-map-legend="bike"><i class="dot map-swatch"></i>따릉이</span><span data-map-legend="stamp"><i class="dot map-swatch"></i>찍은 도장</span><span data-map-legend="stamp"><i class="dot stamp-dot unvisited"></i>미방문 도장</span></span><div class="map-links" id="map-links"><button id="model-credits" class="quiet" type="button" aria-haspopup="dialog">자료 출처</button></div></div>
+        <div class="map-footer" id="map-footer"><span class="map-key" id="map-key" aria-label="지도 범례"><span><i class="dot mine"></i>나</span><span><i class="dot theirs"></i>동행</span><span data-map-legend="heritage"><i class="dot map-swatch"></i>유적·전시</span><span data-map-legend="park"><i class="dot map-swatch"></i>정원·광장</span><span data-map-legend="shop"><i class="dot map-swatch"></i>상점·식당</span><span data-map-legend="activity"><i class="dot map-swatch"></i>즐길거리</span><span data-map-legend="bus"><i class="dot map-swatch"></i>버스</span><span data-map-legend="railway"><i class="dot map-swatch"></i>철도역</span><span data-map-legend="subway"><i class="dot map-swatch"></i>지하철</span><span data-map-legend="bike"><i class="dot map-swatch"></i>따릉이</span><span data-map-legend="stamp"><i class="dot map-swatch"></i>찍은 도장</span><span data-map-legend="stamp"><i class="dot stamp-dot unvisited"></i>미방문 도장</span></span></div>
         </details>
         <button id="map-route-walk" class="map-submit" type="button" disabled>이 길로 걷기</button>
         </section>
@@ -510,7 +520,7 @@
       <div><dt>시점</dt><dd>화면을 드래그해 둘러보고, 장소명 옆 카메라로 시점을 바꿔요.</dd></div>
       <div><dt>상호작용</dt><dd>가까이 가면 오른쪽 아래에 탈것, 음식 등 종류별로 행동이 보여요. 더 있는 곳에서는 ‘더보기’를 누르세요.</dd></div>
       <div><dt>몸짓·감정</dt><dd>손 모양으로 몸짓을, 웃는 얼굴로 감정을 골라요.</dd></div>
-      <div><dt>지도</dt><dd>지도에서 길찾기 또는 순간이동을 선택하세요.</dd></div>
+      <div><dt>지도</dt><dd><span class="help-keyboard">장소를 누르면 도보 경로가 보입니다. 순간이동은 지도 아래에서 고르세요.</span><span class="help-touch">지도에서 길찾기 또는 순간이동을 선택하세요.</span></dd></div>
     </dl>
   </dialog>
   <dialog id="walk-bag" aria-labelledby="bag-title">
@@ -708,7 +718,7 @@
       <button type="button" class="quiet close" aria-label="닫기">×</button>
     </div>
     <img class="visitor-guide-plaque" src="./seoul-palace-plaque.png" alt="" width="768" height="169" loading="lazy" decoding="async">
-    <p class="guide-intro">대한문 매표소에서 출발해 광화문광장과 경복궁을 지나 북촌까지 걸어갈 수 있어요. 정동 분수대에서는 서·북쪽 돌담길로, 서울광장 동쪽에서는 횡단보도를 건너 환구단으로 이어져요. <strong>전체 지도</strong>에서 장소 이름을 누르면 그곳으로 걸어갑니다.</p>
+    <p class="guide-intro">대한문 매표소에서 출발해 광화문광장과 경복궁을 지나 북촌까지 걸어갈 수 있어요. 정동 분수대에서는 서·북쪽 돌담길로, 서울광장 동쪽에서는 횡단보도를 건너 환구단으로 이어져요. <strong>전체 지도</strong>에서 장소 이름을 누르면 도보 경로를 볼 수 있어요.</p>
     <button id="tutorial-replay" type="button" class="quiet">처음 조작 안내 다시 보기</button>
     <div class="visitor-guide-list">
       <section><h3>청계천 종이배</h3><p>아래 산책로 물가에서 <strong>종이배 접기</strong>를 눌러 색과 쪽지를 골라 보세요. 물살을 따라가는 배 가까이에서 <strong>종이배 건지기</strong>를 누르면 안에 담긴 쪽지를 읽을 수 있어요.</p></section>

@@ -461,11 +461,19 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
    }
   }else if(s.mode==="table"&&tableSeat!=null){
    const table=Math.floor(tableSeat/4),order=orders.find(o=>o.spot===table);
-   if(!order||order.phase==="served")add("bell","벨 누르기",()=>command("callTavern",{table,called:order?.called??0}));
+   const takingOrder=order?.phase==="ordering"&&!order.summary;
+   const orderFood=()=>chooseOrder(items=>{
+    if(state().mode==="table"&&tableSeat!=null&&Math.floor(tableSeat/4)===table)command("orderTavern",{table,items,called:order.called});
+   });
+   add("bell","벨 누르기",()=>{
+    if(!order||order.phase==="served")command("callTavern",{table,called:order?.called??0});
+    else if(takingOrder)orderFood();
+    else if(order.phase==="called")notice("점원 · 네, 지금 갈게요!");
+    else if(order.phase==="cooking"&&now()>=order.ready)notice("점원 · 주문하신 음식 나갑니다!");
+    else notice("점원 · 주문하신 음식 준비하고 있어요.");
+   });
    if(order?.phase==="called")hint="점원이 오고 있어요.";
-   if(order?.phase==="ordering"&&!order.summary)add("order","음식 주문하기",()=>chooseOrder(items=>{
-    if(state().mode==="table"&&Math.floor(tableSeat/4)===table)command("orderTavern",{table,items,called:order.called});
-   }));
+   if(takingOrder)add("order","음식 주문하기",orderFood);
    if(order?.phase==="cooking")hint=t<order.ready?"주방에서 주문을 준비하고 있어요.":"점원이 음식을 가져오고 있어요.";
    const tasting=pending.some(c=>c.action==="taste")||!!s.tasting&&t-s.tasting.at<1450;
    for(const [id,kind,label] of [["drink","soju","소주 한 잔"],["fish","sashimi","회 먹기"],["clam","grilledClam","구운 조개 먹기"]]){
