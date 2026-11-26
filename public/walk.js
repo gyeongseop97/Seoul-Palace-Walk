@@ -4622,7 +4622,7 @@ function updateMaps(self,others){
   if(fullMap){
     const district=indoors?(inside==="museum"?"전시관":venueById[inside].name):regional?region.coastDistrict(self):area;
     const city=inGyeongju?"경주":onCoast?"포항":"서울";
-    setText($("map-area"),city+" / "+(overview?"전체 지도":district));
+    setText($("map-area"),city+" / "+district);
     refreshRoutePicker(inside);
     $("world").classList.toggle("overview-map",overview);
     attr(overviewLayer,"visibility",overview?"visible":"hidden");
