@@ -14,6 +14,8 @@
   --yr-lilac: #d7cef5;
   --yr-coral: #ff806e;
   --yr-shadow: 0 8px 24px rgb(32 66 111 / 15%);
+  --yr-title-weight: 850;
+  --yr-action-weight: 750;
 }
 body { background: var(--yr-paper); }
 :is(#entry-flow, #game-shell, dialog, #toast) { color-scheme: light; }
@@ -46,7 +48,19 @@ body { background: var(--yr-paper); }
   border-radius: 22px; box-shadow: 0 18px 64px rgb(39 66 101 / 12%);
 }
 .entry-profile::before, .entry-server::before { content: none; }
-.entry-flow h1 { color: var(--yr-ink); font-family: inherit; font-weight: 750; }
+.entry-flow h1 {
+  color: var(--yr-ink); font-family: inherit; font-weight: var(--yr-title-weight);
+  font-size: clamp(2rem, 3.65vw, 3.15rem); line-height: 1.32; letter-spacing: -.045em;
+}
+.entry-flow :is(.entry-actions button, .entry-code-form button) {
+  font-weight: var(--yr-action-weight); letter-spacing: -.015em; line-height: 1.3;
+}
+.entry-flow .entry-server-text strong {
+  font-weight: var(--yr-title-weight); letter-spacing: -.035em; line-height: 1.28;
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  .entry-flow h1 { font-size: 1.75rem; }
+}
 .entry-field input, .entry-character-options label, .entry-actions #profile-transfer-open {
   background: var(--yr-white); color: var(--yr-ink); border-color: var(--yr-strong-line);
 }
@@ -80,6 +94,10 @@ body { background: var(--yr-paper); }
 }
 #game-shell .top :is(#bag-open, #presence) { color: var(--yr-deep); background: var(--yr-tint); border-color: var(--yr-line); }
 #game-shell .top :is(#bag-open, #presence):hover { border-color: var(--yr-blue); background: #dfedfb; }
+#game-shell .top :is(#bag-open, #presence, .mobile-settings summary),
+#game-shell :is(#header-region, .game-place, .game-presence) {
+  font-weight: var(--yr-action-weight); letter-spacing: -.015em;
+}
 #game-shell .top :is(.quiet, .mobile-settings summary):hover,
 #game-shell .top .mobile-settings[open] summary { background: var(--yr-tint); border-color: var(--yr-strong-line); color: var(--yr-deep); }
 #game-shell .top #controls-help-open, #game-shell #controls-help-open span { color: var(--yr-deep); border-color: var(--yr-blue); }
@@ -133,6 +151,12 @@ body { background: var(--yr-paper); }
   background: var(--hud-button); border-color: var(--yr-strong-line); color: var(--yr-ink); text-shadow: none;
 }
 #game-shell #nearby-grid .context-choice small { color: var(--yr-muted); }
+#game-shell #nearby-grid .context-choice span {
+  font-weight: var(--yr-action-weight); line-height: 1.22; letter-spacing: -.015em;
+}
+#game-shell #nearby-grid .context-choice[data-current-action="primary"] span {
+  font-weight: var(--yr-title-weight);
+}
 #game-shell #nearby-grid .context-choice[data-current-action="primary"] {
   background: var(--yr-sky); color: var(--yr-ink); border-color: #6087a6;
 }
@@ -170,6 +194,12 @@ body { background: var(--yr-paper); }
 :is(#world, #mini-world) .track-map-pin circle:last-child { fill: var(--yr-blue); stroke: white; stroke-width: 1; vector-effect: non-scaling-stroke; }
 #map-panel .map-modes, #map-panel #close-map, #map-panel .map-route span { background: var(--yr-mist); color: var(--yr-deep); }
 #map-panel .map-submit { background: var(--yr-blue); color: white; }
+#map-panel :is(.panel-head h2, #map-route-name) {
+  font-weight: var(--yr-title-weight); letter-spacing: -.035em; line-height: 1.25;
+}
+#map-panel :is(.map-submit, .map-modes button), #game-shell #chat-send {
+  font-weight: var(--yr-action-weight); letter-spacing: -.015em;
+}
 #map-panel .map-submit:disabled { background: #e5edf4; color: var(--yr-muted); }
 #map-panel .map-corner #overview-map { background: var(--yr-white); }
 #map-panel .map-corner #overview-map[aria-pressed=true] { background: var(--yr-tint); border-color: var(--yr-blue); }

@@ -3,18 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-  <meta name="description" content="서울에서 기차를 타고 포항 바다와 경주 골목으로. 친구와 걷고, 타고, 머무는 3D 여행 게임 유람.">
+  <meta name="description" content="기차를 타고, 바다를 건너고, 골목에서 만나요. 친구와 함께하는 3D 여행 게임 유람.">
   <meta name="application-name" content="유람">
   <meta name="apple-mobile-web-app-title" content="유람">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ko_KR">
   <meta property="og:site_name" content="유람">
   <meta property="og:title" content="유람">
-  <meta property="og:description" content="서울에서 기차를 타고 포항 바다와 경주 골목으로. 친구와 걷고, 타고, 머무는 3D 여행 게임 유람.">
-  <meta property="og:image" content="https://yuram.vercel.app/yuram-share.jpg">
+  <meta property="og:description" content="기차를 타고, 바다를 건너고, 골목에서 만나요. 친구와 함께하는 3D 여행 게임 유람.">
+  <meta property="og:image" content="https://yuram.vercel.app/yuram-share.jpg?v=2">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="유람 · 푸른 물길로 이어진 서울, 포항, 경주">
+  <meta property="og:image:alt" content="푸른 여행 풍경에 새겨진 유람 로고">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="theme-color" content="#F4FAFF">
   <meta name="mobile-web-app-capable" content="yes">
@@ -58,9 +58,9 @@
     @media (prefers-reduced-motion: reduce) { .ktx-loading-track::before { width: 100%; animation: none; } }
   </style>
   <link rel="manifest" href="./palace.webmanifest">
-  <link rel="apple-touch-icon" href="./yuram-icon-192.png">
+  <link rel="apple-touch-icon" href="./yuram-icon-192.png?v=2">
   <title>유람 | Yuram</title>
-  <link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48" href="./favicon.ico?v=yuram-1">
+  <link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48" href="./favicon.ico?v=yuram-2">
   <link rel="stylesheet" href="./style.css">
   <link rel="stylesheet" href="./passport.css">
   <link rel="stylesheet" href="./minigames.css">
@@ -83,10 +83,9 @@
     <div class="entry-frame">
       <section id="profile-step" class="entry-profile" aria-labelledby="profile-title">
         <figure class="entry-cover">
-          <img class="entry-art" src="./yuram-journey.webp" alt="남산서울타워와 포항 앞바다, 경주 첨성대가 한 풍경으로 이어지는 여행 포스터" width="1440" height="1080" fetchpriority="high">
+          <img class="entry-art" src="./yuram-journey.webp" alt="바다 너머 전망탑과 돌탑이 보이는 여행 포스터" width="1440" height="1080" fetchpriority="high">
           <figcaption class="entry-cover-title">
-            <img class="entry-cover-wordmark" src="./yuram-wordmark.svg" alt="유람" width="180" height="64">
-            <span>서울 · 포항 · 경주</span>
+            <img class="entry-cover-wordmark" src="./yuram-wordmark.svg?v=2" alt="유람" width="192" height="100">
           </figcaption>
         </figure>
         <form id="profile-form" class="entry-profile-form">
@@ -112,7 +111,7 @@
       <section id="server-step" class="entry-server" aria-labelledby="server-title" hidden>
         <div class="entry-server-nav">
           <button id="server-back" class="entry-back" type="button"><span aria-hidden="true">←</span> 프로필 수정</button>
-          <img class="entry-wordmark" src="./yuram-wordmark.svg" alt="유람" width="180" height="64">
+          <img class="entry-wordmark" src="./yuram-wordmark.svg?v=2" alt="유람" width="192" height="100">
         </div>
         <div class="entry-server-head">
           <h1 id="server-title" tabindex="-1">서버 선택</h1>
@@ -150,7 +149,10 @@
   <div id="game-shell" hidden>
   <header class="top">
     <div class="game-identity">
-      <h1 class="brand"><img src="./yuram-wordmark.svg" alt="유람" width="180" height="64" decoding="async"></h1>
+      <h1 class="brand"><picture>
+        <source media="(max-width: 810px), (pointer: coarse)" srcset="./yuram-symbol.svg" width="64" height="64">
+        <img src="./yuram-wordmark.svg?v=2" alt="유람" width="192" height="100" decoding="async">
+      </picture></h1>
       <span id="header-region">서울</span>
     </div>
     <div class="top-game-actions">

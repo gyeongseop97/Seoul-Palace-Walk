@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">유람 · 여행 가방 모양의 ‘유’</title>
+  <rect width="64" height="64" rx="14" fill="#2456d7"/>
+  <g fill="#fff">
+    <path fill-rule="evenodd" d="M25 12h14a7 7 0 0 1 7 7v8H18v-8a7 7 0 0 1 7-7Zm1 6a2 2 0 0 0-2 2v2h16v-2a2 2 0 0 0-2-2Z"/>
+    <path d="M15 30h34a4 4 0 0 1 4 4v6a5 5 0 0 1-5 5h-3v4a4 4 0 0 1-8 0v-4H27v4a4 4 0 0 1-8 0v-4h-3a5 5 0 0 1-5-5v-6a4 4 0 0 1 4-4Z"/>
+  </g>
+  <path d="M44 34.5v5" stroke="#2456d7" stroke-width="3" stroke-linecap="round"/>
+</svg>

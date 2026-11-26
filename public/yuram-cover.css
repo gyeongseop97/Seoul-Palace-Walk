@@ -15,31 +15,22 @@
 .entry-cover-title {
   position: absolute;
   top: 7%;
-  left: 6%;
-  display: grid;
-  justify-items: start;
-  gap: clamp(4px, .75vw, 10px);
-  width: 41%;
-  color: #192c4b;
+  left: 8%;
+  width: 37%;
   pointer-events: none;
 }
 .entry-cover-title .entry-cover-wordmark {
   display: block;
-  width: 94%;
+  width: 100%;
   height: auto;
 }
-.entry-cover-title span {
-  padding-left: 3%;
-  font: 650 clamp(.74rem, 1.1vw, 1rem)/1.4 system-ui, sans-serif;
-  letter-spacing: .11em;
-}
 #visitor-guide-dialog h2 { max-width: calc(100% - 50px); }
+.brand picture { display: block; }
 @media (max-width: 710px) {
   .entry-cover .entry-art { aspect-ratio: 1.7; }
-  .entry-cover-title { top: 6%; width: 36%; }
-  .entry-cover-title span { font-size: .72rem; }
+  .entry-cover-title { top: 6%; left: 10%; width: 30%; }
 }
 @media (orientation: landscape) and (max-height: 560px) {
   .entry-cover .entry-art { aspect-ratio: 1.65; }
-  .entry-cover-title { top: 6%; width: 35%; }
+  .entry-cover-title { top: 6%; width: 30%; }
 }
