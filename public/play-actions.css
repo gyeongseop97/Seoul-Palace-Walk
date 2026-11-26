@@ -93,3 +93,8 @@
   #game-shell #nearby-actions { inset: auto calc(100% + 6px) 0 auto; width: min(200px,32vw); max-height: min(220px,55dvh); }
   #game-shell .play-social :is(.gesture-menu,.emote-menu) { max-height: min(185px,calc(100dvh - 205px)); }
 }
+@media (orientation:portrait) and (max-width:430px), (orientation:landscape) and (max-width:540px) {
+  /* Keep the primary companion action next to the joystick and leave the right column for place actions. */
+  .peer-hud { flex-direction: column-reverse; align-items: flex-start; }
+  .peer-hud .nearby-actions { bottom: calc(100% + 6px); }
+}
