@@ -49,6 +49,7 @@ import { outsideGroundOffset,palaceGroundOffset,sampleMeshHeight,southWorldSurfa
 import { gradeAvenueMeshes } from "./avenue-terrain.js";
 import { gradeJeongdongMeshes } from "./jeongdong-terrain-render.js";
 import { prepareSurveyTerrain,surveyGroundField } from "./survey-terrain.js";
+import { createSurveyLod } from "./survey-lod.js";
 import { assembleGwanghwamunPlaza, registerPlazaNavigation } from "./gwanghwamun-plaza.js";
 import { inGwanghwamunPlaza, plazaBounds, plazaGroundHeight, plazaSites } from "./plaza-layout.js";
 import { buildSejongCorridor } from "./sejong-corridor.js";
@@ -420,6 +421,24 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const [{GLTFLoader},{MeshoptDecoder}]=await landmarkLoaders;
     return new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(new URL(path,import.meta.url).href);
   }
+  // Bounds measured from the source GLB, so a distant arrival can choose the
+  // lighter asset before downloading or decoding the full-resolution survey.
+  const gateLod=regional?null:createSurveyLod(middleModel,
+    new T.Vector3(wx(middle.x),outsideGroundOffset(middle)+5.19,wz(middle.y)),22.79,handheld?135:210,async()=>{
+      const {scene:distant}=await loadGltf("./junghwamun-lod.glb");
+      const anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+      distant.position.set(wx(middle.x),outsideGroundOffset(middle),wz(middle.y));
+      distant.rotation.y=courtAngle;
+      distant.traverse(mesh=>{
+        if(!mesh.isMesh)return;
+        const material=mesh.material;
+        material.metalness=0;material.roughness=.92;
+        if(material.map)material.map.anisotropy=anisotropy;
+        mesh.castShadow=mesh.receiveShadow=true;
+      });
+      distant.visible=false;deoksRoot.add(distant);
+      return distant;
+    },()=>{cullAt=0;});
   async function loadYiStatue({yiFigure,yiFallback}){
     try{
       const {scene:statue}=await loadGltf("./art/yi-sun-sin.glb");
@@ -482,7 +501,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       }
       root.add(asset.scene);
       if(!northSurvey)scannedGrounds.push(surveyGroundField(T,asset.scene,asset.scene.position.y));
-      for(const group of replaced)group.visible=false;
+      if(name==="junghwamun")gateLod.setNear(asset.scene);
+      else for(const group of replaced)group.visible=false;
       shadowDirty=true;
       container.dataset[name]="survey";
       onLoaded?.();
@@ -1232,7 +1252,12 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
         let next=null,distance=handheld?135:210;
         for(const item of surveyQueue){
           if(item.started||item.root.parent!==outdoors)continue;
-          const gap=Math.hypot(item.point.x-anchor.x,item.point.y-anchor.y);
+          let gap=Math.hypot(item.point.x-anchor.x,item.point.y-anchor.y);
+          // A player at the gate still needs its measured ground under a remote photo camera.
+          if(item.name==="junghwamun"){
+            if(!gateLod.needsNear&&gap>25)continue;
+            if(gateLod.needsNear)gap=Math.min(gap,(handheld?135:210)-1);
+          }
           if(gap<distance){next=item;distance=gap;}
         }
         if(next){
@@ -1265,7 +1290,6 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     moonLight.intensity=indoors?0:night*.95*(1-cloud*.52);
     sun.visible=sun.intensity>0;
     moonLight.visible=moonLight.intensity>0;
-    updateSunShadow(indoors,anchor,peers,clock,now);
     govern(now);
     lampMaterial.emissiveIntensity=.03+night*2.15;
     spotLights.forEach((light,i)=>{
@@ -1685,6 +1709,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       sparse:quality.sparse,pixelRatio:quality.pinned?quality.max:quality.ratio,night});
     seaside?.update(state,night,camera,renderer.domElement.height,quality.sparse||quality.ratio<.9);
     historicCity?.update(state,night,camera,raft,rowing);
+    if(gateLod&&!indoors&&deoksRoot.parent===outdoors&&gateLod.update(camera))shadowDirty=true;
+    updateSunShadow(indoors,anchor,peers,clock,now);
     renderer.render(scene,camera);
     if(firstPerson&&!state.bungeoMode&&!bodyView){
       firstPersonView??=makeFirstPersonView(T,createItemProp);

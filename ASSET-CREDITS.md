@@ -9,7 +9,7 @@
 | 파일 | 원본 자료 | 원본 이용 조건 |
 | --- | --- | --- |
 | `public/seokjojeon.glb` | [덕수궁 석조전](https://www.data.go.kr/data/15104816/fileData.do) | 이용허락범위 제한 없음 |
-| `public/junghwamun.glb` | [덕수궁 중화문](https://www.data.go.kr/data/15104796/fileData.do) | [공공누리 제1유형 출처표시](https://www.kogl.or.kr/info/licenseType1.do) |
+| `public/junghwamun.glb`, `public/junghwamun-lod.glb` (원거리용 경량 모델) | [덕수궁 중화문](https://www.data.go.kr/data/15104796/fileData.do) | [공공누리 제1유형 출처표시](https://www.kogl.or.kr/info/licenseType1.do) |
 | `public/jeonggwanheon.glb` | [덕수궁 정관헌](https://www.data.go.kr/data/15104823/fileData.do) | 이용허락범위 제한 없음 |
 | `public/junghwajeon.glb` | [덕수궁 중화전](https://www.data.go.kr/data/15104838/fileData.do) | 이용허락범위 제한 없음 |
 | `public/hamnyeongjeon.glb` | [덕수궁 함녕전](https://www.data.go.kr/data/15104840/fileData.do) | 이용허락범위 제한 없음 |
