@@ -171,27 +171,11 @@ body { background: var(--yr-paper); }
 #game-shell .scene-wrap .game-presence { color: var(--yr-ink); background: var(--hud-button); border-color: var(--yr-line); text-shadow: none; }
 #game-shell .tracked-direction { --guide-border: var(--yr-strong-line); --guide-accent: var(--yr-deep); --guide-text: var(--yr-ink); background: var(--hud-overlay); }
 
-#game-shell :is(#map-toggle, #map-panel) {
-  --map-ground: #eaf0f5; --map-grid: #b5c5d2;
-}
-#game-shell #map-panel {
+/* Apply the interface colours to the controls around the regional maps. */
+#map-panel > :not(#map-route-view), #map-route-view > :not(.map-wrap) {
   --map-paper: var(--yr-paper); --map-tile: var(--yr-white); --map-ink: var(--yr-ink);
   --map-muted: var(--yr-muted); --map-line: var(--yr-line); --map-pine: var(--yr-deep);
-  scrollbar-color: var(--yr-strong-line) var(--yr-paper);
 }
-#game-shell #map-toggle {
-  background: var(--map-ground); border-color: var(--yr-strong-line); box-shadow: 0 3px 12px rgb(25 44 75 / 23%); filter: none;
-}
-#map-toggle :is(.mini-label, .mini-north) {
-  background: rgb(255 255 255 / 95%); color: var(--yr-deep); box-shadow: 0 0 0 1px rgb(72 94 124 / 24%);
-}
-#mini-world .mini-landmark { fill: var(--yr-ink); stroke: white; }
-#mini-world .room-dot-mini { stroke: white; }
-#mini-world #mini-my { fill: var(--yr-blue); stroke: white; stroke-width: 1.25; }
-#mini-world #mini-route-path polyline { stroke: var(--yr-deep); stroke-width: 2.5; }
-#mini-world #mini-route-path circle { fill: var(--yr-lilac); stroke: var(--yr-deep); stroke-width: 2; }
-:is(#world, #mini-world) .track-map-pin circle:first-child { fill: rgb(167 223 241 / 35%); stroke: var(--yr-deep); }
-:is(#world, #mini-world) .track-map-pin circle:last-child { fill: var(--yr-blue); stroke: white; stroke-width: 1; vector-effect: non-scaling-stroke; }
 #map-panel .map-modes, #map-panel #close-map, #map-panel .map-route span { background: var(--yr-mist); color: var(--yr-deep); }
 #map-panel .map-submit { background: var(--yr-blue); color: white; }
 #map-panel :is(.panel-head h2, #map-route-name) {
@@ -201,21 +185,6 @@ body { background: var(--yr-paper); }
   font-weight: var(--yr-action-weight); letter-spacing: -.015em;
 }
 #map-panel .map-submit:disabled { background: #e5edf4; color: var(--yr-muted); }
-#map-panel .map-corner #overview-map { background: var(--yr-white); }
-#map-panel .map-corner #overview-map[aria-pressed=true] { background: var(--yr-tint); border-color: var(--yr-blue); }
-#map-panel .map-attribution, #map-panel .map-north { color: var(--yr-muted); background: rgb(255 255 255 / 94%); }
-#map-panel #map-route-path polyline:nth-child(2) { stroke: var(--yr-deep); }
-#map-panel #map-route-end { stroke: var(--yr-deep); fill: var(--yr-lilac); }
-#map-panel:has(#map-route:not([hidden])) #my-avatar > circle { fill: var(--yr-blue); stroke: white; }
-#map-panel .map-marker-label { fill: var(--yr-ink); stroke: white; }
-:is(#map-panel #world, #map-toggle #mini-world):not(.museum-map) :is([fill="#9cbcc4"],[fill="#88b6c4"],[fill="#3b777d"]) { fill: #a8d8ef; }
-:is(#map-panel #world, #map-toggle #mini-world):not(.museum-map) :is([fill="#d8d4b9"],[fill="#d5d0b4"],[fill="#465248"]) { fill: #edf1f4; }
-:is(#map-panel #world, #map-toggle #mini-world):not(.museum-map) :is([fill="#b3a896"],[fill="#bcb7a8"],[fill="#827659"],[fill="#82594c"],[fill="#706e61"],[fill="#675d50"]) { fill: #d4dce1; stroke: #c0cdd7; }
-#mini-world:not(.museum-map) :is([fill="#c9d2af"],[fill="#506649"],[fill="#607651"],[fill="#607553"],[fill="#556b4c"]) { fill: #e5ead8; }
-#mini-world:not(.museum-map) :is([fill="#a9bf9f"],[fill="#9eaf7c"],[fill="#314938"],[fill="#465a43"]) { fill: #cfddbf; }
-#mini-world:not(.museum-map) :is([fill="#766c5a"],[fill="#626452"],[fill="#58605b"],[fill="#847e6f"],[fill="#4e5351"]) { fill: #d8cdb6; }
-#mini-world:not(.museum-map) :is([stroke="#a9a59a"],[stroke="#8f7869"],[stroke="#c9b899"],[stroke="#a29e7d"],[stroke="#ae9870"]) { stroke: #cdbda5; }
-#mini-world:not(.museum-map) :is([stroke="#ece5d5"],[stroke="#f5edcf"],[stroke="#efe9d9"],[stroke="#f4ebd6"],[stroke="#eee5d8"]) { stroke: #d9cdb7; }
 #map-panel #shortcut-region button[aria-pressed=true]::after { color: white; }
 
 dialog, dialog#controls-help, dialog#walk-bag, #toast {

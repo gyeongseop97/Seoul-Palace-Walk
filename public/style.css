@@ -1160,7 +1160,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 /* Shared regional map panel */
 #game-shell #map-panel{
   --map-paper:#f7f3e9;--map-tile:#fffcf5;--map-ink:#133a31;--map-muted:#536b60;
-  --map-line:#d9e1d4;--map-pine:#123e33;--map-ground:#ececdf;--map-grid:#b6b9a5;
+  --map-line:#d9e1d4;--map-pine:#123e33;
   box-sizing:border-box;color:var(--map-ink);background:var(--map-paper);border:0;padding:0 18px 14px;
   gap:0;scrollbar-width:thin;scrollbar-color:#a8b7a6 var(--map-paper);overflow:auto;overscroll-behavior:contain;
 }
@@ -1221,20 +1221,9 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 }
 #map-panel .map-attribution{padding:1px 3px;color:#4c655a;background:rgb(250 248 238 / 88%);border-radius:3px;font-size:9px;text-decoration:none}
 #map-panel .map-north{top:6px;right:6px;background:rgb(255 252 245 / 85%);color:var(--map-muted)}
-#map-panel #map-route-path polyline:first-child{stroke:#fffdf2;stroke-width:5}
-#map-panel #map-route-path polyline:nth-child(2){stroke:#146650;stroke-width:2.5}
-#map-panel #map-route-end{fill:#f7f3e9;stroke:#166751;stroke-width:2}
-#map-panel:has(#map-route:not([hidden])) #my-avatar :is(ellipse,.face,.shoulders,text){display:none}
-#map-panel:has(#map-route:not([hidden])) #my-avatar>circle{transform:scale(.53);fill:#0f6652;stroke:#fff9e9;stroke-width:2;vector-effect:non-scaling-stroke}
-#map-panel .map-marker-label{fill:#1d3d32;stroke:#faf6e9}
-#map-panel #world:not(.museum-map) :is([fill="#d8d4b9"],[fill="#d5d0b4"],[fill="#465248"]){fill:#f3f0e6}
-#map-panel #world:not(.museum-map) :is([fill="#c9d2af"],[fill="#506649"],[fill="#607651"],[fill="#607553"],[fill="#556b4c"]){fill:#e5ead8}
-#map-panel #world:not(.museum-map) :is([fill="#a9bf9f"],[fill="#9eaf7c"],[fill="#314938"],[fill="#465a43"]){fill:#cfddbf}
-#map-panel #world:not(.museum-map) :is([fill="#9cbcc4"],[fill="#88b6c4"],[fill="#3b777d"]){fill:#a8cdcb}
-#map-panel #world:not(.museum-map) :is([fill="#b3a896"],[fill="#bcb7a8"],[fill="#827659"],[fill="#82594c"],[fill="#706e61"],[fill="#675d50"]){fill:#d9d0c0;stroke:#c4baa8}
-#map-panel #world:not(.museum-map) :is([fill="#766c5a"],[fill="#626452"],[fill="#58605b"],[fill="#847e6f"],[fill="#4e5351"]){fill:#d8cdb6}
-#map-panel #world:not(.museum-map) :is([stroke="#a9a59a"],[stroke="#8f7869"],[stroke="#c9b899"],[stroke="#a29e7d"],[stroke="#ae9870"]){stroke:#cdbda5}
-#map-panel #world:not(.museum-map) :is([stroke="#ece5d5"],[stroke="#f5edcf"],[stroke="#efe9d9"],[stroke="#f4ebd6"],[stroke="#eee5d8"]){stroke:#d9cdb7}
+#map-panel #map-route-path polyline:first-child{stroke:#faf8ed;stroke-width:5.5}
+#map-panel #map-route-path polyline:nth-child(2){stroke:#376f56;stroke-width:3}
+#map-panel #map-route-end{fill:#975332;stroke:#fff9e7;stroke-width:2}
 #map-panel .map-itinerary{flex:none;margin:0;padding:13px 0 8px}
 #map-panel .map-departure,#map-panel #teleport-region-label,#map-panel #map-teleport-view>label{
   display:block;margin:0 0 7px;color:var(--map-muted);font-size:12px;font-weight:650;line-height:1.4;
