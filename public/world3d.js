@@ -394,6 +394,11 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   let coastWildlifeReady=false;
   let landmarkLoaders,surveyLoading=false;
   const surveyQueue=[];
+  const lodSurveys=[];
+  // Measured width and vertical center in asset-local units after the terrain cut.
+  const surveyBounds={
+    junghwamun:[22.79,5.19],sajeongmun:[1.008,.333],sajeongjeon:[1.032,.308],gyeonghoeru:[1.030,.399]
+  };
   // Doorways cut through the surveyed shells so the furnished rooms inside can be entered.
   // Each is a box in the building's own coordinates: across, toward the front, and up.
   const surveyDoors={
@@ -421,24 +426,6 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const [{GLTFLoader},{MeshoptDecoder}]=await landmarkLoaders;
     return new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(new URL(path,import.meta.url).href);
   }
-  // Bounds measured from the source GLB, so a distant arrival can choose the
-  // lighter asset before downloading or decoding the full-resolution survey.
-  const gateLod=regional?null:createSurveyLod(middleModel,
-    new T.Vector3(wx(middle.x),outsideGroundOffset(middle)+5.19,wz(middle.y)),22.79,handheld?135:210,async()=>{
-      const {scene:distant}=await loadGltf("./junghwamun-lod.glb");
-      const anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
-      distant.position.set(wx(middle.x),outsideGroundOffset(middle),wz(middle.y));
-      distant.rotation.y=courtAngle;
-      distant.traverse(mesh=>{
-        if(!mesh.isMesh)return;
-        const material=mesh.material;
-        material.metalness=0;material.roughness=.92;
-        if(material.map)material.map.anisotropy=anisotropy;
-        mesh.castShadow=mesh.receiveShadow=true;
-      });
-      distant.visible=false;deoksRoot.add(distant);
-      return distant;
-    },()=>{cullAt=0;});
   async function loadYiStatue({yiFigure,yiFallback}){
     try{
       const {scene:statue}=await loadGltf("./art/yi-sun-sin.glb");
@@ -456,27 +443,40 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       container.dataset.yiStatue="modeled";
     }
   }
-  async function loadLandmark({name,point,groups,angle,root,onLoaded}){
+  function placeSurvey(scene,{name,point,groups,angle,scale,northSurvey,root}){
+    scene.position.set(wx(point.x),outsideGroundOffset(point),wz(point.y));
+    scene.rotation.y=angle+(name==="gyeonghoeru"?Math.PI/2:0);
+    scene.scale.setScalar(scale);
+    const bay=groups[0]?.userData.door;
+    const entrance=surveyDoors[name]??(northSurvey&&bay?{
+      x:0,z:point.d*.5,width:(bay.b-bay.a+1)*point.w/point.bays-.6,
+      depth:Math.max(3.2,point.d*.52),floor:.48,height:3.18
+    }:null);
+    const clippingPlanes=entrance?doorPlanes(entrance,point,angle):null;
+    if(clippingPlanes)renderer.localClippingEnabled=true;
+    const anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+    scene.traverse(mesh=>{
+      if(!mesh.isMesh)return;
+      const material=mesh.material;
+      material.flatShading=false;material.metalness=0;material.roughness=.92;
+      if(clippingPlanes){
+        material.clippingPlanes=clippingPlanes;
+        material.clipIntersection=true;material.clipShadows=true;
+      }
+      if(material.map){material.map.anisotropy=anisotropy;material.map.needsUpdate=true;}
+      material.needsUpdate=true;
+      mesh.castShadow=mesh.receiveShadow=true;
+    });
+    root.add(scene);
+  }
+  async function loadLandmark(item){
+    const {name,groups,onLoaded,northSurvey,lod}=item;
     try{
-      const northSurvey=gbSurveyModels.includes(name);
       const [asset,lighting]=await Promise.all([
         loadGltf(`./${name}.glb`),
         northSurvey?null:import("./survey-normals.js")
       ]);
       const replaced=prepareSurveyTerrain(T,asset.scene,name,groups);
-      asset.scene.position.set(wx(point.x),outsideGroundOffset(point),wz(point.y));
-      asset.scene.rotation.y=angle;
-      const bay=groups[0]?.userData.door;
-      const entrance=surveyDoors[name]??(northSurvey&&bay?{
-        x:0,z:point.d*.5,width:(bay.b-bay.a+1)*point.w/point.bays-.6,
-        depth:Math.max(3.2,point.d*.52),floor:.48,height:3.18
-      }:null);
-      if(northSurvey){
-        const span=name==="gyeonghoeru"?40:point.w+2.6;
-        asset.scene.scale.setScalar(span);
-        if(name==="gyeonghoeru")asset.scene.rotation.y+=Math.PI/2;
-      }
-      const anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
       const surfaces=[];
       asset.scene.traverse(mesh=>{if(mesh.isMesh)surfaces.push(mesh);});
       for(const mesh of surfaces){
@@ -488,20 +488,10 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
             if(restored!==original){original.dispose();mesh.geometry=restored;}
           }
         }
-        const material=mesh.material;
-        material.flatShading=false;material.metalness=0;material.roughness=.92;
-        if(entrance){
-          material.clippingPlanes=doorPlanes(entrance,point,angle);
-          material.clipIntersection=true;material.clipShadows=true;
-          renderer.localClippingEnabled=true;
-        }
-        if(material.map){material.map.anisotropy=anisotropy;material.map.needsUpdate=true;}
-        material.needsUpdate=true;
-        mesh.castShadow=mesh.receiveShadow=true;
       }
-      root.add(asset.scene);
+      placeSurvey(asset.scene,item);
       if(!northSurvey)scannedGrounds.push(surveyGroundField(T,asset.scene,asset.scene.position.y));
-      if(name==="junghwamun")gateLod.setNear(asset.scene);
+      if(lod)lod.setNear(asset.scene);
       else for(const group of replaced)group.visible=false;
       shadowDirty=true;
       container.dataset[name]="survey";
@@ -512,7 +502,27 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       return false;
     }
   }
-  function addSurvey(root,name,point,groups,angle=0,onLoaded){surveyQueue.push({root,name,point,groups,angle,onLoaded});}
+  function addSurvey(root,name,point,groups,angle=0,onLoaded){
+    if(regional)return;
+    const northSurvey=gbSurveyModels.includes(name);
+    const scale=northSurvey?(name==="gyeonghoeru"?40:point.w+2.6):1;
+    const item={root,name,point,groups,angle,onLoaded,northSurvey,scale};
+    const bounds=surveyBounds[name];
+    if(bounds){
+      const width=bounds[0]*scale;
+      const center=new T.Vector3(wx(point.x),outsideGroundOffset(point)+bounds[1]*scale,wz(point.y));
+      // Large halls need a stream range beyond their full-detail screen threshold.
+      const streamRange=Math.max(handheld?135:210,width*7.5);
+      item.lod=createSurveyLod(groups[0],center,width,streamRange,async()=>{
+        const {scene}=await loadGltf(`./${name}-lod.glb`);
+        scene.visible=false;
+        placeSurvey(scene,item);
+        return scene;
+      },()=>{cullAt=0;});
+      lodSurveys.push(item);
+    }
+    surveyQueue.push(item);
+  }
   addSurvey(deoksRoot,"seokjojeon",stoneHall,[classical]);
   addSurvey(deoksRoot,"junghwamun",middle,[middleModel],courtAngle,()=>{scannedMiddle=true;});
   addSurvey(deoksRoot,"junghwajeon",hall,[hallModel],courtAngle);
@@ -1254,9 +1264,9 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
           if(item.started||item.root.parent!==outdoors)continue;
           let gap=Math.hypot(item.point.x-anchor.x,item.point.y-anchor.y);
           // A player at the gate still needs its measured ground under a remote photo camera.
-          if(item.name==="junghwamun"){
-            if(!gateLod.needsNear&&gap>25)continue;
-            if(gateLod.needsNear)gap=Math.min(gap,(handheld?135:210)-1);
+          if(item.lod){
+            if(!item.lod.needsNear&&(item.name!=="junghwamun"||gap>25))continue;
+            if(item.lod.needsNear)gap=Math.min(gap,(handheld?135:210)-1);
           }
           if(gap<distance){next=item;distance=gap;}
         }
@@ -1709,7 +1719,9 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       sparse:quality.sparse,pixelRatio:quality.pinned?quality.max:quality.ratio,night});
     seaside?.update(state,night,camera,renderer.domElement.height,quality.sparse||quality.ratio<.9);
     historicCity?.update(state,night,camera,raft,rowing);
-    if(gateLod&&!indoors&&deoksRoot.parent===outdoors&&gateLod.update(camera))shadowDirty=true;
+    if(!indoors)for(const item of lodSurveys){
+      if(item.root.parent===outdoors&&item.lod.update(camera))shadowDirty=true;
+    }
     updateSunShadow(indoors,anchor,peers,clock,now);
     renderer.render(scene,camera);
     if(firstPerson&&!state.bungeoMode&&!bodyView){

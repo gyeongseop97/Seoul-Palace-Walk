@@ -59,6 +59,8 @@
 
 국가유산청의 실측 모델을 게임용으로 경량화하고 원본 색상을 변환했습니다. 공공누리 제1유형으로 제공된 원본은 [경회루](https://www.data.go.kr/data/15115251/fileData.do) · [사정전](https://www.data.go.kr/data/15115294/fileData.do) · [강녕전](https://www.data.go.kr/data/15115247/fileData.do) · [태원전](https://www.data.go.kr/data/15115286/fileData.do) · [건춘문](https://www.data.go.kr/data/15115265/fileData.do) · [비현각](https://www.data.go.kr/data/15115249/fileData.do) · [만춘전](https://www.data.go.kr/data/15115248/fileData.do) · [천추전](https://www.data.go.kr/data/15115253/fileData.do) · [함원전](https://www.data.go.kr/data/15115291/fileData.do) · [자선당](https://www.data.go.kr/data/15115295/fileData.do) · [대전내소주방](https://www.data.go.kr/data/15115269/fileData.do)입니다. [사정문](https://www.data.go.kr/data/15092148/fileData.do)은 공공데이터포털에서 이용허락범위 제한 없음으로 제공합니다.
 
+경회루·사정전·사정문의 원거리 모델(`gyeonghoeru-lod.glb`, `sajeongjeon-lod.glb`, `sajeongmun-lod.glb`)도 위의 각 실측 자료에서 원본 정점 색과 표면 방향을 보존해 경량화했습니다.
+
 ## 산책과 오락실 효과음
 
 모두 사운드 이펙트(ALL SOUND EFFECT)가 영상 설명에 공개한 다운로드 파일에서 짧은 소리를 골라 길이와 음량을 조정했습니다. [새소리](https://www.youtube.com/watch?v=Ac9VroFOW3U) · [고양이](https://www.youtube.com/watch?v=_F-SpbZvMpM) · [타격음](https://www.youtube.com/watch?v=mMxLoNdvTEs).

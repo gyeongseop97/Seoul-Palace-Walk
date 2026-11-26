@@ -1,7 +1,8 @@
 import * as T from "three";
 import {bridge,cruiseHullStations,cruiseStairs,exitGate,helmStation,loungePorch,loungeRails,mainDeckRail,
- mainFloor,midFloor,salonBowDoor,salonPortDoor,salonSideHalfWidth,salonTaperStart} from "./coast-vessel-layout.js";
+ mainFloor,midFloor,salonBowDoor,salonPortDoor,salonSideHalfWidth,salonTaperStart,cruiseScale} from "./coast-vessel-layout.js";
 import {cruiseSeats,cruiseTables} from "./coast-vessel-seats.js";
+import {roundPropDetail} from "./pohang-prop-lod.js";
 // Three connected decks aboard a 51 m excursion yacht.
 export function makeCruise(){
  const root=new T.Group(),batches=new Map(),box=new T.BoxGeometry(),cyl=new T.CylinderGeometry(1,1,1,12),ball=new T.SphereGeometry(1,16,10);
@@ -270,5 +271,6 @@ export function makeCruise(){
   }
   root.add(mesh);
  }
+ root.userData.updateDetail=roundPropDetail(root,cyl,ball,cruiseScale);
  return root;
 }

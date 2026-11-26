@@ -12,6 +12,7 @@ import {buildTavernFront} from "./coast-tavern-model.js";
 import {tavernBlockIndex,tavernEdge,tavernPoint} from "./coast-tavern-layout.js";
 import {buildYeongildae} from "./pohang-pavilion-model.js";
 import {buildFestivalBooth} from "./pohang-festival-site-model.js";
+import {roundPropDetail} from "./pohang-prop-lod.js";
 
 import {hill,hillFloor,parkRoad} from "./space-walk-layout.js";
 import {makeTreeBuilder,treePalettes} from "./lowpoly-trees.js";
@@ -187,6 +188,7 @@ export function buildCoast(scene){
  for(let i=0;i<33;i++){const x=440+i*28,z=680+Math.sin(i)*29;
   box(root,i%3?0x8d9b9d:0xb1a29a,x,6,z,18+i%7,12+i%9,17);post(root,0x8d8281,x+8,15+i%9,z,1.2,34+i%14,1.2);post(root,0xc99579,x+8,28+i%9,z,1.23,3,1.23);}
  consolidate(root);
+ const updateRoundProps=roundPropDetail(root,tubeGeo,ovalGeo);
  const lamps=[],colors=[];
  const dot=(x,y,z,c)=>{lamps.push(x,y,z);const col=new T.Color(c);colors.push(col.r,col.g,col.b);};
  for(let z=-814;z<268;z+=96){const site=plantedSpot(z);if(site)dot(site.x+1.27,6.09,z,0xffda96);}
@@ -196,7 +198,7 @@ export function buildCoast(scene){
  const disk=document.createElement("canvas");disk.width=disk.height=32;const ctx=disk.getContext("2d"),fade=ctx.createRadialGradient(16,16,0,16,16,16);
  fade.addColorStop(0,"#fff");fade.addColorStop(.18,"rgba(255,245,224,.8)");fade.addColorStop(1,"rgba(255,238,200,0)");ctx.fillStyle=fade;ctx.fillRect(0,0,32,32);
  const lightMat=new T.PointsMaterial({map:new T.CanvasTexture(disk),size:.52,vertexColors:true,transparent:true,depthWrite:false,blending:T.AdditiveBlending});
- scene.add(new T.Points(lp,lightMat));return (night,players=[],clock=0)=>{lightMat.opacity=.08+night*.92;pavilionLights(night);updateRinses(players,clock);};
+ scene.add(new T.Points(lp,lightMat));return (night,players=[],clock=0,camera)=>{lightMat.opacity=.08+night*.92;pavilionLights(night);updateRinses(players,clock);updateRoundProps(camera);};
 }
 export function busModel(){
  const g=new T.Group();box(g,0x317b96,0,1.35,0,2.65,2.3,9);

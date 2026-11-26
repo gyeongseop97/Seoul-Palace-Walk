@@ -12,7 +12,7 @@ import {marketRooms,marketBenches,marketCameraBlocked} from "./gyeongju-market.j
 import {drawMarket,createMarketStaff} from "./gyeongju-market-model.js";
 import {drawGyeongjuBikeDocks} from "./gyeongju-bike-model.js";
 import {tower,insideObservatory,observatoryCameraBlocked} from "./gyeongju-observatory.js";
-import {districtMeshes,randomSeed} from "./gyeongju-mesh.js";
+import {districtMeshes,randomSeed,registerDistrictLod,updateDistrictBatches} from "./gyeongju-mesh.js";
 import {drawBuilding,illuminatedRoofMaterial} from "./gyeongju-architecture.js";
 import {observatory,magnolia,stationHall,busShelter,stoneGate} from "./gyeongju-landmarks.js";
 import {buildCoastActionMarker} from "./coast-action-marker.js";
@@ -201,7 +201,7 @@ function obstacleGrid(){
  return p=>(cells.get(tag(p.x,p.z))??[]).some(b=>contains(p,b.points));
 }
 function buildDistrict(root,isStation,kit,glowMat,bulb,waterMaterials,bridgeRoof){
- const k=districtMeshes(root),relevant=x=>stationSide(x)===isStation;
+ const k=districtMeshes(root,{lod:true}),relevant=x=>stationSide(x)===isStation;
  const lines=roads.filter(r=>relevant(r.points[0].x)),nearest=roadIndex(lines),rng=randomSeed(2155);
  if(isStation){
   terrain(k,-6530,4150,840,840);hills(k,-6530,4150,545,658);
@@ -237,7 +237,7 @@ function buildDistrict(root,isStation,kit,glowMat,bulb,waterMaterials,bridgeRoof
   busShelter(k,places.townReturnBus,busYaw(places.townReturnBus,nearest),"경주역 방면");
  }
  lines.forEach(r=>drawRoad(k,r));
- const treeKit=makeTreeBuilder(T,null,{snapshotPart:k.treePart,rand:rng,clearance:{meshFits:()=>true,trim:()=>true}});
+ const treeKit=makeTreeBuilder(T,null,{snapshotPart:k.treePart,registerCrownLod:registerDistrictLod,rand:rng,clearance:{meshFits:()=>true,trim:()=>true}});
  for(const tree of gyeongjuPlantings(parks,roads,places.stationExit,mounds).trees)if(relevant(tree.x))treeKit.grow(tree.x,tree.z,tree);
  streetFurniture(k,places.stationExit,nearest,isStation,glowMat,bulb);
  buildings.forEach((b,i)=>{if(b.kind==="building"&&relevant(b.points[0].x))drawBuilding(k,b,i,nearest);});
@@ -259,6 +259,8 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
  const displayLamp=new T.PointLight(0xffe7b7,12,10,1.45);
  displayLamp.position.set(-137.75,2.8,-273.6);displayLamp.visible=false;town.add(displayLamp);
  const built=new Set(),lastEye=new T.Vector3(Infinity,0,0),waterMaterials=[];
+ const defaultFocalLength=1/Math.tan(57*Math.PI/360);
+ let lastZoom=0;
  function ensure(isStation){
   if(!built.has(isStation)){buildDistrict(isStation?station:town,isStation,kit,lampMaterial,bulb,waterMaterials,bridgeRoof);built.add(isStation);}
   station.visible=isStation;town.visible=!isStation;
@@ -300,13 +302,11 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
     raftLift=raftHeave(clock);updateRaft(clock,camera.position,raft,rowing);
     tickWater(waterMaterials,(clock/1000)%14400,night);
    }
-   if(lastEye.distanceToSquared(camera.position)>64){
+   const zoomScale=camera.projectionMatrix.elements[5]/defaultFocalLength;
+   if(lastEye.distanceToSquared(camera.position)>64||Math.abs(zoomScale-lastZoom)>.025*zoomScale){
     lastEye.copy(camera.position);
-    for(const mesh of (isStation?station:town).children){
-     if(!Number.isFinite(mesh.userData.viewRange))continue;
-     const s=mesh.boundingSphere??mesh.geometry.boundingSphere;
-     mesh.visible=Math.hypot(s.center.x-camera.position.x,s.center.z-camera.position.z)<s.radius+mesh.userData.viewRange;
-    }
+    lastZoom=zoomScale;
+    updateDistrictBatches(isStation?station:town,camera,zoomScale);
    }
    lampMaterial.emissiveIntensity=night*1.25;
    bridgeRoof.emissiveIntensity=night*.16;

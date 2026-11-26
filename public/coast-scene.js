@@ -134,13 +134,14 @@ export function createCoastScene(root,play,walkers,kit){
   cafeViewerFloor=state.me.coast?.cafeFloor;
   ship.position.set(b.x,attitude.heave,b.z);ship.rotation.set(attitude.pitch,b.yaw,attitude.roll,"YXZ");
   ship.userData.setGangwayOpen(play.gangwayOpen());
+  ship.userData.updateDetail(camera);
   updateActionMarker(state.photoCapture?null:state.coastMarker,camera);
   buses.update(lastClock,viewer);
   const players=[state.me,...state.peers];
   updateScooters(players);
   sky.sky.position.copy(camera.position);sky.uniforms.night.value=night;
   sky.uniforms.storm.value=water.storm.value=studioStorm(p);sky.uniforms.clock.value=t;
-  lights(night,players,lastClock);parkLights(night);water.night.value=night;water.uTime.value=t;
+  lights(night,players,lastClock,camera);parkLights(night);water.night.value=night;water.uTime.value=t;
   water.reducedDetail.value=reducedDetail;
   water.updateVisibility(camera);
   updateSurfBuoys(t,p);

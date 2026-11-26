@@ -1,5 +1,30 @@
 import * as T from "three";
 
+// Each spatial batch keeps its instance transforms, colours, material and bounds.
+// Only the shared triangle mesh changes. Ranges are measured at the default 57° FOV.
+const geometryLevels=new WeakMap();
+export function registerDistrictLod(near,far,range){
+ const levels={near,far,range};
+ geometryLevels.set(near,levels);geometryLevels.set(far,levels);
+}
+export function updateDistrictBatches(root,camera,zoomScale){
+ const eye=camera.position;
+ for(const mesh of root.children){
+  const range=mesh.userData.viewRange;
+  if(!Number.isFinite(range))continue;
+  const sphere=mesh.boundingSphere??mesh.geometry.boundingSphere;
+  const dx=sphere.center.x-eye.x,dz=sphere.center.z-eye.z;
+  mesh.visible=dx*dx+dz*dz<(sphere.radius+range)**2;
+  if(!mesh.visible)continue;
+  const levels=geometryLevels.get(mesh.geometry);
+  if(!levels)continue;
+  // The whole cell must be distant, including the nearest crown or roof edge.
+  const limit=sphere.radius+levels.range*zoomScale*(mesh.geometry===levels.far ? .86 : 1);
+  const far=dx*dx+dz*dz+(sphere.center.y-eye.y)**2>limit*limit;
+  mesh.geometry=far?levels.far:levels.near;
+ }
+}
+
 export function randomSeed(seed){
  return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
 }
@@ -10,11 +35,15 @@ export function localFrame(x,z,yaw=0){
 
 // Static pieces share both geometry and material. Small spatial batches let the
 // renderer discard entire streets, including the distant KTX forecourt.
-export function districtMeshes(root){
+export function districtMeshes(root,{lod=false}={}){
  const cells=new Map(),o=new T.Object3D(),up=new T.Vector3(0,1,0),treeMaterials=new Map();
  const tint=new T.Color(),beamDirection=new T.Vector3(),beamRotation=new T.Quaternion();
  const materials=new Map(),labels=new Map(),box=new T.BoxGeometry(),post=new T.CylinderGeometry(.5,.5,1,10);
  const oval=new T.IcosahedronGeometry(1,1),plane=new T.PlaneGeometry(),rough=new T.MeshStandardMaterial({roughness:.86,side:T.DoubleSide});
+ if(lod){
+  registerDistrictLod(post,new T.CylinderGeometry(.5,.5,1,6),110);
+  registerDistrictLod(oval,new T.IcosahedronGeometry(1,0),120);
+ }
  function cell(x,z){
   const key=Math.floor(x/90)+","+Math.floor(z/90);
   let value=cells.get(key);

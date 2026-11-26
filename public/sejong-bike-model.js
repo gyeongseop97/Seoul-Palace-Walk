@@ -7,6 +7,9 @@ const axleY=.29,wheelbase=.54;
 const silver=0xdadfd6,green=0x39ad66,deepGreen=0x1e6f4b,rubber=0x232c29;
 const steel=0x74837e,black=0x25332f;
 const modelCache=new WeakMap();
+const distantDocks=new WeakMap();
+const ridingSegments={rod:8,seatX:12,seatY:8,bend:12,tube:7,ring:36};
+const distantSegments={rod:4,seatX:8,seatY:4,bend:6,tube:4,ring:20};
 const dockSurfaces=new WeakMap();
 // Finished paving levels under each rack, including the flush street and garden paths.
 const dockPaving={
@@ -27,9 +30,8 @@ export function bikePedal(side,angle){
     z:bikeFit.crankZ+Math.sin(phase)*bikeFit.pedalRadius};
 }
 
-function bikeParts(T){
-  if(modelCache.has(T))return modelCache.get(T);
-  const unit=new T.BoxGeometry(1,1,1),cylinder=new T.CylinderGeometry(1,1,1,8),sphere=new T.SphereGeometry(1,12,8);
+function createBikeParts(T,segments,material){
+  const unit=new T.BoxGeometry(1,1,1),cylinder=new T.CylinderGeometry(1,1,1,segments.rod),sphere=new T.SphereGeometry(1,segments.seatX,segments.seatY);
   const up=new T.Vector3(0,1,0),transform=new T.Object3D();
   const v=coords=>new T.Vector3(...coords);
   const piece=(geometry,color,position,scale=[1,1,1],rotation=[0,0,0])=>{
@@ -45,10 +47,10 @@ function bikeParts(T){
     return {geometry:cylinder,color,matrix:transform.matrix.clone()};
   }
   function bend(points,radius,color){
-    return piece(new T.TubeGeometry(new T.CatmullRomCurve3(points.map(v)),12,radius,7,false),color,[0,0,0]);
+    return piece(new T.TubeGeometry(new T.CatmullRomCurve3(points.map(v)),segments.bend,radius,segments.tube,false),color,[0,0,0]);
   }
   function ring(radius,width,color,y,z,arc=tau){
-    return piece(new T.TorusGeometry(radius,width,7,36,arc),color,[0,y,z],[1,1,1],[0,Math.PI/2,0]);
+    return piece(new T.TorusGeometry(radius,width,segments.tube,segments.ring,arc),color,[0,y,z],[1,1,1],[0,Math.PI/2,0]);
   }
   // Bake the painted parts once, so each rider needs only the frame and moving-part meshes.
   function combine(parts){
@@ -151,14 +153,12 @@ function bikeParts(T){
   for(const x of [-1.40,-.47,.47,1.40])for(const side of sides)rack.push(
     bend([[x+side*.128,.10,.30],[x+side*.128,.31,.36],[x+side*.128,.43,.57],
       [x+side*.128,.31,.76],[x+side*.128,.10,.80]],.026,steel));
-  const material=new T.MeshStandardMaterial({vertexColors:true,roughness:.69,metalness:.055});
   const result={wheel:combine(wheel),frame:combine(frame),rear:combine(rear),front:combine(front),crank:combine(crank),pedal:combine(pedal),
     rack:combine(rack),material,steerY,steerZ};
-  modelCache.set(T,result);
   // Stationary display bikes share the rider's exact wheels, colours and zero-angle pose.
   // Fold the seven independently animated meshes into one reusable mesh for dock instances.
   result.makeParkedBike=()=>{
-    const {group}=makeRidingBike(T),meshes=[];
+    const {group}=assembleRidingBike(T,result,false),meshes=[];
     group.updateMatrixWorld(true);
     group.traverse(mesh=>{if(mesh.isMesh)meshes.push({geometry:mesh.geometry,matrix:mesh.matrixWorld});});
     return combine(meshes);
@@ -166,12 +166,32 @@ function bikeParts(T){
   return result;
 }
 
+function bikeParts(T){
+  if(!modelCache.has(T)){
+    const material=new T.MeshStandardMaterial({vertexColors:true,roughness:.69,metalness:.055});
+    modelCache.set(T,createBikeParts(T,ridingSegments,material));
+  }
+  return modelCache.get(T);
+}
+
+function distantDockGeometry(T,material){
+  if(!distantDocks.has(T)){
+    const parts=createBikeParts(T,distantSegments,material);
+    distantDocks.set(T,{parked:parts.makeParkedBike(),rack:parts.rack});
+  }
+  return distantDocks.get(T);
+}
+
 function paintedMesh(T,geometry,material){
   const mesh=new T.Mesh(geometry,material);mesh.castShadow=true;mesh.receiveShadow=true;return mesh;
 }
 
 export function makeRidingBike(T,{rearSeat=false}={}){
-  const parts=bikeParts(T),group=new T.Group(),front=new T.Group(),crank=new T.Group();
+  return assembleRidingBike(T,bikeParts(T),rearSeat);
+}
+
+function assembleRidingBike(T,parts,rearSeat){
+  const group=new T.Group(),front=new T.Group(),crank=new T.Group();
   const frame=paintedMesh(T,parts.frame,parts.material),backWheel=paintedMesh(T,parts.wheel,parts.material);
   const frontWheel=paintedMesh(T,parts.wheel,parts.material);
   group.name="따릉이";
@@ -223,10 +243,15 @@ export function registerBikeDocks(docks=bikeDocks){
   }
 }
 
-export function buildBikeDocks(T,scene,{wx,wz,box,cylinder},{docks=bikeDocks,register=true,height=()=>0,signName="따릉이"}={}){
+export function buildBikeDocks(T,scene,{wx,wz,box,cylinder},{docks=bikeDocks,register=true,height=()=>0,signName="따릉이",registerLod}={}){
   if(register)registerBikeDocks(docks);
   const parts=bikeParts(T),signs=parts.dockSigns??=new Map(),signPanel=new T.PlaneGeometry(.76,.38);
   const parkedGeometry=parts.parkedGeometry??=parts.makeParkedBike();
+  if(registerLod){
+    const far=distantDockGeometry(T,parts.material);
+    registerLod(parkedGeometry,far.parked,75);
+    registerLod(parts.rack,far.rack,75);
+  }
   if(!signs.has(signName))signs.set(signName,dockSign(T,signName));
   const signMaterial=signs.get(signName);
   for(const dock of docks){

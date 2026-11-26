@@ -17,9 +17,9 @@ function noise(x,y,z,seed){
   return value-Math.floor(value);
 }
 
-export function makeTreeBuilder(T,scene,{clearance,rand,fits=()=>true,snapshotPart}){
+export function makeTreeBuilder(T,scene,{clearance,rand,fits=()=>true,snapshotPart,registerCrownLod}){
   // Shared vertices move together, so the facets stay watertight.
-  function lumpy(detail,seed,amount){
+  function lumpy(detail,seed,amount,withLod=true){
     const geometry=new T.IcosahedronGeometry(1,detail),points=geometry.attributes.position;
     for(let i=0;i<points.count;i++){
       const x=points.getX(i),y=points.getY(i),z=points.getZ(i);
@@ -28,6 +28,10 @@ export function makeTreeBuilder(T,scene,{clearance,rand,fits=()=>true,snapshotPa
       points.setXYZ(i,x*scale,y*scale,z*scale);
     }
     geometry.computeVertexNormals();geometry.computeBoundingBox();
+    if(withLod&&registerCrownLod&&detail>0){
+      const distant=lumpy(detail-1,seed,amount,false);
+      registerCrownLod(geometry,distant,detail===1?125:150);
+    }
     return geometry;
   }
   const small=[lumpy(0,1,.13),lumpy(0,2,.17),lumpy(0,3,.11)];

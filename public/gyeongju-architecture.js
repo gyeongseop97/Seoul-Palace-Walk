@@ -1,12 +1,12 @@
 import * as T from "three";
-import {localFrame} from "./gyeongju-mesh.js";
+import {localFrame,registerDistrictLod} from "./gyeongju-mesh.js";
 
 // A hipped tiled roof, with upturned corners and a shallow concave slope.
-function tiledRoof(){
+function tiledRoof(U,V){
  const points=[],uv=[],faces=[];
  const lower=[[-.5,-.5],[.5,-.5],[.5,.5],[-.5,.5]],ridge=[[-.31,0],[.31,0],[.31,0],[-.31,0]];
  for(let face=0;face<4;face++){
-  const next=(face+1)%4,offset=points.length/3,U=10,V=4;
+  const next=(face+1)%4,offset=points.length/3;
   for(let j=0;j<=V;j++)for(let i=0;i<=U;i++){
    const u=i/U,v=j/V,k=1-v;
    const px=(lower[face][0]*(1-u)+lower[next][0]*u)*k+(ridge[face][0]*(1-u)+ridge[next][0]*u)*v;
@@ -19,7 +19,8 @@ function tiledRoof(){
  const geo=new T.BufferGeometry();geo.setAttribute("position",new T.Float32BufferAttribute(points,3));geo.setAttribute("uv",new T.Float32BufferAttribute(uv,2));geo.setIndex(faces);geo.computeVertexNormals();
  return geo;
 }
-const tile=tiledRoof();
+const tile=tiledRoof(10,4);
+registerDistrictLod(tile,tiledRoof(6,2),170);
 function roofMaterial(){
  const canvas=document.createElement("canvas");canvas.width=32;canvas.height=96;const ctx=canvas.getContext("2d"),g=ctx.createLinearGradient(0,0,32,0);
  g.addColorStop(0,"#c5c6c6");g.addColorStop(.22,"#f7f7f6");g.addColorStop(.44,"#c7c8c8");g.addColorStop(.9,"#a9aaaa");g.addColorStop(1,"#bebfbf");
