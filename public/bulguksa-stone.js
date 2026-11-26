@@ -22,7 +22,7 @@ function dressedBlock(post){
  for(let i=0;i<p.count;i++){
   const nx=Math.abs(n.getX(i)),ny=Math.abs(n.getY(i)),nz=Math.abs(n.getZ(i));
   const x=nx>ny&&nx>nz?p.getZ(i):p.getX(i),y=ny>nx&&ny>nz?p.getZ(i):p.getY(i);
-  uv.setXY(i,.50+.85*x,.50+.82*y);
+  uv.setXY(i,.50+(post?.30:.85)*x,.50+.82*y);
  }
  registerDistrictLod(g,new T.BoxGeometry(),post?76:58);
  return g;
@@ -49,9 +49,9 @@ export function archStones(radius,rise){
 }
 export function bridgeMasonry(k){
  ashlar??=dressedBlock(false);pillar??=dressedBlock(true);
- const mat=templeGranite(),yaw=.15;
+ const mat=templeGranite(),yaw=.15,tone=new T.Color(),graniteBalance=new T.Color(.80,.94,1.14);
  function put(shape,u,y,v,w,h,d,tint=0xffffff){
-  const p=templeAxis(u,v);k.geo(shape,p.x,y,p.z,w,h,d,tint,yaw,mat);
+  const p=templeAxis(u,v);k.geo(shape,p.x,y,p.z,w,h,d,tone.setHex(tint).multiply(graniteBalance),yaw,mat);
  }
  const stone=(u,y,v,w,h,d,i=0)=>put(ashlar,u,y,v,w,h,d,tints[Math.abs(i)%tints.length]);
  function post(u,base,v,large){
@@ -62,7 +62,13 @@ export function bridgeMasonry(k){
  function railSection(v0,v1,y0,y1,width,height,round){
   const run=v1-v0,climb=y1-y0,length=Math.hypot(run,climb);
   if(round){
-   const g=new T.CylinderGeometry(1,1,length,10);
+   // Mirror the small granite sample along the carved rail so its grain keeps a physical scale.
+   const spans=Math.ceil(length/.56),g=new T.CylinderGeometry(1,1,length,10,spans);
+   const uv=g.attributes.uv;
+   for(let i=0;i<uv.count;i++){
+    const t=uv.getY(i)*spans%2;
+    uv.setXY(i,.12+.72*uv.getX(i),.12+.72*(t>1?2-t:t));
+   }
    g.scale(width/2,1,height/2);g.rotateX(Math.atan2(run,climb));
    return g;
   }
