@@ -32,7 +32,7 @@ function exterior(T,service){
  geometry.setIndex(indices);return geometry;
 }
 
-export function createDistantFleet(T,group,route){
+export function createDistantFleet(T,group,route,prepareScenery){
  const material=new T.MeshStandardMaterial({vertexColors:true,roughness:.8});
  const liveries=new Map(),fleet=[],transform=new T.Object3D();
  for(let i=0;i<route.count;i++){
@@ -46,6 +46,7 @@ export function createDistantFleet(T,group,route){
    }
    batch.count=0;batch.visible=false;
    group.add(batch);liveries.set(service,batch);
+   prepareScenery?.(batch);
   }
   fleet.push(liveries.get(service));
  }

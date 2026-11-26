@@ -267,7 +267,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   const bungeoCustomer=makeBungeoCustomer(outdoorWalkers,{floorHeight,labelSprite,chatTexture});
   const busInBukchon=point=>point.x>=680&&point.y< -890;
   const busGround=point=>gyeongju?0:busInBukchon(point)?sampleMeshHeight(bukchonSurfaceGrade,point):southWorldSurfaceHeight(point);
-  const buses=gyeongju?buildGyeongjuBuses(T,transportRoot,kit,walkerModels):coast?null:buildSejongBusModels(T,transportRoot,kit,walkerModels,busGround,
+  const buses=gyeongju?buildGyeongjuBuses(T,transportRoot,{...kit,prepareScenery},walkerModels):coast?null:buildSejongBusModels(T,transportRoot,kit,walkerModels,busGround,
     point=>busInBukchon(point)?bukchonGroundHeight(point)??busGround(point):busGround(point));
   registerPlazaNavigation(benches);
   const drawWater=regional?null:addWater(T,deoksExtras,fountains,{...makeKit(deoksExtras),terrain:southWorldSurfaceHeight});

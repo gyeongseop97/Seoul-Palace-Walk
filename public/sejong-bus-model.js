@@ -283,7 +283,7 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
   // offscreen models so a shorter headway doesn't build dozens of idle buses.
   const vehicles=Array.from({length:route?.count??BUS_COUNT},(_,i)=>route?.vehicle?null:model(i));
   const spares=new Map();
-  const distant=route?.createDistantFleet?.(T,busGroup,route);
+  const distant=route?.createDistantFleet?.(T,busGroup,route,kit.prepareScenery);
   function update(time,anchor){
     distant?.start();
     for(let index=0;index<vehicles.length;index++){
