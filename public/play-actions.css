@@ -76,7 +76,7 @@
 #game-shell[data-chat-keyboard] .play-social { display: none; }
 
 @media (max-width:810px), (pointer:coarse) {
-  .scene-wrap { --play-width: clamp(148px,calc(100vw - 140px),232px); --play-edge: max(13px,env(safe-area-inset-right)); --play-bottom: 15px; }
+  .scene-wrap { --play-width: clamp(148px,calc(100vw - 146px),232px); --play-edge: max(13px,env(safe-area-inset-right)); --play-bottom: 15px; }
   #game-shell #nearby-grid .context-choice { padding: 4px 7px; }
   #game-shell .play-social .gesture-menu { width: min(228px,calc(100vw - clamp(114px,35vw,156px) - 15px)); }
   #game-shell .play-social .emote-menu { grid-template-columns: repeat(4,44px); }
