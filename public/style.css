@@ -36,9 +36,23 @@ button:not(:disabled):hover{filter:brightness(1.13)}
 }
 #passport-open,#fullscreen-toggle{display:inline-flex;align-items:center;justify-content:center;gap:7px}
 #passport-open svg,#fullscreen-toggle svg{flex:none}
-.pace-context{display:none}
-.mobile-settings-actions #run{display:flex;align-items:center;justify-content:space-between;gap:6px;grid-column:1/-1}
-.mobile-settings-actions #run .pace-context{display:block;order:-1;color:var(--muted);font-size:12px}
+#game-shell .top #controls-help-open{display:grid;place-items:center;flex:none;width:44px;height:44px;padding:0;border:0;background:transparent;color:#f6efdc}
+#controls-help-open span{display:grid;place-items:center;width:26px;height:26px;border:1.5px solid #8da99d;border-radius:50%;font:700 16px/1 system-ui,sans-serif}
+#controls-help-open:hover span{border-color:#eed59b;color:#eed59b}
+#controls-help{width:min(400px,calc(100% - 24px));max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain;background:#f7f4e9;color:#183c31;border:1px solid #d7d8ca;padding:16px 20px;border-radius:16px}
+#controls-help h2{margin:0;font:700 24px/1.3 "Nanum Myeongjo",Batang,Georgia,serif}
+#controls-help .close{width:44px;height:44px;border:0;background:transparent;color:#36584b}
+#controls-help dl{margin:6px 0 0}
+#controls-help dl>div{display:grid;grid-template-columns:75px 1fr;gap:9px;align-items:baseline;padding:9px 0;border-top:1px solid #dcdece}
+#controls-help dt{font-weight:700;font-size:13px}
+#controls-help dd{margin:0;color:#375349;font-size:14px;line-height:1.5;word-break:keep-all;overflow-wrap:anywhere}
+#controls-help kbd{font:650 12px/1.4 system-ui,sans-serif;background:#e4e9dc;border:1px solid #c6cec2;border-radius:5px;padding:1px 5px;color:#204538}
+#controls-help .help-touch{display:none}
+@media (pointer:coarse){
+  #controls-help .help-keyboard{display:none}
+  #controls-help dl>div.help-touch{display:grid}
+  #controls-help span.help-touch{display:inline}
+}
 .sound-setting{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr;align-items:center;gap:0 9px}
 .sound-setting button{grid-row:1/3}
 .sound-setting label{display:flex;justify-content:space-between;align-self:end;color:var(--lettering);font-size:12px}
@@ -348,8 +362,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   .top button{padding-inline:7px}
 }
 
-#run{background:#17261dec;border-color:var(--sage-1);color:var(--ivory-3)}
-#run[aria-pressed="true"],#sit[aria-pressed="true"]{color:var(--gold-9);background:var(--gold-3);border-color:var(--gold-2)}
+#sit[aria-pressed="true"]{color:var(--gold-9);background:var(--gold-3);border-color:var(--gold-2)}
 #sit{color:var(--ivory-3);border-color:#9b9e79;background:#17261de6}
 .map-links{display:flex;flex-wrap:wrap;gap:5px}
 .map-links :is(button,select){font-size:11px;font-weight:650;min-height:34px;padding:4px 8px}
@@ -507,8 +520,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   .map-panel:has(.map-route:not([hidden])) .map-wrap{height:min(40dvh,340px)}
 }
 @media (max-width:810px), (pointer:coarse){
-  #run kbd{display:none}
-  #run,#sit,.map-links :is(button,select){min-height:44px}
+  #sit,.map-links :is(button,select){min-height:44px}
   #game-presence{max-width:105px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
 #character-dialog{max-width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto}

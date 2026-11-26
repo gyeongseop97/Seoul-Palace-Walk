@@ -1,5 +1,5 @@
 const STEPS=[
-  {title:"산책 시작",text:"조이스틱을 살짝 밀면 걷고, 끝까지 밀면 달려요. PC에서는 방향키·WASD로 걷고 Shift로 달려요. 바닥을 눌러도 이동해요.",target:"#joystick,.game-pad button"},
+  {title:"걷기와 달리기",text:"방향키·WASD로 이동해요. Shift를 한 번 누르면 달리고, 다시 누르면 걸어요. Space로 점프해요. 조작법은 ?에서 다시 볼 수 있어요.",touchText:"왼쪽 조이스틱을 살짝 밀면 천천히 걷고, 끝까지 밀면 달려요. 오른쪽 점프 버튼으로 뛰어올라요. 조작법은 ?에서 다시 볼 수 있어요.",target:"#controls-help-open",touchTarget:"#joystick"},
   {title:"시점 바꾸기",text:"화면을 드래그해 주변을 둘러보세요. 왼쪽 위 장소명 옆의 카메라를 누르면 1인칭과 3인칭을 오갈 수 있어요.",target:"#perspective"},
   {title:"지도 열기",text:"미니맵을 누르면 큰 지도가 열려요. 마우스 휠이나 두 손가락으로 확대하고, 지도에서 목적지를 눌러 보세요.",target:"#map-toggle,#overview-map"},
   {title:"버스 타기",text:"정류장에 가면 다음 버스 시간을 볼 수 있어요. 버스가 오면 좌석을 고르고 원하는 정류장에서 내리세요.",target:"#plaza-bus-target,#map-toggle"},
@@ -7,30 +7,38 @@ const STEPS=[
 ];
 const duration=6000,seenKey="jeongdong-walk-tutorial";
 
-export function bindTutorial(card){
+export function bindTutorial(card,mobile){
   const doc=card.ownerDocument;
   const title=doc.getElementById("tutorial-title"),description=doc.getElementById("tutorial-description");
   const next=doc.getElementById("tutorial-next"),skip=doc.getElementById("tutorial-skip");
-  let seen=localStorage.getItem(seenKey)==="done",index=0,remaining=duration,last=0,highlight=null;
+  const saved=localStorage.getItem(seenKey);
+  let seen=saved==="done"||saved==="done-pace",keyboardHintSeen=saved==="done-pace";
+  let paceOnly=false,index=0,remaining=duration,last=0,highlight=null;
+  function needsStart(){return card.hidden&&(!seen||(!mobile.matches&&!keyboardHintSeen));}
   function clearHighlight(){highlight?.classList.remove("tutorial-highlight");highlight=null;}
   function draw(){
     clearHighlight();
     const step=STEPS[index];
-    title.textContent=step.title;description.textContent=step.text;
-    next.textContent=index===STEPS.length-1?"마치기":"다음";
-    highlight=[...doc.querySelectorAll(step.target)].find(element=>element.getClientRects().length)??null;
+    const touch=mobile.matches;
+    title.textContent=step.title;description.textContent=touch&&step.touchText?step.touchText:step.text;
+    if(index===0&&!touch)keyboardHintSeen=true;
+    next.textContent=paceOnly||index===STEPS.length-1?"마치기":"다음";
+    skip.hidden=paceOnly;
+    const target=touch&&step.touchTarget?step.touchTarget:step.target;
+    highlight=[...doc.querySelectorAll(target)].find(element=>element.getClientRects().length)??null;
     highlight?.classList.add("tutorial-highlight");
   }
   function close(remember=false){
     card.hidden=true;clearHighlight();last=0;
-    if(remember){seen=true;localStorage.setItem(seenKey,"done");}
+    if(remember){seen=true;localStorage.setItem(seenKey,keyboardHintSeen?"done-pace":"done");}
   }
   function start(replay=false){
-    if(!replay&&(seen||!card.hidden))return;
-    index=0;remaining=duration;last=0;card.hidden=false;draw();
+    if(!replay&&!needsStart())return;
+    paceOnly=seen&&!replay;
+    index=0;remaining=9000;last=0;card.hidden=false;draw();
   }
   function advance(){
-    if(index+1===STEPS.length){close(true);return;}
+    if(paceOnly||index+1===STEPS.length){close(true);return;}
     index++;remaining=duration;draw();
   }
   function update(now,paused=false){
@@ -41,5 +49,6 @@ export function bindTutorial(card){
   }
   next.addEventListener("click",advance);
   skip.addEventListener("click",()=>close(true));
-  return {start,update,close,get needsStart(){return !seen&&card.hidden;}};
+  mobile.addEventListener("change",()=>{if(!card.hidden)draw();});
+  return {start,update,close,get needsStart(){return needsStart();}};
 }

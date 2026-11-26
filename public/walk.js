@@ -202,7 +202,7 @@ let backgroundTrip=null;
 let exitPress=null;
 let mapRoute=null;
 let clockOffset=null,roundTrip=65;
-let runToggled=false,shiftHeld=false,sentHeading=0,jumpBase=0;
+let runToggled=sessionStorage.getItem("palace-run-mode")==="run",sentHeading=0,jumpBase=0;
 const keys=new Set();
 const vectors={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,-1],s:[0,1],a:[-1,0],d:[1,0]};
 const fragments=new URLSearchParams(location.hash.slice(1));
@@ -231,7 +231,8 @@ const serverButtons=["open-server","create-room","join-room","server-back","invi
 nickname.value=localStorage.getItem("jeongdong-nickname")||"";
 joinCode.value=suppliedCode;
 profileChoices.find(option=>option.value===me.character).checked=true;
-const photoAlbum=bindPhotoAlbum($("photo-album")),tutorial=bindTutorial($("tutorial-card"));
+const touchControls=matchMedia("(pointer:coarse)");
+const photoAlbum=bindPhotoAlbum($("photo-album")),tutorial=bindTutorial($("tutorial-card"),touchControls);
 const diningById=Object.fromEntries(diningVenues.map(venue=>[venue.id,venue]));
 const diningRegion={station:"서울역",west:"경희궁",jeongdong:"덕수궁",gwanghwamun:"광화문광장",bukchon:"북촌"};
 const venueById={ ...railRoomById,[semaVenue.id]:semaVenue,[mmcaVenue.id]:mmcaVenue,[ARCADE_SITE.id]:ARCADE_SITE,[ARCADE_UPPER_SITE.id]:ARCADE_UPPER_SITE,
@@ -302,6 +303,10 @@ $("photo-join").addEventListener("click",()=>{if(joinablePhoto(gameTime()))photo
 $("tutorial-replay").addEventListener("click",()=>{
   $("visitor-guide-dialog").close();tutorial.start(true);focusGame();
 });
+$("controls-help-open").addEventListener("click",()=>{
+  closeActionMenus();mobileSettings.open=false;clearManualInput();
+  $("controls-help").showModal();
+});
 
 let catTipTimer;
 let catTipDismissed=localStorage.getItem("jeongdong-cat-run-tip-hidden")==="true";
@@ -350,15 +355,13 @@ graphicsSelect.addEventListener("change",()=>{
 });
 let fullscreenFallback=false;
 function placeViewControls(){
-  const menu=$("mobile-settings-actions"),mapLinks=$("map-links"),mapKey=$("map-key");
+  const mapLinks=$("map-links"),mapKey=$("map-key");
   mobileSettings.open=false;
   if(mobileHeader.matches){
     $("close-map").before($("presence"));
-    menu.querySelector(".graphics-setting").before($("run"));
     $("map-footer").append(mapKey,mapLinks);
   }else{
     mobileSettings.before($("presence"));
-    $("play-menu-tools").append($("run"));
     // The teleport buttons stay under the map; only the legend moves into the settings menu.
     $("map-footer").append(mapLinks);
     $("desktop-map-settings").append(mapKey);
@@ -1009,7 +1012,6 @@ function updateHandControls(){
   }
   const follower=amFollowingHands();
   sceneWrap.classList.toggle("hand-following",follower);
-  $("run").disabled=!world||riding||follower||Boolean(umbrella&&link.active||me.bus||isCycling(me)||queuedBus||queuedBike);
 }
 function releasePair(link){
   queuedHand={action:"release",id:link.id,...(isUmbrellaLink(link)?{kind:"umbrella"}:{})};
@@ -1638,15 +1640,6 @@ window.addEventListener("pageshow",event=>{
   if(session){const {code,mode}=session;returnToLobby();enterRoom(mode==="open"?"open":"join",code);}
 });
 
-function markPace(){
-  $("run").setAttribute("aria-pressed",String(runToggled));$("run").firstChild.textContent=runToggled?"걷기 ":"달리기 ";
-}
-$("run").addEventListener("click",()=>{
-  if(amFollowingHands()||sharingUmbrella()||me.bus||isCycling(me))return;
-  runToggled=!runToggled;markPace();
-  if(mobileSettings.contains($("run")))mobileSettings.open=false;
-  $("game").focus({preventScroll:true});
-});
 function canJump(time){
   if(!session||!world||bungeoMode||arcade.kind||riding||me.bus||isCycling(me)||queuedBus||queuedBike||sharingUmbrella()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||carryingDiningTray(time)||mealBiteLocked(time)||time-me.jump<jumpDuration(me))return false;
   if(onCoast&&!coastPlay?.canJumpHere())return false;
@@ -1933,7 +1926,7 @@ function releaseThumb(){
 const finishThumb=event=>{if(event.pointerId===thumbId)releaseThumb();};
 for(const type of ["pointerup","pointercancel"])window.addEventListener(type,finishThumb,true);
 joystick.addEventListener("lostpointercapture",finishThumb);
-function clearManualInput(){keys.clear();shiftHeld=false;releaseThumb();clearSceneTouch();if(setRaftAxes(0,0,gameTime()))wakeSync();}
+function clearManualInput(){keys.clear();releaseThumb();clearSceneTouch();if(setRaftAxes(0,0,gameTime()))wakeSync();}
 function resetInput(){coastalWalkRequest++;backgroundTrip=null;clearManualInput();course=[];pendingSeat=seatClaim=null;}
 function movementInput(){
   let [x,y]=thumb;
@@ -1942,7 +1935,7 @@ function movementInput(){
     const strength=Math.min(1,Math.hypot(x,y)),scale=Math.max(stickWalkLimit,strength);
     return {x:x/scale,y:y/scale,run:stickRun,runBlend:Math.max(0,(strength-stickWalkLimit)/(1-stickWalkLimit))};
   }
-  const run=shiftHeld||runToggled;
+  const run=runToggled&&(!touchControls.matches||keys.size>0);
   return {x,y,run,runBlend:Number(run)};
 }
 function beginBackgroundTrip(){
@@ -2017,14 +2010,15 @@ window.addEventListener("keydown",event=>{
       mobileSettings.open=false;mobileSettings.querySelector("summary").focus();return;
     }
     if(!$("gesture-menu").hidden||!$("emote-menu").hidden){
-      setGestures(false);setEmotes(false);$("nearby-toggle").focus();return;
+      const opener=$("gesture-menu").hidden?$("emote-open"):$("gesture-open");
+      setGestures(false);setEmotes(false);opener.focus({preventScroll:true});return;
     }
     if(nearbyControls.close(true)||peerControls.close(true))return;
     if(mapIsOpen()){setMap(false,{fold:true});return;}
     if(fullscreenFallback){void leaveFullscreen();return;}
     setMap(false);setEmotes(false);
   }
-  if(!session||riding||nearbyControls.ownsFocus()||peerControls.ownsFocus()||event.target.closest("input,select,#mobile-settings"))return;
+  if(!session||riding||nearbyControls.ownsFocus()||peerControls.ownsFocus()||event.target.closest("input,textarea,select,[contenteditable]:not([contenteditable=false]),#mobile-settings"))return;
   if(photoMode.camera&&event.key==="Enter"&&event.target===$("game")){
     event.preventDefault();
     if(!event.repeat){
@@ -2041,7 +2035,15 @@ window.addEventListener("keydown",event=>{
     event.preventDefault();if(!event.repeat)jump();return;
   }
   const key=event.key.length===1?event.key.toLowerCase():event.key;
-  if(event.key==="Shift")shiftHeld=true;
+  if(event.key==="Shift"){
+    if(event.repeat||event.altKey||event.ctrlKey||event.metaKey||event.isComposing||
+       event.target.closest("button,a,summary")||photoMode.camera||arcade.kind||(!world&&!worldFailed)||
+       amFollowingHands()||sharingUmbrella()||me.bus||isCycling(me)||queuedBus||queuedBike)return;
+    runToggled=!runToggled;
+    sessionStorage.setItem("palace-run-mode",runToggled?"run":"walk");
+    toast(runToggled?"달리기로 전환했어요.":"걷기로 전환했어요.");
+    return;
+  }
   if(!photoMode.camera&&key==="f"&&!event.repeat&&!$("sit").hidden){interactBench();return;}
   if(!photoMode.camera&&key==="e"&&!event.repeat&&!$("wish").disabled){openWish();return;}
   if(!vectors[key]||event.ctrlKey||event.metaKey||event.altKey)return;
@@ -2051,7 +2053,6 @@ window.addEventListener("keydown",event=>{
 });
 window.addEventListener("keyup",event=>{
   arcade.keyUp(event);
-  if(event.key==="Shift")shiftHeld=false;
   keys.delete(event.key.length===1?event.key.toLowerCase():event.key);
 });
 function walkFromMap(event,source=event.target){
@@ -3034,8 +3035,8 @@ function stopAtPressedExit(event){
   resetInput();
 }
 venueDoorButton.addEventListener("pointerdown",stopAtPressedExit);
-$("nearby-primary").addEventListener("pointerdown",event=>{
-  if(nearbyControls.isPrimary(venueDoorButton))stopAtPressedExit(event);
+for(const id of ["nearby-primary","nearby-secondary"])$(id).addEventListener("pointerdown",event=>{
+  if(nearbyControls.actionFor(event.currentTarget)===venueDoorButton)stopAtPressedExit(event);
 });
 window.addEventListener("pointerup",event=>{
   const pressed=exitPress;

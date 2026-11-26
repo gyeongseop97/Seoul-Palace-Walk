@@ -2,159 +2,84 @@
   --play-edge: 18px;
   --play-bottom: 8px;
   --play-width: 156px;
-  --play-button-height: 36px;
 }
+#game-shell .scene-wrap .game-hud { inset: auto var(--play-edge) var(--play-bottom) auto; }
+.play-command { position: relative; display: flex; flex-direction: column; gap: 6px; width: var(--play-width); }
+.play-command button, .play-command .nearby-actions { pointer-events: auto; }
 
-#game-shell .scene-wrap .game-hud {
-  inset: auto var(--play-edge) var(--play-bottom) auto;
+#game-shell #nearby-controls > button, #game-shell #nearby-controls .play-secondary button {
+  width: 100%; min-width: 0; margin: 0; padding: 6px 10px;
+  border-radius: 11px; text-align: center; font-size: 14px;
+  font-family: inherit; font-weight: 650; line-height: 1.2; text-shadow: none;
 }
-
-.play-command {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 7px;
-  width: var(--play-width);
-}
-
-.play-command button, .play-command .nearby-actions {
-  pointer-events: auto;
-}
-
-#game-shell #nearby-primary,
-#game-shell #nearby-controls .play-secondary button {
-  width: 100%;
-  min-width: 0;
-  margin: 0;
-  padding: 5px 7px;
-  border-radius: 11px;
-  text-align: center;
-  font-family: inherit;
-  font-weight: 650;
-  line-height: 1.18;
-  text-shadow: none;
-}
-
 #game-shell #nearby-primary {
-  min-height: 46px;
-  border: 1px solid #ccb783;
-  background: #eed59b;
-  color: #193a31;
-  font-size: 15px;
+  min-height: 46px; border: 1px solid #ccb783; background: #eed59b; color: #193a31; font-size: 15px;
 }
-
-#game-shell #nearby-primary:disabled {
-  opacity: .84;
-}
-
-.play-secondary, .play-menu-tools {
-  display: flex;
-  gap: 7px;
-}
-
+#game-shell #nearby-primary:disabled { opacity: .84; }
+#game-shell .scene-wrap #nearby-secondary,
 #game-shell #nearby-controls .play-secondary button {
-  flex: 1 1 0;
-  min-height: var(--play-button-height);
-  border: 1px solid #61766b;
-  background: #102f28e0;
-  color: #fbf8ed;
-  font-size: 13px;
+  min-height: 36px; border: 1px solid #61766b; background: #102f28e8; color: #fbf8ed; font-size: 13px;
 }
-
-#game-shell #nearby-controls .play-secondary #nearby-toggle[aria-expanded="true"] {
-  background: #193e32;
-  border-color: #eed59b;
+#game-shell .scene-wrap #nearby-secondary { min-height: 40px; font-size: 14px; }
+#nearby-secondary span {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere;
 }
-
-.play-secondary:has(#jump[hidden]) {
-  justify-content: flex-end;
-}
-
-.play-secondary:has(#jump[hidden]) #nearby-toggle {
-  flex: 0 1 calc(50% - 3.5px);
-}
-
-#nearby-controls[data-rowing] {
-  display: grid;
-  width: min(calc(var(--play-width) + 70px),calc(100vw - 132px));
-  grid-template-columns: minmax(42px,1fr) minmax(0,var(--play-width));
-  align-items: end;
-}
-
-#nearby-controls[data-rowing] #nearby-primary {
-  grid-area: 1 / 2;
-}
-
-#nearby-controls[data-rowing]:has(#raft-helm[data-current-action]) #nearby-primary {
-  background: #12382f;
-  color: #f6efdc;
-  border-color: #527467;
-}
-
-#nearby-controls[data-rowing] .play-secondary { grid-area: 1 / 1; }
-#nearby-controls[data-rowing] .play-secondary #nearby-toggle { flex: 1; }
-
+.play-secondary { display: flex; justify-content: flex-end; gap: 6px; }
+.play-secondary:has(#nearby-toggle[hidden]), #game-shell .play-secondary #jump { display: none; }
+#game-shell #nearby-controls .play-secondary button { width: auto; min-width: 60px; flex: 0 1 calc(50% - 3px); }
+#game-shell #nearby-controls .play-secondary #nearby-toggle[aria-expanded="true"] { border-color: #eed59b; }
 #raft-control-hint {
-  grid-column: 1 / -1;
-  justify-self: end;
-  border-radius: 8px;
-  padding: 6px 11px;
-  background: #12382fee;
-  color: #f6efdc;
-  font-size: 12px;
-  line-height: 1.3;
+  align-self: flex-end; border-radius: 8px; padding: 5px 8px; background: #12382fee; color: #f6efdc;
+  font-size: 11px; line-height: 1.3;
+}
+#nearby-controls[data-rowing]:has(#raft-helm[data-current-action="primary"]) #nearby-primary {
+  background: #12382f; color: #f6efdc; border-color: #527467;
 }
 
 #game-shell #nearby-actions {
-  position: absolute;
-  z-index: 5;
-  inset: auto 0 calc(100% + 7px) auto;
-  width: min(228px,calc(100vw - 32px));
-  max-height: min(290px,44dvh);
-  grid-template-columns: minmax(0,1fr);
-  padding: 6px;
-  gap: 5px;
-  border: 1px solid #61766b;
-  border-radius: 13px;
-  background: #12382ff7;
-  color: #fbf8ed;
-  overflow-y: auto;
+  position: absolute; z-index: 5; inset: auto 0 calc(100% + 6px) auto; width: min(228px,calc(100vw - 32px));
+  max-height: min(270px,40dvh); grid-template-columns: minmax(0,1fr); padding: 6px; gap: 5px;
+  border: 1px solid #61766b; border-radius: 13px; background: #12382ff7; color: #fbf8ed; overflow-y: auto;
   overscroll-behavior: contain;
 }
-
 #nearby-actions .play-context, #nearby-actions .play-held { display: contents; }
 #game-shell #nearby-actions button[data-current-action] { display: none; }
-.play-menu-tools { flex-wrap: wrap; }
-.play-menu-tools button { flex: 1 1 44%; text-align: center; }
-#nearby-actions .play-held button { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-#nearby-actions .play-held > button { grid-column: 1; }
+#nearby-actions .play-held button { display: flex; grid-column: 1; justify-content: space-between; align-items: center; gap: 8px; }
 #nearby-actions .play-held small { font-size: 11px; }
 
-#game-shell .scene-wrap :is(.gesture-menu,.emote-menu) {
-  z-index: 5;
-  right: var(--play-edge);
-  bottom: calc(var(--play-bottom) + var(--play-button-height) + 7px);
-  left: auto;
-  transform: none;
-  max-height: min(270px,44dvh);
-  overflow: auto;
+.play-social { position: relative; display: flex; align-items: center; gap: 5px; margin-left: 3px; }
+#game-shell .play-social .social-chip {
+  position: relative; isolation: isolate; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  min-width: 53px; min-height: 30px; padding: 0 7px; border: 0; border-radius: 9px;
+  background: none; color: #fcf8e9; font: inherit; font-size: 12px; font-weight: 650; pointer-events: auto;
 }
-
-#game-shell .scene-wrap:has(#nearby-primary:not([hidden])) :is(.gesture-menu,.emote-menu) {
-  bottom: calc(var(--play-bottom) + var(--play-button-height) + 60px);
+.play-social .social-chip::before {
+  content: ""; position: absolute; z-index: -1; inset: 0; border-radius: inherit; border: 1px solid #b4c2ad94; background: #12362de3;
 }
+.play-social .social-chip[aria-expanded="true"]::before { border-color: #eed59b; background: #174b3e; }
+.play-social .social-chip:disabled { opacity: .6; }
+#game-shell .play-social :is(.gesture-menu,.emote-menu) {
+  position: absolute; z-index: 5; inset: calc(100% + 3px) auto auto 0; margin: 0; transform: none;
+  max-height: min(270px,40dvh); overflow: auto; overscroll-behavior: contain; pointer-events: auto;
+}
+#game-shell .game-info:has(.social-chip[aria-expanded="true"]) { z-index: 5; }
+:is(.bungeo-active,.arcade-machine-active,.arcade-avatar-active,.arcade-classic-active,.photo-active) .play-social,
+#game-shell[data-chat-keyboard] .play-social { display: none; }
 
 @media (max-width:810px), (pointer:coarse) {
-  .scene-wrap {
-    --play-width: 146px;
-    --play-button-height: 46px;
-    --play-edge: max(13px,env(safe-area-inset-right));
-    --play-bottom: 22px;
-  }
+  .scene-wrap { --play-width: 146px; --play-edge: max(13px,env(safe-area-inset-right)); --play-bottom: 22px; }
+  #game-shell .play-social .gesture-menu { width: min(228px,calc(100vw - clamp(114px,35vw,156px) - 15px)); }
+  #game-shell .play-social .emote-menu { grid-template-columns: repeat(4,44px); }
 }
-
+@media (pointer:coarse) {
+  #game-shell .play-secondary #jump:not([hidden]) { display: block; }
+  .play-secondary:has(#jump:not([hidden])) { display: flex; }
+  #game-shell #nearby-controls .play-secondary button, #game-shell .scene-wrap #nearby-secondary { min-height: 44px; }
+  #game-shell .play-social .social-chip { min-height: 44px; }
+  .play-social .social-chip::before { inset-block: 6px; }
+}
 @media (orientation:landscape) and (max-height:560px) {
   .scene-wrap { --play-bottom: 7px; }
-  #game-shell #nearby-actions { max-height: min(200px,calc(100dvh - 210px)); }
+  #game-shell #nearby-actions { inset: auto calc(100% + 6px) 0 auto; width: min(200px,32vw); max-height: min(220px,55dvh); }
+  #game-shell .play-social :is(.gesture-menu,.emote-menu) { max-height: min(185px,calc(100dvh - 205px)); }
 }
