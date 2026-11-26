@@ -156,7 +156,7 @@
       <span id="header-region">서울</span>
     </div>
     <div class="top-game-actions">
-      <button id="bag-open" class="quiet" type="button" data-native-touch aria-haspopup="dialog" aria-label="가방 열기" title="가방">
+      <button id="bag-open" class="quiet" type="button" data-native-touch aria-haspopup="dialog" aria-label="가방 열기" aria-keyshortcuts="I" title="가방 (I)">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M9 6V5a3 3 0 0 1 6 0v1M5 11a6 6 0 0 1 6-6h2a6 6 0 0 1 6 6v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><rect x="8" y="13" width="8" height="5" rx="1.5"/></svg>
         <span class="header-label">가방</span>
       </button>
@@ -213,7 +213,7 @@
               <p role="status">술을 마시고 따릉이를 타면 넘어질 수 있어요. 일어난 뒤 다시 탈 수 있어요.</p>
               <button id="bike-fall-tip-dismiss" class="quiet" type="button">다시 보지 않기</button>
             </div>
-            <button id="map-toggle" class="minimap" type="button" data-native-touch aria-label="미니맵, 큰 지도 열기" aria-controls="map-panel" aria-expanded="false">
+            <button id="map-toggle" class="minimap" type="button" data-native-touch aria-label="미니맵, 큰 지도 열고 닫기" aria-keyshortcuts="M" title="지도 (M)" aria-controls="map-panel" aria-expanded="false">
               <svg id="mini-world" viewBox="404 231 126 126" aria-hidden="true">
                 <g id="mini-landscape"></g>
                 <g id="mini-route-path" visibility="hidden"><polyline/><circle/></g>
@@ -233,7 +233,8 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5h4l1.7-3h6.6l1.7 3h4a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.8"/></svg>
               </button>
             </div>
-            <div class="play-social" role="group" aria-label="몸짓과 감정">
+            <div class="play-social" role="group" aria-label="몸짓과 감정" aria-keyshortcuts="T">
+              <kbd class="expression-key" aria-hidden="true">T</kbd>
               <button id="gesture-open" type="button" class="social-chip" aria-controls="gesture-menu" aria-expanded="false">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 13-2-3a1.6 1.6 0 0 0-2.7 1.7l3.2 5.7c1.4 2.4 3.6 3.6 6.5 3.6 4.1 0 7-3 7-7V9a1.4 1.4 0 0 0-2.8 0v3-6a1.4 1.4 0 0 0-2.8 0v5-7a1.4 1.4 0 0 0-2.8 0v7-6A1.4 1.4 0 0 0 8.8 5v8Z"/></svg>몸짓
               </button>
@@ -285,6 +286,7 @@
           </div>
           <div class="game-hud">
             <div class="play-command" id="nearby-controls">
+              <small class="context-cycle-hint"><kbd>R</kbd> 다음 행동 묶음</small>
               <div id="nearby-grid" class="context-grid" role="group" aria-label="주변 행동" data-scroll-actions data-empty>
                 <button id="nearby-primary" type="button" class="primary context-choice" hidden><span></span><small id="nearby-primary-type" data-category-text aria-hidden="true"></small></button>
                 <button id="nearby-secondary" type="button" class="quiet context-choice" hidden><span></span><small id="nearby-secondary-type" data-category-text aria-hidden="true"></small></button>
@@ -337,7 +339,7 @@
                   <button id="boat-fold" type="button" class="quiet" aria-haspopup="dialog" aria-controls="boat-dialog" hidden>종이배 접기</button>
                   <button id="boat-catch" type="button" class="quiet" hidden>종이배 건지기</button>
                   <button id="foot-kick" type="button" class="quiet activity-button" hidden>발장구치기</button>
-                  <button id="wish" type="button" class="quiet" aria-haspopup="dialog" aria-controls="wish-drawing" hidden disabled>소원등 <kbd>E</kbd></button>
+                  <button id="wish" type="button" class="quiet" aria-haspopup="dialog" aria-controls="wish-drawing" hidden disabled>소원등</button>
                   <button id="museum-exhibit" type="button" class="quiet activity-button" aria-haspopup="dialog" aria-controls="exhibit-dialog" hidden>작품 설명</button>
                   <button id="mmca-light" type="button" class="quiet activity-button" hidden>빛 바꾸기</button>
                   <button id="umbrella" type="button" class="quiet activity-button" hidden>우산 쓰기</button>
@@ -481,7 +483,8 @@
             <select id="quick-travel-district" aria-label="순간이동 구역"></select>
           </div>
           <div class="quick-travel-actions" id="quick-travel-actions">
-            <select id="quick-travel-place" aria-label="순간이동할 장소" hidden></select>
+            <select id="quick-travel-place" aria-label="순간이동할 장소"></select>
+            <button id="quick-travel-go" class="quiet" type="button" disabled>순간이동</button>
           </div>
         </section>
         <section class="map-itinerary" aria-labelledby="map-destination-label">
@@ -538,10 +541,23 @@
       <div class="help-touch"><dt>걷기·달리기</dt><dd>왼쪽 조이스틱을 살짝 밀면 걷고, 끝까지 밀면 달려요.</dd></div>
       <div><dt>점프</dt><dd><span class="help-keyboard"><kbd>Space</kbd></span><span class="help-touch">오른쪽 아래 점프 버튼</span></dd></div>
       <div><dt>시점</dt><dd>화면을 드래그해 둘러보고, 장소명 옆 카메라로 시점을 바꿔요.</dd></div>
-      <div><dt>상호작용</dt><dd>가까이 가면 오른쪽 아래에 탈것, 음식 등 종류별로 행동이 보여요. 더 있는 곳에서는 ‘더보기’를 누르세요.</dd></div>
-      <div><dt>몸짓·감정</dt><dd>손 모양으로 몸짓을, 웃는 얼굴로 감정을 골라요.</dd></div>
+      <div class="help-keyboard"><dt>상호작용</dt><dd>가까이서 행동 옆의 <kbd>E</kbd>, <kbd>F</kbd>, <kbd>G</kbd>를 누르세요. 네 가지 이상이면 <kbd>R</kbd>로 다음 묶음을 봐요.</dd></div>
+      <div class="help-touch"><dt>상호작용</dt><dd>가까이 가면 오른쪽 아래에 행동이 보여요. 원하는 행동을 누르고, 더 보려면 목록을 위아래로 밀어 보세요.</dd></div>
+      <div class="help-keyboard"><dt>가방·지도</dt><dd><kbd>I</kbd>로 가방을, <kbd>M</kbd>으로 지도를 열어요. 같은 키를 다시 누르면 닫혀요.</dd></div>
+      <div class="help-keyboard"><dt>감정표현·몸짓</dt><dd><kbd>T</kbd>를 누른 채 원하는 표현에 마우스를 옮긴 뒤 키를 떼세요. 중앙의 두 칸을 클릭하면 감정표현과 몸짓을 바꿔요.</dd></div>
+      <div class="help-touch"><dt>몸짓·감정</dt><dd>손 모양으로 몸짓을, 웃는 얼굴로 감정을 골라요.</dd></div>
       <div><dt>지도</dt><dd>지도에서 장소나 길을 누르면 경로가 보입니다. ‘이 길로 걷기’를 누르면 그 길을 따라 달립니다. <span class="help-keyboard">순간이동은 지도 아래에서 고르세요.</span><span class="help-touch">순간이동은 지도 위쪽 탭에서 고르세요.</span></dd></div>
     </dl>
+  </dialog>
+  <dialog id="expression-wheel" aria-label="감정표현과 몸짓">
+    <div class="expression-ring">
+      <div class="expression-options" role="group" aria-label="표현 선택"></div>
+      <div class="expression-switch" role="group" aria-label="표현 종류">
+        <button type="button" data-mode="emote" aria-pressed="true">감정표현</button>
+        <button type="button" data-mode="gesture" aria-pressed="false">몸짓</button>
+      </div>
+    </div>
+    <small class="expression-instruction"></small>
   </dialog>
   <dialog id="walk-bag" aria-labelledby="bag-title">
     <div class="dialog-head"><h2 id="bag-title">내 가방</h2><button id="bag-close" type="button" class="quiet" aria-label="가방 닫기">닫기</button></div>

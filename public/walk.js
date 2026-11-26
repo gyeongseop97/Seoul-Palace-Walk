@@ -14,12 +14,13 @@ import {bindPlayViewport} from "./play-viewport.js";
 import {bindPaperBoats} from "./paper-boat-client.js";
 import {bindNearbyControls} from "./nearby-controls.js";
 import {bindMapGestures} from "./map-gestures.js";
+import {drawMapGround,fitMapBounds,mapFormat,nearbyMap} from "./map-format.js";
 import {bindMapLabels} from "./map-labels.js";
 import {getGameSound} from "./sound.js";
 import {ceremonyAt} from "./palace-people.js";
-import {cityHallStation,gbSites,gbBounds,gbLake,gbPond,gbPaths,gbCourts,gbLawns,gbShortcuts,wishPond,inGyeongbok,gbWoldae,onWoldaeApproach,nearWoldaeRailing,at as palaceAt,gyeongbokWater} from "./gyeongbok-layout.js";
-import {inGwanghwamunPlaza,plazaAt,plazaBounds,plazaSites,plazaOutline,plazaPaths,plazaShortcuts,plazaBeds,plazaAvenueOutline,plazaEastSidewalks,plazaSideForecourts,plazaUijeongbuApproach,plazaSideJunction,plazaCrossingLandings,eastCurb,plazaEastWalkSpine,eastRoadWidth,sajikRoad,sejongParkOutline} from "./plaza-layout.js";
-import {corridorBounds,corridorLandmarks,corridorSidewalks,corridorBranches,corridorCrossings,corridorWalkSpine,corridorEastWalkSpine,corridorMainRoad,corridorAvenueJoin,inSejongCorridor,seoulPlazaApproach} from "./sejong-corridor-layout.js";
+import {cityHallStation,gbSites,gbLake,gbPond,gbPaths,gbCourts,gbLawns,gbShortcuts,wishPond,inGyeongbok,gbWoldae,onWoldaeApproach,nearWoldaeRailing,at as palaceAt,gyeongbokWater} from "./gyeongbok-layout.js";
+import {inGwanghwamunPlaza,plazaAt,plazaSites,plazaOutline,plazaPaths,plazaShortcuts,plazaBeds,plazaAvenueOutline,plazaEastSidewalks,plazaSideForecourts,plazaUijeongbuApproach,plazaSideJunction,plazaCrossingLandings,eastCurb,plazaEastWalkSpine,eastRoadWidth,sajikRoad,sejongParkOutline} from "./plaza-layout.js";
+import {corridorLandmarks,corridorSidewalks,corridorBranches,corridorCrossings,corridorWalkSpine,corridorEastWalkSpine,corridorMainRoad,corridorAvenueJoin,inSejongCorridor,seoulPlazaApproach} from "./sejong-corridor-layout.js";
 import {plazaWestPavement} from "./gwanghwamun-plaza.js";
 import {streetSegmentParts} from "./crosswalk-markings.js";
 import {crosswalkPaintBands} from "./bukchon-surfaces.js";
@@ -32,11 +33,11 @@ import {stationSurfaces,stationBuildings} from "./station-survey.js";
 import {westSurfaces,westBuildings,westSites,westRegion,westWalkable} from "./west-district-layout.js";
 
 import {bukchonAlleyShortcut,bukchonBounds,bukchonPaths,bukchonLandmarks,bukchonWalkable,bukchonLawns} from "./bukchon-layout.js";
-import {hwangudanBounds,hwangudanGround,hwangudanPaths,hwangudanLandmarks,hwangudanBuildings,hwangudanWalkable,
+import {hwangudanGround,hwangudanPaths,hwangudanLandmarks,hwangudanBuildings,hwangudanWalkable,
   seoulPlazaOutline,seoulPlazaLawn} from "./seoul-hwangudan-layout.js";
-import {cheonggyeBounds,cheonggyeDeckExits,cheonggyeDeckStep,cheonggyeLandmarks,cheonggyeLevel,cheonggyeRoadLeads,cheonggyeStations,cheonggyeSurfaces,cheonggyeWalkable,inCheonggye,riverAt,bankAt,streamTerraces,terraceWidth,springBed,cheonggyeCascade} from "./cheonggye-layout.js";
+import {cheonggyeDeckExits,cheonggyeDeckStep,cheonggyeLandmarks,cheonggyeLevel,cheonggyeRoadLeads,cheonggyeStations,cheonggyeSurfaces,cheonggyeWalkable,inCheonggye,riverAt,bankAt,streamTerraces,terraceWidth,springBed,cheonggyeCascade} from "./cheonggye-layout.js";
 import {FOOT_BATH_PERIOD,footKickAge} from "./walker-model.js";
-import {inSonghyeon,songhyeonBounds,songhyeonOutline,songhyeonPaths,songhyeonLawns,songhyeonLandmarks} from "./songhyeon-layout.js";
+import {inSonghyeon,songhyeonOutline,songhyeonPaths,songhyeonLawns,songhyeonLandmarks} from "./songhyeon-layout.js";
 import {uijeongbuOutline,uijeongbuEntry,uijeongbuGarden,uijeongbuWalks,uijeongbuConnections,uijeongbuSideRoad,uijeongbuBusPavement,uijeongbuRemains,sajikEastRoad,uijeongbuPavedConnections,uijeongbuCrossings,gardenSidewalk,gardenVerge} from "./uijeongbu-layout.js";
 import {BUS_SEATS,RAFT_INDEX,bukchonBusRoads,busSeatPose,busSeatCount,isRaftBus,busServiceName,busStopById,busesForRegion,stopsForRegion,setBusYields} from "./bus-network.js";
 import {busAt,busStopTimes,nearBus,resetRaft,receiveRaft,raftCommand,drivePacket,setRaftAxes,watchesRaft} from "./raft-client.js";
@@ -89,6 +90,7 @@ import {arcadeSnapshot,visibleArcade} from "./arcade-presence.js";
 import {ITEM_SLOTS,handLabel,itemAnimating,freeItemSlot,handsFree} from "./held-items.js";
 import {BAG_SIZE,belongings,validPacked} from "./walk-inventory.js";
 import {bindWalkBag} from "./walk-bag-client.js";
+import {bindExpressionWheel} from "./expression-wheel.js";
 import {BIKE_FALL_DURATION_MS,GESTURE_DURATIONS,SICK_DURATION_MS,alcoholGait,bikeFallChance,finishAlcoholSip,staggeredStep} from "./avatar-gestures.js";
 
 import {inCoastSpace,inGyeongjuSpace,coastOrigin,seaPoint} from "./region-coordinates.js";
@@ -222,6 +224,7 @@ const nearbyControls=bindNearbyControls($("nearby-controls"),focusGame,"nearby",
 const peerControls=bindNearbyControls($("peer-controls"),focusGame,"peer",()=>me);
 function closeActionMenus(){
   nearbyControls.close();peerControls.close();setEmotes(false);setGestures(false);
+  expressionWheel.cancel();
 }
 const sceneWrap=$("game").closest(".scene-wrap"),mobileSettings=$("mobile-settings");
 const nickname=$("nickname"),joinCode=$("join-code");
@@ -800,6 +803,7 @@ function setEmotes(open){
   $("emote-menu").hidden=!open;$("emote-open").setAttribute("aria-expanded",String(open));
 }
 $("emote-open").addEventListener("click",event=>{
+  if(!touchControls.matches){expressionWheel.open("emote");return;}
   const open=$("emote-menu").hidden;
   setEmotes(open);
   if(open&&event.detail===0)$("emote-menu").querySelector("button")?.focus();
@@ -810,6 +814,24 @@ function setGestures(open){
   attr($("gesture-open"),"aria-expanded",String(open));
 }
 const gestureButtons=[...document.querySelectorAll("[data-gesture]")];
+function syncGestureButtons(time){
+  for(const button of gestureButtons)button.disabled=!gestureReady(time,button.dataset.gesture);
+}
+const expressionWheel=bindExpressionWheel($("expression-wheel"),sceneWrap,{
+  menus:{emote:$("emote-menu"),gesture:$("gesture-menu")},
+  prepare:mode=>{if(mode==="gesture")syncGestureButtons(gameTime());},
+  onOpen:()=>{clearManualInput();closeActionMenus();},
+});
+function syncExpressionTriggers(){
+  for(const kind of ["emote","gesture"]){
+    const button=$(kind+"-open");
+    button.setAttribute("aria-controls",touchControls.matches?kind+"-menu":"expression-wheel");
+    if(touchControls.matches)button.removeAttribute("aria-haspopup");
+    else button.setAttribute("aria-haspopup","dialog");
+  }
+}
+syncExpressionTriggers();
+touchControls.addEventListener("change",()=>{closeActionMenus();syncExpressionTriggers();});
 function gestureReady(time,kind){
   if(!session||riding||me.bus||me.coast?.mode==="surf"||isCycling(me)||queuedBus||queuedBike||myLink()?.active||
     photoMode.camera||minigames.active()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||carryingDiningTray(time)||mealBiteLocked(time)||
@@ -820,6 +842,7 @@ function gestureReady(time,kind){
   return kind==="dance"||held<2;
 }
 $("gesture-open").addEventListener("click",event=>{
+  if(!touchControls.matches){expressionWheel.open("gesture");return;}
   const open=$("gesture-menu").hidden;
   setGestures(open);
   if(open&&event.detail===0)gestureButtons.find(button=>!button.disabled)?.focus();
@@ -942,7 +965,7 @@ function positionGuidePins(pins,point,indoors){
   for(const [index,pin] of pins.entries()){
     attr(pin,"visibility",point?"visible":"hidden");
     if(!point)continue;
-    const radius=indoors?(index?2.25:2.6):(index?7.2:11);
+    const radius=index?(indoors?2.25:7.2):mapFormat.trackedRing*(mapViewport?.units??1);
     attr(pin,"transform",`translate(${point.x} ${point.y})`);
     attr(pin.firstElementChild,"r",radius);attr(pin.lastElementChild,"r",radius*.32);
   }
@@ -1847,7 +1870,7 @@ const localDestinations={"덕수궁":mapDestinations,"광화문광장":plazaDest
   "서울역":[...stationSites,busShortcut("station-transfer","환승센터")],
   "정동길":[...westSites.slice(1,3),busShortcut("history-west","박물관 정류장")],"경희궁":[...westSites.slice(2),busShortcut("heunghwa-west","흥화문 정류장")]};
 const shortcutRegion=$("shortcut-region"),shortcutPlace=$("shortcut-place"),teleportGo=$("map-teleport-go");
-const quickDistrict=$("quick-travel-district"),quickPlace=$("quick-travel-place"),quickActions=$("quick-travel-actions");
+const quickDistrict=$("quick-travel-district"),quickPlace=$("quick-travel-place"),quickGo=$("quick-travel-go");
 const shortcutDistricts=inGyeongju?region.travelDistricts:onCoast?{}:localDestinations;
 if(onCoast){
   for(const site of region.destinations){
@@ -1856,8 +1879,6 @@ if(onCoast){
   }
 }
 let chosenDistrict="",shownDistrict="";
-quickDistrict.hidden=onCoast;
-quickPlace.hidden=!inGyeongju;
 quickDistrict.add(new Option("현재 구역",""));
 for(const district of Object.keys(shortcutDistricts)){
   quickDistrict.add(new Option(district,district));
@@ -1867,22 +1888,6 @@ for(const district of Object.keys(shortcutDistricts)){
   shortcutRegion.append(button);
 }
 function shortcutsHere(){return shortcutDistricts[shownDistrict]??[];}
-let quickSites=null;
-function refreshQuickTravel(){
-  if(quickDistrict.value!==chosenDistrict)quickDistrict.value=chosenDistrict;
-  const sites=onCoast?region.destinations:shortcutsHere();
-  if(sites===quickSites)return;
-  quickSites=sites;
-  if(inGyeongju)quickPlace.replaceChildren(...sites.map((site,index)=>new Option(site.name||site.label,index)));
-  const buttons=(inGyeongju?sites.slice(0,1):sites).map((site,index)=>{
-    const button=document.createElement("button");
-    button.type="button";button.className="quiet";button.dataset.shortcut=index;
-    button.textContent=inGyeongju?"순간이동":site.label||site.name;
-    if(!inGyeongju)button.setAttribute("aria-label",site.aria||(site.name||site.label)+"으로 순간이동");
-    return button;
-  });
-  quickActions.replaceChildren(quickPlace,...buttons);
-}
 function refreshShortcuts(){
   if(!touchControls.matches&&!$("map-teleport-view").hidden)setMapMode("route");
   const district=chosenDistrict||(regional?region.coastDistrict(me):outdoorMap(me));
@@ -1891,16 +1896,15 @@ function refreshShortcuts(){
     shownDistrict=selected;
     for(const button of shortcutRegion.children)button.setAttribute("aria-pressed",String(button.dataset.district===selected));
     const sites=shortcutsHere();
-    shortcutPlace.replaceChildren(...sites.map((site,index)=>new Option(site.name||site.label,index)));
-    teleportGo.disabled=!sites.length;
+    for(const select of [quickPlace,shortcutPlace]){
+      select.replaceChildren(...sites.map((site,index)=>new Option(site.name||site.label,index)));
+    }
+    quickGo.disabled=teleportGo.disabled=!sites.length;
   }
-  if(!touchControls.matches)refreshQuickTravel();
+  if(quickDistrict.value!==chosenDistrict)quickDistrict.value=chosenDistrict;
 }
 quickDistrict.addEventListener("change",()=>{chosenDistrict=quickDistrict.value;refreshShortcuts();});
-quickActions.addEventListener("click",event=>{
-  const button=event.target.closest("button[data-shortcut]");
-  if(button)teleportToShortcut(quickSites[inGyeongju?quickPlace.selectedIndex:Number(button.dataset.shortcut)],false);
-});
+quickGo.addEventListener("click",()=>teleportToShortcut(shortcutsHere()[quickPlace.selectedIndex],false));
 touchControls.addEventListener("change",()=>{
   placeViewControls();
   if(!touchControls.matches)setMapMode("route");
@@ -1924,7 +1928,7 @@ function teleportToShortcut(destination,fold){
   const linkId=myLink()?.id??(queuedHand?.action==="offer"?queuedHand.id:null);
   if(linkId){queuedHand={action:"release",id:linkId};changeLinks(links);}
   movePlayerTo(destination,destination.name||destination.label);
-  if(fold||!inGyeongju)chosenDistrict="";
+  chosenDistrict="";
   refreshShortcuts();
   setMap(false,{fold});focusGame();
 }
@@ -2052,7 +2056,45 @@ function finishBackgroundTrip(){
 window.addEventListener("blur",()=>{beginBackgroundTrip();clearManualInput();});
 window.addEventListener("focus",finishBackgroundTrip);
 window.addEventListener("blur",arcade.clear);
+function playShortcutsAvailable(){
+  return !touchControls.matches&&session&&active&&!riding&&!awaitingMapFrame&&!leavingByKtx&&
+    !photoMode.camera&&!bungeoMode&&!arcade.kind&&!minigames.active()&&!mobileSettings.open&&
+    !document.querySelector("dialog[open]");
+}
+function nearbyKeyboardAvailable(){
+  if(!playShortcutsAvailable())return false;
+  const overlayMap=(mobileHeader.matches||gameShell.classList.contains("game-fullscreen"))&&mapIsOpen();
+  return !overlayMap&&$("gesture-menu").hidden&&$("emote-menu").hidden&&$("peer-actions").hidden;
+}
+function pcPlayShortcut(event){
+  if(event.defaultPrevented||event.repeat||event.isComposing||event.keyCode===229||
+     event.altKey||event.ctrlKey||event.metaKey||touchControls.matches)return "";
+  const code=event.code||("Key"+event.key.toUpperCase());
+  if(!["KeyE","KeyF","KeyG","KeyR","KeyT","KeyI","KeyM"].includes(code)||
+     event.target.closest("input,textarea,select,[contenteditable]:not([contenteditable=false])"))return "";
+  return code;
+}
 window.addEventListener("keydown",event=>{
+  const shortcut=pcPlayShortcut(event);
+  if(shortcut==="KeyT"&&nearbyKeyboardAvailable()&&!event.target.closest("#map-panel,#mobile-settings")){
+    event.preventDefault();expressionWheel.open(undefined,true);return;
+  }
+  if(shortcut==="KeyI"||shortcut==="KeyM"){
+    const bag=$("walk-bag");
+    if(shortcut==="KeyI"&&bag.open&&bag.contains(event.target)){
+      event.preventDefault();$("bag-close").click();focusGame();return;
+    }
+    if(playShortcutsAvailable()){
+      event.preventDefault();
+      if(shortcut==="KeyI")walkBag.open();
+      else{
+        const open=!mapIsOpen();
+        setMap(open,{fold:true});
+        if(!open)focusGame();
+      }
+      return;
+    }
+  }
   if(event.target.closest("dialog"))return;
   if(arcade.keyDown(event))return;
   if(event.key==="Escape"){
@@ -2069,6 +2111,10 @@ window.addEventListener("keydown",event=>{
     if(mapIsOpen()){setMap(false,{fold:true});return;}
     if(fullscreenFallback){void leaveFullscreen();return;}
     setMap(false);setEmotes(false);
+  }
+  if(["KeyE","KeyF","KeyG","KeyR"].includes(shortcut)&&!bungeoMode){
+    if(nearbyKeyboardAvailable()&&!event.target.closest("#map-panel,#mobile-settings")&&nearbyControls.useShortcut(shortcut))event.preventDefault();
+    return;
   }
   if(!session||riding||nearbyControls.ownsFocus()||peerControls.ownsFocus()||event.target.closest("input,textarea,select,[contenteditable]:not([contenteditable=false]),#mobile-settings"))return;
   if(photoMode.camera&&event.key==="Enter"&&event.target===$("game")){
@@ -2096,8 +2142,6 @@ window.addEventListener("keydown",event=>{
     toast(runToggled?"달리기로 전환했어요.":"걷기로 전환했어요.");
     return;
   }
-  if(!photoMode.camera&&key==="f"&&!event.repeat&&!$("sit").hidden){interactBench();return;}
-  if(!photoMode.camera&&key==="e"&&!event.repeat&&!$("wish").disabled){openWish();return;}
   if(!vectors[key]||event.ctrlKey||event.metaKey||event.altKey)return;
   event.preventDefault();
   if(!photoMode.camera&&(amFollowingHands()||isBikePassenger(me)))return;
@@ -2994,7 +3038,7 @@ function useHeldItem(slot){
 }
 ITEM_SLOTS.forEach((slot,index)=>$(useItemButtons[index]).addEventListener("click",()=>useHeldItem(slot)));
 function movePlayerTo(destination,place){
-  if(inGyeongju&&browsedMapBox)setOverview(false);
+  if(browsedMapBox)setOverview(false);
   if(me.coast)delete me.coast.track;
   if(bungeoMode)setBungeoCooking(false);
   arcade.stop();
@@ -3637,7 +3681,8 @@ function updateActivities(time,guideNearby,coastMarkers){
   $("gesture-open").disabled=!gestureReady(time);
   $("ground-sit").disabled=$("gesture-open").disabled||Boolean(arcade.kind||bungeoMode||me.seat!=null||seatClaim||me.coast?.deckSeat);
   setText($("ground-sit"),me.groundSit?"일어나기":"앉기");
-  if(!$("gesture-menu").hidden)for(const button of gestureButtons)button.disabled=!gestureReady(time,button.dataset.gesture);
+  if(!$("gesture-menu").hidden||expressionWheel.showingGestures)syncGestureButtons(time);
+  expressionWheel.refresh();
   const eligible=world&&session&&!me.bus&&!isCycling(me)&&!queuedBus&&!queuedBike;
   updateSocial(time,eligible);
   updateBungeoControls(time);
@@ -4083,7 +4128,8 @@ function frame(now){
     updateHandControls();
     const heldGift=!me.bus&&!isCycling(me)&&ITEM_SLOTS.some(s=>validPacked(me[s]));
     setActivity("give-held",heldGift&&giftPeers().length?"물건 건네기":null,bagLocked());
-    nearbyControls.refresh(preferredNearbyAction(time),nearbyActionScope());peerControls.refresh(preferredPeerAction(time));
+    nearbyControls.refresh(preferredNearbyAction(time),nearbyActionScope(),nearbyKeyboardAvailable());
+    peerControls.refresh(preferredPeerAction(time));
     if(coastMarkers)coastMarker=selectCoastMarker(coastMarkers);
     leaveWater();
     updateLocationGuides();updateMaps(self,others);updateWalkingGuide();
@@ -4148,8 +4194,8 @@ function drawMapPoint(layer,point,category,mini=false,indoors=false){
   }
   const pin=svg(layer,"g",attributes);
   if(!mini)svg(pin,"title",{},point.name);
-  if(!mini)svg(pin,"circle",{cx:point.x,cy:point.y,r:"1.7%",class:"map-marker-hit"});
-  svg(pin,"circle",{cx:point.x,cy:point.y,r:mini?1.55:".75%",class:"map-marker-dot"});
+  if(!mini)svg(pin,"circle",{cx:point.x,cy:point.y,r:"var(--map-place-hit)",class:"map-marker-hit"});
+  svg(pin,"circle",{cx:point.x,cy:point.y,r:mini?1.55:"var(--map-place-radius)",class:"map-marker-dot"});
   if(!mini)mapLabels.add(pin,point.caption??point,category,{indoors,area:Boolean(point.caption)});
   else if(point.caption)svg(pin,"text",{x:point.caption.x,y:point.caption.y,"text-anchor":"middle",fill:"#34412c",stroke:"#eff0ce","stroke-width":1.4,"paint-order":"stroke","font-size":4.9,"font-weight":700},point.caption.name);
   else if(point.name==="서울역")svg(pin,"text",{x:point.x+3,y:point.y-3,fill:"#fff4d5",stroke:"#28392e","stroke-width":1.05,"paint-order":"stroke","font-size":7,"font-weight":700},"서울역");
@@ -4219,22 +4265,15 @@ function setOverview(open,box=null){
   overviewButton.textContent=overviewOpen?"주변 지도":"전체 지도";
 }
 overviewButton.addEventListener("click",()=>setOverview(!overviewOpen,inGyeongju&&!overviewOpen?region.cityMapBox:null));
-function drawMap(base,mini=false){
-  const patternId=mini?"mini-map-grid":"world-map-grid";
-  const pattern=svg(svg(base,"defs",{}),"pattern",{id:patternId,width:28,height:28,patternUnits:"userSpaceOnUse"});
-  svg(pattern,"rect",{width:28,height:28,fill:"var(--map-ground)"});
-  svg(pattern,"path",{d:"M28 0H0V28",fill:"none",stroke:"var(--map-grid)","stroke-opacity":.10,"stroke-width":.7});
-  // The backdrop covers the full panning range, including the letterbox on tall maps.
-  svg(base,"rect",{x:-12000,y:-12000,width:24000,height:24000,fill:"url(#"+patternId+")","pointer-events":"none"});
-  const landscape=base,outdoors=svg(landscape,"g",{class:"outdoor-map-ground"});
-  base=outdoors;
+function drawSeoulMap(landscape,{outdoors,defs},mini){
+  let base=outdoors;
   const westColors={shared:"#58605b",grove:"#465a43",grass:"#607553",verge:"#77796b",crossing:"#ece4c9",stone:"#a39780",road:"#58605b",street:"#847e6f",path:"#b6a687"};
   const stripePatterns=new Map();
   function crossingFill(angle){
     const rotation=Math.round(angle*180/Math.PI);
     if(!stripePatterns.has(rotation)){
       const id=(mini?"mini":"full")+"-station-zebra-"+rotation;
-      const stripe=svg(pattern.parentNode,"pattern",{id,width:1.32,height:1.32,patternUnits:"userSpaceOnUse",patternTransform:"rotate("+rotation+")"});
+      const stripe=svg(defs,"pattern",{id,width:1.32,height:1.32,patternUnits:"userSpaceOnUse",patternTransform:"rotate("+rotation+")"});
       svg(stripe,"rect",{width:1.32,height:1.32,fill:westColors.road});
       svg(stripe,"rect",{width:.59,height:1.32,fill:"#e4e0d2"});
       stripePatterns.set(rotation,"url(#"+id+")");
@@ -4504,30 +4543,30 @@ function drawPlaza(base){
       "stroke-width":1,transform:`rotate(-10.3 ${point.x} ${point.y})`});
   }
 }
-const gyeongbokViewBox=[42,gbBounds.minY-24,gbBounds.maxX-20,1098].join(" ");
-const plazaViewBox=[285,plazaBounds.minY,plazaBounds.maxX-268,plazaBounds.maxY-plazaBounds.minY].join(" ");
-const southViewBox="0 4 590 462",southApproachBox="0 -60 590 485";
-const bukchonViewBox=[bukchonBounds.minX+12,bukchonBounds.minY-14,606,1076].join(" ");
-const hwangudanViewBox=[hwangudanBounds.minX-55,hwangudanBounds.minY-35,433,303].join(" ");
-const cheonggyeViewBox=[cheonggyeBounds.minX-55,cheonggyeBounds.minY-65,
-  cheonggyeBounds.maxX-cheonggyeBounds.minX+76,231].join(" ");
-const songhyeonViewBox=[songhyeonBounds.minX-24,songhyeonBounds.minY-18,
-  songhyeonBounds.maxX-songhyeonBounds.minX+48,songhyeonBounds.maxY-songhyeonBounds.minY+46].join(" ");
-const plazaApproachBox=[plazaBounds.minX-18,plazaBounds.minY+210,Math.max(plazaBounds.maxX,corridorBounds.maxX)-plazaBounds.minX+36,
-  -58-(plazaBounds.minY+210)].join(" ");
-const fieldViewBox=[worldExtent.minX,bukchonBounds.minY-26,bukchonBounds.maxX-worldExtent.minX+25,worldExtent.maxY+26-bukchonBounds.minY].join(" ");
-const miniMapWidth=126,miniMapHeight=126;
+const cityMapBox=region?.cityMapBox??[worldExtent.minX,bukchonBounds.minY-26,bukchonBounds.maxX-worldExtent.minX+25,worldExtent.maxY+26-bukchonBounds.minY].join(" ");
+const cityMapBounds=fitMapBounds(cityMapBox,me,0,0);
 function attr(node,key,value){if(node.getAttribute(key)!==String(value))node.setAttribute(key,value);}
 function setMapView(view){
-  const {base}=mapViewport;
-  const trackPlayer=regional&&!browsedMapBox;
-  const centerX=trackPlayer?me.x-view.w/2:base.x,centerY=trackPlayer?me.y-view.h/2:base.y;
-  const x=Math.min(Math.max(base.x+base.w*.96,centerX),Math.max(Math.min(base.x-base.w*.66,centerX),view.x));
-  const y=Math.min(Math.max(base.y+base.h*.96,centerY),Math.max(Math.min(base.y-base.h*.66,centerY),view.y));
+  const {base,key}=mapViewport;
+  const limits=key===nearbyMap?cityMapBounds:base;
+  const centerX=key===nearbyMap?me.x-view.w/2:limits.x,centerY=key===nearbyMap?me.y-view.h/2:limits.y;
+  const x=Math.min(Math.max(limits.x+limits.w*.96,centerX),Math.max(Math.min(limits.x-limits.w*.66,centerX),view.x));
+  const y=Math.min(Math.max(limits.y+limits.h*.96,centerY),Math.max(Math.min(limits.y-limits.h*.66,centerY),view.y));
   mapViewport.view={...view,x,y};
   attr(mapSurface,"viewBox",[x,y,view.w,view.h].join(" "));
+  const units=Math.max(view.w/Math.max(1,mapSurface.clientWidth),view.h/Math.max(1,mapSurface.clientHeight));
+  if(mapViewport.units!==units){
+    mapViewport.units=units;
+    mapSurface.style.setProperty("--map-place-radius",mapFormat.placeDot*units+"px");
+    mapSurface.style.setProperty("--map-place-hit",mapFormat.placeHit*units+"px");
+  }
+  // Neighbourhoods can be zoomed out to the city, and city maps down to a street.
+  if(key===nearbyMap||overviewOpen){
+    const aspect=base.w/base.h,nearbyWidth=mapFormat.nearbySpan*Math.max(1,aspect);
+    mapViewport.minWidth=Math.min(nearbyWidth,base.w)*mapFormat.minZoom;
+    mapViewport.maxWidth=Math.max(cityMapBounds.w,cityMapBounds.h*aspect,base.w)*mapFormat.maxZoom;
+  }
   if(inGyeongju&&browsedMapBox===region.cityMapBox){
-    const units=Math.max(view.w/Math.max(1,mapSurface.clientWidth),view.h/Math.max(1,mapSurface.clientHeight));
     for(const {pin,point} of districtPins)attr(pin,"transform",`translate(${point.x} ${point.y}) scale(${units})`);
   }
   mapLabels.setView(base,mapViewport.view,overviewOpen);
@@ -4535,7 +4574,7 @@ function setMapView(view){
 const clearMapGestures=bindMapGestures(mapSurface,{getView:()=>mapViewport,setView:setMapView,onTap:walkFromMap});
 // Give manual browsing priority. Moving again resumes tracking after the gesture ends.
 const MAP_FOLLOW_AFTER_MS=3000;
-let mapTouched=-Infinity,mapFollowed=0,mapBrowseOrigin=null;
+let mapTouched=-Infinity,mapBrowseOrigin=null;
 function markMapActivity(){
   mapTouched=performance.now();
   mapBrowseOrigin={x:me.x,y:me.y};
@@ -4543,44 +4582,26 @@ function markMapActivity(){
 for(const type of ["wheel","pointerdown","pointerup"])mapSurface.addEventListener(type,markMapActivity,{passive:true});
 mapSurface.addEventListener("pointermove",event=>{if(event.buttons)markMapActivity();},{passive:true});
 function followOnMap(self){
-  const now=performance.now(),elapsed=Math.min(.5,(now-mapFollowed)/1000);
-  mapFollowed=now;
-  if(!mapViewport||overviewOpen||browsedMapBox||mapRoute&&!mapRoute.walking&&!mapRoute.followPlayer||now-mapTouched<MAP_FOLLOW_AFTER_MS)return;
-  if(mobileHeader.matches&&!regional)return;
+  if(mapViewport?.key!==nearbyMap||mapRoute&&!mapRoute.walking&&!mapRoute.followPlayer||performance.now()-mapTouched<MAP_FOLLOW_AFTER_MS)return;
   if(mapBrowseOrigin&&near(mapBrowseOrigin,self.x,self.y)<2)return;
   mapBrowseOrigin=null;
-  const {base,view}=mapViewport;
-  if(regional){
-    const x=self.x-view.w/2,y=self.y-view.h/2;
-    if(Math.abs(x-view.x)+Math.abs(y-view.y)>.02)setMapView({...view,x,y});
-    return;
-  }
-  const fit=(low,size,span,at)=>span>=size?low+(size-span)/2:Math.min(low+size-span,Math.max(low,at-span/2));
-  const dx=fit(base.x,base.w,view.w,self.x)-view.x,dy=fit(base.y,base.h,view.h,self.y)-view.y;
-  if(Math.abs(dx)<view.w*.002&&Math.abs(dy)<view.h*.002)return;
-  const ease=1-Math.exp(-elapsed*5);
-  setMapView({...view,x:view.x+dx*ease,y:view.y+dy*ease});
+  const {view}=mapViewport,x=self.x-view.w/2,y=self.y-view.h/2;
+  if(Math.abs(x-view.x)+Math.abs(y-view.y)>.02)setMapView({...view,x,y});
 }
 function fitMapRegion(box){
-  const [x,y,w,h]=box.split(" ").map(Number),width=mapSurface.clientWidth,height=mapSurface.clientHeight;
-  if(mobileHeader.matches||!width||!height)return {x,y,w,h};
-  const fittedWidth=Math.max(w,h*width/height),fittedHeight=Math.max(h,w*height/width);
-  return {x:x-(fittedWidth-w)*.5,y:y-(fittedHeight-h)*.5,w:fittedWidth,h:fittedHeight};
+  return fitMapBounds(box,me,mapSurface.clientWidth,mapSurface.clientHeight);
 }
 function showMapRegion(box){
   if(mapViewport?.key===box)return;
   clearMapGestures();
   const base=fitMapRegion(box);
   mapViewport={key:box,base,view:base};
-  if(regional&&!overviewOpen&&!browsedMapBox){
-    const zoom=Math.max(.23,Math.min(1,340/Math.min(base.w,base.h))),w=base.w*zoom,h=base.h*zoom;
-    setMapView({x:me.x-w/2,y:me.y-h/2,w,h});
-  }else setMapView(base);
+  setMapView(base);
 }
 function centerMapOnPlayer(){
   setOverview(false);
-  if(regional&&mapRoute)mapRoute.followPlayer=true;
-  const box=mapRegionAt(me,interiorAt(me.x,me.y),false);
+  if(mapRoute)mapRoute.followPlayer=true;
+  const box=mapRegionAt(interiorAt(me.x,me.y),false);
   showMapRegion(box);
   const {view}=mapViewport;
   setMapView({...view,x:me.x-view.w/2,y:me.y-view.h/2});
@@ -4598,32 +4619,18 @@ mapSurface.addEventListener("keydown",event=>{
   markMapActivity();
 });
 if(typeof ResizeObserver!=="undefined")new ResizeObserver(()=>{
-  if(!mapViewport)return;
+  if(!mapViewport||!mapSurface.clientWidth||!mapSurface.clientHeight)return;
   const {key,base,view}=mapViewport,fitted=fitMapRegion(key);
-  if(base.w===fitted.w&&base.h===fitted.h)return;
+  if(base.w===fitted.w&&base.h===fitted.h){setMapView(view);return;}
   clearMapGestures();
   const zoom=view.w/base.w,w=fitted.w*zoom,h=fitted.h*zoom;
   mapViewport.base=fitted;
   setMapView({x:view.x+(view.w-w)*.5,y:view.y+(view.h-h)*.5,w,h});
 }).observe(mapSurface);
-function mapRegionAt(point,inside,overview){
-  if(regional)return region.coastBox(point,overview);
+function mapRegionAt(inside,overview){
   if(sameStation(inside,"station-hall"))return stationFloorView;
   if(inside)return indoorViewBoxes[inside];
-  if(overview)return fieldViewBox;
-  const area=outdoorMap(point);
-  if(area==="서울역")return point.y<800?"275 378 310 488":point.y<1125?"104 710 359 462":"-260 1057 559 690";
-  if(area==="경희궁")return "-462 -550 450 430";
-  if(area==="정동길")return "-265 -260 490 585";
-
-  if(area==="북촌")return bukchonViewBox;
-  if(area==="환구단")return hwangudanViewBox;
-  if(area==="청계천")return cheonggyeViewBox;
-  if(area==="열린송현녹지광장")return songhyeonViewBox;
-  if(area==="경복궁")return gyeongbokViewBox;
-  if(area==="광화문광장")return plazaViewBox;
-  if(point.y<28&&area==="세종대로")return point.y<-58?plazaApproachBox:southApproachBox;
-  return southViewBox;
+  return overview?cityMapBox:nearbyMap;
 }
 const mapRoutePanel=$("map-route"),mapRoutePath=$("map-route-path"),mapRouteEnd=$("map-route-end"),miniRoutePath=$("mini-route-path");
 const mapRouteWalk=$("map-route-walk");
@@ -4692,13 +4699,17 @@ async function refreshMapRoute(fit=false){
   if(end&&near(guide.destination,end.x,end.y)>1.2)guide.steps=[];
   if(fit&&!guide.followPlayer){
     setOverview(false);
-    showMapRegion(mapRegionAt(me,guide.inside,false));
-    const {base}=mapViewport,destination=guide.destination;
-    const wide=destination&&!guide.indoors&&[guide.start,...guide.steps,destination].some(p=>
-      p.x<base.x||p.x>base.x+base.w||p.y<base.y||p.y>base.y+base.h);
-    setOverview(wide);
-    if(wide)showMapRegion(regional?region.coastBox(me,true):fieldViewBox);
-    if(destination)fitMapRoute([guide.start,...guide.steps,destination]);
+    showMapRegion(mapRegionAt(guide.inside,false));
+    if(guide.destination){
+      const points=[guide.start,...guide.steps,guide.destination];
+      const fits=box=>points.every(p=>p.x>=box.x&&p.x<=box.x+box.w&&p.y>=box.y&&p.y<=box.y+box.h);
+      if(!guide.indoors&&!fits(fitMapRegion(nearbyMap))){
+        const district=region?.routeMapBox?.(me);
+        const box=district&&fits(fitMapRegion(district))?district:cityMapBox;
+        setOverview(true,box===cityMapBox?null:box);showMapRegion(box);
+      }
+      fitMapRoute(points);
+    }
   }
   drawMapRoute();
 }
@@ -4708,7 +4719,7 @@ function fitMapRoute(points){
   mapViewport.base=base;
   const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
   const left=Math.min(...xs),right=Math.max(...xs),top=Math.min(...ys),bottom=Math.max(...ys);
-  const scale=Math.min(1.3,Math.max(.38,(right-left)/base.w+.16,(bottom-top)/base.h+.16));
+  const scale=Math.min(mapFormat.maxZoom,Math.max(.38,(right-left)/base.w+.16,(bottom-top)/base.h+.16));
   const w=base.w*scale,h=base.h*scale;
   setMapView({x:(left+right-w)/2,y:(top+bottom-h)/2,w,h});
 }
@@ -4753,7 +4764,7 @@ function drawMapRoute(){
   attr(mapRoutePath.children[0],"points",path);
   attr(mapRoutePath.children[1],"points",path);
   attr(mapRouteEnd,"cx",destination.x);attr(mapRouteEnd,"cy",destination.y);
-  attr(mapRouteEnd,"r",indoors?1.7:stampPins.get(guide.site.id)?.getAttribute("r")||(mapViewport?.view.h??520)/105);
+  attr(mapRouteEnd,"r",mapFormat.destinationDot*(mapViewport?.units??1));
   attr(miniRoutePath.children[0],"points",path);
   const miniEnd=miniRoutePath.children[1];
   attr(miniEnd,"cx",destination.x);attr(miniEnd,"cy",destination.y);attr(miniEnd,"r",indoors?1:2.6);
@@ -4799,28 +4810,28 @@ function drawDestinations(world){
   }
 }
 function updateMaps(self,others){
-  const area=outdoorMap(self);
-  const inside=interiorAt(self.x,self.y),indoors=Boolean(inside),palace=area==="경복궁",plaza=area==="광화문광장";
-  const corridor=area==="세종대로",overview=overviewOpen&&!indoors;
+  const inside=interiorAt(self.x,self.y),indoors=Boolean(inside),overview=overviewOpen&&!indoors;
   const panelVisible=mapIsOpen(),fullMap=panelVisible&&$("map-panel").dataset.mode==="route";
   const coat=hexCoat(self.coat??0xe5b672);
   if(panelVisible){
-    const district=indoors?(inside==="museum"?"전시관":venueById[inside].name):regional?region.coastDistrict(self):area;
+    const district=indoors?(inside==="museum"?"전시관":venueById[inside].name):regional?region.coastDistrict(self):outdoorMap(self);
     const city=inGyeongju?"경주":onCoast?"포항":"서울";
     setText($("map-heading"),city+" 지도");
     setText($("map-area"),district);
     attr($("map-heading"),"title",city+" / "+district);
   }
   if(fullMap){
+    showMapRegion(browsedMapBox??mapRegionAt(inside,overview));
+    followOnMap(self);
     $("world").classList.toggle("overview-map",overview);
-    attr(overviewLayer,"visibility",overview?"visible":"hidden");
+    if(overviewLayer)attr(overviewLayer,"visibility",overview?"visible":"hidden");
     overviewButton.hidden=indoors;
     const parked=self.bike?.parked,parkedPin=$("parked-bike-pin");
     attr(parkedPin,"visibility",parked&&!indoors?"visible":"hidden");
     if(parked){
       attr(parkedPin,"cx",parked.x);attr(parkedPin,"cy",parked.y);
       attr(parkedPin,"data-walk-x",parked.x);attr(parkedPin,"data-walk-y",parked.y);
-      attr(parkedPin,"r",overview?16:palace?10:6);
+      attr(parkedPin,"r",mapFormat.playerDot*mapViewport.units);
     }
     attr($("my-avatar").querySelector("circle"),"fill",coat);
     if(mapCoatKey.style.getPropertyValue("--coat")!==coat)mapCoatKey.style.setProperty("--coat",coat);
@@ -4832,23 +4843,15 @@ function updateMaps(self,others){
   attr($("mini-my"),"transform","translate("+self.x+" "+self.y+") rotate("+self.heading+") scale("+(indoors?.47:1.5)+")");
   for(const {id,layer} of indoorMaps)attr(layer,"visibility",id===inside?"visible":"hidden");
   $("mini-world").classList.toggle("museum-map",indoors);
-  showMapRegion(browsedMapBox??mapRegionAt(self,inside,overview));
-  followOnMap(self);
-  let mapActorUnit=1;
   if(fullMap){
-    if(regional){
-      const {view}=mapViewport;
-      // The regional maps range from a single bus stop to several kilometres.
-      mapActorUnit=Math.max(view.w/Math.max(1,mapSurface.clientWidth),view.h/Math.max(1,mapSurface.clientHeight));
-    }
-    const scale=regional?mapActorUnit*.72:indoors?.18:overview?2.8:palace?2.2:plaza||corridor?1.55:1;
+    const scale=mapFormat.playerScale*mapViewport.units;
     attr($("my-avatar"),"transform","translate("+self.x+" "+self.y+") scale("+scale+")");
   }
   attr($("mini-world"),"viewBox",indoors?(sameStation(inside,"station-hall")?[self.x-23,self.y-23,46,46].join(" "):indoorViewBoxes[inside]):[
-    (self.x-miniMapWidth/2).toFixed(1),(self.y-miniMapHeight/2).toFixed(1),miniMapWidth,miniMapHeight
+    (self.x-mapFormat.miniSpan/2).toFixed(1),(self.y-mapFormat.miniSpan/2).toFixed(1),mapFormat.miniSpan,mapFormat.miniSpan
   ].join(" "));
   if(fullMap&&!indoors){
-    const radius=(overview?13:palace?8:plaza||corridor?6:4.8)*Math.sqrt(mapViewport.view.h/mapViewport.base.h);
+    const radius=mapFormat.destinationDot*mapViewport.units;
     for(const [id,pin] of stampPins){
       const visited=passport.visited(id);
       pin.classList.toggle("collected",visited);
@@ -4874,7 +4877,7 @@ function updateMaps(self,others){
     let mark=markers.get(actor.id);
     if(!mark){
       const fill=hexCoat(actor.coat);
-      const big=svg($("map-people"),"circle",{r:8,fill,class:"room-dot"});
+      const big=svg($("map-people"),"circle",{fill,class:"room-dot","vector-effect":"non-scaling-stroke"});
       const mini=svg($("mini-people"),"circle",{fill,class:"room-dot-mini"});
       svg(big,"title",{},actor.nickname);
       mark={big,mini};markers.set(actor.id,mark);
@@ -4884,7 +4887,7 @@ function updateMaps(self,others){
     attr(mark.mini,"r",indoors?1.1:3.75);attr(mark.mini,"visibility",visible);
     if(fullMap){
       attr(mark.big,"cx",actor.x);attr(mark.big,"cy",actor.y);
-      attr(mark.big,"r",regional?mapActorUnit*5:indoors?1.45:overview?20:palace?17:plaza||corridor?12:8);attr(mark.big,"visibility",visible);
+      attr(mark.big,"r",mapFormat.playerDot*mapViewport.units);attr(mark.big,"visibility",visible);
     }
   }
   for(const [id,mark] of markers)if(!others.has(id)){mark.big.remove();mark.mini.remove();markers.delete(id);}
@@ -4899,24 +4902,28 @@ for(const exhibit of Object.values(museumExhibits)){
   link.textContent=exhibit.title+" · "+exhibit.sourceLabel;
   item.append(link);$("exhibit-credits").append(item);
 }
-if(regional){
-  region.drawCoastMap($("map-landscape"),svg,drawMapPoint);region.drawCoastMap($("mini-landscape"),svg,drawMapPoint,true);
-  overviewLayer=svg($("map-landscape"),"g",{});
-  if(inGyeongju){
-    const districts=svg(mapSurface,"g",{class:"map-districts"});
-    const points=region.mapDistricts.map(d=>d.point);
-    svg(districts,"polygon",{points:outline(points),class:"map-bus-links"});
-    for(const [index,{name,point}] of region.mapDistricts.entries()){
-      const pin=svg(districts,"g",{"data-map-district":index,role:"button",tabindex:0,"aria-label":name+" 지도 확대"});
-      svg(pin,"title",{},name+" 지도 확대");
-      svg(pin,"circle",{r:4});
-      svg(pin,"rect",{x:-36,y:5,width:72,height:28,rx:7});
-      svg(pin,"text",{x:0,y:23,"text-anchor":"middle"},name);
-      districtPins.push({pin,point});
-    }
+for(const [base,mini] of [[$("map-landscape"),false],[$("mini-landscape"),true]]){
+  if(region?.mapGround){
+    const frame=mini?$("mini-world"):mapSurface.parentElement;
+    frame.style.setProperty("--map-ground",region.mapGround);
   }
-}else{
-  drawMap($("map-landscape"));overviewLayer=drawOverview($("map-landscape"));drawMap($("mini-landscape"),true);
+  const layers=drawMapGround(base,svg,mini,cityMapBox);
+  if(regional)region.drawCoastMap(layers.outdoors,svg,drawMapPoint,mini);
+  else drawSeoulMap(base,layers,mini);
+}
+if(!regional)overviewLayer=drawOverview($("map-landscape"));
+if(inGyeongju){
+  const districts=svg(mapSurface,"g",{class:"map-districts"});
+  const points=region.mapDistricts.map(d=>d.point);
+  svg(districts,"polygon",{points:outline(points),class:"map-bus-links"});
+  for(const [index,{name,point}] of region.mapDistricts.entries()){
+    const pin=svg(districts,"g",{"data-map-district":index,role:"button",tabindex:0,"aria-label":name+" 지도 확대"});
+    svg(pin,"title",{},name+" 지도 확대");
+    svg(pin,"circle",{r:4});
+    svg(pin,"rect",{x:-36,y:5,width:72,height:28,rx:7});
+    svg(pin,"text",{x:0,y:23,"text-anchor":"middle"},name);
+    districtPins.push({pin,point});
+  }
 }
 const stampById=new Map(passportStamps.map(stamp=>[stamp.id,stamp]));
 const stampPins=new Map((regional?[]:passportStamps).map(stamp=>{

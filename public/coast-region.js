@@ -134,8 +134,12 @@ export function coastName(point){
  if(onDock(p))return "크루즈 선착장";
  return inWater(p)?"영일만":Math.abs(p.x-shore(p.z))<150?"영일대해수욕장":"포항 해안로";
 }
+export const mapGround="#d5d0b4";
+export const cityMapBox="6310 3190 5270 4270";
 export function coastBox(point,overview){
- if(overview)return "6310 3190 5270 4270";
+ return overview?cityMapBox:routeMapBox(point);
+}
+export function routeMapBox(point){
  if(inPark(seaPoint(point)))return "10200 4670 1140 740";
  const p=seaPoint(point);
  if(stationFloor(p)!==null||distance(p,station)<190)return [coastPoint(stationHall).x-150,coastPoint(stationHall).y-145,300,290].join(" ");
@@ -154,11 +158,10 @@ const mappedLines=busLines.map(line=>({color:line.color,legs:line.legs.map(({lan
 export function drawCoastMap(base,svg,drawMarker,mini=false){
  const pts=a=>a.map(p=>{const q=coastPoint(p);return q.x+","+q.y;}).join(" ");
  const path=(list,color,width)=>svg(base,"polyline",{points:pts(list),fill:"none",stroke:color,"stroke-width":width,"stroke-linejoin":"round"});
- svg(base,"rect",{x:4600,y:2500,width:7400,height:5200,fill:"#d5d0b4"});
  const edge=[-3400,...profileRows,1800].map(z=>({z,x:shore(z)}));
  svg(base,"polygon",{points:pts([...edge,{x:2200,z:1800},{x:2200,z:-3400}]),fill:"#88b6c4"});
  path(edge,"#e9cf9e",9);
- svg(base,"polygon",{points:pts(headland.map(([x,z])=>({x,z}))),fill:"#d5d0b4"});
+ svg(base,"polygon",{points:pts(headland.map(([x,z])=>({x,z}))),fill:mapGround});
  path(parkRoad,"#9caa7e",16);
  svg(base,"path",{d:sideStreets.map(({a,b})=>"M"+(10000+a.x)+" "+(6000+a.z)+"L"+(10000+b.x)+" "+(6000+b.z)).join(""),stroke:"#efe9d9","stroke-width":5,fill:"none"});
  for(const way of geo.coastRoads)path(way.map(([x,z])=>({x,z})),"#f4ebd6",7);

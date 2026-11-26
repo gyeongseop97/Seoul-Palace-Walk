@@ -165,6 +165,12 @@ body { background: var(--yr-paper); }
   background: var(--yr-deep); border-color: var(--yr-blue); color: white;
 }
 #nearby-controls[data-rowing]:has(#raft-helm[data-current-action="primary"]) #nearby-grid [data-current-action="primary"] small { color: white; }
+#game-shell #nearby-controls #nearby-grid[data-has-key-pages] [data-current-action="primary"]:not([data-interaction-key="E"]) {
+  background: var(--hud-button); color: var(--yr-ink); border-color: var(--yr-strong-line);
+}
+#game-shell #nearby-grid[data-has-key-pages] .context-choice[data-interaction-key="E"] {
+  background: var(--yr-sky); color: var(--yr-ink); border-color: #6087a6;
+}
 #game-shell #raft-control-hint { background: var(--yr-deep); color: white; }
 #game-shell .joystick { background: rgb(245 250 254 / 46%); border-color: rgb(25 44 75 / 69%); }
 #game-shell .joystick span { background: rgb(43 75 140 / 81%); border-color: rgb(255 255 255 / 95%); }

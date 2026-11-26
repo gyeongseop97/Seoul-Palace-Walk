@@ -15,6 +15,29 @@
   scrollbar-width: thin; scrollbar-gutter: stable; overflow-anchor: none; pointer-events: auto;
 }
 .context-grid[data-empty] { display: none; }
+.context-cycle-hint { display: none; }
+.expression-key { display: none; }
+@media (pointer:fine) {
+  .play-social .expression-key {
+    display: grid; place-items: center; width: 1.6em; height: 1.6em; border-radius: 4px;
+    color: white; background: #192c4be6; font: 750 11px/1 system-ui,sans-serif;
+  }
+  #nearby-controls:has(#nearby-grid[data-has-key-pages]) .context-cycle-hint {
+    display: flex; align-items: center; align-self: flex-end; gap: 5px;
+    padding: 3px 7px; border-radius: 6px; background: #192c4bee; color: white; font-size: 11px;
+  }
+  #game-shell #nearby-grid .context-choice[data-interaction-key] {
+    grid-template-columns: max-content minmax(0,1fr); align-items: center; column-gap: 5px;
+  }
+  #nearby-grid .context-choice[data-interaction-key] small { grid-column: 2; }
+  #nearby-grid .context-choice[data-interaction-key] span { grid-column: 1 / -1; }
+  #nearby-grid [data-interaction-key]::before, .context-cycle-hint kbd {
+    display: inline-grid; place-items: center; min-width: 1.45em; height: 1.45em;
+    border-radius: 4px; background: var(--yr-deep,#233f59); color: white; font: 750 11px/1 system-ui,sans-serif;
+  }
+  #nearby-grid [data-interaction-key]::before { content: attr(data-interaction-key); grid-area: 1 / 1; }
+  .context-cycle-hint kbd { background: white; color: #192c4b; }
+}
 #game-shell #nearby-grid .context-choice {
   min-width: 0; min-height: 45px; display: grid; align-content: center; justify-items: start; gap: 2px;
   border: 1px solid #688174; border-radius: 9px; padding: 4px 9px; color: #fff9e8; background: #14382ff2;
@@ -46,6 +69,48 @@
 #nearby-controls[data-rowing]:has(#raft-helm[data-current-action="primary"]) #nearby-grid [data-current-action="primary"] small { color: #c0d3c6; }
 
 .play-social { position: relative; display: flex; align-items: center; gap: 5px; margin-left: 3px; }
+#expression-wheel {
+  position: fixed; inset: auto; transform: translate(-50%,-50%); margin: 0; padding: 0;
+  width: min(312px,82vw,72dvh); max-width: none; max-height: none; overflow: visible;
+  border: 0; border-radius: 50%; background: transparent; box-shadow: none; user-select: none;
+}
+#expression-wheel::backdrop { background: rgb(15 32 54 / 18%); }
+.expression-ring {
+  position: relative; width: 100%; aspect-ratio: 1; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle,#324f71f5,#203954f5 78%); box-shadow: 0 4px 20px #10294354,inset 0 0 0 1px #b9d8eb94;
+  color: white;
+}
+.expression-ring::before,.expression-ring::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+}
+.expression-ring[data-selected]::before {
+  background: conic-gradient(from var(--sector-start),#538bbd 0deg var(--sector),transparent var(--sector) 360deg);
+}
+.expression-ring::after {
+  background: repeating-conic-gradient(from calc(var(--sector) / -2),#b6d9ec66 0deg .5deg,transparent .5deg var(--sector));
+}
+#expression-wheel .expression-choice {
+  position: absolute; z-index: 1; transform: translate(-50%,-50%); display: grid; justify-items: center; gap: 2px;
+  margin: 0; padding: 1px 2px; min-height: 0; border: 0; border-radius: 5px; color: white; background: transparent;
+  font-family: inherit; font-size: clamp(10px,2.5dvh,13px); font-weight: 650;
+  line-height: 1.15; white-space: nowrap; text-shadow: 0 1px 2px #17283b;
+}
+.expression-icon { font: clamp(18px,5dvh,30px)/1.1 "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif; }
+#expression-wheel .expression-choice:disabled { opacity: .38; }
+.expression-switch {
+  position: absolute; z-index: 2; inset: 32%; display: grid; grid-template-rows: 1fr 1fr;
+  border: 2px solid #86adcc; border-radius: 50%; overflow: hidden;
+}
+#expression-wheel .expression-switch button {
+  min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0;
+  background: #1c3652; color: #dcebf7; font-family: inherit; font-size: clamp(11px,2.8dvh,15px); font-weight: 700;
+}
+#expression-wheel .expression-switch [aria-pressed=true] { background: #c4e7ff; color: #16334f; }
+#expression-wheel button:focus-visible { outline: 2px solid white; outline-offset: -3px; }
+.expression-instruction {
+  position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); padding: 3px 9px; border-radius: 5px;
+  white-space: nowrap; color: white; background: #172f48ed; font-size: 12px; pointer-events: none;
+}
 #game-shell .play-social .social-chip {
   position: relative; isolation: isolate; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
   min-width: 53px; min-height: 30px; padding: 0 7px; border: 0; border-radius: 9px;

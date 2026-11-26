@@ -1,3 +1,5 @@
+import {mapFormat} from "./map-format.js";
+
 const slop=7,tapMs=420;
 const midpoint=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
 const gap=(a,b)=>Math.max(12,Math.hypot(a.x-b.x,a.y-b.y));
@@ -16,8 +18,8 @@ export function bindMapGestures(surface,{getView,setView,onTap}){
     const result=new DOMPoint(x,y).matrixTransform(matrix.inverse());
     return Number.isFinite(result.x)&&Number.isFinite(result.y)?result:null;
   }
-  function zoom({view,base},scale,start,end=start){
-    const ratio=Math.max(base.w*.23/view.w,Math.min(base.w*1.30/view.w,scale));
+  function zoom({view,base,minWidth=base.w*mapFormat.minZoom,maxWidth=base.w*mapFormat.maxZoom},scale,start,end=start){
+    const ratio=Math.max(minWidth/view.w,Math.min(maxWidth/view.w,scale));
     setView({x:start.x-(end.x-view.x)*ratio,y:start.y-(end.y-view.y)*ratio,w:view.w*ratio,h:view.h*ratio});
   }
   surface.addEventListener("wheel",event=>{

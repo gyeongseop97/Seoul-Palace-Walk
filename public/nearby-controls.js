@@ -1,6 +1,8 @@
 import {contextActionFamily,groupContextActions} from "./context-action-order.js";
 import {createContextActionLayout} from "./context-action-layout.js";
 
+const actionKeys=["E","F","G"];
+
 export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>null){
   const primary=root.querySelector("#"+prefix+"-primary");
   const grid=root.querySelector("#"+prefix+"-grid");
@@ -15,6 +17,7 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
   let lastPanelFocus=null,pinned=null;
   const layout=grid&&createContextActionLayout();
   let choices=[],featured=null,lastPreferred,lastScope,rows=0,revision=0,layoutDirty=true;
+  let keyboardEnabled=false,keyboardOptions=[],keyboardPage=0;
   const layoutInputs=[];
   function contextChanged(available,preferredId,scope){
     let changed=layoutDirty||lastPreferred!==preferredId||lastScope!==scope||layoutInputs.length!==available.length;
@@ -104,6 +107,7 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
   }
   function show(slot,action,choice){
     slot.action=action;
+    slot.target=action?.dataset.actionTarget;
     const {element,label}=slot;
     if(element.hidden===Boolean(action))element.hidden=!action;
     const disabled=!action||action.disabled;
@@ -127,20 +131,67 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
       else element.removeAttribute(name);
     }
   }
-  function refresh(preferredId,scope){
+  function renderKeyboardPage(){
+    const start=keyboardPage*actionKeys.length;
+    const page=keyboardOptions.slice(start,start+actionKeys.length);
+    for(const slot of slots){
+      const key=actionKeys[page.indexOf(slot)];
+      if(key===slot.element.dataset.interactionKey)continue;
+      if(key){
+        slot.element.setAttribute("data-interaction-key",key);
+        slot.element.setAttribute("aria-keyshortcuts",key);
+      }else{
+        slot.element.removeAttribute("data-interaction-key");
+        slot.element.removeAttribute("aria-keyshortcuts");
+      }
+    }
+    return page;
+  }
+  function updateKeyboardOptions(enabled,fresh){
+    keyboardEnabled=enabled;
+    keyboardOptions=enabled?slots.filter(({action})=>action&&!action.hidden&&!action.disabled):[];
+    const primaryIndex=keyboardOptions.findIndex(({action})=>action===featured);
+    if(primaryIndex>0)keyboardOptions.unshift(...keyboardOptions.splice(primaryIndex,1));
+    grid.toggleAttribute("data-has-key-pages",keyboardOptions.length>actionKeys.length);
+    if(fresh||keyboardPage*actionKeys.length>=keyboardOptions.length)keyboardPage=0;
+    renderKeyboardPage();
+  }
+  function useShortcut(code){
+    if(code==="KeyR"){
+      const pages=Math.ceil(keyboardOptions.length/actionKeys.length);
+      if(pages<2)return false;
+      keyboardPage=(keyboardPage+1)%pages;
+      const items=renderKeyboardPage().map(({element})=>element.getBoundingClientRect());
+      const bounds=grid.getBoundingClientRect();
+      let top=Math.min(...items.map(item=>item.top)),bottom=Math.max(...items.map(item=>item.bottom));
+      if(bottom-top>bounds.height)({top,bottom}=items[0]);
+      if(top<bounds.top)grid.scrollTop+=top-bounds.top;
+      else if(bottom>bounds.bottom)grid.scrollTop+=bottom-bounds.bottom;
+      return true;
+    }
+    const index=actionKeys.findIndex(key=>code==="Key"+key);
+    if(index<0)return false;
+    const slot=keyboardOptions[keyboardPage*actionKeys.length+index],action=slot?.action;
+    if(!action||action.hidden||action.disabled||slot.target!==action.dataset.actionTarget||slot.label.textContent!==actionLabel(action))return false;
+    action.click();
+    return true;
+  }
+  function refresh(preferredId,scope,enableKeyboard=false){
     const available=buttons.filter(button=>!button.hidden);
     const here=position();
     if(pinned&&(pinned.button.hidden||pinned.button.disabled||pinned.button.dataset.actionTarget!==pinned.target||
       (here&&Math.hypot(here.x-pinned.x,here.y-pinned.y)>3)))pinned=null;
     const focused=doc.activeElement;
     if(grid){
-      let focusAction,distanceToBottom;
+      let focusAction,distanceToBottom,changed=false,freshArea=false;
       if(contextChanged(available,preferredId,scope)||layout.leftArea(here)){
+        changed=true;
         if(grid.contains(focused)&&focused.matches(":focus-visible"))focusAction=slots.find(slot=>slot.element===focused)?.action;
         const previousCount=choices.length;
         const groups=groupContextActions(available,preferredId);
         const ordered=groups.flatMap(group=>group.buttons.map(button=>({button,group})));
         const {placed,fresh}=layout.arrange(ordered,scope,here);
+        freshArea=fresh;
         choices=placed;
         if(fresh)revision++;
         const nextRows=Math.ceil(choices.length/2);
@@ -170,6 +221,7 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
         }
       }
       choices.forEach((choice,i)=>show(slots[i],choice.button,choice));
+      if(changed||enableKeyboard!==keyboardEnabled)updateKeyboardOptions(enableKeyboard,freshArea);
       if(distanceToBottom!==undefined)grid.scrollTop=Math.max(0,grid.scrollHeight-grid.clientHeight-distanceToBottom);
       if(focusAction){
         const former=slots.find(s=>s.element===focused);
@@ -194,7 +246,7 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
     }
     if(slots.some(({element})=>focused===element&&(element.hidden||element.disabled)))focusControls();
   }
-  return {refresh,close,reset(){pinned=null;layout?.reset();layoutDirty=true;revision++;close();},
-    isPrimary:button=>(grid?featured:slots[0].action)===button,actionFor:element=>slots.find(slot=>slot.element===element)?.action,
+  return {refresh,close,useShortcut,reset(){pinned=null;layout?.reset();layoutDirty=true;revision++;if(grid)updateKeyboardOptions(false,true);close();},
+    isPrimary:button=>(grid?(keyboardOptions[keyboardPage*actionKeys.length]?.action??featured):slots[0].action)===button,actionFor:element=>slots.find(slot=>slot.element===element)?.action,
     ownsFocus:()=>grid?grid.contains(doc.activeElement)&&doc.activeElement.matches(":focus-visible"):!panel.hidden&&panel.contains(doc.activeElement)};
 }

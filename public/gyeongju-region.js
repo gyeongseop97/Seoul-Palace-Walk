@@ -177,26 +177,17 @@ export const mapDistricts=[
  {name:"불국사",point:travelStops.templeBus,box:templeBox}
 ];
 export const cityMapBox=bounds(mapDistricts.map(d=>d.point),3400);
-const streetBoxes=new Map(destinations.map(p=>[p,[Math.round(p.x)-190,Math.round(p.y)-150,380,300].join(" ")]));
-export function coastBox(p,overview){
+export const mapGround="#d8d4b9";
+export function routeMapBox(p){
  // Keep route fitting local to the pedestrian network the player is using.
  if(atStation(localGyeongju(p)))return stationBox;
  if(inBulguksa(localGyeongju(p))){
-  const nearest=locate(p);
-  if(overview)return p.x>=coreX&&p.x<=coreX+coreWidth&&p.y>=coreY&&p.y<=coreY+coreHeight?templeBox:lawnBox;
-  if(Math.abs(p.x-nearest.x)>155||Math.abs(p.y-nearest.y)>110)
-   return [Math.round(p.x/60)*60-190,Math.round(p.y/60)*60-150,380,300].join(" ");
-  return streetBoxes.get(nearest);
+  return p.x>=coreX&&p.x<=coreX+coreWidth&&p.y>=coreY&&p.y<=coreY+coreHeight?templeBox:lawnBox;
  }
- if(overview)return townBox;
- return streetBoxes.get(locate(p));
+ return townBox;
 }
 export function drawCoastMap(base,svg,drawMarker,mini=false){
  const path=points=>points.map((p,i)=>{const q=gyeongjuPoint(p);return (i?"L":"M")+q.x.toFixed(1)+" "+q.y.toFixed(1);}).join("");
- for(const box of [stationBox,townBox,templeBox]){
-  const [x,y,width,height]=box.split(" ").map(Number);
-  svg(base,"rect",{x:x-400,y:y-400,width:width+800,height:height+800,fill:"#d8d4b9"});
- }
  for(const [kind,fill] of [["lawn","#c9d2af"],["wood","#a9bf9f"],["water","#9cbcc4"]]){
   svg(base,"path",{d:parks.filter(p=>p.kind===kind).map(p=>path(p.points)+"Z").join(""),fill});
  }

@@ -1297,7 +1297,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 @media not (pointer:coarse){
   #map-panel .map-modes{display:none}
   #map-panel #map-quick-travel{display:grid;gap:6px;padding:9px 0}
-  #map-quick-travel .quick-travel-head,#map-quick-travel .quick-travel-actions{display:flex;align-items:center;flex-wrap:wrap;gap:5px}
+  #map-quick-travel .quick-travel-head,#map-quick-travel .quick-travel-actions{display:flex;align-items:center;gap:5px}
   #map-quick-travel h3{margin:0;margin-right:auto;color:var(--map-muted);font:inherit;font-size:12px;font-weight:650}
   #map-quick-travel :is(button,select){
     min-width:0;max-width:100%;min-height:30px;padding:4px 8px;border:1px solid var(--map-line);border-radius:7px;

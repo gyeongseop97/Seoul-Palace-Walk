@@ -69,7 +69,7 @@ export function bindMapLabels(svg,layer){
     const boxes=[],names=new Map();
     for(const label of ordered){
       const {mark,node,point,priority,text}=label;
-      const limit=priority>=3?0:priority===2?(overview?1.9:1.22):(overview?2.8:1.52);
+      const limit=priority>=3?0:priority===2?(overview?1.9:1):(overview?2.8:1.52);
       const x=(point.x-view.x)*scale+offsetX,y=(point.y-view.y)*scale+offsetY;
       let accepted=null;
       if(zoom>=limit&&x>=0&&x<=width&&y>=0&&y<=height&&!mark.closest('[hidden],[visibility="hidden"]')){
