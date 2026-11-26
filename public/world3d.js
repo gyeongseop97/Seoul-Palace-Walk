@@ -698,6 +698,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     },()=>import("./station-world.js")));
   const expansions=[songhyeon,cheonggye,bukchon,hwangudan,west,...stationDistricts,stationsDistrict];
   const districts=[deoks,corridor,plaza,palace,...expansions],loading=container.querySelector("#loading-game");
+  let waitingForEntryFloor=Boolean(historicCity);
   function distanceToDistrict({x,y},{minX,maxX,minY,maxY}){
     return Math.hypot(Math.max(minX-x,0,x-maxX),Math.max(minY-y,0,y-maxY));
   }
@@ -934,7 +935,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       if(preview.model)preview.models.dispose(preview.model);
       preview.model=preview.models.create(coat,"",labelSprite,name);preview.coat=coat;preview.name=name;
     }
-    preview.models.update(preview.model,{x:300,y:225,heading:180,character:appearance.character,look:appearance.look},
+    preview.models.update(preview.model,{x:origin.x,y:origin.y,heading:180,character:appearance.character,look:appearance.look},
       {now:performance.now(),clock:Date.now(),delta:.1,floor:0,turnEase:1,emojiTexture});
     const previous=renderer.getRenderTarget();
     try{
@@ -1201,7 +1202,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const baking=state.bungeoMode&&(cookingStallById(state.bungeoMode.stall)??BUNGEO_STALL);
     const waiting=!regional&&advanceWorld(anchor,interior);
     const blocked=waiting&&(indoors||cameraAnchor==null||Math.hypot(anchor.x-300-pivot.x,anchor.y-225-pivot.z)>65);
-    loading?.classList?.toggle("loading-transition",blocked);
+    loading?.classList?.toggle("loading-transition",blocked||waitingForEntryFloor);
     if(blocked)return;
     interactionMarkers?.update(state.photoCapture||anchor.bus?null:anchor,now);
     picnicWorld.update(indoors?null:anchor,state.picnics);
@@ -1748,6 +1749,11 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       sparse:quality.sparse,pixelRatio:quality.pinned?quality.max:quality.ratio,night});
     seaside?.update(state,night,camera,renderer.domElement.height,quality.sparse||quality.ratio<.9);
     historicCity?.update(state,night,camera,raft,rowing);
+    if(waitingForEntryFloor){
+      if(!historicCity.entryReady(camera))return false;
+      waitingForEntryFloor=false;
+      if(loading){loading.hidden=true;loading.classList.remove("loading-transition");}
+    }
     if(!indoors)for(const item of lodSurveys){
       if(item.root.parent===outdoors&&item.lod.update(camera))shadowDirty=true;
     }

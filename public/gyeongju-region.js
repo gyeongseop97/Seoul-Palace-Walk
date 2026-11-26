@@ -11,6 +11,7 @@ import {inCheonmaHall,twinTombName,twinSection} from "./daereungwon.js";
 import {gyeongjuPoint,localGyeongju,inGyeongjuSpace} from "./region-coordinates.js";
 import {places,roads,buildings,walls,mounds,parks,gyeongjuRoute,gyeongjuWalkable} from "./gyeongju-layout.js";
 import {inBulguksa,templeSites,templePaths,templeHalls,templeBridges,templeCourts,templePonds,templeWoods} from "./bulguksa-layout.js";
+import {lawnEdge} from "./bulguksa-ground.js";
 export {gyeongjuOrigin,gyeongjuPoint,inGyeongjuSpace} from "./region-coordinates.js";
 
 const districtByPlace={stationExit:"경주역",stationBus:"경주역",townBus:"황리단길",townReturnBus:"황리단길",hwangnidan:"황리단길",
@@ -156,7 +157,9 @@ const bounds=(pts,pad)=>{
 };
 const stationBox=bounds([travelStops.stationBus,travelStops.stationExit],65);
 const townBox=bounds(destinations.filter(p=>walkingArea(p)==="town"),70);
-const templeBox=bounds(destinations.filter(p=>p.district==="불국사"),45);
+const templeBox=bounds([...templePaths,...templeHalls].flatMap(r=>r.points.map(gyeongjuPoint)),28);
+const [coreX,coreY,coreWidth,coreHeight]=templeBox.split(" ").map(Number);
+const lawnBox=bounds(lawnEdge.map(gyeongjuPoint),8);
 export const mapDistricts=[
  {name:"경주역",point:travelStops.stationBus,box:stationBox},
  {name:"경주 시내",point:travelStops.townBus,box:townBox},
@@ -167,7 +170,13 @@ const streetBoxes=new Map(destinations.map(p=>[p,[Math.round(p.x)-190,Math.round
 export function coastBox(p,overview){
  // Keep route fitting local to the pedestrian network the player is using.
  if(atStation(localGyeongju(p)))return stationBox;
- if(inBulguksa(localGyeongju(p))&&overview)return templeBox;
+ if(inBulguksa(localGyeongju(p))){
+  const nearest=locate(p);
+  if(overview)return p.x>=coreX&&p.x<=coreX+coreWidth&&p.y>=coreY&&p.y<=coreY+coreHeight?templeBox:lawnBox;
+  if(Math.abs(p.x-nearest.x)>155||Math.abs(p.y-nearest.y)>110)
+   return [Math.round(p.x/60)*60-190,Math.round(p.y/60)*60-150,380,300].join(" ");
+  return streetBoxes.get(nearest);
+ }
  if(overview)return townBox;
  return streetBoxes.get(locate(p));
 }
@@ -200,7 +209,7 @@ export function drawCoastMap(base,svg,drawMarker,mini=false){
   svg(base,"path",{d,fill:"none",stroke:colors[kind]??colors.path,"stroke-width":width,"stroke-linejoin":"round","stroke-linecap":"round"});
  }
  svg(base,"path",{d:walls.map(w=>path(w.points)).join(""),fill:"none",stroke:"#8f7869","stroke-width":1.5});
- for(const [rings,fill] of [[templeWoods,"#a9bf9f"],[templePonds,"#9cbcc4"],[templeCourts,"#f5edcf"],
+ for(const [rings,fill] of [[[lawnEdge],"#c9d2af"],[templeWoods,"#a9bf9f"],[templePonds,"#9cbcc4"],[templeCourts,"#f5edcf"],
   [templeHalls.map(b=>b.points),"#b3a896"],[templeBridges.map(b=>b.points),"#c9bfac"]])
   svg(base,"path",{d:rings.map(r=>path(r)+"Z").join(""),fill});
  for(const kind of ["footway","path","steps"])svg(base,"path",{d:templePaths.filter(r=>r.kind===kind).map(r=>path(r.points)).join(""),

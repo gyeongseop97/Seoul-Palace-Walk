@@ -4918,7 +4918,7 @@ function loadWorld(){
     world=makeWorld($("game"),{onCatFlee,catSeed:session?.room,graphics:graphicsSelect.value,
       coast:onCoast?{origin:coastOrigin,create:stage.createCoastScene,visitors:stage.coastVisitors,play:coastPlay,stations:region.counters}:null,
       gyeongju:inGyeongju?{origin:region.gyeongjuOrigin,create:stage.createGyeongjuScene,stations:region.counters??[]}:null});worldFailed=false;
-    if(!regional)drawDestinations(world);$("loading-game").hidden=true;
+    if(!regional)drawDestinations(world);$("loading-game").hidden=!inGyeongju;
     if($("character-dialog").open)refreshCharacterPreview();
   }).catch(error=>{
     console.error("산책길 초기화",error);worldFailed=true;$("loading-game").textContent="이 브라우저에서 3D 산책을 열 수 없어요.";

@@ -69,14 +69,25 @@ export function observatory(k,p){
   box(0,8.86,side*1.19,3.32,.42,.49,color());
  }
 }
-export function stationHall(k,p){
+export function stationHall(k,p,glass,ceilingLight){
  // Long axis along the tracks. The main doors face the bus bays across the northeast plaza.
  const yaw=2.53,at=localFrame(p.x,p.z,yaw);
  const piece=(x,y,z,w,h,d,c)=>{const q=at(x,z);k.piece(q.x,y,q.z,w,h,d,c,yaw);};
  const point=(u,y,v)=>{const q=at(u,v);return [q.x,y,q.z];};
  const granite=0xc2c1b9,steel=0xb0b6b3;
  const front=-3.4,back=-28,total=84;
+ k.polygon([at(-42,front),at(42,front),at(42,9),at(-42,9)],-.055,0xb8b4a7,"pavers");
  piece(0,3.73,(front+back)/2,total,7.45,front-back,0x718c91);
+ // Glazing reflects the pale plaza at foot level and blue sky above the visitor's eye.
+ const pane=new T.PlaneGeometry(1,1,1,4),tints=[],tint=new T.Color();
+ for(const color of [0xcddfe5,0xa6c4d0,0x7f9ba1,0xa3b2ac,0xbac2bd]){
+  tint.setHex(color);for(let i=0;i<2;i++)tints.push(tint.r,tint.g,tint.b);
+ }
+ pane.setAttribute("color",new T.Float32BufferAttribute(tints,3));
+ const glaze=(x,y,v,w,h)=>{
+  const q=at(x,v);k.geo(pane,q.x,y,q.z,w,h,1,0xffffff,yaw,glass);
+ };
+ glaze(0,3.73,front+.035,total,7.45);
  for(let x=-total/2;x<=total/2;x+=3.5){
   const y=4.15+Math.cos(x/9.5)*.44;
   piece(x,y,front+.15,.145,2*y,.23,steel);
@@ -88,9 +99,15 @@ export function stationHall(k,p){
  }
  for(let i=-3;i<=3;i++){
   const x=i*2.05;
-  piece(x,1.38,front+.27,1.90,2.76,.18,0x58737a);
-  piece(x,1.38,front+.39,.065,2.68,.065,steel);
-  piece(x,1.05,front+.40,1.83,.06,.07,0xe1d4a7);
+  piece(x,1.38,front+.27,1.90,2.76,.18,steel);
+  glaze(x,1.38,front+.39,1.80,2.63);
+  piece(x,1.38,front+.43,.065,2.68,.065,steel);
+  piece(x,1.05,front+.44,1.83,.06,.07,0xe1d4a7);
+ }
+ piece(0,2.98,front+.79,15.3,.20,1.55,steel);
+ const strip=new T.BoxGeometry();
+ for(const x of [-4.8,0,4.8]){
+  const q=at(x,front+1.24);k.geo(strip,q.x,2.87,q.z,3.2,.055,.22,0xffffff,yaw,ceilingLight);
  }
  for(const x of [-35,-17,17,35]){
   piece(x,3.84,front+2.8,.95,7.68,.95,granite);

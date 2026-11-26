@@ -1,8 +1,10 @@
 import {mappedPaths,mappedHalls,mappedBridges,mappedPonds,mappedWoods} from "./bulguksa-geography.js";
+import {templeOrigin,templePoint,templeAxis,templeAxes,groundHeightAt,insideTempleGround} from "./bulguksa-ground.js";
+import {hallTerraceAt} from "./bulguksa-hall-layout.js";
+import {templeCorridors,templeScreenAt} from "./bulguksa-cloisters.js";
+export {templeOrigin,templePoint,templeAxis,templeAxes};
 
 // Same east/south metre frame as the rest of Gyeongju.
-export const templeOrigin={x:(129.3321-129.212)*90300,z:(35.836-35.7900)*111100};
-export const templePoint=([x,z])=>({x:x+templeOrigin.x,z:z+templeOrigin.z});
 export const inBulguksa=p=>Math.abs(p.x-templeOrigin.x)<700&&Math.abs(p.z-templeOrigin.z-150)<700;
 const polygon=points=>points.map(templePoint);
 export const templeHalls=mappedHalls.map(([id,name,kind,ring])=>({id,name,kind,points:polygon(ring)}));
@@ -13,11 +15,6 @@ export const templePaths=mappedPaths.map(([id,name,kind,line])=>({id,name,kind,w
 // The real bus bays and the footway to Iljumun are separate objects on the map.
 templePaths.push({kind:"path",width:4.4,points:polygon([[44.4,414.6],[41,406],[32,398],[26,379],[30,356],[38,345]])});
 const c=Math.cos(.15),s=Math.sin(.15);
-export const templeAxis=(u,v)=>templePoint([u*c+v*s,-u*s+v*c]);
-export function templeAxes(p){
- const x=p.x-templeOrigin.x,z=p.z-templeOrigin.z;
- return {u:x*c-z*s,v:x*s+z*c};
-}
 const rect=(left,top,right,bottom)=>[templeAxis(left,top),templeAxis(right,top),templeAxis(right,bottom),templeAxis(left,bottom)];
 export const templeCourtBounds=[[-27,-45,24,17],[-65,-17,-28,19],[-62,-86,14,-45]];
 export const templeCourts=templeCourtBounds.map(bounds=>rect(...bounds));
@@ -28,16 +25,35 @@ export const templePagodas=[
   footprints:[[-2.187,2.187,-2.187,2.187]]}
 ];
 const clamp=v=>Math.max(0,Math.min(1,v));
-const terraceRise=(u,v)=>(3.1+1.9*clamp((u+32)/8))*clamp((40-v)/20);
-export function templeBridgeHeight(p){
- const {u,v}=templeAxes(p);
- return terraceRise(u,v);
+const risers={"청운교":16,"백운교":18,"칠보교":8,"연화교":10};
+export const stoneStairs=[];
+export const stairPaths=[];
+for(const pair of [["청운교","백운교",5],["칠보교","연화교",3.1]]){
+ const [upper,lower,height]=pair;
+ const axes=name=>templeBridges.find(b=>b.name===name).points.map(templeAxes);
+ const a=axes(upper),b=axes(lower),pts=[...a,...b];
+ const north=Math.min(...a.map(p=>p.v)),south=Math.max(...b.map(p=>p.v));
+ const join=(Math.max(...a.map(p=>p.v))+Math.min(...b.map(p=>p.v)))/2;
+ const left=Math.min(...pts.map(p=>p.u)),right=Math.max(...pts.map(p=>p.u));
+ const middle=height*risers[lower]/(risers[upper]+risers[lower]);
+ const u=(left+right)/2;
+ stoneStairs.push({name:upper,u,width:right-left,north,south:join,bottom:middle,top:height,count:risers[upper],upper:true},
+  {name:lower,u,width:right-left,north:join,south,bottom:0,top:middle,count:risers[lower],upper:false});
+ stairPaths.push({kind:"steps",points:[south+2,south,join,north,19,16,12].map(v=>templeAxis(u,v))});
+}
+function stairAt(u,v){
+ return stoneStairs.find(f=>Math.abs(u-f.u)<=f.width/2+.42&&v>=(f.upper?20:f.north)&&v<=f.south);
+}
+export function stairStepHeight(f,v){
+ if(v<f.north)return f.top;
+ const t=clamp((f.south-v)/(f.south-f.north));
+ return f.bottom+(f.top-f.bottom)*Math.min(f.count,Math.floor(t*f.count)+1)/f.count;
 }
 export function templeHeight(p){
- const {u,v}=templeAxes(p);
- const sideRamp=Math.max(clamp((-56-u)/12),clamp((u-19)/12));
- const terrace=v<=21?1:sideRamp;
- return terraceRise(u,v)*terrace+clamp((-v-34)/24)*2.5;
+ const axes=templeAxes(p),{u,v}=axes,f=stairAt(u,v);
+ if(f)return stairStepHeight(f,v);
+ const terrace=hallTerraceAt(axes);
+ return groundHeightAt(u,v)+(terrace?.height??0);
 }
 function contains(p,line){
  let hit=false;
@@ -47,8 +63,7 @@ function contains(p,line){
  }
  return hit;
 }
-const galleries=new Set([244539236,244539237,244539238]);
-export const templeGallery=id=>galleries.has(id);
+export const templeGallery=id=>templeCorridors.has(id);
 const footprints=templeHalls.map(b=>{
  const xs=b.points.map(p=>p.x),zs=b.points.map(p=>p.z);
  const gallery=templeGallery(b.id),gate=b.kind==="gatehouse",main=b.id===244539247||b.id===244539240;
@@ -62,13 +77,16 @@ function pagodaBase(p,t){
  return t.footprints.some(([left,right,top,bottom])=>u>=left-.12&&u<=right+.12&&v>=top-.12&&v<=bottom+.12);
 }
 export function templeSolid(p){
- return buildings.some(b=>inFootprint(p,b))||templePagodas.some(t=>pagodaBase(p,t));
+ const axes=templeAxes(p);
+ return templeScreenAt(axes)||hallTerraceAt(axes)?.solid||buildings.some(b=>b.id!==244539247&&b.id!==244539240&&inFootprint(p,b))||templePagodas.some(t=>pagodaBase(p,t));
 }
 export function templeCameraBlocked(p,y){
  const h=y-templeHeight(p);
  if(h<.04)return true;
  if(h>11)return false;
- if(footprints.some(b=>h>=b.overhead&&h<=b.height&&inFootprint(p,b)))return true;
+ if(h<2.7&&templeScreenAt(templeAxes(p)))return true;
+ if(footprints.some(b=>h>=b.overhead&&h<=b.height&&inFootprint(p,b)&&
+  (b.id!==244539247&&b.id!==244539240||h>5||hallTerraceAt(templeAxes(p))?.solid)))return true;
  return templePagodas.some(t=>h<t.height&&(h<2?pagodaBase(p,t):Math.hypot(t.x-p.x,t.z-p.z)<(h<5?2:1.26)));
 }
 const cells=new Map();
@@ -81,14 +99,46 @@ for(const r of templePaths)for(let i=1;i<r.points.length;i++){
    const id=key(x,z);if(!cells.has(id))cells.set(id,[]);cells.get(id).push(seg);
   }
 }
-export function templeWalkable(p){
- if(templeSolid(p)||templePonds.some(r=>contains(p,r))||templeBridges.some(r=>contains(p,r.points)))return false;
+function visitorPath(p){
  if(templeCourts.some(r=>contains(p,r)))return true;
  for(const {a,dx,dz,squared,radius} of cells.get(key(Math.floor(p.x/12),Math.floor(p.z/12)))??[]){
   const t=clamp(((p.x-a.x)*dx+(p.z-a.z)*dz)/squared);
   if(Math.hypot(p.x-a.x-t*dx,p.z-a.z-t*dz)<=radius)return true;
  }
  return false;
+}
+// Build this index on the first visit, for both drawn trees and walking clearance.
+let plantings;
+export function templePlantings(){
+ if(plantings)return plantings;
+ const trees=[],trunks=new Map();
+ let seed=10763;
+ const rand=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
+ for(let i=0;i<470;i++){
+  const p=templePoint([-140+rand()*260,-117+rand()*539]);
+  if(p.z<templeOrigin.z+60&&p.z>templeOrigin.z-107&&Math.abs(p.x-templeOrigin.x+18)<104)continue;
+  if(visitorPath(p)||templeSolid(p)||templePaths.some(r=>r.points.some(q=>Math.hypot(p.x-q.x,p.z-q.z)<5)))continue;
+  if(templePonds.some(r=>contains(p,r)||Math.hypot(r[0].x-p.x,r[0].z-p.z)<42))continue;
+  const tree={...p,height:5+rand()*6,palette:i%5===0?"maple":i%3===0?"pine":"deep",style:i%3===0?"cone":"branchy"};
+  trees.push(tree);
+  const radius=tree.height*.045+.14;
+  for(let x=Math.floor((p.x-radius)/12);x<=Math.floor((p.x+radius)/12);x++)
+   for(let z=Math.floor((p.z-radius)/12);z<=Math.floor((p.z+radius)/12);z++){
+    const id=key(x,z);if(!trunks.has(id))trunks.set(id,[]);
+    trunks.get(id).push(tree);
+   }
+ }
+ plantings={trees,trunks};
+ return plantings;
+}
+export function templeWalkable(p){
+ const {u,v}=templeAxes(p);
+ if(!insideTempleGround(p))return false;
+ if(templeSolid(p)||templePonds.some(r=>contains(p,r)))return false;
+ const f=stairAt(u,v);
+ if(f)return Math.abs(u-f.u)<f.width/2-.21;
+ if(v>20.55&&v<21.55&&u> -67.7&&u<30.7)return false;
+ return !(templePlantings().trunks.get(key(Math.floor(p.x/12),Math.floor(p.z/12)))??[]).some(t=>Math.hypot(p.x-t.x,p.z-t.z)<t.height*.045+.14);
 }
 const source="https://www.heritage.go.kr/heri/html/HtmlPage.do?pageNo=5_4_2_1&pg=%2Funesco%2FHeritage%2FHeritage_01.jsp";
 const add=(name,x,z,description,directions,kind="heritage",heading=0)=>({
@@ -99,8 +149,8 @@ export const templeSites=[
  add("불국사 일주문",30,313,"불국사로 들어서는 첫 문이에요. 석굴암과 불국사는 1995년에 함께 유네스코 세계유산에 등재됐습니다.","문을 지나 해탈교를 건너면 천왕문이 보입니다."),
  add("해탈교",38,228,"일주문과 천왕문 사이의 숲길에 놓인 다리예요.","북쪽으로 천왕문을 지나 계속 걸으면 석축 앞에 닿습니다."),
  add("천왕문",31,171,"일주문을 지나 경내로 들어가는 길목의 문입니다.","길을 따라 북쪽으로 올라가 청운교와 백운교를 바라보세요."),
- add("청운교·백운교",7,40,"돌계단 형태의 두 다리가 위쪽 자하문과 대웅전 영역으로 이어집니다.","석교 앞에서 오른쪽 관람로를 따라 올라가면 대웅전 앞마당과 두 탑을 만납니다."),
- add("연화교·칠보교",-39,39,"극락전 앞 안양문으로 향하는 두 석교입니다. 대웅전 앞 석교의 서쪽에 자리해요.","앞마당에서는 두 석교와 석축을 한눈에 볼 수 있어요. 극락전은 옆 관람로로 올라가세요."),
+ add("청운교·백운교",7,40,"돌계단 형태의 두 다리가 위쪽 자하문과 대웅전 영역으로 이어집니다.","백운교와 청운교를 차례로 올라 자하문을 지나면 두 탑이 보입니다."),
+ add("연화교·칠보교",-39,39,"극락전 앞 안양문으로 향하는 두 석교입니다. 대웅전 앞 석교의 서쪽에 자리해요.","연화교와 칠보교를 차례로 올라 안양문을 지나면 극락전이 보입니다."),
  add("다보탑",2.2,4.8,"대웅전 앞 동쪽 탑입니다. 사각 기단 위에 돌난간과 팔각형 구조가 겹겹이 올라가요.","같은 마당 서쪽의 석가탑과 형태를 비교해 보세요.","heritage",63),
  add("석가탑",-5.5,4.5,"대웅전 앞 서쪽에 선 삼층석탑입니다. 두 층의 기단 위에 세 층의 탑신을 쌓았어요.","동쪽에 다보탑, 북쪽에 대웅전이 있습니다.","heritage",275),
  add("불국사 대웅전",-1,-3,"불국사의 동쪽 중심 전각입니다. 마당 남쪽에 자하문이 있고, 두 탑 너머 북쪽으로 대웅전이 자리합니다.","법당 앞마당을 걸어 서쪽 극락전 쪽 관람로로 가 보세요."),

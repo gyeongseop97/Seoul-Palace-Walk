@@ -4,6 +4,10 @@
 
 ## 국가유산청 3D 자료
 
+불국사 대웅전·극락전·자하문·안양문의 게임 모델은 불국사의 전각별 정면 사진과 국가유산청의 대웅전 평면·구성 자료를 참고해 제작했습니다. 대웅전의 넓은 중앙칸, 각 전각의 공포와 겹처마, 팔작·맞배지붕, 남회랑의 창살, 석조기단과 계단의 구성을 반영했습니다. 전각과 회랑에 쓰인 목부재 무늬 일부는 서울 궁궐 장면의 단청 재질을 함께 사용합니다. [불국사 전각 소개 및 현장 사진](https://www.bulguksa.or.kr/bbs/content.php?co_id=palace) · [국가유산청 대웅전 건축 기록](https://digital.khs.go.kr/heri/heriDetail.do?ctptUid=13898859672729200586)
+
+`public/art/bulguksa-hall-woodwork.webp`는 국가유산청이 공개한 2011년 국보·보물 지정보고서의 대웅전 사진 세 장에서 가공했습니다. 정면 사진에서 창호·단청·석재 표면을, 측면 사진에서 박공의 단청을, 내부 사진에서 열린 문 사이로 보이는 불단을 잘라 원근과 밝기를 조정하고 한 이미지에 배치했습니다. [국가유산청 정면 사진](https://www.heritage.go.kr/heri/cul/imgHeritage.do?ccimId=2291072&ccbaKdcd=12&ccbaAsno=0017440000000&ccbaCtcd=37) · [국가유산청 측면 사진](https://www.heritage.go.kr/heri/cul/imgHeritage.do?ccimId=2291081&ccbaKdcd=12&ccbaAsno=0017440000000&ccbaCtcd=37) · [국가유산청 불단 사진](https://www.heritage.go.kr/heri/cul/imgHeritage.do?ccimId=2291075&ccbaKdcd=12&ccbaAsno=0017440000000&ccbaCtcd=37) · [공공누리 제1유형 이용 조건](https://www.kogl.or.kr/info/licenseType1.do)
+
 경주 첨성대의 외형은 문화재청(현 국가유산청)의 3D 프린팅 자료를 카리스χάρης가 경량화해 공개한 STL을 사용했습니다. 국가유산청이 공개한 높이 9.17m에 맞추고, 색이 없는 STL의 석재 재질은 국가유산청 정면 사진을 참고해 표현했습니다. [국가유산청 첨성대 3D 자료 · 공공누리 제1유형](https://digital.khs.go.kr/record/recordDetail3D.do?ichDataUid=13903001708066000200&bizId=BIZ201800002632) · [배포에 사용한 경량본](https://gumisflatland.tistory.com/m/462) · [국가유산청 치수](https://www.data.go.kr/data/15165324/fileData.do) · [경주 첨성대 정면 사진 자료](https://digital.khs.go.kr/buis/buisDetail.do?bizUid=13921921849344500012&ctptNo=1113700310000&ctptUid=13898859665995200028)
 
 불국사 다보탑은 국가유산청이 공공누리 제1유형으로 개방한 OBJ와 표면 사진을 사용했습니다. 측량 당시 함께 기록된 주변 바닥과 울타리를 제거하고, 원본 사진의 색을 경량 모델의 석재 표면에 다시 입혔습니다. [국가유산청 경주 불국사 다보탑 3D 모델링](https://www.data.go.kr/data/15150537/fileData.do) · [공공누리 제1유형 이용 조건](https://www.kogl.or.kr/info/licenseType1.do)

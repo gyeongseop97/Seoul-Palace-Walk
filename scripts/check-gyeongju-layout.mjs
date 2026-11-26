@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import {cafeLayout,gyeongjuClear,gyeongjuRoute,gyeongjuWalkable,mounds,places,roads,tombGates,transferShelterYaw} from "../public/gyeongju-layout.js";
 import {cafeFittings} from "../public/gyeongju-cafe.js";
 import {destinations,travelDistricts,travelStops,transferStop,sameGyeongjuArea} from "../public/gyeongju-region.js";
-import {inBulguksa,templeCameraBlocked,templeHeight,templePoint,templeSites,templeBridges,templePagodas,templePonds} from "../public/bulguksa-layout.js";
+import {inBulguksa,templeAxis,templeCameraBlocked,templeHeight,templePoint,templeSites,stairPaths,stoneStairs,templePlantings,templePaths,templePagodas,templePonds} from "../public/bulguksa-layout.js";
+import {drapePath,groundHeightAt} from "../public/bulguksa-ground.js";
+import {templeHallTerraces} from "../public/bulguksa-hall-layout.js";
 import {localGyeongju} from "../public/region-coordinates.js";
 import {cheonmaPoint,twinHeight,twinTombName} from "../public/daereungwon.js";
 
@@ -21,7 +23,7 @@ function walk(from,to){
    let prev=templeHeight(p);
    for(let i=1;i<=n;i++){
     const h=templeHeight({x:p.x+(q.x-p.x)*i/n,z:p.z+(q.z-p.z)*i/n});
-    assert.ok(Math.abs(h-prev)<.12,from.name+" → "+to.name+" 관람로 단차");
+    assert.ok(Math.abs(h-prev)<.19,from.name+" → "+to.name+" 관람로 단차");
     prev=h;
    }
   }
@@ -44,7 +46,34 @@ for(const a of [travelStops.stationBus,travelStops.townReturnBus,travelStops.tem
  }
 }
 const center=ring=>ring.reduce((p,q)=>({x:p.x+q.x/ring.length,z:p.z+q.z/ring.length}),{x:0,z:0});
-for(const p of [...templePagodas,...templeBridges.map(b=>center(b.points)),...templePonds.map(center)])assert.equal(gyeongjuWalkable(p),false);
+for(const p of [...templePagodas,...templePonds.map(center)])assert.equal(gyeongjuWalkable(p),false);
+for(const stair of stairPaths){
+ const foot=stair.points[0],landing=stair.points.at(-1);
+ assert(gyeongjuClear(foot,landing)&&gyeongjuClear(landing,foot),"continuous stair flight into the upper court");
+ assert(templeHeight(landing)-templeHeight(foot)>3);
+}
+for(const f of stoneStairs){
+ const v=(f.south+f.north)/2;
+ assert(!gyeongjuClear(templeAxis(f.u,v),templeAxis(f.u+f.width/2+1,v)),"stair rail blocks sideways movement");
+}
+for(const lawn of [templeAxis(45,83),templeAxis(-29,286),templeAxis(68,403),templeAxis(408,215)]){
+ walk(templeSites[0],lawn);walk(lawn,templeSites[1]);
+}
+for(const hall of templeHallTerraces.filter(h=>h.plinth)){
+ const foot=templeAxis(hall.u,hall.v+hall.deckD/2+hall.stairRun+.06),landing=templeAxis(hall.u,hall.v+hall.deckD/2-.3);
+ assert(gyeongjuClear(foot,landing)&&gyeongjuClear(landing,foot),hall.name+" front steps");
+ assert(Math.abs(templeHeight(landing)-templeHeight(foot)-hall.plinth)<.01,hall.name+" raised deck");
+}
+for(const path of templePaths)drapePath(path,(ring,indices)=>{
+ for(let i=0;i<indices.length;i+=3){
+  const tri=indices.slice(i,i+3).map(n=>ring[n]);
+  const u=tri.reduce((sum,p)=>sum+p.u,0)/3,v=tri.reduce((sum,p)=>sum+p.v,0)/3;
+  const y=tri.reduce((sum,p)=>sum+groundHeightAt(p.u,p.v),0)/3;
+  assert(Math.abs(y-groundHeightAt(u,v))<1e-6,"path surface follows the lawn through each change of slope");
+ }
+});
+assert(!gyeongjuWalkable(templeAxis(690,140)));
+assert(templePlantings().trees.length>120&&templePlantings().trees.every(p=>!gyeongjuWalkable(p)));
 const axisPoint=(p,u,v)=>({x:p.x+u*Math.cos(.15)+v*Math.sin(.15),z:p.z-u*Math.sin(.15)+v*Math.cos(.15)});
 const [dabo,seok]=templePagodas;
 for(const [u,v] of [[3.82,.6],[-3.60,.6],[.8,3.86],[.8,-3.60],[-2.06,-2.01]])assert.equal(gyeongjuWalkable(axisPoint(dabo,u,v)),false,"Dabotap plinth or stair");

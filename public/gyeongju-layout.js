@@ -6,7 +6,7 @@ import {tower,observatoryApproach,insideObservatory} from "./gyeongju-observator
 import {daereungwonPlaces,inCheonmaHall,cheonmaExhibit,michuStoneAt,twinTombName,twinHeight,cheonmaPoint} from "./daereungwon.js";
 import {gyeongjuBikeDocks,crossesBikeRack} from "./gyeongju-bike.js";
 import {raftStops,RAFT_DOCK_WIDTH,onRaftPier} from "./gyeongju-raft-layout.js";
-import {inBulguksa,templeWalkable,templePaths,templeSites} from "./bulguksa-layout.js";
+import {inBulguksa,templeWalkable,templeHeight,templePaths,templeSites,stairPaths} from "./bulguksa-layout.js";
 
 // Local survey frame in metres, east and south of 129.212 E, 35.836 N.
 const point=([x,z])=>({x,z});
@@ -247,6 +247,16 @@ export function gyeongjuWalkable(p){
 }
 export function gyeongjuClear(a,b){
  if(!gyeongjuWalkable(a)||!gyeongjuWalkable(b)||crossesBikeRack(a,b))return false;
+ if(inBulguksa(a)){
+  const steps=Math.max(1,Math.ceil(dist(a,b)/.20));
+  let height=templeHeight(a);
+  for(let i=1;i<=steps;i++){
+   const p=mix(a,b,i/steps),next=templeHeight(p);
+   if(Math.abs(next-height)>.19||!templeWalkable(p))return false;
+   height=next;
+  }
+  return true;
+ }
  const n=Math.ceil(dist(a,b)/.48);
  for(let i=1;i<n;i++)if(!gyeongjuWalkable(mix(a,b,i/n)))return false;
  return true;
@@ -281,7 +291,7 @@ function walkingNetwork(temple){
    nodes[i].edges.add(j);nodes[j].edges.add(i);
   }
  }
- for(const r of temple?templePaths:roads){
+ for(const r of temple?[...templePaths,...stairPaths]:roads){
   if(!pedestrianStreet(r))continue;
   let previous=add(r.points[0]);
   for(let k=1;k<r.points.length;k++){
@@ -342,13 +352,14 @@ function lawnApproach(origin,{nearby,nodes,linked},contacts){
 const groundDirections=[[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[-1,-1],[1,-1]];
 function walkingRoute(from,to,tryGround=true){
  if(!gyeongjuWalkable(from)||!gyeongjuWalkable(to)||dist(from,to)>2500)return [];
- if(dist(from,to)<28&&gyeongjuClear(from,to))return [{x:to.x,z:to.z}];
- const graph=walkingNetwork(inBulguksa(from)),{nodes,nearby}=graph;
+ const temple=inBulguksa(from);
+ if((dist(from,to)<28||temple)&&gyeongjuClear(from,to))return [{x:to.x,z:to.z}];
+ const graph=walkingNetwork(temple),{nodes,nearby}=graph;
  // A lawn destination can be well outside the road index's normal junction radius.
  // Widen only as needed and require a traversable approach all the way to a real path.
  const connectors=p=>{
   const checked=new Set();
-  for(const radius of [18,54,108,210]){
+  for(const radius of temple?[18,54,108,210,740]:[18,54,108,210]){
    const candidates=nearby(p,radius).filter(i=>!checked.has(i)).sort((i,j)=>dist(nodes[i].p,p)-dist(nodes[j].p,p));
    const found=[];
    for(const i of candidates){
