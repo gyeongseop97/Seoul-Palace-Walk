@@ -1042,7 +1042,8 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const seated = riding ? 1 : scooting ? 0 : model.seatBlend, crouch = riding||scooting ? 0 : model.petBlend;
     // Short legs take quick little steps.
     const cycleDistance = mix(1.00,1.80,sprint), stance = mix(.57,.36,sprint);
-    const velocity = mix(2.58,6.675,sprint)*(gait?.speedScale??1);
+    const reportedSpeed = Math.hypot(position.vx??0,position.vy??0);
+    const velocity = reportedSpeed>0&&!position.blocked ? Math.min(reportedSpeed,6.675) : mix(2.58,6.675,sprint)*(gait?.speedScale??1);
     const strideTarget = walking ? (position.blocked ? .32 : 1) : 0;
     model.stride = mix(model.stride,strideTarget,smoothPose);
     const stride = riding||scooting ? 0 : model.stride;

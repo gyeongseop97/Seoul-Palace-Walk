@@ -115,6 +115,13 @@ export function registerCoast(){
  const trails=[-95,-240,-415,-660].map(z=>Array.from({length:12},(_,i)=>coastPoint({x:promenade(z+i*3)+1,z:z+i*3})));
  if(!expansionWildlife.some(a=>a.id==="pohang"))expansionWildlife.push({id:"pohang",bounds:{minX:9350,maxX:10950,minY:5060,maxY:6330},land:coastWalkable,trails,perches:[],catCount:8,birdCount:22});
 }
+export function coastDistrict(point){
+ const p=seaPoint(point);
+ if(distance(p,station)<220)return "포항역";
+ if(inPark(p))return "환호공원";
+ if(point.coast?.mode==="deck"||inWater(p)&&!onPier(p)&&!onDock(p))return "영일만";
+ return Math.abs(p.x-shore(p.z))<700?"영일대":"포항 시가지";
+}
 export function coastName(point){
  const p=seaPoint(point);
  if(inCafeBounds(p))return point.coast?.cafeFloor>cafeRoof-.38?"영일대 커피 · 루프탑":"영일대 커피";

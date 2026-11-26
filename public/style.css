@@ -22,12 +22,20 @@ button:not(:disabled):hover{filter:brightness(1.13)}
 .mobile-settings[open] summary{border-color:var(--gold-3);color:var(--gold-2)}
 .mobile-settings-actions{
   position:absolute;z-index:10;top:calc(100% + 6px);right:0;display:grid;gap:5px;
-  width:min(152px,calc(100vw - 20px));max-height:calc(100dvh - 66px - env(safe-area-inset-bottom,0px));
+  width:min(254px,calc(100vw - 20px));grid-template-columns:repeat(2,minmax(0,1fr));max-height:calc(100dvh - 66px - env(safe-area-inset-bottom,0px));
   padding:6px;border:1px solid var(--pine-9);border-radius:11px;background:var(--pine-3);
   box-shadow:0 7px 20px #07110ac0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;
 }
 .mobile-settings:not([open]) .mobile-settings-actions{display:none}
 .mobile-settings-actions button{min-height:44px;text-align:left}
+#game-shell .top #bag-open,#game-shell .top .mobile-settings summary{
+  display:grid;place-items:center;width:44px;height:44px;min-width:0;min-height:0;padding:0;
+}
+#passport-open,#fullscreen-toggle{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+#passport-open svg,#fullscreen-toggle svg{flex:none}
+.pace-context{display:none}
+.mobile-settings-actions #run{display:flex;align-items:center;justify-content:space-between;gap:6px;grid-column:1/-1}
+.mobile-settings-actions #run .pace-context{display:block;order:-1;color:var(--muted);font-size:12px}
 .sound-setting{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr;align-items:center;gap:0 9px}
 .sound-setting button{grid-row:1/3}
 .sound-setting label{display:flex;justify-content:space-between;align-self:end;color:var(--lettering);font-size:12px}
@@ -168,7 +176,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 #loading-game.loading-transition{z-index:2;background:#203128ed;color:var(--ivory-2)}
 .game-info{position:absolute;z-index:2;left:4px;top:4px;display:grid;justify-items:start;gap:6px;max-width:calc(100% - 34px);pointer-events:none}
 .place-row{display:flex;align-items:center;gap:3px;min-width:0;max-width:100%}
-.game-place{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:3px 8px;border:1px solid #e6bc7447;border-radius:6px;color:var(--lettering);font-size:12px;font-weight:600;line-height:1.3}
+.game-place{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 5px;border-radius:4px;color:#fff4dd;font-size:12px;font-weight:600;line-height:1.35}
 .game-info .scene-status{display:grid;gap:3px;width:fit-content;max-width:100%;pointer-events:none;padding:6px 9px;color:var(--lettering);background:var(--hud-overlay);border:1px solid #d4bf8847;border-radius:8px;overflow-wrap:anywhere}
 .game-info .bus-status{width:auto;border:0;box-shadow:none;background:transparent;padding:0}
 .game-info .bus-status-times{margin-top:3px}
@@ -277,12 +285,12 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   #game-shell>main{display:flex;flex:1;flex-direction:column;min-height:0;width:100%;padding-bottom:max(4px,env(safe-area-inset-bottom,0px))}
   .top{
     position:relative;z-index:7;flex:none;height:auto;min-height:calc(52px + env(safe-area-inset-top,0px));gap:6px;
-    padding:calc(4px + env(safe-area-inset-top,0px)) max(10px,env(safe-area-inset-right,0px)) 4px max(10px,env(safe-area-inset-left,0px));
+    padding:calc(4px + env(safe-area-inset-top,0px)) max(8px,env(safe-area-inset-right,0px)) 3px max(12px,env(safe-area-inset-left,0px));
   }
 
   .top-game-actions,.top .top-actions,.top .view-controls{gap:5px}
   .top button,.mobile-settings summary{min-height:44px;padding:4px 8px;font-size:12px}
-  .brand img{height:36px}
+  .brand img{height:37.6px}
   main{padding:0 max(5px,env(safe-area-inset-right,0px)) 0 max(5px,env(safe-area-inset-left,0px))}
   .experience{display:flex;flex:1;flex-direction:column;min-height:0;margin-top:4px}
   .scene-panel{flex:1;align-self:stretch;min-height:235px;border-radius:11px}
@@ -296,6 +304,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   #chat-send{font-size:13px}
   .game-info{max-width:calc(100% - 105px)}
   #jump kbd{display:none}
+  .movement-actions #jump{grid-column:2}
   .game-presence{
     position:absolute;z-index:3;top:10px;right:8px;display:block;min-height:40px;
     padding:5px 9px;border:1px solid #dddbb77a;border-radius:12px;background:#15221ada;color:var(--gold-1);font-size:11px;
@@ -891,12 +900,13 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 @media (prefers-reduced-motion:reduce){.transit,.transit-track i,.ride-train,.ride-tunnel,.ride-door-left,.ride-door-right{animation:none}}
 
 
-.desktop-room-controls,#desktop-presence-controls,#desktop-map-settings{display:none}
+#desktop-map-settings{display:none}
 @media (width > 810px) and (not (pointer:coarse)){
   #game-shell{display:flex;flex-direction:column;height:100dvh}
-  #game-shell>.top{position:relative;z-index:8;flex:none;height:47px;min-height:0;padding:0 13px}
-  #game-shell>.top .brand img{height:34px}
-  #desktop-presence-controls{display:block}
+  #game-shell>.top{position:relative;z-index:8;flex:none;height:54px;min-height:0;padding:0 8px 0 12px}
+  #game-shell>.top .brand img{height:37.6px}
+  #game-shell .top #bag-open,#game-shell .top .mobile-settings summary{width:42px;height:42px}
+  #game-shell .top-game-actions>#passport-open{min-width:105px;min-height:40px}
   #presence,.mobile-settings summary{min-height:34px}
   .mobile-settings summary{min-width:64px;font-size:13px}
   .mobile-settings-actions{width:244px;grid-template-columns:repeat(2,minmax(0,1fr));padding:8px}
@@ -928,9 +938,8 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   #map-toolbar .map-filter span{display:none}
   #map-category{max-width:83px;padding:4px}
   .game-sidebar .map-location{top:6px;left:6px;padding:3px 7px}
-  .desktop-room-controls{display:flex;flex:none}
-  .desktop-room-controls button{width:100%;min-height:33px;padding:4px 6px;font-size:12px}
   .game-fullscreen #map-toggle{display:block;width:clamp(112px,12vw,156px)}
+  .game-fullscreen .game-presence{display:inline-flex;align-items:center;gap:5px;position:absolute;z-index:3;right:8px;top:calc(15px + clamp(112px,12vw,156px));min-height:36px;padding:4px 9px}
   .game-fullscreen .location-guides{right:calc(clamp(112px,12vw,156px) + 18px)}
   #game-shell.game-fullscreen>main{padding:0}
   .game-fullscreen .experience{position:relative;grid-template-columns:minmax(0,1fr);gap:0}
@@ -1007,15 +1016,13 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   #map-center,#map-category,#overview-map,.map-route button{min-height:44px}
   .map-panel.expanded{background:var(--hud-menu)}
 }
-#fullscreen-toggle{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:34px;padding:4px 9px;color:var(--lettering)}
-#fullscreen-toggle svg{width:17px;height:17px}
 .fullscreen-exit-icon,.game-fullscreen .fullscreen-enter-icon{display:none}
 .game-fullscreen .fullscreen-exit-icon{display:inline}
-#game-shell #perspective{display:grid;place-items:center;position:relative;pointer-events:auto;z-index:4;width:44px;height:44px;padding:0;border:0;background:transparent;color:#fff4da}
+#game-shell #perspective{display:grid;place-items:center;position:relative;pointer-events:auto;z-index:4;flex:none;width:44px;height:44px;padding:0;border:0;background:transparent;color:#fff4da}
 #perspective svg{width:24px;height:24px;filter:drop-shadow(0 1px 2px #07160e) drop-shadow(0 0 1px #07160e);pointer-events:none}
 #game-shell #perspective[data-active],#game-shell #perspective:active{color:var(--gold-2)}
 #perspective[data-active] circle{fill:currentColor}
-.game-place{background:rgb(1 32 23 / 52%);text-shadow:0 1px 2px #102018}
+.game-place{background:rgb(1 32 23 / 40%);text-shadow:0 1px 2px #102018,0 0 1px #102018}
 #game-shell .scene-wrap :is(button.quiet,button.primary,.game-command button,.peer-hud button,.gesture-menu button,.emote-menu button):not(:disabled),
 #game-shell .game-presence{background-color:var(--hud-button);color:var(--lettering);border-color:#d6bd8b55;text-shadow:0 1px 2px #14251c}
 #game-shell .scene-wrap button.primary:not(:disabled){background-color:var(--hud-primary);color:#302415;text-shadow:none}
@@ -1023,8 +1030,6 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 #game-shell .game-presence:active{background-color:var(--deep-lacquer);color:var(--lettering);border-color:var(--gilt)}
 #game-shell .scene-wrap .primary:active:not(:disabled){background-color:var(--gold-3);color:#302415}
 @media(max-width:810px),(pointer:coarse){
-  #fullscreen-toggle{width:44px;min-height:44px;padding:0}
-  #fullscreen-toggle span{display:none}
   #game-shell.game-fullscreen{position:fixed;inset:0}
   #game-shell.game-fullscreen>main{padding-inline:0}
   .game-fullscreen .experience{margin-top:0}
@@ -1065,3 +1070,84 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 .gj-night-sky{position:relative;height:clamp(150px,32vh,240px);margin:12px 0;background:linear-gradient(#0d1836,#273c5a);border-radius:12px}
 .gj-night-sky button{position:absolute;transform:translate(-50%,-50%);width:36px;height:36px;padding:0;border:0;border-radius:50%;color:#ffedb9;background:transparent;font-size:22px}
 .gj-night-sky button[aria-pressed=true],.gj-night-sky button:focus-visible{outline:2px solid #e8cd92}
+
+/* Shared regional map panel */
+#game-shell #map-panel{
+  --map-paper:#faf8ee;--map-ink:#193a31;--map-muted:#50695c;--map-line:#cdd5c8;
+  box-sizing:border-box;color:var(--map-ink);background:var(--map-paper);border-color:var(--map-line);
+  padding:0 15px 9px;gap:0;scrollbar-width:thin;scrollbar-color:#a9b7a7 var(--map-paper);
+}
+#map-panel .panel-head{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:3px 5px;
+  padding:12px 0 10px;min-height:0;border:0;background:transparent;
+}
+#map-panel .panel-head h2{grid-column:1;grid-row:1;margin:0;color:var(--map-ink);font-size:20px;line-height:1.25;letter-spacing:-.04em}
+#map-panel #map-toolbar{grid-column:2;grid-row:1/span 2;align-self:start}
+#map-panel #presence,#map-panel #close-map{color:var(--map-ink);border:1px solid var(--map-line);border-radius:8px;background:#fffdf4;text-shadow:none;box-shadow:none}
+#map-panel #presence{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:4px 7px;font-size:12px;white-space:nowrap}
+#map-panel #presence i{background:#417658;box-shadow:none}
+#map-panel .map-area,#map-panel #map-center span,#map-panel .map-itinerary h3{margin:0;color:var(--map-muted);font-size:12px;font-weight:600;line-height:1.4}
+#map-panel .map-area{grid-column:1;grid-row:2}
+#map-panel .map-wrap{flex:1 0 auto;width:100%;height:auto;min-height:130px;max-height:45dvh;aspect-ratio:1/1;border:1px solid var(--map-line);border-radius:8px}
+#map-panel #map-route-path polyline:first-child{stroke:#faf8ed;stroke-width:5.5}
+#map-panel #map-route-path polyline:nth-child(2){stroke:#376f56;stroke-width:3}
+#map-panel #map-route-end{fill:#975332;stroke:#fff9e7;stroke-width:2}
+#map-panel #map-center{
+  position:static;display:block;flex:none;width:100%;max-width:none;min-height:0;margin:12px 0 0;padding:12px 0;
+  border:0;border-block:1px solid var(--map-line);border-radius:0;background:transparent;color:var(--map-ink);box-shadow:none;text-shadow:none;
+}
+#map-panel #map-center strong{margin-top:4px;font-size:19px;line-height:1.35}
+#map-panel .map-itinerary{flex:none;display:grid;gap:5px;padding:12px 0 0}
+#map-panel #map-route-picker,#map-panel .map-route{
+  width:100%;margin:0;padding:0;background:transparent;color:var(--map-ink);border:0;
+}
+#map-panel #map-route-picker{width:100%;padding-block:5px;font-family:inherit;font-weight:600;font-size:16px;min-height:36px;border-bottom:1px solid var(--map-line);border-radius:0}
+#map-panel #map-route-picker option,#map-panel .map-tools select option{background:var(--map-paper);color:var(--map-ink)}
+#map-panel .map-itinerary:has(#map-route:not([hidden])) #map-route-picker{display:none}
+#map-panel .map-route [role=status]{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 8px}
+#map-panel .map-route strong{color:var(--map-ink);font-size:17px;line-height:1.4;overflow-wrap:anywhere}
+#map-panel .map-route span{color:#34674d;font-weight:650;font-size:13px}
+#map-panel #map-route-clear{flex:none;width:30px;min-height:32px;color:var(--map-muted);background:transparent;border:0;font-size:20px}
+#map-panel #map-route-walk{
+  width:100%;margin:8px 0 0;min-height:44px;border:1px solid #183c30;border-radius:8px;
+  background:#14372c;color:#fffbea;font:inherit;font-size:14px;font-weight:700;
+}
+#map-panel #map-route-walk:disabled{background:#e2e6da;color:#65736a;border-color:#d5dbcc;opacity:1}
+#map-panel .map-tools{flex:none;margin-top:9px;border-top:1px solid var(--map-line);font-size:12px}
+#map-panel .map-tools summary{padding:9px 0;color:var(--map-muted);font-weight:600;cursor:pointer}
+#map-panel .map-view-options,#map-panel .map-filter{display:flex;align-items:center;justify-content:space-between;gap:6px}
+#map-panel .map-filter{padding:0;color:var(--map-muted)}
+#map-panel .map-tools :is(button,select){min-height:32px;border:1px solid var(--map-line);background:#fffcf2;color:var(--map-ink);font-family:inherit;text-shadow:none}
+#map-panel #overview-map[aria-pressed=true]{background:#d8e4d5;border-color:#649177}
+#map-panel .map-footer{padding:8px 0;color:var(--map-muted);background:none}
+#map-panel .map-key{color:var(--map-muted)}
+@media(width > 810px) and (not (pointer:coarse)){
+  #game-shell:not(.game-fullscreen) .experience:has(> .game-sidebar #map-panel){grid-template-columns:minmax(0,1fr) clamp(266px,27.12vw,345px)}
+  #game-shell .game-sidebar #map-panel{flex:1 0 auto;border-radius:0;overflow:visible}
+  #map-panel .map-wrap{flex:0 0 auto}
+  #map-panel .map-itinerary{flex:1 0 auto;grid-template-rows:auto auto 1fr;align-content:start}
+  #map-panel #map-route-walk{align-self:end}
+}
+@media(max-width:810px),(pointer:coarse){
+  #game-shell #map-panel.expanded{
+    position:fixed;z-index:16;inset:var(--play-visible-top,0px) 0 auto;
+    width:100%;height:var(--play-visible-height,100dvh);max-width:none;max-height:none;
+    overflow:auto;overscroll-behavior:contain;padding:0 max(18px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));
+    border:0;border-radius:0;box-shadow:none;
+  }
+  #map-panel .panel-head{padding:calc(14px + env(safe-area-inset-top,0px)) 0 13px;gap:3px 6px}
+  #map-panel .map-area{grid-row:1}
+  #map-panel .panel-head h2{grid-row:2;font-size:26px}
+  #map-panel #presence{display:none}
+  #map-panel #close-map{width:44px;min-height:44px;padding:0;font-size:24px}
+  #map-panel .map-wrap{flex:none;width:calc(100% + 36px);margin-inline:-18px;height:min(100vw,50dvh);min-height:120px;max-height:none;aspect-ratio:auto;border-inline:0;border-radius:0}
+  #map-panel #map-center{padding:16px 0;margin:0;border-top:0}
+  #map-panel #map-center strong{font-size:22px}
+  #map-panel .map-itinerary{flex:1 0 auto;padding-top:14px;grid-template-rows:auto auto 1fr;align-content:start}
+  #map-panel #map-route-picker,#map-panel .map-view-options :is(button,select),#map-panel .map-tools :is(button,select){min-height:44px}
+  #map-panel .map-route strong{font-size:19px}
+  #map-panel #map-route-clear{width:40px;min-height:44px}
+  #map-panel #map-route-walk{align-self:end;min-height:48px;margin-top:14px}
+  #map-panel .map-tools{margin-top:7px}
+  #map-panel .map-tools summary{padding:11px 0}
+}

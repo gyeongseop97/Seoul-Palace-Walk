@@ -349,22 +349,18 @@ graphicsSelect.addEventListener("change",()=>{
 });
 let fullscreenFallback=false;
 function placeViewControls(){
-  const menu=$("mobile-settings-actions"),filter=$("map-filter"),mapLinks=$("map-links"),mapKey=$("map-key");
+  const menu=$("mobile-settings-actions"),mapLinks=$("map-links"),mapKey=$("map-key");
   mobileSettings.open=false;
   if(mobileHeader.matches){
-    $("mobile-room-controls").append($("passport-open"));
-    menu.append($("sound-setting"),$("night"),$("character"),$("photo-mode-open"),$("invite"),$("settings-leave"));
-    $("map-toolbar").insertBefore($("presence"),$("close-map"));
-    $("map-panel").querySelector(".panel-head").after(filter);
+    menu.prepend($("passport-open"));
+    menu.querySelector(".graphics-setting").before($("run"));
     $("map-footer").append(mapKey,mapLinks);
   }else{
-    $("desktop-presence-controls").append($("presence"));
-    menu.append($("sound-setting"),$("night"),$("character"),$("photo-mode-open"),$("passport-open"),$("invite"),$("desktop-map-settings"));
+    $("bag-open").before($("passport-open"));
+    $("jump").before($("run"));
     // The teleport buttons stay under the map; only the legend moves into the settings menu.
     $("map-footer").append(mapLinks);
     $("desktop-map-settings").append(mapKey);
-    $("desktop-room-controls").append($("settings-leave"));
-    $("map-toolbar").prepend(filter);
   }
 }
 function refreshFullscreen(){
@@ -382,6 +378,7 @@ async function leaveFullscreen(){
   refreshFullscreen();
 }
 fullscreenToggle.addEventListener("click",async()=>{
+  mobileSettings.open=false;
   closeActionMenus();
   if(gameShell.classList.contains("game-fullscreen"))await leaveFullscreen();
   else{
@@ -470,9 +467,10 @@ function toast(message){
   toastTimer=setTimeout(()=>{notice.hidden=true;},3200);
 }
 function setPresence(text,count=0){
-  $("presence").lastElementChild.textContent=text;
+  const label=count>0?`접속자 ${count}명`:text;
+  $("presence").lastElementChild.textContent=label;
   $("presence").classList.toggle("live",count>1);
-  $("game-presence").textContent=count>0?count+"명 접속":text;
+  $("game-presence").textContent=label;
   $("game-presence").classList.toggle("live",count>1);
   for(const id of ["presence","game-presence"])attr($(id),"aria-label",text+" · 접속자 목록 열기");
 }
@@ -1640,7 +1638,9 @@ function markPace(){
 }
 $("run").addEventListener("click",()=>{
   if(amFollowingHands()||sharingUmbrella()||me.bus||isCycling(me))return;
-  runToggled=!runToggled;markPace();$("game").focus({preventScroll:true});
+  runToggled=!runToggled;markPace();
+  if(mobileSettings.contains($("run")))mobileSettings.open=false;
+  $("game").focus({preventScroll:true});
 });
 function canJump(time){
   if(!session||!world||bungeoMode||arcade.kind||riding||me.bus||isCycling(me)||queuedBus||queuedBike||sharingUmbrella()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||carryingDiningTray(time)||mealBiteLocked(time)||time-me.jump<jumpDuration(me))return false;
@@ -1884,6 +1884,8 @@ shortcutButtons.forEach((button,index)=>button.addEventListener("click",()=>{
 }));
 
 const joystick=$("joystick");
+const stickWalkLimit=.64;
+let stickRun=false;
 function beginManualMove(){
   manualInputAt=performance.now();
   course=[];pendingSeat=seatClaim=null;
@@ -1896,6 +1898,8 @@ function moveThumb(event){
   const magnitude=Math.hypot(dx,dy),limit=Math.max(1,magnitude);
   const pace=Math.max(0,(Math.min(1,magnitude)-.12)/.88);
   thumb=magnitude?[dx/magnitude*pace,dy/magnitude*pace]:[0,0];
+  // Different thresholds keep a steady thumb from switching gaits on every small movement.
+  stickRun=pace >= (stickRun ? .67 : .74);
   joystick.style.setProperty("--jx",dx/limit*radius+"px");joystick.style.setProperty("--jy",dy/limit*radius+"px");
 }
 joystick.addEventListener("pointerdown",event=>{
@@ -1919,7 +1923,7 @@ window.addEventListener("pointermove",event=>{
 },{capture:true,passive:true});
 function releaseThumb(){
   const id=thumbId;
-  thumbId=undefined;thumb=[0,0];
+  thumbId=undefined;thumb=[0,0];stickRun=false;
   joystick.style.setProperty("--jx","0px");joystick.style.setProperty("--jy","0px");
   if(id!==undefined&&joystick.hasPointerCapture(id))joystick.releasePointerCapture(id);
 }
@@ -1928,18 +1932,32 @@ for(const type of ["pointerup","pointercancel"])window.addEventListener(type,fin
 joystick.addEventListener("lostpointercapture",finishThumb);
 function clearManualInput(){keys.clear();shiftHeld=false;releaseThumb();clearSceneTouch();if(setRaftAxes(0,0,gameTime()))wakeSync();}
 function resetInput(){coastalWalkRequest++;backgroundTrip=null;clearManualInput();course=[];pendingSeat=seatClaim=null;}
+function movementInput(){
+  let [x,y]=thumb;
+  for(const key of keys){const [dx,dy]=vectors[key];x+=dx;y+=dy;}
+  if(thumbId!==undefined&&!keys.size&&!isCycling(me)&&me.coast?.mode!=="scooter"&&me.coast?.mode!=="surf"){
+    const strength=Math.min(1,Math.hypot(x,y)),scale=Math.max(stickWalkLimit,strength);
+    return {x:x/scale,y:y/scale,run:stickRun,runBlend:Math.max(0,(strength-stickWalkLimit)/(1-stickWalkLimit))};
+  }
+  const run=shiftHeld||runToggled;
+  return {x,y,run,runBlend:Number(run)};
+}
 function beginBackgroundTrip(){
   if(backgroundTrip||!session||!world||riding||photoMode.camera||me.bus||me.coast?.mode==="surf"||me.seat!=null||isBikePassenger(me)||amFollowingHands()||
     arcade.frozen||bungeoMode||(!keys.size&&thumbId===undefined&&!course.length))return;
-  let [x,y]=Array.from(keys,key=>vectors[key]).reduce(([x,y],[vx,vy])=>[x+vx,y+vy],thumb);
-  if(x||y){
+  const input=movementInput(),length=Math.hypot(input.x,input.y);
+  let x=0,y=0;
+  if(length){
     const angle=document.activeElement===$("world")&&thumbId===undefined?0:ownView.pan*Math.PI/180;
-    [x,y]=[x*Math.cos(angle)-y*Math.sin(angle),x*Math.sin(angle)+y*Math.cos(angle)];
+    x=(input.x*Math.cos(angle)-input.y*Math.sin(angle))/length;
+    y=(input.x*Math.sin(angle)+input.y*Math.cos(angle))/length;
+  }else if(!course.length){
+    return;
   }
-  backgroundTrip={x,y,run:shiftHeld||runToggled,at:Date.now()};
+  backgroundTrip={x,y,strength:length?Math.min(1,length):1,run:input.run,runBlend:input.runBlend,at:Date.now()};
 }
-function travelSpeed(fast,gait){
-  return coastPlay?.swimmingSpeed(fast)??(me.coast?.mode==="scooter"?8.2:isBikeDriver(me)?9.4:(fast?6.675:2.58)*(gait?.speedScale??1));
+function travelSpeed(runBlend,gait){
+  return coastPlay?.swimmingSpeed(runBlend)??(me.coast?.mode==="scooter"?8.2:isBikeDriver(me)?9.4:(2.58+(6.675-2.58)*runBlend)*(gait?.speedScale??1));
 }
 function advanceBackgroundTrip(){
   const trip=backgroundTrip;
@@ -1950,13 +1968,13 @@ function advanceBackgroundTrip(){
     amFollowingHands()||feedingLocked(clock)||clinkLocked(clock)||sickLocked(clock)||mealBiteLocked(clock)){
     backgroundTrip=null;return false;
   }
-  const fast=trip.run&&!isUmbrellaLink(link);
+  const canRun=!arcade.kind&&!isUmbrellaLink(link),fast=canRun&&trip.run;
   // A straight walk must hit the edge of this world within its diagonal.
   // A tapped route has a finite list of destinations, even after a long suspension.
   let remaining=seconds,range=course.length?Infinity:3000,speed=0,moved=false,lastDx=0,lastDy=0;
   while(remaining>.00001&&range>.0001){
     const at=clock-remaining*1000,initialGait=alcoholGait(me,at,fast);
-    speed=travelSpeed(fast,initialGait);
+    speed=travelSpeed(canRun?trip.runBlend:0,initialGait)*trip.strength;
     const step=Math.min(.42,remaining*speed,range),x=me.x,y=me.y;
     const gait=initialGait&&alcoholGait(me,at+step/speed*500,fast);
     if(trip.x||trip.y)moveWithInput(trip.x,trip.y,step,link,false,gait);
@@ -3632,8 +3650,9 @@ function motion(now,elapsed){
   const oldX=me.x,oldY=me.y,link=myLink(),follower=amFollowingHands();
   const wasMoving=moving(me)||me.blocked,wasBlocked=me.blocked,wasRunning=me.running;
   const leader=follower&&!exitPress&&people.get(link.leader);
-  const pace=!arcade.kind&&(runToggled||shiftHeld)&&!(isUmbrellaLink(link)&&link.active);
-  const gait=alcoholGait(me,gameTime(now)-elapsed*500,pace),speed=elapsed*travelSpeed(pace,gait);
+  const input=movementInput(),canRun=!arcade.kind&&!(isUmbrellaLink(link)&&link.active);
+  const pace=canRun&&input.run;
+  const gait=alcoholGait(me,gameTime(now)-elapsed*500,pace),speed=elapsed*travelSpeed(canRun?input.runBlend:0,gait);
   let blocked=false;
   if(leader){
     const next=pairedPose(link,leader.position,me,now);
@@ -3642,17 +3661,16 @@ function motion(now,elapsed){
     blocked=Boolean(leader.avatar.blocked);
   }else if(!exitPress&&session&&elapsed>0&&!queuedBus&&!queuedBike&&!feedingLocked(gameTime(now))&&!clinkLocked(gameTime(now))&&!sickLocked(gameTime(now))){
     const manual=keys.size||thumbId!==undefined;
-    const axes=manual?Array.from(keys,key=>vectors[key]).reduce(([x,y],[vx,vy])=>[x+vx,y+vy],thumb):[0,0];
     const relative=!worldFailed&&(thumbId!==undefined||document.activeElement!==$("world"));
     if(me.coast?.mode==="surf"){
-      let [dx,dy]=mapDirection(...axes,relative);
+      let [dx,dy]=mapDirection(input.x,input.y,relative);
       if(!manual&&course.length){
         if(near(course[0],me.x,me.y)<1.25)course.shift();
         if(course.length){dx=course[0].x-me.x;dy=course[0].y-me.y;}
       }
       blocked=coastPlay.rideBoard(elapsed,dx,dy,move);
     }else if(manual){
-      blocked=moveWithInput(...axes,speed,link,relative,gait);
+      blocked=moveWithInput(input.x,input.y,speed,link,relative,gait);
     }else walkCourse(speed,gait);
   }
   const moved=oldX!==me.x||oldY!==me.y;
@@ -4442,6 +4460,33 @@ function mapRegionAt(point,inside,overview){
 }
 const mapRoutePanel=$("map-route"),mapRoutePath=$("map-route-path"),mapRouteEnd=$("map-route-end");
 const mapRouteWalk=$("map-route-walk");
+const routePicker=$("map-route-picker");
+let routePickerContext="";
+function refreshRoutePicker(inside){
+  const context=[inside??"outdoors",mapPlaces.length,mapCategory.value].join("|");
+  if(context===routePickerContext)return;
+  routePickerContext=context;
+  const options=[],names=new Set();
+  for(const marker of mapSurface.querySelectorAll("[data-map-place]")){
+    const index=marker.dataset.mapPlace,site=mapPlaces[index];
+    if(!site||names.has(site.name)||pointCity(site)!==activeCity||interiorAt(site.x,site.y)!==inside)continue;
+    if(mapCategory.value!=="all"&&mapCategory.value!==marker.dataset.mapCategory)continue;
+    names.add(site.name);options.push(new Option(site.name,index));
+  }
+  if(!regional&&!inside&&(mapCategory.value==="all"||mapCategory.value==="stamp")){
+    for(const stamp of passportStamps){
+      if(!names.has(stamp.name))options.push(new Option(stamp.name,"stamp:"+stamp.id));
+    }
+  }
+  options.sort((a,b)=>a.text.localeCompare(b.text,"ko"));
+  routePicker.replaceChildren(new Option("목적지 선택",""),...options);
+}
+routePicker.addEventListener("change",()=>{
+  const value=routePicker.value;
+  if(!value)return;
+  const site=value.startsWith("stamp:")?stampById.get(value.slice(6)):mapPlaces[Number(value)];
+  if(site)showMapRoute(site);
+});
 function showMapRoute(site,{fit=true}={}){
   if(pointCity(site)!==activeCity){toast("이 장소가 있는 도시에서 도보 경로를 볼 수 있어요.");return;}
   if(!session)return;
@@ -4544,7 +4589,7 @@ function drawMapRoute(){
 }
 function clearMapRoute(){
   if(mapRoute?.walking&&course===mapRoute.steps)course=[];
-  mapRoute=null;mapRoutePanel.hidden=true;drawMapRoute();
+  mapRoute=null;mapRoutePanel.hidden=true;routePicker.value="";mapRouteWalk.disabled=true;drawMapRoute();
 }
 $("map-route-clear").addEventListener("click",()=>{
   clearMapRoute();
@@ -4575,9 +4620,10 @@ function updateMaps(self,others){
   const fullMap=$("map-panel").classList.contains("expanded")||!mobileHeader.matches&&!gameShell.classList.contains("game-fullscreen");
   const coat=hexCoat(self.coat??0xe5b672);
   if(fullMap){
-    const mapArea=regional?(inGyeongju?"경주":"포항"):["북촌","환구단","청계천","열린송현녹지광장","경희궁","정동길","서울역"].includes(area)?area:
-      palace?"경복궁":plaza||corridor&&self.y<-58?"광화문광장":"덕수궁";
-    setText($("map-panel").querySelector("h2"),indoors?`${inside==="museum"?"전시관":venueById[inside].name} 지도`:overview?"전체 지도":mapArea+" 지도");
+    const district=indoors?(inside==="museum"?"전시관":venueById[inside].name):regional?region.coastDistrict(self):area;
+    const city=inGyeongju?"경주":onCoast?"포항":"서울";
+    setText($("map-area"),city+" / "+(overview?"전체 지도":district));
+    refreshRoutePicker(inside);
     $("world").classList.toggle("overview-map",overview);
     attr(overviewLayer,"visibility",overview?"visible":"hidden");
     overviewButton.hidden=indoors;

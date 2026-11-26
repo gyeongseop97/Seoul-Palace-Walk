@@ -136,20 +136,20 @@
       <button id="bag-open" class="quiet" type="button" data-native-touch aria-haspopup="dialog" aria-label="가방 열기" title="가방">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M9 6V5a3 3 0 0 1 6 0v1M5 11a6 6 0 0 1 6-6h2a6 6 0 0 1 6 6v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><rect x="8" y="13" width="8" height="5" rx="1.5"/></svg>
       </button>
-      <button id="fullscreen-toggle" class="quiet" type="button" data-native-touch title="전체화면" aria-label="전체화면" aria-pressed="false">
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path class="fullscreen-enter-icon" d="M3 7V3h4m6 0h4v4m0 6v4h-4m-6 0H3v-4"/>
-          <path class="fullscreen-exit-icon" d="M3 7h4V3m6 0v4h4m0 6h-4v4m-6 0v-4H3"/>
-        </svg>
-        <span>전체화면</span>
-      </button>
-      <div class="top-actions" id="mobile-room-controls">
-        <button id="passport-open" class="quiet" type="button" data-native-touch aria-haspopup="dialog">산책 기록</button>
-      </div>
-      <div id="desktop-presence-controls"></div>
       <details class="mobile-settings" id="mobile-settings">
-        <summary>설정</summary>
+        <summary aria-label="메뉴" title="메뉴"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></summary>
         <div class="mobile-settings-actions" id="mobile-settings-actions" data-scroll-actions>
+          <button id="passport-open" class="quiet" type="button" data-native-touch aria-haspopup="dialog">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M5 4.5h13.5V20H6.5a2 2 0 0 1 0-4H18M5 5v13"/><path d="M8.5 8h6.5M8.5 11h5"/></svg>
+            <span>산책 기록</span>
+          </button>
+          <button id="fullscreen-toggle" class="quiet" type="button" data-native-touch title="전체화면" aria-label="전체화면" aria-pressed="false">
+            <svg viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path class="fullscreen-enter-icon" d="M3 7V3h4m6 0h4v4m0 6v4h-4m-6 0H3v-4"/>
+              <path class="fullscreen-exit-icon" d="M3 7h4V3m6 0v4h4m0 6h-4v4m-6 0v-4H3"/>
+            </svg>
+            <span>전체화면</span>
+          </button>
           <label class="graphics-setting">그래픽 품질
             <select id="graphics-quality"><option value="high">고품질</option><option value="medium">중간</option><option value="low">저품질</option></select>
           </label>
@@ -285,7 +285,7 @@
                 </div>
               </div>
               <div class="movement-actions" role="group" aria-label="이동 동작">
-                <button id="run" type="button" class="quiet" aria-pressed="false" disabled>달리기 <kbd>Shift</kbd></button>
+                <button id="run" type="button" class="quiet" aria-pressed="false" disabled>달리기 <kbd>Shift</kbd><small class="pace-context">자동 이동</small></button>
                 <button id="jump" type="button" class="quiet" disabled>점프 <kbd>Space</kbd></button>
               </div>
             </div>
@@ -393,27 +393,9 @@
       <aside class="game-sidebar" id="game-sidebar" aria-label="산책 지도">
       <article class="panel map-panel" id="map-panel" data-native-touch>
         <div class="panel-head">
-          <h2>산책 지도</h2>
-          <div class="top-actions" id="map-toolbar"><button id="overview-map" class="quiet" type="button" aria-pressed="false" aria-controls="world">전체 지도</button><button class="pill" id="presence" type="button" aria-label="접속자 목록 열기" aria-haspopup="dialog" aria-controls="roster-dialog"><i aria-hidden="true"></i><span>접속자</span></button><button id="close-map" class="quiet" type="button" aria-label="지도 닫기">×</button></div>
-        </div>
-        <label for="map-category" class="map-filter" id="map-filter"><span>표시할 장소</span>
-          <select id="map-category" aria-label="지도에 표시할 장소" aria-controls="world">
-            <option value="all">전체</option>
-            <option value="heritage">유적·전시</option>
-            <option value="park">정원·광장</option>
-            <option value="shop">상점·식당</option>
-            <option value="activity">즐길거리</option>
-            <option value="bus">버스</option>
-            <option value="subway">지하철</option>
-            <option value="railway">철도역</option>
-            <option value="bike">따릉이</option>
-            <option value="stamp">스탬프</option>
-          </select>
-        </label>
-        <div id="map-route" class="map-route" hidden>
-          <div role="status"><strong id="map-route-name"></strong><span id="map-route-distance"></span></div>
-          <button id="map-route-walk" class="quiet" type="button">이 길로 걷기</button>
-          <button id="map-route-clear" class="quiet" type="button" aria-label="도보 경로 지우기">×</button>
+          <p id="map-area" class="map-area">서울 / 덕수궁</p>
+          <h2>지역 지도</h2>
+          <div class="top-actions" id="map-toolbar"><button class="pill" id="presence" type="button" aria-label="접속자 목록 열기" aria-haspopup="dialog" aria-controls="roster-dialog"><i aria-hidden="true"></i><span>접속자</span></button><button id="close-map" class="quiet" type="button" aria-label="지도 닫기">×</button></div>
         </div>
         <div class="map-wrap">
           <svg id="world" viewBox="58 28 520 397" role="group" tabindex="0" aria-label="산책 지도. 휠이나 두 손가락으로 확대·축소하고, 마우스나 손가락으로 끌어서 둘러보세요.">
@@ -434,14 +416,42 @@
             <g id="my-avatar" class="avatar me"><ellipse cy="11" rx="16" ry="6"/><circle r="14"/><path d="M-7 7a8 8 0 0 1 14 0" class="shoulders"/><circle cy="-3" r="4" class="face"/><text y="-21" text-anchor="middle">나</text></g>
             <g id="map-labels" aria-hidden="true"></g>
           </svg>
-            <button class="map-location" id="map-center" type="button" aria-label="지도를 내 위치로 이동" title="내 위치로 이동">
-              <span>◎ 내 위치</span><strong id="location">매표소 앞</strong>
-            </button>
-            <span class="map-north" aria-hidden="true">↑ N</span>
+          <span class="map-north" aria-hidden="true">↑ N</span>
         </div>
+        <button class="map-location" id="map-center" type="button" title="지도를 내 위치로 이동">
+          <span>현재 위치</span><strong id="location">매표소 앞</strong>
+        </button>
+        <section class="map-itinerary" aria-labelledby="map-destination-label">
+          <h3 id="map-destination-label">도보 목적지</h3>
+          <select id="map-route-picker" aria-label="도보 목적지 선택"><option value="">목적지 선택</option></select>
+          <div id="map-route" class="map-route" hidden>
+            <div role="status"><strong id="map-route-name"></strong><span id="map-route-distance"></span></div>
+            <button id="map-route-clear" class="quiet" type="button" aria-label="도보 경로 지우기">×</button>
+          </div>
+          <button id="map-route-walk" type="button" disabled>길 안내</button>
+        </section>
+        <details class="map-tools">
+          <summary>지도 설정 · 순간이동</summary>
+          <div class="map-view-options">
+        <label for="map-category" class="map-filter" id="map-filter"><span>표시할 장소</span>
+          <select id="map-category" aria-label="지도에 표시할 장소" aria-controls="world">
+            <option value="all">전체</option>
+            <option value="heritage">유적·전시</option>
+            <option value="park">정원·광장</option>
+            <option value="shop">상점·식당</option>
+            <option value="activity">즐길거리</option>
+            <option value="bus">버스</option>
+            <option value="subway">지하철</option>
+            <option value="railway">철도역</option>
+            <option value="bike">따릉이</option>
+            <option value="stamp">스탬프</option>
+          </select>
+        </label>
+            <button id="overview-map" class="quiet" type="button" aria-pressed="false" aria-controls="world">전체 지도</button>
+          </div>
         <div class="map-footer" id="map-footer"><span class="map-key" id="map-key" aria-label="지도 범례"><span><i class="dot mine"></i>나</span><span><i class="dot theirs"></i>동행</span><span data-map-legend="heritage"><i class="dot map-swatch"></i>유적·전시</span><span data-map-legend="park"><i class="dot map-swatch"></i>정원·광장</span><span data-map-legend="shop"><i class="dot map-swatch"></i>상점·식당</span><span data-map-legend="activity"><i class="dot map-swatch"></i>즐길거리</span><span data-map-legend="bus"><i class="dot map-swatch"></i>버스</span><span data-map-legend="railway"><i class="dot map-swatch"></i>철도역</span><span data-map-legend="subway"><i class="dot map-swatch"></i>지하철</span><span data-map-legend="bike"><i class="dot map-swatch"></i>따릉이</span><span data-map-legend="stamp"><i class="dot map-swatch"></i>찍은 도장</span><span data-map-legend="stamp"><i class="dot stamp-dot unvisited"></i>미방문 도장</span></span><div class="map-links" id="map-links"><button id="model-credits" class="quiet" type="button" aria-haspopup="dialog">자료 출처</button><button data-shortcut class="quiet" type="button" aria-label="서울시립미술관 입구로 순간이동">시립미술관</button><button data-shortcut class="quiet" type="button" aria-label="중화전으로 순간이동">중화전</button><button data-shortcut class="quiet" type="button" hidden>정류장</button><button data-shortcut class="quiet" type="button" hidden>정류장</button><button data-shortcut class="quiet" type="button" hidden></button></div></div>
+        </details>
       </article>
-      <div class="desktop-room-controls" id="desktop-room-controls"></div>
       </aside>
     </section>
   </main>
@@ -643,7 +653,7 @@
     <button id="tutorial-replay" type="button" class="quiet">처음 조작 안내 다시 보기</button>
     <div class="visitor-guide-list">
       <section><h3>청계천 종이배</h3><p>아래 산책로 물가에서 <strong>종이배 접기</strong>를 눌러 색과 쪽지를 골라 보세요. 물살을 따라가는 배 가까이에서 <strong>종이배 건지기</strong>를 누르면 안에 담긴 쪽지를 읽을 수 있어요.</p></section>
-      <section><h3>걷고 둘러보기</h3><p>길을 터치하거나 조이스틱으로 걸어요. PC에서는 방향키나 WASD로 이동하고 오른쪽 위의 <strong>전체화면</strong>을 눌러 화면을 넓힐 수 있어요. 마우스 휠이나 두 손가락으로 시야와 지도를 확대·축소할 수 있어요. 걷거나 달리면서 오른쪽 아래의 <strong>행동</strong>에서 인사하거나 웃으며 브이할 수 있어요. 손에 든 물건도 오른쪽 아래에서 골라 쓸 수 있어요. 손잡기와 건배는 왼쪽의 <strong>동행 행동</strong>에 있어요.</p></section>
+      <section><h3>걷고 둘러보기</h3><p>조이스틱을 살짝 밀면 천천히 걷고, 멀리 밀면 달려요. 길을 터치해서 이동할 수도 있어요. PC에서는 방향키나 WASD로 이동하고 Shift로 달려요. 상단 메뉴의 <strong>전체화면</strong>을 눌러 화면을 넓힐 수 있어요. 마우스 휠이나 두 손가락으로 시야와 지도를 확대·축소할 수 있어요. 걷거나 달리면서 오른쪽 아래의 <strong>행동</strong>에서 인사하거나 웃으며 브이할 수 있어요. 손에 든 물건도 오른쪽 아래에서 골라 쓸 수 있어요. 손잡기와 건배는 왼쪽의 <strong>동행 행동</strong>에 있어요.</p></section>
       <section><h3>광화문에서 갈 수 있는 산책길</h3><p>광화문광장에서 세종로공원과 의정부지 역사유적광장을 둘러보세요. 율곡로 횡단보도를 건너면 열린송현녹지광장으로 이어져요. 세종대로 남쪽 청계광장에서는 계단이나 경사로를 내려가 양쪽 수변길을 따라 광교까지 걸을 수 있어요.</p></section>
       <section><h3>세종대로·북촌 순환버스</h3><p>버스는 덕수궁에서 광화문과 경복궁을 거쳐 북촌 북쪽 <strong>삼청동 돌계단길 정류장</strong>까지 갔다가 돌아와요. 정류장마다 10초 정차해요. 정차 중 <strong>버스 타기</strong>로 좌석을 고르고, 도착하면 <strong>버스 내리기</strong>를 누르세요.</p></section>
       <section><h3>지하철과 따릉이</h3><p>지도의 보라색 표시가 지하철 출입구예요. 출입구 앞에서 <strong>지하철 타기</strong>를 누르고 역과 출구 번호를 고르면 그곳으로 이동해요. 따릉이는 대여소에서 빌리거나 반납할 수 있어요. 운전자가 멈추면 같은 방 친구 한 명이 가까이에서 <strong>따릉이 뒷자리 타기</strong>를 누를 수 있어요. 도중에 세워 두면 10분 안에 다시 탈 수 있어요.</p></section>
@@ -651,7 +661,7 @@
       <section><h3>도장과 산책 기록</h3><p>전각과 동상, 유적 터에 가까이 가면 여권에 도장이 찍혀요. 덕수궁·광화문광장·경복궁에서 각각 9곳을 방문하면 꾸미기 보상을 받을 수 있어요. <strong>산책 기록</strong>에서 여권, 앨범, 이어하기 코드를 열 수 있어요.</p></section>
       <section><h3>가방과 선물</h3><p>상단의 가방에는 간식과 인형을 15개까지 담을 수 있어요. 산책 중 모아 둔 간식은 돗자리 앞에서 손으로 꺼내 나눠 보세요. 오락실에서 뽑은 인형은 머리나 등에 착용할 수도 있어요. 친구 곁에서 <strong>동행 행동 → 물건 건네기</strong>를 누르면 손에 든 물건을 선물해요.</p></section>
       <section><h3>한복과 전통놀이</h3><p>경복궁 앞 한복 대여소에서 한복과 갓 또는 족두리를 골라 입어 보세요. 근정전 마당에서 투호와 제기차기를, 광화문광장 육조마당에서 연날리기를 혼자 또는 같은 방 친구와 즐길 수 있어요.</p></section>
-      <section><h3>돌담길 연주와 사진 모드</h3><p>정동 분수로 가는 길에 버스킹이 열려요. 설정에서 <strong>사진 모드</strong>를 열면 풍경만 남아 원하는 순간을 직접 캡처할 수 있어요. 풍경을 한 번 누르면 사진 도구가 열려요. 가까운 친구와 단체 사진을 찍거나 날짜와 장소가 담긴 카드를 앨범에 저장해 보세요.</p></section>
+      <section><h3>돌담길 연주와 사진 모드</h3><p>정동 분수로 가는 길에 버스킹이 열려요. 상단 메뉴에서 <strong>사진 모드</strong>를 열면 풍경만 남아 원하는 순간을 직접 캡처할 수 있어요. 풍경을 한 번 누르면 사진 도구가 열려요. 가까운 친구와 단체 사진을 찍거나 날짜와 장소가 담긴 카드를 앨범에 저장해 보세요.</p></section>
       <section><h3>소원등과 스파클</h3><p>정동 분수대와 경복궁 향원정에서 <strong>소원등</strong>을 눌러 네 면을 꾸미고 지금 서 있는 곳에서 띄워 보세요. 석조전 분수와 경회루 옆 좌판에서는 스파클을 받아 <strong>사용하기</strong>를 누르면 손에 든 폭죽이 반짝여요.</p></section>
       <section><h3>석조전 서관 전시관</h3><p>계단을 올라 문 앞에서 <strong>입장하기</strong>를 누르세요. 삼국·통일신라부터 근대까지 한국 그림과 공예품을 시대별로 볼 수 있어요. 전시품 가까이에서 <strong>작품 설명</strong>을 열어 보세요.</p></section>
       <section><h3>미술관과 동네 식당</h3><p>북촌의 국립현대미술관 서울에서 서도호, 데이미언 허스트, 론 뮤익 등 역대 전시를 바탕으로 만든 작품을 만나 보세요. 지도에서 한식집과 정동 비스트로, 세종 우동집, 삼청 중화식당을 찾을 수 있어요. 직원이 있는 곳에서는 앉아서 <strong>벨 누르기</strong>를, 키오스크가 있는 곳에서는 주문한 뒤 빈 식탁에 앉아 보세요. 음식이 도착하면 <strong>먹기</strong>를 누르세요. 미술관과 식당에는 같은 방 친구와 함께 쓰는 <strong>방명록</strong>도 있어요.</p></section>

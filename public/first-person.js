@@ -100,7 +100,12 @@ export function makeFirstPersonView(T,createItemProp){
     const motion=walking?(position.blocked?.40:1):0;
     stride=mix(stride,motion,1-Math.exp(-delta*11));
     const gait=walking?alcoholGait(position,clock,position.running):null;
-    phase+=delta*(position.running?16:10.4)*(gait?.speedScale??1);
+    const speed=Math.hypot(position.vx??0,position.vy??0);
+    let cadence=(position.running?16:10.4)*(gait?.speedScale??1);
+    if(walking&&speed>0&&!position.blocked&&position.coast?.mode!=="scooter"){
+      cadence=10.4*Math.min(1,speed/2.58)+5.6*clamp((speed-2.58)/(6.675-2.58));
+    }
+    phase+=delta*cadence;
     const hands=avatarHands(position,clock,{riding,seated,walking});
     const {claspSide,feedAge,petAge,petting,petSide,itemFor,feedingSide,tray}=hands;
     const carryingTray=Boolean(tray&&!seated&&!riding&&!surfing);

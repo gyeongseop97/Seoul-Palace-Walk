@@ -10,7 +10,7 @@ export const swimwearOptions={
  navy:{name:"네이비 탱키니·쇼츠",top:0x324f73,accent:0xece7d3,shorts:0x293e56,cut:"tank"}
 };
 export const swimSeed=p=>((p.id??p.nickname??"").charCodeAt(0)||0)%17/17;
-export const swimSpeed=fast=>fast?2.05:1.30;
+export const swimSpeed=(runBlend=0)=>1.30+.75*runBlend;
 export function swimStroke(seconds,moving,seed=0,fast=false,previous=null){
  const rate=moving?(fast?1:.64):.39;
  const phase=previous&&seconds>=previous.at?previous.phase+(seconds-previous.at)*rate:seconds*rate+seed;

@@ -63,6 +63,7 @@ export const travelDistricts=Object.fromEntries(Object.entries(defaultPlace).map
 const shopGuides=new Map(sites.filter(([,type])=>type==="shop").map(([site])=>[site.name,site.guide]));
 // The location badge, guide action and map all sample the same position on an update.
 let lastX=NaN,lastY=NaN,nearestSite=null,nearestDistance=Infinity;
+export const coastDistrict=p=>locate(p)?.district??"경주 역사유적지구";
 function locate(p){
  if(lastX===p.x&&lastY===p.y)return nearestSite;
  lastX=p.x;lastY=p.y;nearestDistance=Infinity;
