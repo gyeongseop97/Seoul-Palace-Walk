@@ -149,11 +149,15 @@ export function* drawWoljeongSteps(k,plan,glow,roofFinish){
  for(const u of [-3.73,-1.86,0,1.86,3.73]){
   part(u,deck+4.21,L/2,.22,.19,L,celadon);
  }
- const rows=Math.ceil(L/.81),cols=8;
- for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){
-  const u=(i+.5-cols/2)*.96,v=(j+.5)*L/rows;
-  part(u,deck-.018,v,.953,.044,L/rows-.012,[0xa89982,0xb2a28b,0xb6a58f,0xb0a18b][(j*7+i*3)%4]);
-  if(i===cols-1&&j%12===11)yield;
+ // Weathered crossboards span the passage between the two side walkways.
+ const rows=Math.ceil(L/.35),edges=[-3.84,-2.68,2.68,3.84];
+ const boards=[0x9b9284,0xa1988b,0x9e9588,0xa69c8e,0x9e9486];
+ for(let j=0;j<rows;j++){
+  for(let i=0;i<edges.length-1;i++){
+   k.floorboard(at,edges[i]+.004,edges[i+1]-.004,j*L/rows+.003,(j+1)*L/rows-.003,
+    deck+.004,boards[(j*7+i*3)%boards.length],j*3+i);
+  }
+  if(j%24===23)yield;
  }
  // A long, continuous tiled ridge parallel to the boardwalk.
  canopy(L/2,deck+4.23,L+2.7,2.43,10.2,Math.PI/2);

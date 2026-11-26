@@ -86,7 +86,14 @@ export function crosswalkPaintBands(left,right){
   return bands;
 }
 
+const paverTextures=new WeakMap();
 export function bukchonPavers(T,{alley=false}={}){
+  let textures=paverTextures.get(T);
+  if(!textures){textures=new Map();paverTextures.set(T,textures);}
+  if(!textures.has(alley))textures.set(alley,makePaverTexture(T,alley));
+  return new T.MeshStandardMaterial({map:textures.get(alley),roughness:.90});
+}
+function makePaverTexture(T,alley){
   const size=128,pixels=new Uint8Array(size*size*4);
   const base=alley?[159,150,137]:[176,177,166],shift=alley?8:0;
   for(let y=0;y<size;y++)for(let x=0;x<size;x++){
@@ -104,5 +111,5 @@ export function bukchonPavers(T,{alley=false}={}){
   map.colorSpace=T.SRGBColorSpace;map.wrapS=map.wrapT=T.RepeatWrapping;
   map.magFilter=T.LinearFilter;map.minFilter=T.LinearMipmapLinearFilter;
   map.generateMipmaps=true;map.anisotropy=4;map.needsUpdate=true;
-  return new T.MeshStandardMaterial({map,roughness:.90});
+  return map;
 }

@@ -1,5 +1,6 @@
 import * as T from "three";
 import {coastalMasonry} from "./pohang-masonry.js";
+import {pavilionDecking} from "./pohang-pavilion-wood.js";
 import {pavilionPoint,pavilionYaw,apronStart,bridgeStart,pierHeight,lowerLevel,upperLevel,stairRun,pillars,upperBounds} from "./pohang-pavilion-layout.js";
 
 export function buildYeongildae(parent,{box,post,rod,oval,sign}){
@@ -73,13 +74,15 @@ export function buildYeongildae(parent,{box,post,rod,oval,sign}){
  }
  for(const u of [-7.55,7.55])for(const v of [5.74,8.46])shaft(u,v,lowerLevel+.1,upperLevel-.36,.28,litStone);
  box(g,dark,0,upperLevel-.23,7.1,16.1,.45,8.53);
- for(let i=0;i<52;i++)box(g,i%4===0?0xab7855:i%3===0?0xb58562:0xb17d57,-7.89+i*.31,upperLevel-.023,7.1,.304,.052,8.3);
+ const decking=pavilionDecking();
+ for(let i=0;i<52;i++)decking.board(-7.89+i*.31,upperLevel-.023,7.1,.304,.052,8.3,i%4===0?0xab7855:i%3===0?0xb58562:0xb17d57);
  const run=stairRun.to-stairRun.from;
  for(let i=0;i<stairRun.count;i++){
   const h=(i+1)*(upperLevel-lowerLevel)/stairRun.count,v=stairRun.from+(i+.5)*run/stairRun.count;
-  box(g,wood,0,lowerLevel+h/2,v,2*stairRun.half,h,run/stairRun.count+.004);
-  box(g,0xb77d52,0,lowerLevel+h+.006,v-.13,2*stairRun.half,.017,.059);
+  decking.board(0,lowerLevel+h/2,v,2*stairRun.half,h,run/stairRun.count+.004,wood,true);
+  decking.board(0,lowerLevel+h+.006,v-.13,2*stairRun.half,.017,.059,0xb77d52,true);
  }
+ decking.mount(g);
  for(const side of [-1,1]){
   const x=side*stairRun.half;
   for(const h of [.42,.92])rod(g,[x,lowerLevel+h,stairRun.from],[x,upperLevel+h,stairRun.to],h>.5?.057:.037,wood);

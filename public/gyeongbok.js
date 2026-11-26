@@ -1,5 +1,6 @@
 import {dancheongTexture} from "./palace-dancheong.js";
 import {graniteMaterial} from "./granite-material.js";
+import {finishStoneCarving} from "./seoul-carved-stone.js";
 import {graniteBox,graniteBoxGeometry} from "./seoul-granite.js";
 import {
   gwanghwamun,gbSites,gbSite,gbCourts,gbLake,gbPond,gbPaths,gbLawns,gbStation,subwayStops,
@@ -323,6 +324,7 @@ export function* buildGyeongbok(T,scene,kit,tools){
     }
     for(const [x,y,z] of [[0,.2,-.5],[-.2,.02,-.5],[.2,.02,-.5],[0,-.16,-.48],[-.17,-.32,-.4],[.17,-.32,-.4]])face(bead,stone.light,x,y,z,.14);
     head.rotation.set(.06,headTurn,0);
+    finishStoneCarving(T,statue);
     return statue;
   }
   for(const {side,east,north} of gbHaetae){

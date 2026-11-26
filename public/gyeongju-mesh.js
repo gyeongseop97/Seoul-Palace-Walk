@@ -1,4 +1,5 @@
 import * as T from "three";
+import {timberMaterial} from "./timber-material.js";
 
 // Each spatial batch keeps its instance transforms, colours, material and bounds.
 // Only the shared triangle mesh changes. Ranges are measured at the default 57° FOV.
@@ -90,6 +91,10 @@ export function districtMeshes(root,{lod=false,streaming=false}={}){
  // A shared world-aligned texture prevents seams where two paved paths meet.
  function paving(kind){
   if(materials.has(kind))return materials.get(kind);
+  if(kind==="timber"){
+   const mat=timberMaterial(T).clone();
+   mat.vertexColors=true;materials.set(kind,mat);return mat;
+  }
   const cv=document.createElement("canvas");cv.width=cv.height=128;
   const ctx=cv.getContext("2d"),rng=randomSeed(9173),img=ctx.createImageData(128,128);
   for(let i=0;i<img.data.length;i+=4){
@@ -112,7 +117,7 @@ export function districtMeshes(root,{lod=false,streaming=false}={}){
   const mat=new T.MeshStandardMaterial({vertexColors:true,map:tex,roughness:1,side:T.DoubleSide});materials.set(kind,mat);return mat;
  }
  const plain=new T.MeshStandardMaterial({vertexColors:true,side:T.DoubleSide,roughness:.90});
- function face(vertices,indices,color,kind){
+ function face(vertices,indices,color,kind,uv){
   if(vertices.length===0)return;
   const mat=kind?paving(kind):plain,store=cell(vertices[0][0],vertices[0][2]).surfaces;
   // Coplanar road and sidewalk polygons must not write into the sun's depth map.
@@ -121,8 +126,19 @@ export function districtMeshes(root,{lod=false,streaming=false}={}){
   if(!b){b={mat,shadow,pos:[],uv:[],col:[],idx:[]};store.set(key,b);}
   const off=b.pos.length/3,unit=kind==="pavers"?1.32:3.8;
   tint.set(color);
-  for(const [x,y,z] of vertices){b.pos.push(x,y,z);b.uv.push(x/unit,z/unit);b.col.push(tint.r,tint.g,tint.b);}
+  for(let i=0;i<vertices.length;i++){
+   const [x,y,z]=vertices[i];
+   b.pos.push(x,y,z);b.uv.push(uv?uv[i][0]:x/unit,uv?uv[i][1]:z/unit);b.col.push(tint.r,tint.g,tint.b);
+  }
   for(const i of indices)b.idx.push(off+i);
+ }
+ // The grain follows the long side of each board in the building's frame.
+ // Recessed backing shows in the narrow gaps, so only the top face is needed.
+ function floorboard(at,left,right,start,end,y,color,row){
+  const corners=[[left,start],[left,end],[right,end],[right,start]];
+  const uv=corners.map(([u,v])=>[u/2+row*.379,v/.4+row*.553]);
+  const vertices=corners.map(([u,v])=>{const p=at(u,v);return [p.x,y,p.z];});
+  face(vertices,[0,1,2,0,2,3],color,"timber",uv);
  }
  function polygon(points,y,color,kind){
   if(points.length<3)return;
@@ -221,5 +237,5 @@ export function districtMeshes(root,{lod=false,streaming=false}={}){
   const steps=finishSteps();
   while(!steps.next().done){} // Small models are ready for use as soon as finish returns.
  }
- return {piece,column,crown,geo,beam,face,polygon,strip,sign,treePart,staticModel,finish,finishSteps};
+ return {piece,column,crown,geo,beam,face,floorboard,polygon,strip,sign,treePart,staticModel,finish,finishSteps};
 }

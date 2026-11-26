@@ -8,6 +8,8 @@ import {
   registerHwangudanNavigation,seoulPlazaOutline,seoulPlazaLawn,hwangudanGateApron,hwangudanGateApronHeight
 } from "./seoul-hwangudan-layout.js";
 
+import {finishStoneCarving} from "./seoul-carved-stone.js";
+
 const hotelColors={
   "plaza-hotel":[0x96918a,0x8e8b81,0x406579,0x5a7887,0xaaa99f],
   "president-hotel":[0xa29181,0xa38a76,0x465460,0x637078,0xc4a68d],
@@ -447,6 +449,8 @@ export function* assembleHwangudan(T,root,kit){
   }
 
   function artefacts(){
+    const drumBody=new T.SphereGeometry(.8,22,10),rim=new T.TorusGeometry(.656,.052,6,22);
+    const stud=new T.SphereGeometry(.043,6,5);
     for(const {x,y} of hwangudanDrums){
       const node=localGroup({x,y,angle:.414},"환구단 석고");
       block(node,palette.stoneDark,0,0,1.88,1.5,.31,.065);
@@ -455,14 +459,14 @@ export function* assembleHwangudan(T,root,kit){
         const shaft=cylinder(palette.stone,0,1.36,z,.77,.44,20,node,.96);
         shaft.rotation.x=Math.PI/2;
       }
-      const body=new T.Mesh(new T.SphereGeometry(.8,22,10),matte(palette.stone));
+      const body=new T.Mesh(drumBody,matte(palette.stone));
       body.position.y=1.35;body.scale.z=.55;node.add(body);
       for(const side of [-1,1]){
-        const border=new T.Mesh(new T.TorusGeometry(.656,.052,6,22),matte(palette.stoneDark));
+        const border=new T.Mesh(rim,matte(palette.stoneDark));
         border.position.set(0,1.36,.513*side);node.add(border);
         for(let i=0;i<16;i++){
           const theta=i*Math.PI/8;
-          const rivet=new T.Mesh(new T.SphereGeometry(.043,6,5),matte(palette.step));
+          const rivet=new T.Mesh(stud,matte(palette.step));
           rivet.position.set(Math.cos(theta)*.643,1.36+Math.sin(theta)*.643,.55*side);
           node.add(rivet);
         }
@@ -472,6 +476,7 @@ export function* assembleHwangudan(T,root,kit){
         });
         for(let i=1;i<curl.length;i++)line(node,palette.stoneDark,curl[i-1],curl[i],.044);
       }
+      finishStoneCarving(T,node);
     }
     for(const {x,y} of hwangudanRelics){
       const node=localGroup({x,y,angle:-.24},"환구단 석조 부재");

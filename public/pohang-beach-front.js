@@ -1,5 +1,6 @@
 import * as T from "three";
 import {coastalMasonry} from "./pohang-masonry.js";
+import {bukchonPavers} from "./bukchon-surfaces.js";
 import {beachLimits,beachAccess,sandEdge,sandCrest,cycleX,upperRoadEdge,wallSolid,accessHeight} from "./pohang-beach-profile.js";
 
 const [north,south]=beachLimits;
@@ -26,7 +27,7 @@ export function buildBeachFront(root,rows,{box,post}){
    for(const p of [a,b,c,a,c,d])wallUv.push(p[axis],p[1]);
   }
  }
- const tint={roadPavers:0x777b78,plaza:0xc7c6bb,cycle:0xb87f70,edge:0xa49c8c,seat:0xbaa997,face:0x948d82,nose:0xb8b3a5,ramp:0xb8afa0};
+ const tint={roadPavers:0x777b78,cycle:0xb87f70,edge:0xa49c8c,seat:0xbaa997,face:0x948d82,nose:0xb8b3a5,ramp:0xb8afa0};
  const zRows=rows.filter(z=>z>=-833&&z<=284);
  for(let k=1;k<zRows.length;k++){
   const z=zRows[k-1],v=zRows[k],m=(z+v)*.5,a=section(z),b=section(v);
@@ -61,8 +62,14 @@ export function buildBeachFront(root,rows,{box,post}){
   const geom=new T.BufferGeometry();geom.setAttribute("position",new T.Float32BufferAttribute(data,3));geom.computeVertexNormals();
   const wall=key==="stone";
   if(wall)geom.setAttribute("uv",new T.Float32BufferAttribute(wallUv,2));
-  const mat=wall?coastalMasonry():new T.MeshStandardMaterial({color:tint[key],side:T.DoubleSide,roughness:.92});
-  if(["plaza","roadPavers","ramp"].includes(key)){
+  let mat;
+  if(key==="plaza"){
+   const uv=[];
+   for(let i=0;i<data.length;i+=3)uv.push(data[i]/2.16,data[i+2]/2.40);
+   geom.setAttribute("uv",new T.Float32BufferAttribute(uv,2));
+   mat=bukchonPavers(T);mat.color.setRGB(1.30,1.29,1.32);mat.side=T.DoubleSide;
+  }else mat=wall?coastalMasonry():new T.MeshStandardMaterial({color:tint[key],side:T.DoubleSide,roughness:.92});
+  if(key==="roadPavers"||key==="ramp"){
    mat.onBeforeCompile=shader=>{
     shader.vertexShader="varying vec3 promenadePoint;\n"+shader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\npromenadePoint=position;");
     shader.fragmentShader="varying vec3 promenadePoint;\n"+shader.fragmentShader.replace("#include <color_fragment>","#include <color_fragment>\nvec2 p=promenadePoint.xz/vec2(.64,.39);p.x+=.5*mod(floor(p.y),2.);vec2 grout=min(fract(p),1.-fract(p))/max(fwidth(p),vec2(.004));float close=1.-smoothstep(9.,42.,length(cameraPosition.xz-promenadePoint.xz));diffuseColor.rgb*=.985+.025*fract(sin(dot(floor(p),vec2(14.32,28.17)))*18453.)-.19*close*(1.-smoothstep(.1,1.1,min(grout.x,grout.y)));");

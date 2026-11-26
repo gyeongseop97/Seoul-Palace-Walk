@@ -142,7 +142,21 @@ export function drawCafe(k,r,f){
  const {width:w,depth:d,yaw}=r,at=f.point;
  function piece(x,y,z,a,b,c,col){const p=at(x,z);k.piece(p.x,y,p.z,a,b,c,col,yaw);}
  const timber=0x714e36,white=0xebddbd,front=d/2;
- piece(0,.03,0,w,.06,d,0xc2a780);
+ if(r.id==="cafe"){
+  piece(0,.014,0,w,.028,d,0x856b52);
+  const rows=Math.ceil(d/.24),width=w/Math.ceil(w/2.4);
+  const timberTones=[0xc2aa87,0xbba17d,0xc6ad87,0xbea680,0xbca27f];
+  for(let row=0;row<rows;row++){
+   const z=-front+row*d/rows;
+   let left=-w/2;
+   for(let index=0;left<w/2-.001;index++){
+    const span=index===0&&row%2===1?width/2:width,right=Math.min(w/2,left+span);
+    k.floorboard(at,left+.002,right-.002,z+.002,z+d/rows-.002,.06,
+     timberTones[(row*2+index*3)%timberTones.length],row*5+index);
+    left=right;
+   }
+  }
+ }else piece(0,.03,0,w,.06,d,0xc2a780);
  for(const sign of [-1,1]){
   piece(sign*w/2,1.52,0,.19,3,d,white);
   const wide=w/2-1.34,center=sign*(1.34+wide/2);

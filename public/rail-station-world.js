@@ -2,7 +2,7 @@ import {buildKtx} from "./ktx-model.js";
 import {stationHall,railPlatform,railShopPlots,seatRows,seatOffsets,waitingRows,extraWaitingRows,hallColumns,hallBays,hallDoors,ticketOffice,ticketMachines,infoDesk,departureBoard,ktxStairs,ktxBerths} from "./rail-station-layout.js";
 import {hallOrigin,hallSpan,concourseParts,boardingIslands,ktxIsland} from "./station-levels.js";
 import {standSign} from "./regional-stands.js";
-import {stationGranite} from "./station-materials.js";
+import {stationGranite,stationGraniteRepeat} from "./station-materials.js";
 import {makeRegionalItemProps} from "./regional-item-props.js";
 
 const navy=0x234967,blue=0x336990,silver=0xb5c2c5,ivory=0xeee8d9,slate=0x546576;
@@ -44,7 +44,7 @@ export function* buildRailRoom(T,root,kit,venue){
   function stoneFloor(outline,altitude=.004){
     const shape=new T.Shape(outline.map(([x,z])=>new T.Vector2(x,-z))),geo=new T.ShapeGeometry(shape);geo.rotateX(-Math.PI/2);
     const pos=geo.attributes.position,uv=geo.attributes.uv;
-    for(let i=0;i<pos.count;i++)uv.setXY(i,pos.getX(i)/4.8,pos.getZ(i)/4.8);
+    for(let i=0;i<pos.count;i++)uv.setXY(i,pos.getX(i)/stationGraniteRepeat,pos.getZ(i)/stationGraniteRepeat);
     const mesh=new T.Mesh(geo,granite);mesh.position.y=altitude;mesh.receiveShadow=true;room.add(mesh);
   }
   room.add(new T.HemisphereLight(0xfff4df,0xcbc8bd,.98));
