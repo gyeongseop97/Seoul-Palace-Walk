@@ -114,6 +114,7 @@ export function createCoastScene(root,play,walkers,kit){
  }
  function surface(p){
   const local=seaPoint(p),s=p.coast,t=lastClock/1000%14400;
+  if(s?.mode==="walk"&&Number.isFinite(s.railY))return s.railY;
   if(s?.mode==="scooter")return scooterGround(local)+scooterFit.deckTop;
   const cafe=cafeLevel(local,s?.cafeFloor);if(cafe!=null)return cafe;
   if(s?.mode==="deck"){

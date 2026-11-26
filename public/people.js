@@ -1,5 +1,5 @@
 import {clearSegment,distance,platformAt,loftStair} from "./layout.js";
-import {JUMP_HEIGHT,jumpDuration,jumpLift} from "./activities.js";
+import {JUMP_HEIGHT,jumpDuration,jumpLift,worldJumpFeet} from "./activities.js";
 import {busSeatPose} from "./bus-network.js";
 import {busAt} from "./raft-client.js";
 import {canRideBikeSegment} from "./bike-movement.js";
@@ -59,7 +59,7 @@ export function receivePeople(people,rows,self,serverTime){
 // Each frame extends the newest report along its velocity (dead reckoning). When a
 // fresh report disagrees with the prediction, the difference is blended away over a
 // few frames, so the motion stays continuous without holding the walker back in time.
-export function smoothPeople(people,seconds,serverTime,roundTrip=65){
+export function smoothPeople(people,seconds,serverTime,roundTrip=65,airStep){
   const lookEase=1-Math.exp(-seconds*19),turnEase=1-Math.exp(-seconds*13);
   const settle=Math.exp(-seconds/.24);
   // A report was already about half a round trip old when the server stamped it.
@@ -92,10 +92,14 @@ export function smoothPeople(people,seconds,serverTime,roundTrip=65){
       const platform=platformAt(a.x,a.y);
       const feet=airborne&&avatar.vaultBase!=null?
         Math.max(platform,avatar.vaultBase+jumpLift(avatar,serverTime)):platform+(airborne?JUMP_HEIGHT:.19);
+      const flight=worldJumpFeet(a,serverTime);
       for(const share of [1,.6,.3]){
         const guess={x:a.x+(a.vx||0)*lead*share,y:a.y+(a.vy||0)*lead*share};
-        const clear=isBikeDriver(a)?canRideBikeSegment(a,guess):clearSegment(a,guess,.36,feet);
-        if(a.up||loftStair(a.x,a.y)!=null||clear){goal=guess;break;}
+        if(airStep&&flight!=null){
+          if(airStep(a,guess,flight)){goal=guess;break;}
+        }else if(isBikeDriver(a)?canRideBikeSegment(a,guess):a.up||loftStair(a.x,a.y)!=null||clearSegment(a,guess,.36,feet)){
+          goal=guess;break;
+        }
       }
     }
     const gap=distance(position,goal.x,goal.y);

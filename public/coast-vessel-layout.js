@@ -93,23 +93,41 @@ function stairHeight(stair,p){
  if(p.z<stair.start||p.z>stair.end||sideways< -stair.half||sideways>stair.half-.15)return null;
  return stair.from+(stair.to-stair.from)*(p.z-stair.start)/(stair.end-stair.start);
 }
-function middleDeck(p){
- if(p.z<loungePorch.aft||p.z>upperStair.end)return null;
- if(p.z<aftStair.end&&p.x<loungePorch.left)return null;
+function inLoungeOutline(p,clearance){
+ if(p.z<loungePorch.aft||p.z>12.75)return false;
+ if(p.z<aftStair.end&&p.x<loungePorch.left)return false;
  const rail=p.x<0?loungeRails.port:loungeRails.starboard;
  for(let i=1;i<rail.length;i++){
   const [width,z]=rail[i];
   if(p.z>z)continue;
   const [prevWidth,prevZ]=rail[i-1];
   const half=prevWidth+(width-prevWidth)*clamp((p.z-prevZ)/(z-prevZ),0,1);
-  if(Math.abs(p.x)>half-.15)return null;
-  break;
+  return Math.abs(p.x)<=half-clearance;
  }
+ return false;
+}
+// The salon roof, the enclosed lounge walls and its roof all use scaled copies
+// of the hull outline in the model. Only the side aisles outside those walls are open.
+function shellHalfWidth(p,half,aft,fore){
+ if(p.z<aft||p.z>fore)return 0;
+ const station=-18+38*(p.z-aft)/(fore-aft);
+ for(let i=1;i<cruiseHullStations.length;i++){
+  const [b,wb]=cruiseHullStations[i];if(station>b)continue;
+  const [a,wa]=cruiseHullStations[i-1];
+  return half*(wa+(wb-wa)*(station-a)/(b-a));
+ }
+ return 0;
+}
+function middleDeck(p){
+ if(!inLoungeOutline(p,.15))return null;
+ if(p.z>upperStair.end&&p.z<10.45&&Math.abs(p.x)<.11+shellHalfWidth(p,3.56,-5.55,10.45))return null;
  if(Math.abs(p.x+1.65)<1.36&&Math.abs(p.z+7.02)<.51)return null;
  return cruiseFurnitureBlocks(p,midFloor)?null:midFloor;
 }
 function upperDeck(p){
- if(p.z<upperStair.end||p.z>bridge.front-.27||Math.abs(p.x)>2.75)return null;
+ if(p.z<upperStair.end||p.z>bridge.front-.27)return null;
+ const edge=Math.max(2.75,shellHalfWidth(p,3.66,upperStair.end,10.3));
+ if(Math.abs(p.x)>edge)return null;
  if(p.z>=bridge.aft-.23&&p.z<=bridge.aft+.23&&Math.abs(p.x)>bridge.door-.21)return null;
  if(p.z>bridge.aft&&Math.abs(p.x)>bridge.half-.25)return null;
  if(p.z>6.81&&p.z<7.98&&Math.abs(p.x)<1.81)return null;
@@ -138,6 +156,35 @@ function crossesOpenEdge(from,to,axis,line,min,max){
  const along=axis==="x"?"z":"x",v=from[along]+t*(to[along]-from[along]);
  return v>=min&&v<=max;
 }
+export function sunDeckRailBlocks(from,to,floor,feet){
+ if(Math.abs(floor-bridge.floor)>.02||feet>=bridge.floor+.92)return false;
+ return [-1,1].some(side=>crossesOpenEdge(from,to,"x",side*2.75,-4.93,1.75));
+}
+export const offVessel=Symbol("outside the hull");
+function inMainRailMargin(p){
+ return Math.abs(p.x)>=mainDeckRailHalfWidth(p.z,.26)||p.z<mainDeckRail.aft+.26||p.z>mainDeckRail.front-.26;
+}
+export function deckRimHeight(p,floor){
+ if(floor===midFloor&&inLoungeOutline(p,0)&&!inLoungeOutline(p,.15))return midFloor;
+ if(floor===mainFloor&&!outsideMainRail(p)&&inMainRailMargin(p))return mainFloor;
+ return null;
+}
+function nextLowerSurface(to,current){
+ for(let i=cruiseStairs.length-1;i>=0;i--){
+  const h=stairHeight(cruiseStairs[i],to);
+  if(h!=null&&h<current-.01)return h;
+ }
+ if(current>midFloor+.01){
+  const h=middleDeck(to)??deckRimHeight(to,midFloor);if(h!=null)return h;
+  if(inLoungeOutline(to,0))return null;
+ }
+ const h=lowerDeck(to)??deckRimHeight(to,mainFloor);
+ if(h!=null)return h;
+ return outsideMainRail(to)?offVessel:null;
+}
+function outsideMainRail(p){
+ return p.z<=mainDeckRail.aft||p.z>=mainDeckRail.front||Math.abs(p.x)>=Math.min(5,mainDeckRailHalfWidth(p.z));
+}
 // A jump can leave either aft terrace or the unrailed side of a flight. The
 // first solid surface below those openings catches it; walls and rails stay solid.
 export function deckJumpSurface(from,to,currentFloor,feetHeight){
@@ -150,6 +197,10 @@ export function deckJumpSurface(from,to,currentFloor,feetHeight){
   const crossesTerrace=onUpperLanding&&to.z<from.z&&(stair===aftStair?
    crossesOpenEdge(from,to,"z",loungePorch.aft,loungePorch.left,loungePorch.right-.15):
    crossesOpenEdge(from,to,"z",upperStair.end,-2.75,2.75));
+  const outer=stair.x+stair.side*(stair.half-.15);
+  if(crossesOpenEdge(from,to,"x",outer,stair.start,stair.end)&&feetHeight>currentFloor+1.01){
+   return nextLowerSurface(to,currentFloor);
+  }
   if(!crossesFlight&&!crossesTerrace)continue;
   // The lounge slab meets the top part of the aft flight along its inboard side.
   // Dropping through that slab would put the passenger underneath the landing.
@@ -157,6 +208,17 @@ export function deckJumpSurface(from,to,currentFloor,feetHeight){
   const onFlight=to.z>=stair.start&&to.z<=stair.end&&Math.abs(to.x-stair.x)<=stair.half;
   const h=onFlight?stairHeight(stair,to):(stair===aftStair?lowerDeck(to):middleDeck(to));
   if(h!=null&&h<currentFloor&&h<=feetHeight)return h;
+ }
+ // Crossing the highest tread or lounge edge must land on the first physical
+ // deck below it. Hitting furniture or the wheelhouse never qualifies as an edge.
+ if(Math.abs(currentFloor-bridge.floor)<.02&&from.z<bridge.aft-.23&&to.z<bridge.aft-.23&&
+   Math.abs(to.x)>Math.max(2.75,shellHalfWidth(to,3.66,upperStair.end,10.3))){
+  return nextLowerSurface(to,currentFloor);
+ }
+ if(Math.abs(currentFloor-midFloor)<.02&&inLoungeOutline(from,0)&&!inLoungeOutline(to,.15)&&
+   feetHeight>=midFloor+1.05)return inLoungeOutline(to,0)?midFloor:nextLowerSurface(to,currentFloor);
+ if(Math.abs(currentFloor-mainFloor)<.02&&feetHeight>=mainFloor+1.09&&inMainRailMargin(to)){
+  return outsideMainRail(to)?offVessel:mainFloor;
  }
  return null;
 }

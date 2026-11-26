@@ -412,16 +412,29 @@ export function* buildGyeongbok(T,scene,kit,tools){
     // Stone balustrade posts along the edge.
     for(let i=-6;i<=6;i++){
       if(Math.abs(i)<2)continue;
-      for(const n of [south+.3,north-.3])slab(0xc1b9a6,i*half/6.2,n,.3,.3,.8,top);
+      for(const n of [south+.3,north-.3]){
+        slab(0xc1b9a6,i*half/6.2,n,.3,.3,.8,top);
+        solid(i*half/6.2,n,.3,.3,top+.8);
+      }
     }
-    for(const n of [south+.3,north-.3])for(const side of [-1,1])slab(0xc1b9a6,side*half*4/6.2,n,half*4/6.2,.14,.12,top+.56);
+    for(const n of [south+.3,north-.3])for(const side of [-1,1]){
+      const e=side*half*4/6.2,width=half*4/6.2;
+      slab(0xc1b9a6,e,n,width,.14,.12,top+.56);
+      solid(e,n,width,.14,top+.68);
+    }
     for(const side of [-1,1]){
+      const e=side*(half-.3);
       const count=Math.round((north-south-.6)/3.4);
       for(let i=0;i<=count;i++){
         const n=south+.3+i*(north-south-.6)/count;
-        if(Math.abs(n-300)>=3.3)slab(0xc1b9a6,side*(half-.3),n,.3,.3,.8,top);
+        if(Math.abs(n-300)<3.3)continue;
+        slab(0xc1b9a6,e,n,.3,.3,.8,top);
+        solid(e,n,.3,.3,top+.8);
       }
-      for(const [a,b] of [[south+.3,296.7],[303.3,north-.3]])slab(0xc1b9a6,side*(half-.3),(a+b)/2,.14,b-a,.12,top+.56);
+      for(const [a,b] of [[south+.3,296.7],[303.3,north-.3]]){
+        slab(0xc1b9a6,e,(a+b)/2,.14,b-a,.12,top+.56);
+        solid(e,(a+b)/2,.14,b-a,top+.68);
+      }
     }
     yield;
   }
@@ -529,7 +542,8 @@ export function* buildGyeongbok(T,scene,kit,tools){
         if(outer)slab(0xb5af9f,east,north,.74,.74,4.5,base);
         else cylinder(0xb0aa9a,p.x,base+2.25,p.z,.4,4.5,12,scene,.86);
         slab(0xa39d8e,east,north,.98,.98,.14,base+4.5);
-        solid(east,north,.74,.74,floor-.2);
+        const upperColumn=outer||columns.some(p=>p.east===east&&p.north===north);
+        solid(east,north,.74,.74,upperColumn?floor+3.8:floor-.2);
         // Upper-floor columns stand on the same grid.
         if(outer)cylinder(0x8f4936,p.x,floor+1.9,p.z,.25,3.8,12);
       }

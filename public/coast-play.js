@@ -2,26 +2,27 @@ import {createVesselTrack,followVessel} from "./coast-vessel-motion.js";
 import {voyageAt,inSailingArea} from "./coast-voyage.js";
 import {cruiseSeats,cruiseSeatById,cruiseSeatInReach,cruiseSeatHeading,cruiseSeatSpot} from "./coast-vessel-seats.js";
 import {nearScooterHub,canScoot,onScooterLevel} from "./coast-scooters.js";
-import {cafeLevel,cafeStep,cafeCounter,inCafeBounds,cafeGround} from "./coast-cafe.js";
+import {cafeLevel,cafeStep,cafeCounter,inCafeBounds,cafeGround,cafeRailHeight} from "./coast-cafe.js";
 import {swimSpeed} from "./beach-swimming.js";
 import {nearbyAmenity,changingRoom,rinseDuration} from "./beach-amenities.js";
-import {deckHeight,deckJumpSurface,deckToSea,seaToDeck,nearHelm,helmStation,boardingSpot,mainFloor,serviceSpot,inWheelhouse,nearCruiseExit,cruiseBerth,exitGate,gangwayToe,gangwayHeight} from "./coast-vessel-layout.js";
+import {deckHeight,deckRimHeight,deckJumpSurface,sunDeckRailBlocks,offVessel,deckToSea,seaToDeck,nearHelm,helmStation,boardingSpot,mainFloor,serviceSpot,inWheelhouse,nearCruiseExit,cruiseBerth,exitGate,gangwayToe,gangwayHeight} from "./coast-vessel-layout.js";
 import {studioDock,studioMooring,studioFloor,studioStep,studioInteraction} from "./coast-studio-layout.js";
 export {restoreStudioPosition,studioStorm} from "./coast-studio-layout.js";
 export {deckHeight} from "./coast-vessel-layout.js";
 export function restoredDeckSpot(p){
  if(!p||![p.x,p.z,p.h].every(Number.isFinite))return null;
- const h=deckHeight(p,p.h);
+ const h=deckHeight(p,p.h)??deckRimHeight(p,p.h)??gangwayHeight(p);
  return h!=null&&Math.abs(h-p.h)<.12?{x:p.x,z:p.z,h}:null;
 }
 import {busSeatPose} from "./sejong-bus.js";
 import {inPark,parkStep,hillFloor} from "./space-walk-layout.js";
-import {pavilionStep,pavilionFloor,pavilionYaw,onPavilion} from "./pohang-pavilion-layout.js";
+import {pavilionStep,pavilionFloor,pavilionYaw,onPavilion,pavilionRailHeight} from "./pohang-pavilion-layout.js";
+import {stationRailHeight} from "./pohang-station-layout.js";
 import {coastPoint,seaPoint} from "./region-coordinates.js";
 import {atPromenadeLip,beachDropStep,walkDeckY} from "./pohang-beach-profile.js";
 import {nearestTavernSeat} from "./coast-tavern-layout.js";
 import {readTavernSpeech,tavernReply} from "./tavern-speech.js";
-import {deckJumpLift,jumpLift} from "./activities.js";
+import {deckJumpLift,jumpLift,worldJumpFeet} from "./activities.js";
 import {canCrossBeachEdge,harborStops,stopById,arrivalsAt,busLine,platformDoor,boardRack,dock,mooring,tables,seatSpot,distance,busAt,clamp,shore,inWater,onDock,showAge} from "./pohang-layout.js";
 import {canStartFestival as atFestivalBooth,festivalBooth} from "./pohang-festival-site.js";
 import {festivalFocus} from "./pohang-festival-score.js";
@@ -39,7 +40,7 @@ export function deckOffset(ship,p){
  return {x:x*c-z*s,z:x*s+z*c};
 }
 export const coastActions=["cafeCoffee","changing","rinse","scooter","parkScooter","bus","cityBus","exitBus","train","board","surf","embark","deckSit","deckStand","disembark","helm","release","tour","wine","cheese","return","moor","table","stand","bell","order","fish","drink","grill","clam","festival","studioClimb","studioWater","studioDoor","studioConsole"];
-export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,chooseTrainDestination,receiveFood,canReceiveFood=()=>true,tasteFood,chooseOrder,chooseSeat,openMonitor}){
+export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,chooseTrainDestination,receiveFood,canReceiveFood=()=>true,tasteFood,chooseOrder,chooseSeat,openMonitor,surfaceHeight}){
  const boat={...mooring,yaw:0,helm:null,festival:0},ship={...boat};
  const remoteVessel=createVesselTrack();
  let deckYaw=null,lastSailingTime=null;
@@ -67,6 +68,7 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
  const canLaunchFireworks=p=>state().mode==="deck"||me.seat==null&&!me.groundSit&&atFestivalBooth({...p,mode:state().mode});
  function mark(){changed();}
  function relocate(p,heading){
+  delete state().railY;
   Object.assign(me,coastPoint(p),{vx:0,vy:0,blocked:false,running:false,up:false,groundSit:false});
   if(heading!=null)me.heading=(heading+360)%360;
   reset();mark();
@@ -186,6 +188,15 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
   const s=state();s.mode="walk";deck=null;deckYaw=null;nextPoll=0;
   delete s.deckX;delete s.deckZ;delete s.floor;delete s.deckJumpY;
  }
+ function jumpAshore(next,time){
+  const s=state();
+  if(Number.isFinite(s.deckJumpY)&&Number.isFinite(me.jumpOriginY)){
+   // Convert the ship-relative launch height at the actual point of departure.
+   // The jump clock then continues unchanged over the pier or water.
+   me.jumpOriginY=deckToSea(ship,next,time,s.floor).h+s.deckJumpY-s.floor;
+  }
+  stepAshore();mark();
+ }
  function enterDeck(){
   const landing=berth();
   if(state().mode!=="walk"||!landing||distance(seaPoint(me),landing)>=(landing===studioDock?2.9:6))return;
@@ -278,7 +289,7 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
    s.floor=deck.h??deckHeight(deck)??mainFloor;
    s.deckX=deck.x;s.deckZ=deck.z;
    if(s.deckJumpY!=null&&t>me.jump&&deckJumpLift(me,t)===0){
-    delete s.deckJumpY;me.jump=0;mark();
+    delete s.deckJumpY;me.jump=0;me.jumpOriginY=null;mark();
    }
    if(deckWatch)aimAtFireworks(next,s.floor);
   }else if(s.mode==="bus"){
@@ -286,10 +297,12 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
    if(busHeading!==null)view().pan=(view().pan+((pose.heading-busHeading+540)%360)-180+360)%360;
    busHeading=pose.heading;Object.assign(me,pose);mark();
   }else if(s.mode!=="table"&&s.mode!=="scooter"){
-   const mode=swimWater(seaPoint(me))?(s.mode==="surf"?"surf":"swim"):"walk";
+   const feet=worldJumpFeet(me,t),wet=swimWater(seaPoint(me));
+   const overWater=wet&&feet!=null&&feet>(surfaceHeight?.(me)??-1);
+   const mode=wet&&!overWater?(s.mode==="surf"?"surf":"swim"):"walk";
    if(mode!==s.mode){
     s.mode=mode;
-    if(mode==="swim"){me.jump=0;me.vaultBase=null;delete s.beachJumpY;}
+    if(mode==="swim"){me.jump=0;me.jumpOriginY=me.vaultBase=null;delete s.beachJumpY;}
     mark();
    }
   }
@@ -300,7 +313,7 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
  }
  function startJump(){
   const s=state();
-  if(s.mode==="deck"&&deck?.h>=mainFloor)s.deckJumpY=deck.h;
+  if(s.mode==="deck"&&Number.isFinite(deck?.h))s.deckJumpY=deck.h;
   else delete s.deckJumpY;
   if(s.mode==="walk"&&s.track==null&&s.cafeFloor==null&&atPromenadeLip(seaPoint(me)))s.beachJumpY=walkDeckY;
   else delete s.beachJumpY;
@@ -311,9 +324,15 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
  }
  function deckStepHeight(next,time){
   const floor=deck?.h??state().floor??mainFloor,height=deckHeight(next,floor);
-  if(height!=null&&Math.abs(height-floor)<.49)return height;
   const lift=deckJumpLift(me,time);
-  return lift>0&&deck?deckJumpSurface(deck,next,floor,floor+lift):null;
+  if(deck&&sunDeckRailBlocks(deck,next,floor,floor+lift))return null;
+  if(height!=null&&Math.abs(height-floor)<.49)return height;
+  if(deck&&deckRimHeight(deck,floor)!=null&&deckRimHeight(next,floor)!=null)return floor;
+  if(!deck||lift<=0)return null;
+  if(floor<mainFloor&&gangwayOpen()&&gangwayHeight(deck)!=null&&gangwayHeight(next)==null&&next.x<exitGate.x)return offVessel;
+  const landing=deckJumpSurface(deck,next,floor,floor+lift);
+  if(landing===offVessel&&(!Number.isFinite(me.jumpOriginY)||next.x<0&&Math.abs(next.z-exitGate.z)<exitGate.half+.1&&!gangwayOpen()))return null;
+  return landing;
  }
  function slideAlongRail(dx,dy,move){
   const mode=state().mode;
@@ -329,21 +348,23 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
   }
   return false;
  }
- function canStep(x,y,allowBeachLip=false){
+ function canStep(x,y,allowBeachLip=false,airFeet){
   const s=state();
-  const cafe=cafeStep(seaPoint(me),seaPoint({x,y}),s.cafeFloor??cafeGround);
+  const cafe=cafeStep(seaPoint(me),seaPoint({x,y}),s.cafeFloor??cafeGround,airFeet);
   if(cafe!==undefined)return s.mode==="walk"&&cafe;
   if(s.mode!=="deck"&&!allowBeachLip&&!canCrossBeachEdge(seaPoint(me),seaPoint({x,y})))return false;
   if(s.mode==="scooter"&&!canScoot(seaPoint({x,y})))return false;
   if(s.mode==="table"||s.mode==="bus"||s.mode==="deck"&&(boat.helm===visit()?.id||s.deckSeat||seatPending()))return false;
   if(gangwayStep(seaPoint(me),seaPoint({x,y})))return true;
   if(s.mode!=="deck"){
-    const studio=studioStep(seaPoint(me),seaPoint({x,y}));
+    const studio=studioStep(seaPoint(me),seaPoint({x,y}),airFeet);
     if(studio!==undefined)return studio&&s.mode!=="scooter";
-    const p=seaPoint({x,y}),atPier=pavilionStep(seaPoint(me),p,s.track);
+    const p=seaPoint({x,y}),atPier=pavilionStep(seaPoint(me),p,s.track,airFeet);
     if(atPier!==undefined)return atPier;
     const track=parkStep(p,s.track);
-    if(Number.isFinite(s.track)&&track==null&&s.track>hillFloor(p)+.45)return false;
+    if(Number.isFinite(s.track)&&track==null&&s.track>hillFloor(p)+.45){
+     if(!Number.isFinite(airFeet)||airFeet<s.track+1.23)return false;
+    }
     return true;
   }
   const time=now(),next=seaToDeck(ship,seaPoint({x,y}),time,deck?.h??s.floor??mainFloor);
@@ -363,11 +384,13 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
   me.heading=step.heading;s.surf=next;
   return moving&&!advanced;
  }
- function afterMove(leaderCoast,from){
+ function afterMove(leaderCoast,from,airFeet){
   const s=state(),p=seaPoint(me);
   const crossing=gangwayStep(from&&seaPoint(from),p);
   if(crossing){
-   if(crossing.mode==="walk")stepAshore();
+   if(crossing.mode==="walk"){
+    const time=now();jumpAshore(seaToDeck(ship,p,time,s.floor),time);
+   }
    else{
     if(s.mode!=="deck")nextPoll=0;
     stepAboard(crossing.spot);
@@ -379,10 +402,18 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
   if(s.mode==="deck"){
    const prev=deck?.h??s.floor??mainFloor,time=now(),next=seaToDeck(ship,p,time,prev);
    const height=deckStepHeight(next,time);
+   if(height===offVessel){
+    jumpAshore(next,time);return;
+   }
    deck={...next,h:height??prev};
    Object.assign(s,{deckX:deck.x,deckZ:deck.z,floor:deck.h});
   }
-  else {const h=pavilionFloor(p,s.track)??parkStep(p,s.track);if(h!=null)s.track=h;else delete s.track;}
+  else {
+   const h=pavilionFloor(p,s.track)??parkStep(p,s.track,airFeet);
+   if(h!=null)s.track=h;else delete s.track;
+   const rail=Number.isFinite(airFeet)?cafeRailHeight(p,s.cafeFloor)??pavilionRailHeight(p,s.track)??stationRailHeight(p):null;
+   if(rail!=null&&airFeet>=rail-.015)s.railY=rail;else delete s.railY;
+  }
  }
  function menu(){
   const p=seaPoint(me),s=state(),v=visit(),t=now();actions=new Map();let hint="";
@@ -549,7 +580,7 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
   seatMap:(coach)=>({line:busLine(coach),bus:busAt(coach,now()/1000),occupied:riders.filter(row=>row.coach===coach).map(r=>r.seat)}),trigger:id=>actions.get(id)?.run(),get grills(){return grills;},get tavernOrders(){return orders;},
   swimmingSpeed:fast=>{
    const mode=state().mode;
-   return (mode==="walk"||mode==="swim")&&swimWater(seaPoint(me))?swimSpeed(fast):null;
+   return (mode==="swim"||mode==="walk"&&!Number.isFinite(me.jumpOriginY))&&swimWater(seaPoint(me))?swimSpeed(fast):null;
   },
   locked,
   slideAlongRail,

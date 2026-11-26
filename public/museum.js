@@ -41,6 +41,7 @@ const donneokSteps=[[donneok.d*.33,donneok.h*.077],[porch,donneok.h*.077],[porch
 const doorSteps=[[-4.65,0],[-4.30,.29],[4.30,.29],[4.65,.20],[12.8,.20],[13.53,0]];
 const outerHallSteps=[[27.15,1],[27.5,.95],[28,.63],[28.5,.35],[29.06,0]];
 const upperHallSteps=[[22.65,1.82],[23.48,1.34],[24.06,1.06]];
+export const hallTerraceHeight=(upper,z)=>upper?1.82+(22.65-z)*.022:1+(27.2-z)*.014;
 const steps=[
   {site:stoneHall,half:6.65,profile:stoneSteps},
   {site:museum,half:6.92,profile:museumSteps},
@@ -70,8 +71,7 @@ export function stairHeight(point){
   // Inside the throne hall the floor is level.
   if(Math.abs(hallX)<=9.1&&Math.abs(hallZ)<=8.6)return 2.2;
   if(absX<=19.87&&hallZ>=-15.3&&hallZ<=27.2){
-    if(absX<=13.55&&hallZ>=-8.5&&hallZ<=22.65)return 1.82+(22.65-hallZ)*.022;
-    return 1+(27.2-hallZ)*.014;
+    return hallTerraceHeight(absX<=13.55&&hallZ>=-8.5&&hallZ<=22.65,hallZ);
   }
   for(const {site,angle,half,profile} of steps){
     if(Math.abs(point.x-site.x)>45||Math.abs(point.y-site.y)>45)continue;

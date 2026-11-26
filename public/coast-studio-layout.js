@@ -38,10 +38,12 @@ export function studioFloor(p){
  }
  return inside(p,557,567.75,-75,-61)?1.85:null;
 }
-export function studioStep(a,b){
+export function studioStep(a,b,airFeet){
  if(Math.max(a.x,b.x)<554||Math.min(a.z,b.z)> -12||Math.max(a.z,b.z)< -129)return undefined;
  const first=studioFloor(a),last=studioFloor(b);
  if(first!=null||last!=null){
+  if(first!=null&&Number.isFinite(airFeet)&&!studioInRoom(a)&&!studioInRoom(b)&&
+     b.x<studioWall.x-.13&&(last==null||last<=airFeet+.03))return true;
   if(first==null||last==null||studioInRoom(a)!==studioInRoom(b))return false;
   // The control desk faces west. Its solid cabinet is behind the controls.
   if(studioInRoom(b)&&inside(b,575.14,576.64,studioConsole.z-1.5,studioConsole.z+1.5))return false;

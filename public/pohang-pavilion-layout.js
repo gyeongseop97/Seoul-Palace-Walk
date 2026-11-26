@@ -44,14 +44,30 @@ function railing(q,upper){
 export function pavilionObstacle(p,height){
  if(!onPavilion(p))return false;
  const q=pavilionAxes(p);
- const upper=height>upperLevel-.45&&height<upperLevel+1.25;
- if(upper&&inUpper(q)&&railing(q,true)||height<lowerLevel+1.3&&railing(q,false))return true;
+ const rail=pavilionRailHeight(p,height);
+ if(rail!=null&&height<rail-.015)return true;
  return pillars.some(({u,v})=>Math.hypot(q.u-u,q.v-v)<.35)&&height<upperLevel+3.2;
 }
-export function pavilionStep(from,to,previous){
+export function pavilionRailHeight(p,level){
+ if(!onPavilion(p))return null;
+ const q=pavilionAxes(p);
+ if(level>upperLevel-.45&&inUpper(q)&&railing(q,true))return upperLevel+1.005;
+ if(railing(q,false))return pavilionFloor(p,lowerLevel)+1.00;
+ return null;
+}
+export function pavilionStep(from,to,previous,airFeet){
  if(!nearPavilion(from)&&!nearPavilion(to))return undefined;
  const old=pavilionFloor(from,previous),next=pavilionFloor(to,previous);
  if(old===null&&next===null)return undefined;
+ if(Number.isFinite(airFeet)&&old!=null&&(next==null||next<=airFeet+.03)){
+  // A running frame can span the entire thin upper rail without either
+  // endpoint touching it. Check the crossed portion at the walker's foot height.
+  const dx=to.x-from.x,dz=to.z-from.z,n=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.12));
+  for(let i=0;i<=n;i++){
+   if(pavilionObstacle({x:from.x+dx*i/n,z:from.z+dz*i/n},airFeet))return false;
+  }
+  return true;
+ }
  if(old===null||next===null){
   const q=pavilionAxes(old===null?to:from);
   if(q.v<bridgeStart)return Math.abs(beachFloor(old===null?from:to)-pierHeight(q.v))<.32;

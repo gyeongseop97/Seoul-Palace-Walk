@@ -269,10 +269,16 @@ export const gbRoyalPavilion=(()=>{
   const stairs=[{south:412.05,north:414.45,foot:-87.3,head:-97.5},{south:441.55,north:443.95,foot:-98.7,head:-88.5}];
   // Columns of the upper floor that stand inside the walking area.
   const columns=norths.slice(1,7).flatMap((north,i)=>easts.slice(1,5).filter((east,j)=>i===0||i===5||j===0||j===3).map(east=>({east,north})));
-  return {centre,long,short,floor,base,norths,easts,stairs,columns};
+  const outerColumns=norths.flatMap((north,i)=>easts.filter((east,j)=>i===0||i===7||j===0||j===5).map(east=>({east,north})));
+  return {centre,long,short,floor,base,norths,easts,stairs,columns,deckColumns:[...columns,...outerColumns]};
 })();
 addLoft({
-  height:gbRoyalPavilion.floor,
+  height:gbRoyalPavilion.floor,guard:.97,
+  guardAt(x,y){
+    const {centre,short,long}=gbRoyalPavilion;
+    const e=Math.abs(x-gwanghwamun.x-centre.east),n=Math.abs(gwanghwamun.y-y-centre.north);
+    return e>=short/2+.64||n>=long/2+.64?.97:0;
+  },
   stair(x,y){
     const east=x-gwanghwamun.x,north=gwanghwamun.y-y,{stairs,floor,base}=gbRoyalPavilion;
     for(const {south,north:top,foot,head} of stairs){
@@ -282,9 +288,9 @@ addLoft({
     return null;
   },
   deck(x,y){
-    const east=x-gwanghwamun.x,north=gwanghwamun.y-y,{centre,long,short,columns}=gbRoyalPavilion;
-    if(Math.abs(north-centre.north)>long/2+.5||Math.abs(east-centre.east)>short/2+.5)return false;
-    return !columns.some(column=>Math.hypot(east-column.east,north-column.north)<.5);
+    const east=x-gwanghwamun.x,north=gwanghwamun.y-y,{centre,long,short,deckColumns}=gbRoyalPavilion;
+    if(Math.abs(north-centre.north)>long/2+.9||Math.abs(east-centre.east)>short/2+.9)return false;
+    return !deckColumns.some(column=>Math.hypot(east-column.east,north-column.north)<.5);
   }
 });
 // True over the pond at Gyeonghoeru and the one round Hyangwonjeong. Nobody walks into either.

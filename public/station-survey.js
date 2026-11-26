@@ -74,9 +74,22 @@ export function registerForecourt(addObstacle){
     }
   }
   const p=forecourtPlanters;
-  addObstacle((p.minX+p.maxX)/2,(p.minY+p.maxY)/2,p.maxX-p.minX,p.maxY-p.minY);
+  const depth=(p.maxX-p.minX)/p.steps,span=p.maxY-p.minY;
+  for(let i=0;i<p.steps;i++){
+    const x=p.minX+(i+.5)*depth,bed=(stationRise+.07)*(1-(i+.35)/p.steps);
+    addObstacle(x,(p.minY+p.maxY)/2,depth,span,0,bed+.1);
+    for(const edge of [p.minY+.14,p.maxY-.14])addObstacle(x,edge,depth,.28,0,bed+.19);
+    for(const row of [.2,.5,.8]){
+      if((i+Math.round(row*10))%3===0)continue;
+      addObstacle(x,p.minY+span*row+(i%2?1.2:-1.2),.32,.32);
+    }
+  }
   addObstacle(clockTower.x,clockTower.y,1.1,1.1);
-  for(const [x,y,w,d] of [...terraceBenches,...stationBeds])addObstacle(x,y,w,d);
+  for(const [x,y,w,d] of terraceBenches)addObstacle(x,y,w,d,0,stationRise+.515);
+  for(const [x,y,w,d] of stationBeds){
+    addObstacle(x,y,w,d,0,.41);
+    addObstacle(x,y+(d>12?3.4:-3.2),.32,.32);
+  }
   addObstacle(plazaStatue.x,plazaStatue.y,2.4,2.4);addObstacle(plazaMast.x,plazaMast.y,.9,.9);addObstacle(exitPylon.x,exitPylon.y,.7,.5);
   // Ring posts of the glass rotunda over subway exit 1. The escalators pass between them.
   for(let i=0;i<16;i++){

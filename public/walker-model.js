@@ -1013,7 +1013,8 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     // Stepping onto or off a ledge eases the floor so the body does not pop.
     const vaulting=position.vaultBase!=null&&lift>0;
     const jumpingFromBeachLip=position.coast?.beachJumpY!=null&&lift>0;
-    model.floorY = !scooting && !vaulting && !jumpingFromBeachLip && wasVisible && model.floorY !== null && Math.abs(floor-model.floorY) < 1.6
+    const inFlight=lift>0&&Number.isFinite(position.jumpOriginY);
+    model.floorY = !scooting && !vaulting && !jumpingFromBeachLip && !inFlight && wasVisible && model.floorY !== null && Math.abs(floor-model.floorY) < 1.6
       ? mix(model.floorY,floor,1-Math.exp(-delta*17)) : floor;
     model.seatBlend = mix(model.seatBlend,Number(Boolean(seat)),smoothPose);
     model.groundBlend = mix(model.groundBlend,Number(Boolean(seat?.ground)),smoothPose);

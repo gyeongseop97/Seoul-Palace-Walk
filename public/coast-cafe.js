@@ -30,9 +30,15 @@ export function cafeLevel(p,previous=cafeGround){
  }
  return upper?cafeRoof:cafeGround;
 }
-export function cafeStep(from,to,previous=cafeGround){
+export function cafeRailHeight(p,level){
+ if(!(level>cafeRoof-.46)||!inCafeBounds(p))return null;
+ return blocked(cafeLocal(p),cafeRoof)?cafeRoof+.87:null;
+}
+export function cafeStep(from,to,previous=cafeGround,airFeet){
  const inside=inCafeBounds(from),target=inCafeBounds(to);
  if(!inside&&!target)return undefined;
+ if(inside&&previous>cafeRoof-.46&&Number.isFinite(airFeet)&&
+    airFeet>cafeRoof+.86&&!cafeCameraWall(to,airFeet))return true;
  if(!target)return previous<cafeGround+.55&&Math.abs(cafeLocal(from).x)<1.48&&cafeLocal(to).z>0;
  const q=cafeLocal(to),height=cafeLevel(to,previous);
  if(!inside&&(Math.abs(q.x)>1.42||q.z<-.45))return false;

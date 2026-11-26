@@ -239,10 +239,11 @@ export function addZone(zone){
   zones.push(zone);
   if(zone.connects)layeredZones.push(zone);
 }
-function layerConnects(ax,ay,bx,by){
-  if(!railStepAllowed({x:ax,y:ay},{x:bx,y:by})||outdoorRailBlocks({x:ax,y:ay},{x:bx,y:by}))return false;
+function layerConnects(ax,ay,bx,by,passage){
+  const a={x:ax,y:ay},b={x:bx,y:by};
+  if(!railStepAllowed(a,b,undefined,passage?.localFeet)||outdoorRailBlocks(a,b,passage?.localFeet))return false;
   for(const zone of layeredZones){
-    if(zone.contains(ax,ay)&&zone.contains(bx,by)&&!zone.connects({x:ax,y:ay},{x:bx,y:by}))return false;
+    if(zone.contains(ax,ay)&&zone.contains(bx,by)&&!zone.connects(a,b,passage))return false;
   }
   return true;
 }
@@ -399,20 +400,42 @@ export function loftStair(x,y){
 export function loftHeight(position){
   const stair=loftStair(position.x,position.y);
   if(stair!=null)return stair;
-  if(position.up)for(const loft of lofts)if(loft.deck(position.x,position.y))return loft.height;
+  if(position.up)for(const loft of lofts){
+    if(loft.deck(position.x,position.y))return loft.height+(loft.guardAt?.(position.x,position.y)??0);
+  }
   return 0;
 }
 // One step from a walker's place to (x,y): {up} when it stays on or joins a loft surface,
 // null when the loft blocks it, undefined when ordinary ground rules decide.
-export function loftStep(from,x,y){
+export function loftStep(from,x,y,passage){
   if(!lofts.length)return undefined;
-  if(outdoorRailBlocks(from,{x,y}))return null;
+  const feet=passage?.localFeet;
+  if(outdoorRailBlocks(from,{x,y},feet))return null;
   const stair=loftStair(x,y),onStair=loftStair(from.x,from.y);
-  if(stair==null&&onStair==null&&!from.up)return undefined;
-  const here=onStair??(from.up?loftHeight(from):platformAt(from.x,from.y));
-  if(stair!=null)return Math.abs(stair-here)<=.36?{up:false}:null;
+  if(stair==null&&onStair==null&&!from.up&&!Number.isFinite(feet))return undefined;
   const loft=lofts.find(item=>item.deck(x,y));
-  if(loft&&Math.abs(loft.height-here)<=.36)return {up:true};
+  const top=loft?loft.height+(loft.guardAt?.(x,y)??0):null;
+  if(stair==null&&onStair==null&&!from.up){
+    if(loft&&!loft.deck(from.x,from.y)){
+      if(feet>=loft.height+loft.guard)return {up:true};
+      if(feet>loft.height-1.7)return null;
+    }
+    return undefined;
+  }
+  const source=from.up?lofts.find(item=>item.deck(from.x,from.y)):null;
+  // Other layered districts use the same "up" flag. A departure there has no loft to constrain it.
+  if(from.up&&!source&&!loft&&onStair==null&&stair==null)return undefined;
+  const here=onStair??(source?source.height+(source.guardAt?.(from.x,from.y)??0):platformAt(from.x,from.y));
+  const guardTop=source?source.height+source.guard:here;
+  const perched=source?here>=guardTop:onStair!=null&&lofts.some(item=>item.onStairGuard?.(from.x,from.y));
+  const cleared=feet>=guardTop||perched;
+  if(stair!=null){
+    if(Math.abs(stair-here)<=.36||cleared&&stair<=Math.max(here,feet??here))return {up:false};
+    return null;
+  }
+  if(loft&&(Math.abs(top-here)<=.36||feet>=top||source===loft&&top<here))return {up:true};
+  // Exits over a guard keep using ordinary ground collision until the lower floor is reached.
+  if(cleared&&!loft)return undefined;
   if(from.up)return null;
   // Stepping off the foot of the stairs back onto the ground.
   return Math.abs(platformAt(x,y)-here)<=.36?undefined:null;
@@ -440,7 +463,7 @@ export function clearSegment(from,to,step=.36,feet=0,zonePassage){
   let ax=from.x,ay=from.y;
   for(let i=1;i<=count;i++){
     const x=from.x+dx*i/count,y=from.y+dy*i/count;
-    if(!walkable(x,y,feet,zonePassage)||!layerConnects(ax,ay,x,y))return false;
+    if(!walkable(x,y,feet,zonePassage)||!layerConnects(ax,ay,x,y,zonePassage))return false;
     ax=x;ay=y;
   }
   return !count||!crossesObstacle(from,to,feetLevel(feet));

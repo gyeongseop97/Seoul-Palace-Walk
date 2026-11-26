@@ -1,42 +1,10 @@
-import {cheonma,cheonmaPoint,twinSection} from "./daereungwon.js";
+import {cheonma,cheonmaPoint} from "./daereungwon.js";
 import {BoxGeometry,CylinderGeometry,MeshStandardMaterial} from "three";
 const lightStrip=new BoxGeometry(),circlet=new CylinderGeometry(.5,.5,1,28,1,true);
 const glass=new MeshStandardMaterial({color:0xbdd4d2,opacity:.095,transparent:true,depthWrite:false,roughness:.25});
 
-export function drawTwinTomb(k,m){
- const vertices=[],indices=[],sections=64,arc=36;
- for(let i=0;i<=sections;i++){
-  const z=-60*Math.cos(i*Math.PI/sections),profile=twinSection(z);
-  for(let j=0;j<=arc;j++){
-   const a=j*Math.PI/arc;
-   vertices.push([m.x+z*.043+39.8*profile*Math.cos(a),(22.5+.5*Math.tanh(z/12))*profile**1.6*Math.sin(a)**2-.055,m.z+z]);
-   if(i<sections&&j<arc){
-    const t=i*(arc+1)+j;
-    indices.push(t,t+1,t+arc+1,t+1,t+arc+2,t+arc+1);
-   }
-  }
- }
- k.face(vertices,indices,0x92ac68,"grass");
-}
-
-// Split the turf at the lintel and both door jambs so the entrance is open from either side.
 export function drawCheonma(k,glow){
- const {height:h,radius:r,yaw}=cheonma;
- const edge=Math.asin(2.08/(r*Math.sqrt(1-3.155/h))),lip=Math.acos(Math.sqrt(3.155/h));
- const angles=[-edge,edge],bands=[lip];
- for(let i=1;i<64;i++){const a=-Math.PI+i*Math.PI/32;if(Math.abs(a)>edge)angles.push(a);}
- angles.push(-Math.PI,Math.PI);angles.sort((a,b)=>a-b);
- for(let i=0;i<=20;i++)bands.push(i*Math.PI/40);
- bands.sort((a,b)=>a-b);
- const vertices=[],indices=[];
- for(let i=0;i<bands.length;i++)for(let j=0;j<angles.length;j++){
-  const t=bands[i],a=angles[j],p=cheonmaPoint(r*Math.sin(t)*Math.sin(a),r*Math.sin(t)*Math.cos(a));
-  vertices.push([p.x,h*Math.cos(t)**2-.055,p.z]);
-  if(i===bands.length-1||j===angles.length-1||t>=lip&&Math.abs((a+angles[j+1])/2)<edge)continue;
-  const n=i*angles.length+j;
-  indices.push(n,n+angles.length,n+1,n+1,n+angles.length,n+angles.length+1);
- }
- k.face(vertices,indices,0x92aa66,"grass");
+ const {yaw}=cheonma;
  const part=(a,y,b,w,h,d,color)=>{const p=cheonmaPoint(a,b);k.piece(p.x,y,p.z,w,h,d,color,yaw);};
  const sign=(text,a,y,b,w,h,bg,ink)=>{const p=cheonmaPoint(a,b);k.sign(text,p.x,y,p.z,w,h,yaw,bg,ink);};
  const beam=(a,y,b,c,yy,d,r,color)=>k.beam({...cheonmaPoint(a,b),y},{...cheonmaPoint(c,d),y:yy},r,color);

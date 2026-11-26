@@ -3,7 +3,8 @@ import {southernRoads,southernBuildings,southernWalls,southernMounds,southernPar
 import {marketRooms,marketBuilding,marketRoomAt} from "./gyeongju-market.js";
 import {gyeongjuPlantings} from "./gyeongju-planting-layout.js";
 import {tower,observatoryApproach,insideObservatory} from "./gyeongju-observatory.js";
-import {daereungwonPlaces,inCheonmaHall,cheonmaExhibit,michuStoneAt,twinTombName,twinHeight,cheonmaPoint} from "./daereungwon.js";
+import {daereungwonPlaces,inCheonmaHall,cheonmaExhibit,cheonmaRoofHeight,cheonmaLayer,cheonmaLocal,crossesGalleryWall,michuStoneAt,twinTombName,cheonmaPoint} from "./daereungwon.js";
+import {moundSurfaceHeight} from "./gyeongju-mound-surface.js";
 import {gyeongjuBikeDocks,crossesBikeRack} from "./gyeongju-bike.js";
 import {raftStops,RAFT_DOCK_WIDTH,onRaftPier} from "./gyeongju-raft-layout.js";
 import {inBulguksa,templeWalkable,templeHeight,templePaths,templeSites,stairPaths} from "./bulguksa-layout.js";
@@ -198,7 +199,8 @@ for(const r of roads)for(let i=1;i<r.points.length;i++){
  if(r.kind==="bridge"||r.kind==="footbridge"||r.kind==="bridgeApproach")index([a,b],radius,"bridges",{a,b,radius});
 }
 for(const w of walls)for(let i=1;i<w.points.length;i++){
- const a=w.points[i-1],b=w.points[i];index([a,b],.28,"walls",{a,b});
+ const a=w.points[i-1],b=w.points[i],length=dist(a,b);
+ if(length>.05)index([a,b],.36,"walls",{a,b,length,bays:Math.ceil(length/3.7),fence:w.kind==="fence"});
 }
 for(const b of buildings)if(b.kind==="building"||b.kind==="station"||b.kind==="observatory")index(b.points,.12,"solids",b.points);
 for(const {center,yaw,width} of tombGates){
@@ -219,15 +221,44 @@ for(const [z0,z1] of [[693.8,711.6],[784.4,799.5]]){
   index(ring,0,"solids",ring);
  }
 }
-for(const m of mounds)index([m],m.name===twinTombName?60:Math.max(m.rx,m.rz),"mounds",{...m,c:Math.cos(m.yaw),s:Math.sin(m.yaw)});
+for(const m of mounds)index([m],m.name===twinTombName?60:Math.max(m.rx,m.rz),"mounds",m);
 const plantings=gyeongjuPlantings(parks,roads,places.stationExit,mounds);
-export function gyeongjuWalkable(p){
+function cityCell(p){return cells.get(key(Math.floor(p.x/cellSize),Math.floor(p.z/cellSize)));}
+export function gyeongjuWallTop(p){
+ let height=0;
+ for(const wall of cityCell(p)?.walls??[]){
+  const {a,b,length,bays,fence}=wall;
+  const dx=b.x-a.x,dz=b.z-a.z,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.z-a.z)*dz)/(length*length)));
+  if((p.x-a.x-t*dx)**2+(p.z-a.z-t*dz)**2>=.27**2)continue;
+  const post=Math.abs(t*bays%1-.5)*length/bays<.10;
+  height=Math.max(height,fence?(post?1.32:1.075):1.49);
+ }
+ return height;
+}
+export function gyeongjuMoundHeight(p,upper=false){
+ const list=cityCell(p)?.mounds;
+ if(!list?.length||!upper&&inCheonmaHall(p))return 0;
+ let top=0;
+ for(const m of list){
+  if(m.name==="천마총")top=Math.max(top,cheonmaRoofHeight(p));
+  top=Math.max(top,moundSurfaceHeight(m,p));
+ }
+ return top;
+}
+export function gyeongjuWalkable(p,from,feet){
  if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.z))return false;
- if(inBulguksa(p))return templeWalkable(p);
+ if(inBulguksa(p))return templeWalkable(p,feet,from);
  if(insideObservatory(p))return true;
- if(inCheonmaHall(p))return !cheonmaExhibit(p);
+ if(from&&!from.up&&inCheonmaHall(from)&&crossesGalleryWall(from,p))return false;
+ if(inCheonmaHall(p)){
+  if(!(from?cheonmaLayer(from,p):p.up))return !cheonmaExhibit(p);
+ }
  if(michuStoneAt(p))return false;
- const cell=cells.get(key(Math.floor(p.x/cellSize),Math.floor(p.z/cellSize)));
+ const cell=cityCell(p);
+ if(from&&cell?.mounds.some(m=>m.name==="천마총")&&cheonmaRoofHeight(p)>0){
+  const roof=cheonmaRoofHeight(p),before=gyeongjuMoundHeight(from,from.up);
+  if(roof>(feet??before)+.36)return false;
+ }
  if(plantings.blocked(p))return false;
  if(!cell)return openGround(p);
  if(cell.water.some(ring=>inside(p,ring))&&!onRaftPier(p)&&!cell.bridges.some(({a,b,radius})=>distanceTo(p,a,b)<=radius))return false;
@@ -235,14 +266,11 @@ export function gyeongjuWalkable(p){
  if(shop?.fit.blocked(p))return false;
  const onLane=segments=>segments.some(({a,b,radius})=>distanceTo(p,a,b)<=radius);
  if(!shop&&!onLane(cell.surfaces)){
-  if(onLane(cell.traffic)||!openGround(p)&&!cell.lawns.some(poly=>inside(p,poly)))return false;
+  if((onLane(cell.traffic)||!openGround(p)&&!cell.lawns.some(poly=>inside(p,poly)))&&gyeongjuMoundHeight(p,true)<=0)return false;
  }
- if(cell.walls.some(({a,b})=>distanceTo(p,a,b)<.27)||cell.solids.some(poly=>inside(p,poly)))return false;
- for(const m of cell.mounds){
-  if(m.name===twinTombName){if(twinHeight(m,p)>.14)return false;continue;}
-  const dx=p.x-m.x,dz=p.z-m.z;
-  if(((m.c*dx-m.s*dz)/m.rx)**2+((m.s*dx+m.c*dz)/m.rz)**2<.98)return false;
- }
+ const wall=cell.walls.length?gyeongjuWallTop(p):0;
+ if(wall&&(feet??Math.max(gyeongjuMoundHeight(p,true),from?gyeongjuWallTop(from):0))<wall-.015)return false;
+ if(cell.solids.some(poly=>inside(p,poly)))return false;
  return true;
 }
 export function gyeongjuClear(a,b){
@@ -258,7 +286,12 @@ export function gyeongjuClear(a,b){
   return true;
  }
  const n=Math.ceil(dist(a,b)/.48);
- for(let i=1;i<n;i++)if(!gyeongjuWalkable(mix(a,b,i/n)))return false;
+ let prev=a;
+ for(let i=1;i<=n;i++){
+  const next=i===n?b:mix(a,b,i/n);
+  if(!gyeongjuWalkable(next)||crossesGalleryWall(prev,next))return false;
+  prev=next;
+ }
  return true;
 }
 
@@ -318,6 +351,18 @@ function walkingNetwork(temple){
 }
 export function gyeongjuRoute(from,to){
  if(!from||!to)return [];
+ if(from.up&&inCheonmaHall(from)){
+  // A map route beginning above the gallery must first leave on the grass.
+  // The survey paths below it can then be reached through their actual entrance.
+  const {a,b}=cheonmaLocal(from),side=Math.sign(a)||1;
+  const exits=[cheonmaPoint(side*6.2,b),cheonmaPoint(-side*6.2,b),cheonmaPoint(a,6.6)];
+  for(const exit of exits){
+   if(!roofExitClear(from,exit))continue;
+   const rest=walkingRoute(exit,to);
+   if(rest.length)return [exit,...rest];
+  }
+  return [];
+ }
  const observatory=p=>dist(p,places.stars)<32,bridge=p=>dist(p,places.woljeongNorth)<6||
   dist(p,places.woljeong)<6||dist(p,places.woljeongSouth)<6;
  // The visitor route continues through the forest fork before rejoining the lane to Gyochon.
@@ -326,6 +371,19 @@ export function gyeongjuRoute(from,to){
   if(first.length&&second.length)return first.concat(second);
  }
  return walkingRoute(from,to);
+}
+function roofExitClear(start,end){
+ const n=Math.ceil(dist(start,end)/.30);
+ let p=start,height=gyeongjuMoundHeight(p,true);
+ for(let i=1;i<=n;i++){
+  const q=mix(start,end,i/n);
+  if(!gyeongjuWalkable(q,p))return false;
+  q.up=cheonmaLayer(p,q);
+  const next=gyeongjuMoundHeight(q,q.up);
+  if(Math.abs(next-height)>.36)return false;
+  p=q;height=next;
+ }
+ return true;
 }
 // A distant lawn or the grass behind a wall corner may have no direct sightline to a
 // connected path. Only then search the local ground, checking every step for collisions.

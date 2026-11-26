@@ -46,17 +46,22 @@ export function inPark(p){
  if(Math.abs(p.x-hill.x)<130&&Math.abs(p.z-hill.z)<80)return true;
  return parkRoad.some((q,i)=>i&&projected(p,parkRoad[i-1],q).d<8);
 }
-export function parkStep(p,previous){
+export function parkStep(p,previous,airFeet){
  if(Math.abs(p.x-hill.x)>32||Math.abs(p.z-hill.z)>32)return null;
  const base=hillFloor(p),at=Number.isFinite(previous)?previous:base;
- for(const d of landings){
-  if(Math.abs(at-d.h)<=.57&&Math.abs(p.x-d.x)<=d.halfX+.001&&Math.abs(p.z-d.z)<=d.halfZ+.001)return d.h;
- }
+ const airborne=Number.isFinite(airFeet);
  let best=null,min=Infinity;
+ for(const d of landings){
+  if(Math.abs(p.x-d.x)>d.halfX+.001||Math.abs(p.z-d.z)>d.halfZ+.001)continue;
+  if(!airborne&&Math.abs(at-d.h)<=.57)return d.h;
+  if(airborne&&d.h<=airFeet+.03)best=Math.max(best??-Infinity,d.h);
+ }
  for(const line of tracks)for(let i=1;i<line.length;i++){
   const a=line[i-1],b=line[i];if(Math.abs(p.x-a.x)>2.5||Math.abs(p.z-a.z)>2.5)continue;
   const q=projected(p,a,b),h=a.h+(b.h-a.h)*q.t;
-  if(q.d>stairHalfWidth||Math.abs(h-at)>.57)continue;
+  if(q.d>stairHalfWidth)continue;
+  if(airborne){if(h<=airFeet+.03)best=Math.max(best??-Infinity,h);continue;}
+  if(Math.abs(h-at)>.57)continue;
   const cost=q.d+Math.abs(h-at)*.45;if(cost<min){min=cost;best=h;}
  }
  return best;

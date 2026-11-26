@@ -2,14 +2,32 @@
 export const twinTombName="대릉원 황남대총";
 export const cheonma={x:-135.1,z:-286.9,radius:27,height:12.7,yaw:-.145};
 const sin=Math.sin(cheonma.yaw),cos=Math.cos(cheonma.yaw);
+const doorFront=28.42;
 export const cheonmaPoint=(across,along)=>({x:cheonma.x+cos*across+sin*along,z:cheonma.z-sin*across+cos*along});
 export function cheonmaLocal(p){
  const dx=p.x-cheonma.x,dz=p.z-cheonma.z;
  return {a:cos*dx-sin*dz,b:sin*dx+cos*dz};
 }
 export function inCheonmaHall(p){
+ if(Math.abs(p.x-cheonma.x)>12||p.z<cheonma.z+5||p.z>cheonma.z+30)return false;
  const {a,b}=cheonmaLocal(p);
- return b>=7.3&&b<=28.3&&(Math.abs(a)<1.82||b<=17.65&&Math.abs(a)<5.52);
+ return b>=7.3&&b<=doorFront&&(Math.abs(a)<1.82||b<=17.65&&Math.abs(a)<5.52);
+}
+export function cheonmaRoofHeight(p){
+ const {a,b}=cheonmaLocal(p),w=Math.abs(a);
+ if(w<=2.96&&Math.abs(b-27.55)<=.80)return 3.39;
+ if(w<=2.225&&Math.abs(b-22.8)<=4.875)return 3.37;
+ if(w<=5.845&&Math.abs(b-12.4)<=5.6)return 3.47;
+ return 0;
+}
+export function cheonmaLayer(from,to){
+ if(!inCheonmaHall(to))return false;
+ if(inCheonmaHall(from))return Boolean(from.up);
+ return cheonmaLocal(from).b<doorFront;
+}
+export function crossesGalleryWall(from,to){
+ if(inCheonmaHall(from)===inCheonmaHall(to))return false;
+ return cheonmaLocal(inCheonmaHall(from)?to:from).b<doorFront;
 }
 export function cheonmaExhibit(p){
  const {a,b}=cheonmaLocal(p);

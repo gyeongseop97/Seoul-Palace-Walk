@@ -51,9 +51,30 @@ export function stairStepHeight(f,v){
 }
 export function templeHeight(p){
  const axes=templeAxes(p),{u,v}=axes,f=stairAt(u,v);
- if(f)return stairStepHeight(f,v);
+ if(f)return stairRail(f,u,v)||stairStepHeight(f,v);
+ const coping=courtCoping(u,v);
+ if(coping)return coping;
  const terrace=hallTerraceAt(axes);
  return groundHeightAt(u,v)+(terrace?.height??0);
+}
+// The capstones extend past the cut earth. Keep supporting a walker until the
+// outer lip, so a jump begins at the same height from which the player sees it.
+function courtCoping(u,v){
+ if(v<20.415||v>22.185)return 0;
+ if(u>=-69&&u<=-50||u>=-43&&u<=-5||u>=4&&u<=27)return groundHeightAt(u,20)+.155;
+ return 0;
+}
+function stairRail(f,u,v){
+ if(Math.abs(u-f.u)<f.width/2-.21)return 0;
+ const t=clamp((v-f.north)/(f.south-f.north)),bays=f.upper?1:2;
+ const nearest=Math.round(t*bays*2)/(bays*2),post=Math.abs(t-nearest)*(f.south-f.north)<.23;
+ return f.top+(f.bottom-f.top)*t+(post?1.16:.865);
+}
+function narrowSupport(p){
+ const a=templeAxes(p),{u,v}=a,f=stairAt(u,v);
+ if(f)return stairRail(f,u,v);
+ const terrace=hallTerraceAt(a);
+ return terrace?.edge?groundHeightAt(u,v)+terrace.height:courtCoping(u,v);
 }
 function contains(p,line){
  let hit=false;
@@ -76,9 +97,11 @@ function pagodaBase(p,t){
  const x=p.x-t.x,z=p.z-t.z,u=x*c-z*s,v=x*s+z*c;
  return t.footprints.some(([left,right,top,bottom])=>u>=left-.12&&u<=right+.12&&v>=top-.12&&v<=bottom+.12);
 }
-export function templeSolid(p){
+export function templeSolid(p,feet){
  const axes=templeAxes(p);
- return templeScreenAt(axes)||hallTerraceAt(axes)?.solid||buildings.some(b=>b.id!==244539247&&b.id!==244539240&&inFootprint(p,b))||templePagodas.some(t=>pagodaBase(p,t));
+ const terrace=hallTerraceAt(axes);
+ return templeScreenAt(axes)||terrace?.solid&&!(terrace.edge&&feet>=groundHeightAt(axes.u,axes.v)+terrace.height-.015)||
+  buildings.some(b=>b.id!==244539247&&b.id!==244539240&&inFootprint(p,b))||templePagodas.some(t=>pagodaBase(p,t));
 }
 export function templeCameraBlocked(p,y){
  const h=y-templeHeight(p);
@@ -131,13 +154,18 @@ export function templePlantings(){
  plantings={trees,trunks};
  return plantings;
 }
-export function templeWalkable(p){
+export function templeWalkable(p,feet,from){
  const {u,v}=templeAxes(p);
  if(!insideTempleGround(p))return false;
- if(templeSolid(p)||templePonds.some(r=>contains(p,r)))return false;
+ const clearance=feet??(from?narrowSupport(from):0);
+ if(templeSolid(p,clearance)||templePonds.some(r=>contains(p,r)))return false;
  const f=stairAt(u,v);
- if(f)return Math.abs(u-f.u)<f.width/2-.21;
- if(v>20.55&&v<21.55&&u> -67.7&&u<30.7)return false;
+ if(f){
+  const top=stairRail(f,u,v);
+  return !top||clearance>=top-.015;
+ }
+ const coping=courtCoping(u,v);
+ if(coping&&clearance<coping-.015)return false;
  return !(templePlantings().trunks.get(key(Math.floor(p.x/12),Math.floor(p.z/12)))??[]).some(t=>Math.hypot(p.x-t.x,p.z-t.z)<t.height*.045+.14);
 }
 const source="https://www.heritage.go.kr/heri/html/HtmlPage.do?pageNo=5_4_2_1&pg=%2Funesco%2FHeritage%2FHeritage_01.jsp";

@@ -29,7 +29,7 @@ export function hallTerraceAt({u,v}){
   if(Math.abs(x)>halfW+.11||Math.abs(z)>halfD+.11)continue;
   const wall=Math.abs(x)<b.bodyW/2+.16&&Math.abs(z)<b.bodyD/2+.16;
   const edge=Math.abs(x)>halfW-.10||Math.abs(z)>halfD-.10;
-  return {id:b.id,solid:wall||edge,height:b.plinth};
+  return {id:b.id,solid:wall||edge,edge:edge&&!wall,height:b.plinth};
  }
  return null;
 }

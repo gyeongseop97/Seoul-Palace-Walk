@@ -225,15 +225,34 @@ const onLower=lowerWalks.map(polygonTest),onUpper=upperWalks.map(polygonTest),on
 const onBanks=[walkersNorth,walkersSouth].map(polygonTest);
 const onStones=cheonggyeSteppingRows.map(({outline})=>polygonTest(outline));
 const underDeck=decks.map(({footprint})=>polygonTest(footprint));
+function bridgeSurface(x,y){
+  const index=underDeck.findIndex(contains=>contains(x,y));
+  if(index<0)return null;
+  const bridge=decks[index],t=(y-bridge.north)/(bridge.south-bridge.north);
+  const side=Math.abs(x-bridge.x-t*bridge.skew);
+  if(side>bridge.width/2-.16&&y>=bankAt(x,-1,.5).y&&y<=bankAt(x,1,.5).y)
+    return bridge.style==="stone"?1.09:1.02;
+  return .12;
+}
 const nearDeck=decks.map(({x,north,south,width,skew})=>
   polygonTest(ribbon([point(x,north-1.8),point(x+skew,south+1.8)],width+5.1)));
 export function inCheonggye(x,y){
   const {minX,maxX,minY,maxY}=cheonggyeBounds;
   return x>=minX&&x<=maxX&&y>=minY&&y<=maxY;
 }
-export function cheonggyeWalkable(x,y){
+// Follow the actual bank wall between the upper and lower footpath margins.
+function bankLipLevel(x,y){
+  if(x<walkFrom||x>cheonggyeStations.at(-1))return null;
+  const [centre,north,south]=riverAt(x),offset=y-centre;
+  const inset=Math.abs(offset)-(offset<0?north:south);
+  if(inset<-.43||inset>railReach+.01)return null;
+  if(Math.abs(inset-railGap)<.08)return .95;
+  return inset>=railGap?.04:-depth;
+}
+export function cheonggyeWalkable(x,y,passage){
   return inCheonggye(x,y)&&(onAccess.some(contains=>contains(x,y))||onLower.some(contains=>contains(x,y))||
-    !atWaterfallOpening(x,y)&&(onUpper.some(contains=>contains(x,y))||onRoad.some(contains=>contains(x,y))));
+    !atWaterfallOpening(x,y)&&(onUpper.some(contains=>contains(x,y))||onRoad.some(contains=>contains(x,y)))||
+    bankLipLevel(x,y)!=null||passage?.localFeet>=.12&&underDeck.some(contains=>contains(x,y)));
 }
 export const cheonggyeRailOpening=(x,y)=>onAccess.some(contains=>contains(x,y));
 
@@ -250,7 +269,10 @@ function accessProgress({points,width},x,y){
 }
 export function cheonggyeLevel({x,y,up}){
   if(!inCheonggye(x,y))return null;
-  if(up&&onDeck.some(contains=>contains(x,y)))return .12;
+  if(up){
+    const deck=bridgeSurface(x,y);
+    if(deck!=null)return deck;
+  }
   const access=onAccess.findIndex(contains=>contains(x,y));
   if(access!==-1){
     const route=cheonggyeAccess[access];
@@ -273,6 +295,8 @@ export function cheonggyeLevel({x,y,up}){
   }
   if(atWaterfallOpening(x,y))return null;
   if(onUpper.some(contains=>contains(x,y)))return .04;
+  const lip=bankLipLevel(x,y);
+  if(lip!=null)return lip;
   return onRoad.some(contains=>contains(x,y))?.012:null;
 }
 // Height relative to street grade, for the camera when a player is on the lower path.
@@ -305,14 +329,18 @@ export function cheonggyeCameraWall(x,y,height){
   return cheonggyeRailOpening(x,y)&&height<cheonggyeLevel({x,y})+.3;
 }
 export const cheonggyeBedLevel=-depth;
-export function cheonggyeDeckStep(from,x,y){
+export function cheonggyeDeckStep(from,x,y,passage){
   if(!inCheonggye(x,y)&&!inCheonggye(from.x,from.y))return undefined;
   const bridge=onDeck.some(contains=>contains(x,y));
-  const onBridge=from.up&&onDeck.some(contains=>contains(from.x,from.y));
+  const onBridge=from.up&&underDeck.some(contains=>contains(from.x,from.y));
   if(onBridge){
-    if(bridge)return {up:true};
-    return onUpper.some(contains=>contains(x,y))?{up:false}:null;
+    const top=bridgeSurface(x,y),here=bridgeSurface(from.x,from.y);
+    if(top!=null)return top<=here+.19||passage?.localFeet>=top?{up:true}:null;
+    if(onUpper.some(contains=>contains(x,y)))return {up:false};
+    if(here>.9||passage?.localFeet>=1.09)return undefined;
+    return null;
   }
+  if(passage?.localFeet>=1.09&&underDeck.some(contains=>contains(x,y)))return {up:true};
   if(bridge&&(cheonggyeLevel(from)??0)>-.28&&(cheonggyeLevel({x,y})??0)<.2)return {up:true};
   return undefined;
 }
@@ -324,9 +352,9 @@ export function cheonggyeDeckExits({x,y,up}){
   const length=Math.hypot(a.x-b.x,a.y-b.y),ux=(b.x-a.x)/length,uy=(b.y-a.y)/length;
   return [point(a.x-ux*.62,a.y-uy*.62),point(b.x+ux*.62,b.y+uy*.62)];
 }
-export function cheonggyeConnection(from,to){
+export function cheonggyeConnection(from,to,passage){
   const a=cheonggyeLevel(from),b=cheonggyeLevel(to);
-  return a==null||b==null||Math.abs(a-b)<=.36;
+  return a==null||b==null||Math.abs(a-b)<=.36||a===.95&&b<a||passage?.localFeet>=Math.max(.95,a,b);
 }
 
 const place=(name,x,y,description)=>({name,x,y,description});

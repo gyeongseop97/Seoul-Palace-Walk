@@ -1,5 +1,5 @@
 import * as T from "three";
-import {roads,buildings,mounds,parks,walls,places,woljeongBridge,stationSquare,stationBusBay,transferShelterYaw,tombGates,gyeongjuWalkable} from "./gyeongju-layout.js";
+import {roads,buildings,mounds,parks,walls,places,woljeongBridge,stationSquare,stationBusBay,transferShelterYaw,tombGates,gyeongjuWalkable,gyeongjuMoundHeight,gyeongjuWallTop} from "./gyeongju-layout.js";
 import {drawWoljeongSteps,woljeongFooting} from "./woljeong-model.js";
 import {createRaftScene,drawRaftPiers} from "./gyeongju-raft-model.js";
 import {RAFT_DECK_HEIGHT,raftHeave,raftPierHeight} from "./gyeongju-raft-layout.js";
@@ -18,8 +18,9 @@ import {drawBuilding,illuminatedRoofMaterial} from "./gyeongju-architecture.js";
 import {magnolia,stationHall,busShelter,stoneGate} from "./gyeongju-landmarks.js";
 import {createCheomseongdae} from "./cheomseongdae-survey.js";
 import {buildCoastActionMarker} from "./coast-action-marker.js";
-import {twinTombName,twinHeight,inCheonmaHall,cheonmaLocal} from "./daereungwon.js";
-import {drawTwinTomb,drawCheonma,drawMichu} from "./daereungwon-model.js";
+import {twinTombName,inCheonmaHall} from "./daereungwon.js";
+import {moundMesh} from "./gyeongju-mound-surface.js";
+import {drawCheonma,drawMichu} from "./daereungwon-model.js";
 import {inBulguksa,templeOrigin,templeHeight,templeCameraBlocked} from "./bulguksa-layout.js";
 import {buildBulguksa,createBulguksaPagodas} from "./bulguksa-model.js";
 import {nearbyConstruction} from "./gyeongju-construction.js";
@@ -100,16 +101,9 @@ function drawRoad(k,r){
  }
 }
 function grassyMound(k,m,index){
- const vertices=[],ix=[],rings=12,sides=52,c=Math.cos(m.yaw),s=Math.sin(m.yaw);
- for(let j=0;j<=rings;j++){
-  const a=(j/rings)*Math.PI/2,rad=Math.sin(a),h=m.height*Math.cos(a)**2;
-  for(let i=0;i<=sides;i++){
-   const theta=i/sides*Math.PI*2,dx=rad*m.rx*Math.cos(theta),dz=rad*m.rz*Math.sin(theta);
-   vertices.push([m.x+c*dx+s*dz,h-.065,m.z-s*dx+c*dz]);
-   if(i<sides&&j<rings){const t=j*(sides+1)+i;ix.push(t,t+1,t+sides+1,t+1,t+sides+2,t+sides+1);}
-  }
- }
- k.face(vertices,ix,[0x8eac63,0x97ad69,0x9db272,0x9ab069][index%4],"grass");
+ const {vertices,indices}=moundMesh(m);
+ const color=m.name===twinTombName?0x92ac68:m.name==="천마총"?0x92aa66:[0x8eac63,0x97ad69,0x9db272,0x9ab069][index%4];
+ k.face(vertices,indices,color,"grass");
 }
 function drawWall(k,wall){
  for(let i=1;i<wall.points.length;i++){
@@ -251,9 +245,8 @@ function* buildDistrict(root,eye,isStation,kit,glowMat,bulb,waterMaterials,bridg
    add(p.points[0],()=>k.polygon(p.points,-.045,p.kind==="wood"?0x879858:0x9cb16d,"grass"));
   }
   mounds.forEach((m,i)=>add(m,()=>{
-   if(m.name===twinTombName)drawTwinTomb(k,m);
-   else if(m.name==="천마총")drawCheonma(k,glowMat);
-   else grassyMound(k,m,i);
+   grassyMound(k,m,i);
+   if(m.name==="천마총")drawCheonma(k,glowMat);
   }));
   add(places.michu,()=>drawMichu(k));
   for(const wall of walls)add(wall.points[0],()=>drawWall(k,wall));
@@ -349,28 +342,17 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
    if(isRaftBus(world.bus?.index))return RAFT_DECK_HEIGHT+raftLift;
    const p={x:world.x-origin.x,z:world.y-origin.y};
    if(inBulguksa(p))return templeHeight(p);
-   return insideObservatory(p)?tower.landing:raftPierHeight(p)||footbridge.surface(p);
+   return insideObservatory(p)?tower.landing:raftPierHeight(p)||footbridge.surface(p)||Math.max(gyeongjuMoundHeight(p,world.up),gyeongjuWallTop(p));
   },cameraBlocked(world,y){
    const local={x:world.x-origin.x,z:world.y-origin.y};
    if(inBulguksa(local))return templeCameraBlocked(local,y);
-   if(inCheonmaHall(local))return y>3.05;
+   const turf=gyeongjuMoundHeight(local,true);
+   if(inCheonmaHall(local))return y>3.05&&y<turf+.08;
+   if(y<turf)return true;
    if(observatoryCameraBlocked(local,y)||footbridge.cameraBlocked(local,y))return true;
    if(y<.04||y>7)return false;
    const p=local;
    if(marketCameraBlocked(p,y))return true;
-   if(!stationSide(p.x)){
-    for(const m of mounds){
-     if(m.name===twinTombName){if(y<twinHeight(m,p))return true;continue;}
-     if(m.name==="천마총"){
-      const {a,b}=cheonmaLocal(p);
-      if(Math.abs(a)<2.7&&b>25&&b<28.5&&y>2.46)return true;
-     }
-     const dx=p.x-m.x,dz=p.z-m.z,r=Math.max(m.rx,m.rz);
-     if(Math.abs(dx)>r||Math.abs(dz)>r)continue;
-     const c=Math.cos(m.yaw),s=Math.sin(m.yaw),v=((c*dx-s*dz)/m.rx)**2+((s*dx+c*dz)/m.rz)**2;
-     if(v<1&&y<m.height*(1-v))return true;
-    }
-   }
    return y<4.2&&insideSolid(p);
   },update(state,night,camera,raft,rowing){
    const isStation=stationSide(camera.position.x),isTemple=inBulguksa(camera.position),changed=ensure(isStation,isTemple,camera);

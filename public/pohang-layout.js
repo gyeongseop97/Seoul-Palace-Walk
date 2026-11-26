@@ -80,12 +80,12 @@ export function showAge(now,started){
  const age=(now-started)/1000;
  return started>0&&age>=0&&age<festivalDuration?age:-1;
 }
-export function inBounds(p,allowBeachLip=false){
+export function inBounds(p,allowBeachLip=false,feet){
  if(studioFloor(p)!=null)return true;
  if(!allowBeachLip&&atBeachWall(p))return false;
  if(tavernTerrace(p)||onRetailApron(p))return true;
  if(p.z>=-937&&p.z<=300&&p.x>=promenade(p.z)-42&&p.x<shore(p.z)+530)return true;
- const access=stationAccess(p);if(access!==null)return access;
+ const access=stationAccess(p,feet);if(access!==null)return access;
  return distance(p,station)<45||onSideStreet(p)||route.some((b,i)=>i&&segmentDistance(p,route[i-1],b)<19);
 }
 export const limits={minX:-5300,maxX:1850,minZ:-3400,maxZ:1550};

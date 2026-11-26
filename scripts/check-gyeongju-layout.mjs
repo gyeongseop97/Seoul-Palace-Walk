@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
-import {cafeLayout,gyeongjuClear,gyeongjuRoute,gyeongjuWalkable,mounds,places,roads,tombGates,transferShelterYaw} from "../public/gyeongju-layout.js";
+import {cafeLayout,gyeongjuClear,gyeongjuMoundHeight,gyeongjuRoute,gyeongjuWalkable,gyeongjuWallTop,mounds,places,roads,tombGates,transferShelterYaw,walls} from "../public/gyeongju-layout.js";
 import {cafeFittings} from "../public/gyeongju-cafe.js";
 import {destinations,travelDistricts,travelStops,transferStop,sameGyeongjuArea} from "../public/gyeongju-region.js";
 import {inBulguksa,templeAxis,templeCameraBlocked,templeHeight,templePoint,templeSites,stairPaths,stoneStairs,templePlantings,templePaths,templePagodas,templePonds} from "../public/bulguksa-layout.js";
 import {drapePath,groundHeightAt} from "../public/bulguksa-ground.js";
 import {templeHallTerraces} from "../public/bulguksa-hall-layout.js";
 import {localGyeongju} from "../public/region-coordinates.js";
-import {cheonmaPoint,twinHeight,twinTombName} from "../public/daereungwon.js";
+import {cheonmaLayer,cheonmaPoint,twinHeight,twinTombName} from "../public/daereungwon.js";
+import {moundMesh,moundSurfaceHeight} from "../public/gyeongju-mound-surface.js";
 
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 function walk(from,to){
@@ -137,8 +138,51 @@ assert.ok(!gyeongjuWalkable(room.point(cafeLayout.width/2,0)));
 assert.ok(!gyeongjuWalkable(room.point(room.counter.x,room.counter.z)));
 assert.ok(gyeongjuWalkable(places.cheomseongdae),"enterable upper chamber");
 assert.ok(!gyeongjuWalkable({x:places.cheomseongdae.x+1.8,z:places.cheomseongdae.z}),"observatory masonry");
-for(const mound of mounds)assert.ok(!gyeongjuWalkable(mound));
-assert.ok(!gyeongjuClear(places.northGate,places.photo));
+for(const mound of mounds){
+ assert.ok(gyeongjuWalkable(mound),"봉분 꼭대기 "+JSON.stringify(mound));
+ const {vertices,indices}=moundMesh(mound);
+ for(let i=9;i+2<indices.length;i+=123){
+  const tri=indices.slice(i,i+3).map(j=>vertices[j]),mean=axis=>tri.reduce((sum,q)=>sum+q[axis]/3,0);
+  const h=moundSurfaceHeight(mound,{x:mean(0),z:mean(2)});
+  assert(Math.abs(h-Math.max(0,mean(1)))<1e-5,"mound footing follows the rendered triangle");
+ }
+}
+for(const name of ["검총","미추왕릉",twinTombName,"천마총","내물왕릉"]){
+ const m=mounds.find(m=>m.name===name);
+ walk(places.photo,m);walk(m,places.photo);
+ assert(gyeongjuMoundHeight(m)>3);
+}
+assert(gyeongjuClear(places.northGate,places.photo),"봉분을 넘어 걸을 수 있는 대릉원 산책로");
+const gallery=cheonmaPoint(1.5,12.8),turf=cheonmaPoint(6.2,12.8);
+assert.equal(gyeongjuMoundHeight(gallery),0,"천마총 전시실 바닥");
+assert(gyeongjuMoundHeight(gallery,true)>9,"전시실 바로 위에는 걸을 수 있는 봉분");
+assert(!gyeongjuClear(gallery,turf)&&!gyeongjuWalkable(turf,gallery),"walkers in the exhibit cannot pass through its side wall");
+assert(cheonmaLayer(turf,gallery)&&gyeongjuWalkable(gallery,turf),"walkers coming over the turf remain above the exhibit");
+assert(!cheonmaLayer(places.cheonmaDoor,cheonmaPoint(0,28.1)),"the south entrance still leads into the exhibit");
+assert(gyeongjuRoute({...gallery,up:true},places.cheonmaGallery).length,"map route leaves the turf and re-enters the gallery through its doorway");
+const rim=templeAxis(-5,-17.24+17.05/2+.02);
+assert(!gyeongjuWalkable(rim)&&gyeongjuWalkable(rim,null,6.20),"jump over the edge of Daeungjeon's raised deck");
+const retaining=templeAxis(-35,21.3),cap=templeHeight(retaining);
+assert(!gyeongjuWalkable(retaining,null,1)&&gyeongjuWalkable(retaining,null,cap+.01),"the retaining wall only clears from above its coping");
+for(const f of stoneStairs){
+ const v=f.north+(f.south-f.north)*.31;
+ const deck=templeAxis(f.u+f.width/2-.4,v),rail=templeAxis(f.u+f.width/2+.16,v);
+ const top=templeHeight(rail);
+ assert(top-templeHeight(deck)>.64&&gyeongjuWalkable(rail,deck,top)&&!gyeongjuWalkable(rail,deck));
+ assert(gyeongjuWalkable(rail,rail)&&gyeongjuWalkable(deck,rail),"a walker landing on the railing can leave it");
+}
+for(const kind of ["fence","stone"]){
+ const examples=walls.filter(w=>w.kind===kind).flatMap(w=>w.points.slice(1).map((b,i)=>{
+  const a=w.points[i],dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);
+  const p={x:a.x+dx*.37,z:a.z+dz*.37};
+  return [p,{x:p.x+dz/len*.8,z:p.z-dx/len*.8},{x:p.x-dz/len*.8,z:p.z+dx/len*.8}];
+ }));
+ assert(examples.some(([top,a,b])=>{
+  const h=gyeongjuWallTop(top);
+  return h>1&&gyeongjuWalkable(a)&&gyeongjuWalkable(b)&&!gyeongjuWalkable(top,a)&&
+   !gyeongjuWalkable(top,a,h-.1)&&gyeongjuWalkable(top,a,h)&&gyeongjuWalkable(top,top)&&gyeongjuWalkable(b,top);
+ }),kind+" can be cleared, stood on and left");
+}
 const street=roads.find(r=>r.kind==="street"&&r.name==="포석로"&&r.width===4);
 assert.ok(street,"one-way section of Hwangnidan-gil");
 assert.ok(gyeongjuWalkable({x:-190.2,z:-361.1}),"the Hwangnidan road itself is walkable");

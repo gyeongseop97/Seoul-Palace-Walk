@@ -33,10 +33,10 @@ for(const b of blocks)for(let x=Math.floor(b.minX/80);x<=Math.floor(b.maxX/80);x
  for(let z=Math.floor(b.minZ/80);z<=Math.floor(b.maxZ/80);z++){
   const cell=x+","+z;if(!blocksByCell.has(cell))blocksByCell.set(cell,[]);blocksByCell.get(cell).push(b);
  }
-export function coastObstacle(p,height){
+export function coastObstacle(p,height,stationFeet=height){
  if(height<4.55&&amenityObstacle(p))return true;
  if(cafeCameraWall(p,height)||tavernObstacle(p,height))return true;
- if(stationObstacle(p,height)||pavilionObstacle(p,height))return true;
+ if(stationObstacle(p,stationFeet)||pavilionObstacle(p,height))return true;
  const nearby=blocksByCell.get(Math.floor(p.x/80)+","+Math.floor(p.z/80));
  for(const b of nearby??[]){
   if(height>b.height+1.85)continue;
@@ -51,13 +51,13 @@ export function coastObstacle(p,height){
  }
  return false;
 }
-function walkableSurface(p,allowBeachLip=false){
+function walkableSurface(p,allowBeachLip=false,airFeet){
  if(inCafeBounds(p)||onCafeApron(p))return true;
  if(inPark(p))return true;
- if(!inBounds(p,allowBeachLip))return false;
- return onDock(p)||onPier(p)||!coastObstacle(p,2.1);
+ if(!inBounds(p,allowBeachLip,airFeet))return false;
+ return onDock(p)||onPier(p)||!coastObstacle(p,2.1,airFeet);
 }
-export const coastWalkable=(x,y,allowBeachLip=false)=>walkableSurface(seaPoint({x,y}),allowBeachLip);
+export const coastWalkable=(x,y,passage=false)=>walkableSurface(seaPoint({x,y}),passage===true||passage?.beachLip===true,passage?.airFeet);
 const dry=p=>Number.isFinite(p.x)&&Number.isFinite(p.z)&&(p.x<=shore(p.z)||onHeadland(p)||onDock(p)||onPier(p))&&walkableSurface(p);
 export const coastDrySpot=(x,y)=>dry(seaPoint({x,y}));
 function dryStep(a,b,level){

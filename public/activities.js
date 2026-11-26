@@ -5,26 +5,39 @@ export const JUMP_MS=740;
 export const BEACH_JUMP_MS=JUMP_MS*1.5;
 export const JUMP_HEIGHT=.88;
 export const WOLDAE_VAULT_HEIGHT=1.80;
-export const jumpDuration=avatar=>avatar.vaultBase==null?JUMP_MS:1150;
+export const LAND_JUMP_MS=950;
+export const LAND_JUMP_HEIGHT=1.45;
+export const jumpDuration=avatar=>avatar.vaultBase!=null?1150:Number.isFinite(avatar.jumpOriginY)?LAND_JUMP_MS:JUMP_MS;
+const jumpHeight=avatar=>avatar.vaultBase!=null?WOLDAE_VAULT_HEIGHT:Number.isFinite(avatar.jumpOriginY)?LAND_JUMP_HEIGHT:JUMP_HEIGHT;
+function verticalArc(avatar,age){
+  const phase=age/jumpDuration(avatar);
+  return 4*jumpHeight(avatar)*phase*(1-phase);
+}
+// Absolute feet follow one trajectory, even when the floor beneath changes mid-jump.
+export function worldJumpFeet(avatar,clock){
+  if(!avatar.jump||!Number.isFinite(avatar.jumpOriginY)||avatar.coast?.mode==="deck")return null;
+  const age=clock-avatar.jump;
+  return age<0?null:avatar.jumpOriginY+verticalArc(avatar,age);
+}
 export function jumpLift(avatar,clock){
   const age=clock-avatar.jump;
   const duration=jumpDuration(avatar);
   if(!avatar.jump||age<=0||age>=duration)return 0;
-  const phase=age/duration;
-  const height=avatar.vaultBase==null?JUMP_HEIGHT:WOLDAE_VAULT_HEIGHT;
-  return height*4*phase*(1-phase);
+  return verticalArc(avatar,age);
 }
 // The takeoff and support heights share the moving ship's frame of reference.
 // Continue the trajectory past its usual duration when the landing is below takeoff.
 export function deckJumpLift(avatar,clock){
   const s=avatar.coast;
   if(!avatar.jump||s?.mode!=="deck"||!Number.isFinite(s.deckJumpY)||!Number.isFinite(s.floor))return 0;
-  const phase=(clock-avatar.jump)/JUMP_MS;
-  return phase<0?0:Math.max(0,s.deckJumpY-s.floor+4*JUMP_HEIGHT*phase*(1-phase));
+  const age=clock-avatar.jump;
+  return age<0?0:Math.max(0,s.deckJumpY-s.floor+verticalArc(avatar,age));
 }
 export function renderedJumpLift(avatar,clock,floor){
   if(avatar.coast?.mode==="swim"||avatar.coast?.mode==="surf")return 0;
   if(avatar.coast?.mode==="deck"&&Number.isFinite(avatar.coast.deckJumpY))return deckJumpLift(avatar,clock);
+  const feet=worldJumpFeet(avatar,clock);
+  if(feet!=null)return Math.max(0,feet-floor);
   if(avatar.jump&&avatar.coast?.mode==="walk"&&Number.isFinite(avatar.coast.beachJumpY)){
     const phase=(clock-avatar.jump)/JUMP_MS;
     if(phase>=0&&clock-avatar.jump<BEACH_JUMP_MS)return Math.max(0,avatar.coast.beachJumpY-floor+4*JUMP_HEIGHT*phase*(1-phase));

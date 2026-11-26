@@ -4,7 +4,7 @@ import {
   gate,ticket,ticketGuide,ticketForecourt,bridge,middle,hall,stoneHall,stoneFountain,court,courtAngle,fountain,garden,spawn,addObstacle,solidAt,withObstacleScope
 } from "./layout.js";
 import {buildWestern} from "./western.js";
-import {fromBuilding,pavilionStairAccess} from "./museum.js";
+import {fromBuilding,pavilionStairAccess,hallTerraceHeight} from "./museum.js";
 import {standPlantingFootprints} from "./street-stands.js";
 import {diningVenues} from "./dining-data.js";
 import {makePalaceClearance} from "./palace-plantings.js";
@@ -813,13 +813,17 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
   const hallModel=pavilion({...hall,w:22.5,d:17.6,h:6.0,bays:5,angle:courtAngle,raised:1.01,
     mainHall:true,sign:"殿和中",interior:"throne",lift:1.12,groundFloor:true,surveyRoof:7.72});
   const hallSite={...hall,angle:courtAngle};
-  // Block the edges of each raised level and leave both stair openings clear.
-  for(const [halfWidth,back,front,top] of [[19.85,-15.3,27.2,1.14],[13.55,-8.5,22.65,2.08]]){
+  // The survey's two terraces slope gently. Their edge tops follow the same grade as the feet.
+  for(const [halfWidth,back,front,upper] of [[19.85,-15.3,27.2,false],[13.55,-8.5,22.65,true]]){
     const halfStair=3.60,sideWidth=halfWidth-halfStair;
-    blockLocal(hallSite,-.25,back,halfWidth*2,.28,top);
+    blockLocal(hallSite,-.25,back,halfWidth*2,.28,hallTerraceHeight(upper,back));
     for(const side of [-1,1]){
-      blockLocal(hallSite,-.25+side*halfWidth,(back+front)/2,.29,front-back,top);
-      blockLocal(hallSite,-.25+side*(halfStair+sideWidth/2),front,sideWidth,.29,top);
+      const segments=Math.ceil((front-back)/2.5),depth=(front-back)/segments;
+      for(let i=0;i<segments;i++){
+        const z=back+(i+.5)*depth;
+        blockLocal(hallSite,-.25+side*halfWidth,z,.29,depth,hallTerraceHeight(upper,z));
+      }
+      blockLocal(hallSite,-.25+side*(halfStair+sideWidth/2),front,sideWidth,.29,hallTerraceHeight(upper,front));
     }
   }
   for(const side of [-1,1]){
@@ -878,8 +882,10 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
         const base=spec.h*(brick?.077:.231);
         blockLocal(spec,0,(front+back)/2,spec.w*.91,front-back,spec.h);
         for(const side of [-1,1]){
-          blockLocal(spec,side*porticoWidth*.5,(front+landing+stairs)/2,brick?.23:spec.w*.022,
-            landing+stairs-front,base);
+          const x=side*porticoWidth*(brick?.5:.48),cheek=brick?.23:spec.w*.022;
+          blockLocal(spec,x,(front+landing)/2,cheek,landing-front,base);
+          const count=brick?5:3,depth=stairs/count;
+          for(let i=0;i<count;i++)blockLocal(spec,x,landing+(i+.5)*depth,cheek,depth,base*(1-i/count));
         }
         const columns=brick?[-.45,-.15,.15,.45]:[-.43,-.258,-.086,.086,.258,.43];
         for(const fraction of columns){
@@ -946,8 +952,9 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
     const height=(i+1)*2.85/16,z=19.2-(i+.5)*6.7/16;
     box(0xb8b2a3,0,height/2,z,13.3,height,.439,classical);
   }
-  for(const side of [-1,1]){
-    blockLocal(stoneHall,side*7.04,15.81,.52,6.88,2.88);
+  for(const side of [-1,1])for(let i=0;i<16;i++){
+    const tread=6.7/16,z=19.2-(i+.5)*tread;
+    blockLocal(stoneHall,side*7.04,z,.52,tread,(i+1)*2.85/16+.16);
   }
   const drawPond=addPond();
   for(const {points,width} of palacePaths.filter(p=>p.surface==="gravel").filter((_,i)=>i%3===1)){

@@ -9,6 +9,30 @@ export function segmentFrame(s){
   return {len,ux:dx/len,uy:dy/len};
 }
 for(const s of stationApproaches)Object.assign(s,segmentFrame(s));
+// The same terrace guard bays support the feet and draw the posts and top rail.
+export function stationGuardBay(x,y,length){
+  if(length<.64||x< -3.6&&y>1440||y>1483.5&&x> -6)return false;
+  if(Math.hypot(x+62.7,y-1408.4)<4||Math.hypot(x+151,y-1511)<7)return false;
+  return !stationApproaches.some(s=>{
+    if(s.h0===s.h1)return false;
+    const dx=x-s.b[0],dy=y-s.b[1];
+    return Math.abs(dx*s.ux+dy*s.uy)<2&&Math.abs(dy*s.ux-dx*s.uy)<s.w/2+.8;
+  });
+}
+const railFootprints=[];
+for(const terrace of stationTerraces)for(const ring of terrace.rings)for(const [i,a] of ring.entries()){
+  const b=ring[(i+1)%ring.length],dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy);
+  if(length<.64)continue;
+  const count=Math.ceil(length/2.1),ox=.14*dy/length,oy=-.14*dx/length;
+  for(let k=0;k<count;k++){
+    const t=(k+.5)/count;
+    if(!stationGuardBay(a[0]+dx*t,a[1]+dy*t,length))continue;
+    const x=a[0]+dx*k/count,y=a[1]+dy*k/count,ex=x+dx/count,ey=y+dy/count;
+    railFootprints.push({kind:"rail",rings:[[[x+ox,y+oy],[ex+ox,ey+oy],[ex-ox,ey-oy],[x-ox,y-oy]]]});
+  }
+}
+const onTerraceRail=groundIndex(railFootprints,8);
+export const terraceGuardHeight=(x,y)=>onTerraceRail(x,y)?1.18:0;
 // Flat comb plates meet the moving steps at each end of the escalator.
 export const escalatorSpeed=1.55;
 export function approachHeight(s,t){
@@ -36,13 +60,30 @@ function hitsRail(t0,u0,t1,u1,length,rail){
 const outdoorRails=stationApproaches.filter(s=>["stairs","escalator","lowerLanding"].includes(s.kind)).map(s=>({
   s,lines:s.kind==="stairs"&&s.w<=10?[-s.w/2+.1,s.w/2-.1]:[-s.w/2+.1,0,s.w/2-.1]
 }));
-export function outdoorRailBlocks(a,b){
+function flightGuardAt(s,t,side){
+  if(t<.14||t>s.len-.14)return 0;
+  const row=outdoorRails.find(item=>item.s===s);
+  return row?.lines.some(rail=>Math.abs(rail-side)<.14)?(s.kind==="stairs"?1.09:1):0;
+}
+export function stationStairSupport(x,y){
+  const p=approachAt(x,y);
+  if(!p||p.s.h0===p.s.h1&&p.s.kind!=="lowerLanding")return null;
+  return p.height+flightGuardAt(p.s,p.t,p.side);
+}
+export function onStationStairGuard(x,y){
+  const p=approachAt(x,y);
+  return p&&flightGuardAt(p.s,p.t,p.side)>0;
+}
+export function outdoorRailBlocks(a,b,feet){
   if(Math.max(a.y,b.y)<1377||Math.min(a.y,b.y)>1544||Math.min(a.x,b.x)>64||Math.max(a.x,b.x)<-205)return false;
   return outdoorRails.some(({s,lines})=>{
     const tx=a.x-s.a[0],ty=a.y-s.a[1],dx=b.x-a.x,dy=b.y-a.y;
     const t=tx*s.ux+ty*s.uy,u=ty*s.ux-tx*s.uy;
     const end=t+dx*s.ux+dy*s.uy,side=u+dy*s.ux-dx*s.uy;
     if(Math.max(t,end)<0||Math.min(t,end)>s.len||Math.min(u,side)>s.w/2+.3||Math.max(u,side)<-s.w/2-.3)return false;
+    const guard=s.kind==="stairs"?1.09:1;
+    if(feet>=Math.max(approachHeight(s,t),approachHeight(s,end))+guard)return false;
+    if(flightGuardAt(s,t,u))return false;
     return lines.some(r=>hitsRail(t,u,end,side,s.len,r));
   });
 }
@@ -286,7 +327,7 @@ export function railHeight(x,y,time=stationClock()){
   return heightIn(p,y-hallOrigin.y);
 }
 export const sameStation=(a,b)=>a===b||[a,b].every(id=>id==="station-hall"||id==="station-foodhall"||id==="ktx-platform");
-export function railStepAllowed(a,b,time=stationClock()){
+export function railStepAllowed(a,b,time=stationClock(),feet){
   const pa=partAt(a.x,a.y),pb=partAt(b.x,b.y);
   if(!pa&&!pb)return true;
   if(!pa||!pb)return false;
@@ -294,6 +335,7 @@ export function railStepAllowed(a,b,time=stationClock()){
     if(p.style!=="stairs")continue;
     const w=p.x1-p.x0,t0=a.y-hallOrigin.y-p.z0,t1=b.y-hallOrigin.y-p.z0;
     const u0=a.x-hallOrigin.x-p.x0,u1=b.x-hallOrigin.x-p.x0;
+    if(feet>=Math.max(heightIn(p,t0+p.z0),heightIn(p,t1+p.z0))+1.08)continue;
     if([0,.6,.8,1].some(k=>hitsRail(t0,u0,t1,u1,p.z1-p.z0,w*k)))return false;
   }
   if(pa===pb)return true;
@@ -301,5 +343,6 @@ export function railStepAllowed(a,b,time=stationClock()){
     const car=liftAt(time,bankOf(pa.style==="lift"?pa:pb)),landing=pa.style==="lift"?pb:pa;
     return landing.style==="bridge"&&car.open>.84&&Math.abs(landing.h-car.height)<.05;
   }
-  return Math.abs(railHeight(a.x,a.y,time)-railHeight(b.x,b.y,time))<=.55;
+  const ha=railHeight(a.x,a.y,time),hb=railHeight(b.x,b.y,time);
+  return Math.abs(ha-hb)<=.55||feet>=Math.max(ha,hb)+1.14;
 }

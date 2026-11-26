@@ -67,7 +67,8 @@ function validCruiseFooting(s){
 }
 const validCoast=s=>s==null||coastModes.has(s.mode)&&typeof s.board==="boolean"&&
   (s.beachJumpY==null||s.beachJumpY===1.85)&&
-  (s.deckJumpY==null||finite(s.deckJumpY,2.45,7.86))&&
+  (s.deckJumpY==null||finite(s.deckJumpY,1.84,7.86))&&
+  (s.railY==null||finite(s.railY,0,12))&&
   (s.tableGlass==null||typeof s.tableGlass==="boolean")&&
   (s.surf==null||s.mode==="surf"&&s.board&&finite(s.surf.speed,0,11)&&finite(s.surf.rise,0,1)&&finite(s.surf.bank,-1,1))&&
   (s.swimwear==null||["navy","tide","coral"].includes(s.swimwear))&&
@@ -84,6 +85,7 @@ const validAvatar = (a) => validPoint(a) && validCoast(a.coast) && [a.groundSit,
   (a.kick===undefined || validTime(a.kick)) &&
   (a.gesture==null || Object.hasOwn(GESTURE_DURATIONS,a.gesture.kind)&&validTime(a.gesture.at)) &&
   (a.jump===undefined || validTime(a.jump)) &&
+  (a.jumpOriginY==null || finite(a.jumpOriginY,-100,150)) &&
   (a.vaultBase==null || a.jump>0 && finite(a.vaultBase,0,.65)) &&
   (a.emote==null || reactions.has(a.emote.emoji) && finite(a.emote.at,0,9999999999999)) &&
   (a.vx===undefined || finite(a.vx,-12,12)) && (a.vy===undefined || finite(a.vy,-12,12)) &&

@@ -1,22 +1,11 @@
 import {stationTerraces} from "./station-terraces.js";
-import {stationApproaches,stationRise} from "./station-levels.js";
+import {stationGuardBay,stationRise} from "./station-levels.js";
 import {districtTile} from "./district-material.js";
 
 export function buildUpperPlaza(T,kit,root,ground){
   const {box,wx,wz}=kit,stone=districtTile(T,"#b7b5ac","stone");
   const y=ground({x:0,y:1480})+stationRise+.07,edge=0x9a9f9c,metal=0x677979;
   const contour=ring=>ring.map(([x,z])=>new T.Vector2(wx(x),-wz(z)));
-  function entranceEdge(x,z){
-    for(const s of stationApproaches){
-      if(s.h0===s.h1)continue;
-      const dx=x-s.b[0],dz=z-s.b[1];
-      if(Math.abs(dx*s.ux+dz*s.uy)<2&&Math.abs(dz*s.ux-dx*s.uy)<s.w/2+.8)return true;
-    }
-    // Exposed edges need guards. The outlet shopfront, concourse glass and east wing are walls.
-    if(x<-3.6&&z>1440||z>1483.5&&x>-6)return true;
-    if(Math.hypot(x+62.7,z-1408.4)<4||Math.hypot(x+151,z-1511)<7)return true;
-    return false;
-  }
   for(const {rings} of stationTerraces){
     const shape=new T.Shape(contour(rings[0]));
     for(const hole of rings.slice(1))shape.holes.push(new T.Path(contour(hole)));
@@ -32,7 +21,7 @@ export function buildUpperPlaza(T,kit,root,ground){
       const count=Math.ceil(length/2.1),bay=length/count;
       for(let k=0;k<count;k++){
         const mid=(k+.5)/count;
-        if(length<.64||entranceEdge(a[0]+dx*mid,a[1]+dz*mid))continue;
+        if(!stationGuardBay(a[0]+dx*mid,a[1]+dz*mid,length))continue;
         box(metal,0,.55,k*bay+.035,.075,1.10,.075,g);
         box(metal,0,1.07,(k+.5)*bay,.095,.084,bay,g);
         box(0x9ba9a8,0,.60,(k+.5)*bay,.045,.049,bay,g);

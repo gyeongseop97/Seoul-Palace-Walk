@@ -2,7 +2,7 @@ import {addZone,addLandmarks,addObstacle,addLoft} from "./layout.js";
 import {stationSurfaces,stationBuildings,registerForecourt} from "./station-survey.js";
 import {terminalPose,terminalPoint} from "./rail-station-layout.js";
 import {plazaCafeFront,outletFront,terminalSpan,terminalDoorOffsets} from "./station-approach-plan.js";
-import {approachAt,stationRise} from "./station-levels.js";
+import {approachAt,stationRise,terraceGuardHeight,stationStairSupport,onStationStairGuard} from "./station-levels.js";
 import {cultureVenues} from "./culture-station-layout.js";
 import {groundIndex} from "./ground-index.js";
 
@@ -27,7 +27,8 @@ export function registerStation(){
   registered=true;
   addLandmarks(stationSites);
   for(const {id,bounds:b} of cultureVenues)addZone({name:id,contains:(x,y)=>x>=b.minX&&x<=b.maxX&&y>=b.minY&&y<=b.maxY,walkable:()=>false,routing:{spacing:.65}});
-  addLoft({height:stationRise,stair:(x,y)=>{const p=approachAt(x,y);return p&&(p.s.h0!==p.s.h1||p.s.kind==="lowerLanding")?p.height:null;},deck:(x,y)=>approachAt(x,y)?.s.kind==="deck"});
+  addLoft({height:stationRise,guard:1.18,guardAt:terraceGuardHeight,stair:stationStairSupport,
+    onStairGuard:onStationStairGuard,deck:(x,y)=>approachAt(x,y)?.s.kind==="deck"});
   for(const b of stationBuildings)for(const ring of b.rings)for(const [i,a] of ring.entries()){
     const next=ring[(i+1)%ring.length],dx=next[0]-a[0],dy=next[1]-a[1];
     addObstacle((a[0]+next[0])/2,(a[1]+next[1])/2,Math.hypot(dx,dy),.10,-Math.atan2(dy,dx));

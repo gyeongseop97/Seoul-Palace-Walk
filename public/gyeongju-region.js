@@ -7,7 +7,7 @@ import {raftStops} from "./gyeongju-raft-layout.js";
 export {nearRaftStop} from "./gyeongju-raft-layout.js";
 export {marketDiningAt} from "./gyeongju-market.js";
 import {insideObservatory} from "./gyeongju-observatory.js";
-import {inCheonmaHall,twinTombName,twinSection} from "./daereungwon.js";
+import {inCheonmaHall,cheonmaLayer,twinTombName,twinSection} from "./daereungwon.js";
 import {gyeongjuPoint,localGyeongju,inGyeongjuSpace} from "./region-coordinates.js";
 import {places,roads,buildings,walls,mounds,parks,gyeongjuRoute,gyeongjuWalkable} from "./gyeongju-layout.js";
 import {inBulguksa,templeSites,templePaths,templeHalls,templeBridges,templeCourts,templePonds,templeWoods} from "./bulguksa-layout.js";
@@ -95,18 +95,29 @@ export function busDirection(to){
 export function transferStop(from){
  return {station:travelStops.stationBus,town:travelStops.townReturnBus,temple:travelStops.templeBus}[walkingArea(from)];
 }
-export const coastWalkable=(x,y)=>gyeongjuWalkable(localGyeongju({x,y}));
+export function gyeongjuNextUp(from,to){
+ return cheonmaLayer({...localGyeongju(from),up:from.up},localGyeongju(to));
+}
+export function coastWalkable(x,y,passage){
+ const origin=passage?.from,from=origin&&{...localGyeongju(origin),up:origin.up};
+ return gyeongjuWalkable(localGyeongju({x,y}),from,Number.isFinite(passage?.airFeet)?passage.airFeet:undefined);
+}
 export const coastDrySpot=coastWalkable;
-const bikeIndoor=p=>insideObservatory(p)||inCheonmaHall(p)||Boolean(marketRoomAt(p));
-export const enteringBikeInterior=(from,to)=>bikeIndoor(localGyeongju(to))&&!bikeIndoor(localGyeongju(from));
+const bikeIndoor=(p,up)=>insideObservatory(p)||!up&&inCheonmaHall(p)||Boolean(marketRoomAt(p));
+export const enteringBikeInterior=(from,to)=>bikeIndoor(localGyeongju(to),gyeongjuNextUp(from,to))&&!bikeIndoor(localGyeongju(from),from.up);
 export function coastDryStep(a,b){
  const n=Math.max(1,Math.ceil(Math.hypot(a.x-b.x,a.y-b.y)/.35));
- for(let i=1;i<=n;i++)if(!coastWalkable(a.x+(b.x-a.x)*i/n,a.y+(b.y-a.y)*i/n))return false;
+ let from=a;
+ for(let i=1;i<=n;i++){
+  const x=a.x+(b.x-a.x)*i/n,y=a.y+(b.y-a.y)*i/n;
+  if(!coastWalkable(x,y,{from}))return false;
+  from={x,y,up:gyeongjuNextUp(from,{x,y})};
+ }
  return true;
 }
 export function spaceWalkRoute(a,b){
  if(!inGyeongjuSpace(a)||!inGyeongjuSpace(b)||!sameGyeongjuArea(a,b))return [];
- return gyeongjuRoute(localGyeongju(a),localGyeongju(b)).map(gyeongjuPoint);
+ return gyeongjuRoute({...localGyeongju(a),up:a.up},localGyeongju(b)).map(gyeongjuPoint);
 }
 let routeWorker,workerUnavailable=false,nextRoute=0;
 const pendingRoutes=new Map();
@@ -118,7 +129,7 @@ function stopRouteWorker(){
 }
 export function requestCoastWalkingRoute(a,b){
  if(!inGyeongjuSpace(a)||!inGyeongjuSpace(b)||!sameGyeongjuArea(a,b))return Promise.resolve([]);
- const start={x:a.x,y:a.y},end={x:b.x,y:b.y};
+ const start={x:a.x,y:a.y,up:Boolean(a.up)},end={x:b.x,y:b.y};
  if(!routeWorker&&!workerUnavailable){
   try{
    routeWorker=new Worker(new URL("./gyeongju-route-worker.js",import.meta.url),{type:"module"});
@@ -142,7 +153,7 @@ export function registerGyeongju(){
 export function coastName(p){
  const local=localGyeongju(p),room=marketRoomAt(local);
  if(room)return room.name;
- if(inCheonmaHall(local))return "천마총 전시관";
+ if(inCheonmaHall(local))return p.up?"천마총 봉분":"천마총 전시관";
  if(insideObservatory(local))return "첨성대 내부";
  const nearest=locate(p);
  if(nearestDistance<28**2)return nearest.name;
