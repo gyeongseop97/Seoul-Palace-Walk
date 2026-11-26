@@ -35,8 +35,9 @@ export function localFrame(x,z,yaw=0){
 
 // Static pieces share both geometry and material. Small spatial batches let the
 // renderer discard entire streets, including the distant KTX forecourt.
-export function districtMeshes(root,{lod=false}={}){
+export function districtMeshes(root,{lod=false,streaming=false}={}){
  const cells=new Map(),o=new T.Object3D(),up=new T.Vector3(0,1,0),treeMaterials=new Map();
+ const published=streaming?new Map():null;
  const tint=new T.Color(),beamDirection=new T.Vector3(),beamRotation=new T.Quaternion();
  const materials=new Map(),labels=new Map(),box=new T.BoxGeometry(),post=new T.CylinderGeometry(.5,.5,1,10);
  const oval=new T.IcosahedronGeometry(1,1),plane=new T.PlaneGeometry(),rough=new T.MeshStandardMaterial({roughness:.86,side:T.DoubleSide});
@@ -154,27 +155,71 @@ export function districtMeshes(root,{lod=false}={}){
   }
   add(plane,mat,0xffffff,x,y,z,w,h,1,yaw);
  }
- function finish(){
+ function surfaceMesh(b,mesh){
+  const before=mesh?.geometry,g=new T.BufferGeometry();
+  for(const [name,values,size] of [["position",b.pos,3],["uv",b.uv,2],["color",b.col,3]]){
+   const previous=before?.getAttribute(name).array;
+   if(!previous){g.setAttribute(name,new T.Float32BufferAttribute(values,size));continue;}
+   const joined=new Float32Array(previous.length+values.length);
+   joined.set(previous);joined.set(values,previous.length);g.setAttribute(name,new T.BufferAttribute(joined,size));
+  }
+  if(before){
+   const vertex=before.getAttribute("position").count,oldIndices=before.index.array;
+   const Index=g.getAttribute("position").count>65535?Uint32Array:Uint16Array;
+   const joined=new Index(oldIndices.length+b.idx.length);joined.set(oldIndices);
+   for(let i=0;i<b.idx.length;i++)joined[oldIndices.length+i]=b.idx[i]+vertex;
+   g.setIndex(new T.BufferAttribute(joined,1));
+  }else g.setIndex(b.idx);
+  g.computeVertexNormals();g.computeBoundingSphere();
+  if(mesh){mesh.geometry=g;before.dispose();return mesh;}
+  mesh=new T.Mesh(g,b.mat);mesh.matrixAutoUpdate=false;mesh.receiveShadow=true;mesh.castShadow=b.shadow;
+  mesh.userData.viewRange=Infinity;root.add(mesh);return mesh;
+ }
+ function instanceMesh({geo,mat,matrices,colors},mesh){
+  const fresh=!mesh,offset=mesh?.count??0,count=offset+colors.length/3;
+  if(!mesh){
+   mesh=new T.InstancedMesh(geo,mat,count);
+   mesh.instanceColor=new T.InstancedBufferAttribute(new Float32Array(count*3),3);
+   mesh.matrixAutoUpdate=false;mesh.castShadow=geo!==plane&&!mat.transparent;mesh.receiveShadow=true;
+   mesh.userData.viewRange=geo===box||geo===post||geo===plane?245:530;
+  }else if(count>mesh.instanceMatrix.count){
+   // Three.js buffer attributes cannot grow after upload. Release only this object's
+   // instance buffers and retain its shared geometry, materials and scene position.
+   const capacity=Math.max(count,mesh.instanceMatrix.count*2);
+   const transforms=new Float32Array(capacity*16),tints=new Float32Array(capacity*3);
+   transforms.set(mesh.instanceMatrix.array.subarray(0,offset*16));tints.set(mesh.instanceColor.array.subarray(0,offset*3));
+   mesh.dispose();
+   mesh.instanceMatrix=new T.InstancedBufferAttribute(transforms,16);
+   mesh.instanceColor=new T.InstancedBufferAttribute(tints,3);
+  }else{
+   mesh.instanceMatrix.addUpdateRange(offset*16,matrices.length);mesh.instanceMatrix.needsUpdate=true;
+   mesh.instanceColor.addUpdateRange(offset*3,colors.length);mesh.instanceColor.needsUpdate=true;
+  }
+  mesh.instanceMatrix.array.set(matrices,offset*16);mesh.instanceColor.array.set(colors,offset*3);mesh.count=count;
+  // Culling uses the original geometry even if the current camera selected its distant level.
+  const shown=mesh.geometry;mesh.geometry=geo;mesh.boundingBox=null;mesh.computeBoundingSphere();mesh.geometry=shown;
+  if(fresh)root.add(mesh);
+  return mesh;
+ }
+ function* finishSteps(){
   // District coordinates are baked into the surfaces and instance matrices.
   // Moving the camera or a shop worker does not move this district.
   root.updateMatrix();root.matrixAutoUpdate=false;
-  for(const c of cells.values()){
-   for(const b of c.surfaces.values()){
-    const g=new T.BufferGeometry();
-    g.setAttribute("position",new T.Float32BufferAttribute(b.pos,3));g.setAttribute("uv",new T.Float32BufferAttribute(b.uv,2));
-    g.setAttribute("color",new T.Float32BufferAttribute(b.col,3));g.setIndex(b.idx);g.computeVertexNormals();g.computeBoundingSphere();
-    const mesh=new T.Mesh(g,b.mat);mesh.matrixAutoUpdate=false;mesh.receiveShadow=true;mesh.castShadow=b.shadow;root.add(mesh);
-    mesh.userData.viewRange=Infinity;
+  for(const [key,c] of cells){
+   let output=published?.get(key);
+   if(published&&!output){output={surfaces:new Map(),batches:new Map()};published.set(key,output);}
+   for(const [id,b] of c.surfaces){
+    const mesh=surfaceMesh(b,output?.surfaces.get(id));output?.surfaces.set(id,mesh);yield mesh;
    }
-   for(const {geo,mat,matrices,colors} of c.batches.values()){
-    const m=new T.InstancedMesh(geo,mat,colors.length/3);
-    m.instanceMatrix.array.set(matrices);
-    m.instanceColor=new T.InstancedBufferAttribute(new Float32Array(colors),3);
-    m.computeBoundingSphere();m.matrixAutoUpdate=false;m.castShadow=geo!==plane&&!mat.transparent;m.receiveShadow=true;root.add(m);
-    m.userData.viewRange=geo===box||geo===post||geo===plane?245:530;
+   for(const [id,b] of c.batches){
+    const mesh=instanceMesh(b,output?.batches.get(id));output?.batches.set(id,mesh);yield mesh;
    }
+   cells.delete(key);
   }
-  cells.clear();
  }
- return {piece,column,crown,geo,beam,face,polygon,strip,sign,treePart,staticModel,finish};
+ function finish(){
+  const steps=finishSteps();
+  while(!steps.next().done){} // Small models are ready for use as soon as finish returns.
+ }
+ return {piece,column,crown,geo,beam,face,polygon,strip,sign,treePart,staticModel,finish,finishSteps};
 }

@@ -1,5 +1,6 @@
 import * as T from "three";
 import {districtMeshes,localFrame,randomSeed,registerDistrictLod} from "./gyeongju-mesh.js";
+import {nearbyConstruction} from "./gyeongju-construction.js";
 import {roof,buildingFrame} from "./gyeongju-architecture.js";
 import {busShelter} from "./gyeongju-landmarks.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
@@ -211,31 +212,39 @@ function pavement(k,us,vs,color,surface,offset){
   quad(k,[templeAxis(us[i-1],vs[j-1]),templeAxis(us[i],vs[j-1]),templeAxis(us[i],vs[j]),templeAxis(us[i-1],vs[j])],color,surface,offset);
  }
 }
-export function buildBulguksa(root,k,kit,drawPond){
+export function* buildBulguksa(k,eye,drawPond){
  const rng=randomSeed(10763);
+ const tasks=nearbyConstruction(eye,k);
  const us=[-200,-90,-68,-56,-49.5,-44.1,-32,-24,-4.3,3.0,19,31,72,160];
  const vs=[-155,-58,-34,20,20.99,21.02,40,105,245,460];
  pavement(k,us,vs,0x969f6a,"grass",-.07);
  for(const [left,top,right,bottom] of templeCourtBounds){
   pavement(k,[left,...us.filter(x=>x>left&&x<right),right],[top,...vs.filter(z=>z>top&&z<bottom),bottom],sand,"dirt",.017);
  }
- for(const pond of templePonds)drawPond(k,pond,rng);
- for(const path of templePaths)ribbon(k,path);
- for(const b of templeHalls){
+ yield* k.finishSteps();
+ tasks.add(templeSites[0],()=>busShelter(k,templeSites[0],-.42,"불국사"));
+ for(const path of templePaths)tasks.add(path.points[0],()=>ribbon(k,path));
+ for(const b of templeHalls)tasks.add(b.points[0],()=>{
   if(templeGallery(b.id))gallery(k,cloisters[b.id]);
   else hall(k,b);
+ });
+ tasks.add(templeSites[4],()=>stoneBridges(k));
+ function* garden(){
+  for(const pond of templePonds){drawPond(k,pond,rng);yield;}
+  const trees=makeTreeBuilder(T,null,{snapshotPart(mesh){mesh.position.y+=templeHeight(mesh.position);k.treePart(mesh);},registerCrownLod:registerDistrictLod,rand:rng,
+   clearance:{meshFits:()=>true,trim:()=>true}});
+  for(let i=0;i<470;i++){
+   yield;
+   const p=templePoint([-140+rng()*260,-117+rng()*539]);
+   if(p.z<templeOrigin.z+60&&p.z>templeOrigin.z-107&&Math.abs(p.x-templeOrigin.x+18)<104)continue;
+   if(templeWalkable(p)||templeSolid(p)||templePaths.some(r=>r.points.some(q=>Math.hypot(p.x-q.x,p.z-q.z)<5)))continue;
+   if(templePonds.some(r=>Math.hypot(r[0].x-p.x,r[0].z-p.z)<42))continue;
+   trees.grow(p.x,p.z,{height:5+rng()*6,palette:i%5===0?"maple":i%3===0?"pine":"deep",style:i%3===0?"cone":"branchy"});
+  }
  }
- stoneBridges(k);busShelter(k,templeSites[0],-.42,"불국사");
- const trees=makeTreeBuilder(T,null,{snapshotPart(mesh){mesh.position.y+=templeHeight(mesh.position);k.treePart(mesh);},registerCrownLod:registerDistrictLod,rand:rng,
-  clearance:{meshFits:()=>true,trim:()=>true}});
- for(let i=0;i<470;i++){
-  const p=templePoint([-140+rng()*260,-117+rng()*539]);
-  if(p.z<templeOrigin.z+60&&p.z>templeOrigin.z-107&&Math.abs(p.x-templeOrigin.x+18)<104)continue;
-  if(templeWalkable(p)||templeSolid(p)||templePaths.some(r=>r.points.some(q=>Math.hypot(p.x-q.x,p.z-q.z)<5)))continue;
-  if(templePonds.some(r=>Math.hypot(r[0].x-p.x,r[0].z-p.z)<42))continue;
-  trees.grow(p.x,p.z,{height:5+rng()*6,palette:i%5===0?"maple":i%3===0?"pine":"deep",style:i%3===0?"cone":"branchy"});
- }
- k.finish();
+ yield* tasks.assemble(garden());
+}
+export function createBulguksaPagodas(root,kit){
  const statues=templePagodas.map((p,i)=>{
   const fallback=new T.Group(),meshKit=districtMeshes(fallback);pagodaFallback(meshKit,p,i===0);meshKit.finish();root.add(fallback);
   return {p,fallback,model:null,near:false,pending:false,tried:false};

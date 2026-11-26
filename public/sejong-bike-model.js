@@ -30,7 +30,12 @@ export function bikePedal(side,angle){
     z:bikeFit.crankZ+Math.sin(phase)*bikeFit.pedalRadius};
 }
 
-function createBikeParts(T,segments,material){
+function complete(steps){
+  let step=steps.next();
+  while(!step.done)step=steps.next();
+  return step.value;
+}
+function* createBikeParts(T,segments,material){
   const unit=new T.BoxGeometry(1,1,1),cylinder=new T.CylinderGeometry(1,1,1,segments.rod),sphere=new T.SphereGeometry(1,segments.seatX,segments.seatY);
   const up=new T.Vector3(0,1,0),transform=new T.Object3D();
   const v=coords=>new T.Vector3(...coords);
@@ -53,7 +58,7 @@ function createBikeParts(T,segments,material){
     return piece(new T.TorusGeometry(radius,width,segments.tube,segments.ring,arc),color,[0,y,z],[1,1,1],[0,Math.PI/2,0]);
   }
   // Bake the painted parts once, so each rider needs only the frame and moving-part meshes.
-  function combine(parts){
+  function* combine(parts){
     let vertices=0,corners=0;
     for(const {geometry} of parts){
       vertices+=geometry.attributes.position.count;
@@ -74,10 +79,12 @@ function createBikeParts(T,segments,material){
         vertex.fromBufferAttribute(position,i).applyMatrix4(matrix).toArray(positions,offset);
         vertex.fromBufferAttribute(normal,i).applyNormalMatrix(normalMatrix).toArray(normals,offset);
         if(!painted)tint.toArray(colors,offset);
+        if(i%1024===1023)yield;
       }
       const count=geometry.index?.count??position.count;
       for(let i=0;i<count;i++)indices[indexOffset+i]=vertexOffset+(geometry.index?.getX(i)??i);
       vertexOffset+=position.count;indexOffset+=count;
+      yield;
     }
     const result=new T.BufferGeometry();
     result.setAttribute("position",new T.BufferAttribute(positions,3));
@@ -96,6 +103,7 @@ function createBikeParts(T,segments,material){
     wheel.push(rod([i%2?.026:-.026,0,0],[0,.236*Math.cos(angle),.236*Math.sin(angle)],.0034,0x9aa5a0));
   }
   wheel.push(block([0,.20,.09],[.035,.055,.022],0xe5aa58));
+  yield;
   const frame=[
     bend([[0,.69,.47],[0,.60,.45],[0,.48,.36],[0,.43,.26],[0,crankY,crankZ]],.043,silver),
     rod([0,crankY,crankZ],[0,.55,-.032],.038,silver),
@@ -116,6 +124,7 @@ function createBikeParts(T,segments,material){
       rod([side*.105,.558,-.405],[side*.056,.291,-.54],.012,steel),
       rod([side*.105,.559,-.735],[side*.105,.559,-.352],.012,silver));
   }
+  yield;
   const rearZ=-bikePassengerOffset;
   const rear=[block([0,.555,rearZ+.10],[.22,.057,.33],deepGreen),
     block([0,bikeRearFit.saddleY-.026,rearZ],[.323,.052,.335],black),
@@ -153,15 +162,15 @@ function createBikeParts(T,segments,material){
   for(const x of [-1.40,-.47,.47,1.40])for(const side of sides)rack.push(
     bend([[x+side*.128,.10,.30],[x+side*.128,.31,.36],[x+side*.128,.43,.57],
       [x+side*.128,.31,.76],[x+side*.128,.10,.80]],.026,steel));
-  const result={wheel:combine(wheel),frame:combine(frame),rear:combine(rear),front:combine(front),crank:combine(crank),pedal:combine(pedal),
-    rack:combine(rack),material,steerY,steerZ};
+  const result={material,steerY,steerZ};
+  for(const [key,parts] of Object.entries({wheel,frame,rear,front,crank,pedal,rack}))result[key]=yield* combine(parts);
   // Stationary display bikes share the rider's exact wheels, colours and zero-angle pose.
   // Fold the seven independently animated meshes into one reusable mesh for dock instances.
-  result.makeParkedBike=()=>{
+  result.parkedSteps=function*(){
     const {group}=assembleRidingBike(T,result,false),meshes=[];
     group.updateMatrixWorld(true);
     group.traverse(mesh=>{if(mesh.isMesh)meshes.push({geometry:mesh.geometry,matrix:mesh.matrixWorld});});
-    return combine(meshes);
+    return yield* combine(meshes);
   };
   return result;
 }
@@ -169,17 +178,37 @@ function createBikeParts(T,segments,material){
 function bikeParts(T){
   if(!modelCache.has(T)){
     const material=new T.MeshStandardMaterial({vertexColors:true,roughness:.69,metalness:.055});
-    modelCache.set(T,createBikeParts(T,ridingSegments,material));
+    modelCache.set(T,complete(createBikeParts(T,ridingSegments,material)));
   }
   return modelCache.get(T);
 }
 
 function distantDockGeometry(T,material){
   if(!distantDocks.has(T)){
-    const parts=createBikeParts(T,distantSegments,material);
-    distantDocks.set(T,{parked:parts.makeParkedBike(),rack:parts.rack});
+    const parts=complete(createBikeParts(T,distantSegments,material));
+    distantDocks.set(T,{parked:complete(parts.parkedSteps()),rack:parts.rack});
   }
   return distantDocks.get(T);
+}
+
+// Parked Gyeongju bicycles can be prepared between frames. A rider or a
+// synchronous Seoul dock can populate the same cache while this work is paused.
+export function* prepareParkedBikes(T){
+  if(!modelCache.has(T)){
+    const material=new T.MeshStandardMaterial({vertexColors:true,roughness:.69,metalness:.055});
+    const built=yield* createBikeParts(T,ridingSegments,material);
+    if(!modelCache.has(T))modelCache.set(T,built);
+  }
+  const parts=modelCache.get(T);
+  if(!parts.parkedGeometry){
+    const parked=yield* parts.parkedSteps();
+    parts.parkedGeometry??=parked;
+  }
+  if(!distantDocks.has(T)){
+    const distant=yield* createBikeParts(T,distantSegments,parts.material);
+    const parked=yield* distant.parkedSteps();
+    if(!distantDocks.has(T))distantDocks.set(T,{parked,rack:distant.rack});
+  }
 }
 
 function paintedMesh(T,geometry,material){
@@ -246,7 +275,7 @@ export function registerBikeDocks(docks=bikeDocks){
 export function buildBikeDocks(T,scene,{wx,wz,box,cylinder},{docks=bikeDocks,register=true,height=()=>0,signName="따릉이",registerLod}={}){
   if(register)registerBikeDocks(docks);
   const parts=bikeParts(T),signs=parts.dockSigns??=new Map(),signPanel=new T.PlaneGeometry(.76,.38);
-  const parkedGeometry=parts.parkedGeometry??=parts.makeParkedBike();
+  const parkedGeometry=parts.parkedGeometry??=complete(parts.parkedSteps());
   if(registerLod){
     const far=distantDockGeometry(T,parts.material);
     registerLod(parkedGeometry,far.parked,75);

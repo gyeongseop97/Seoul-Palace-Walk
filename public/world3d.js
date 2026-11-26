@@ -236,7 +236,28 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   const createItemProp=makeItemProps(T,kit);
   const walkerModels=makeWalkerModels(T,scene,kit,createItemProp);
   const seaside=coast?.create(outdoors,coast.play,walkerModels,{...kit,chatTexture});
-  const historicCity=gyeongju?.create(outdoors,gyeongju.origin,{...kit,chatTexture,loadGltf,refreshShadows:()=>{shadowDirty=true;}},walkerModels);
+  const regionalPrograms=new WeakMap(),preparingScenery=new WeakSet();
+  function prepareScenery(mesh){
+    if(!mesh.isMesh||preparingScenery.has(mesh)||!renderer.extensions?.has("KHR_parallel_shader_compile"))return;
+    const material=mesh.material,layout=(mesh.isInstancedMesh?4:0)+(mesh.instanceColor?1:0)+
+      (mesh.geometry.attributes.color?.itemSize??0)*8;
+    let variants=regionalPrograms.get(material);
+    if(!variants){variants=new Map();regionalPrograms.set(material,variants);}
+    let pending=variants.get(layout);
+    if(pending===true)return;
+    if(!pending){
+      try{
+        pending=renderer.compileAsync(mesh,camera,scene).catch(()=>{}).then(()=>{variants.set(layout,true);});
+      }catch{return;} // An unavailable precompile path leaves ordinary rendering in charge.
+      variants.set(layout,pending);
+    }
+    // Culling and landmark LOD can still change visibility while the graphics driver links the program.
+    const layers=mesh.layers.mask;
+    preparingScenery.add(mesh);
+    mesh.layers.disableAll();
+    pending.then(()=>{mesh.layers.mask=layers;preparingScenery.delete(mesh);shadowDirty=true;});
+  }
+  const historicCity=gyeongju?.create(outdoors,gyeongju.origin,{...kit,chatTexture,loadGltf,prepareScenery,refreshShadows:()=>{shadowDirty=true;}},walkerModels);
   if(seaside){heavens.visible=false;camera.far=3900;camera.updateProjectionMatrix();}
   const outdoorWalkers={...walkerModels,create(...args){
     const model=walkerModels.create(...args);
@@ -264,7 +285,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   outdoors.add(transportRoot);
   const picnicWorld=makePicnicWorld(T,outdoors,kit,floorHeight,createItemProp);
   let firstPersonView,firstPersonUmbrella;
-  const spotLights=[gate,middle,stoneHall].map((point,i)=>{
+  // Gyeongju has three local lights of its own. The Seoul lights are outside their range there.
+  const spotLights=(historicCity?[]:[gate,middle,stoneHall]).map((point,i)=>{
     const light=new T.PointLight(0xffc47f,0,i===2?55:30,2);
     light.position.set(wx(point.x)+(i===0?7:0),(i===2?4.5:2.6)+outsideGroundOffset(point),wz(point.y)+(i===0?2:i===2?22:9));
     scene.add(light);
@@ -284,6 +306,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     return null;
   }
   function placeLights(anchor){
+    if(!spotLights.length)return;
     lightDay=lightHomes.map(()=>0);
     const mapped=inGyeongbok(anchor.x,anchor.y)?gbLightSpots:inGwanghwamunPlaza(anchor.x,anchor.y)?plazaLights:null;
     if(!mapped){

@@ -33,6 +33,9 @@ export function woljeongFooting(bridge){
 }
 
 export function drawWoljeong(k,plan,glow,roofFinish){
+ for(const step of drawWoljeongSteps(k,plan,glow,roofFinish)){/* complete synchronous callers */}
+}
+export function* drawWoljeongSteps(k,plan,glow,roofFinish){
  const {length:L,yaw,at,h,approachNorth,approachSouth}=plan;
  const red=0x923e31,vermilion=0xad4c39,wood=0x694b38,celadon=0x397d67,green=0x38614b,
    mint=0x93b59b,ochre=0xd8a46c,tile=0x46525b,stone=0xbab5a6;
@@ -120,7 +123,7 @@ export function drawWoljeong(k,plan,glow,roofFinish){
   const p=at(0,v+side*3.31*depth);
   k.sign("月 精 橋",p.x,floor+8.95,p.z,2.8,.86,yaw+(side===1?0:Math.PI),"#263532","#e6d1a0");
  }
- for(let i=1;i<=4;i++)pier(L*i/5);
+ for(let i=1;i<=4;i++){pier(L*i/5);yield;}
  for(const u of [-3.36,-1.13,1.13,3.36])part(u,deck-.47,L/2,.46,.66,L,wood);
  part(0,deck-.19,L/2,8.25,.36,L,0x775746);
  const spans=16,step=L/spans;
@@ -141,6 +144,7 @@ export function drawWoljeong(k,plan,glow,roofFinish){
   trim(0,deck+3.92,v-.18,8.21,.33,.045);trim(0,deck+3.92,v+.18,8.21,.33,.045);
   for(let j=-3;j<=3;j++)part(j*1.06,deck+3.74,v,.53,.04,.29,mint);
   if(i%2===0){trim(0,deck+3.58,v,.25,.24,.25,glow);part(0,deck+3.43,v,.29,.05,.29,wood);}
+  yield;
  }
  for(const u of [-3.73,-1.86,0,1.86,3.73]){
   part(u,deck+4.21,L/2,.22,.19,L,celadon);
@@ -149,10 +153,11 @@ export function drawWoljeong(k,plan,glow,roofFinish){
  for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){
   const u=(i+.5-cols/2)*.96,v=(j+.5)*L/rows;
   part(u,deck-.018,v,.953,.044,L/rows-.012,[0xa89982,0xb2a28b,0xb6a58f,0xb0a18b][(j*7+i*3)%4]);
+  if(i===cols-1&&j%12===11)yield;
  }
  // A long, continuous tiled ridge parallel to the boardwalk.
  canopy(L/2,deck+4.23,L+2.7,2.43,10.2,Math.PI/2);
- gate(-11.6,-1);gate(L+9.7,1);
+ gate(-11.6,-1);yield;gate(L+9.7,1);yield;
  function abutment(a,b){
   for(const u of [-4.02,4.02]){
    const quad=[[u,0,a],[u,0,b],[u,h(b),b],[u,h(a),a]];
