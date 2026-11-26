@@ -1,4 +1,6 @@
 import {dispatchLift} from "../public/lift-dispatch.js";
+import {approachRouteSearch} from "../public/station-levels.js";
+import {planWalkSearch} from "../public/layout.js";
 import {boardingIslands,concourseParts,northBridgeExit,marketExit,liftBanks,setStationLifts,outdoorRailBlocks,railHeight,railPoint,railStepAllowed,liftLanding,liftAt,approachAt,approachRoute,subwayExit,stationApproaches} from "../public/station-levels.js";
 import assert from "node:assert/strict";
 import {gatePose} from "../public/station-approach-plan.js";
@@ -132,6 +134,12 @@ assert(walker.up);
 const steps=stationApproaches.find(s=>s.kind==="stairs");assert(approachAt(...steps.b).height>5);
 assert(walkable(subwayExit.outside.x,subwayExit.outside.y),"지하철 출구 보도");
 const eastRoute=approachRoute(square,stationHall.outsideDoor,planWalk);
+let checks=0,pauses=0;
+const search=approachRouteSearch(square,stationHall.outsideDoor,(a,b)=>planWalkSearch(a,b,0,()=>++checks%20===0));
+let part=search.next();
+while(!part.done){pauses++;part=search.next();}
+assert(pauses>0,"긴 도보 안내는 역 앞 계단까지 계산하는 도중에도 화면에 시간을 내줌");
+assert.deepEqual(part.value,eastRoute,"지도와 일반 보행에서 동일한 계단·출입문 경로");
 const eastFeet=stationApproaches.filter(s=>s.h0===0&&s.h1>5&&s.a[0]>0);
 assert(eastRoute?.some(p=>eastFeet.some(s=>Math.hypot(p.x-s.a[0],p.y-s.a[1])<s.w/2+1.2)),"광장에서 계단을 거쳐 정문으로");
 assert.deepEqual(eastRoute.at(-1),stationHall.outsideDoor);

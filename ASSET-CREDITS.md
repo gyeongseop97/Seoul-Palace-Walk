@@ -4,6 +4,12 @@
 
 ## 국가유산청 3D 자료
 
+경주 첨성대의 외형은 문화재청(현 국가유산청)의 3D 프린팅 자료를 카리스χάρης가 경량화해 공개한 STL을 사용했습니다. 국가유산청이 공개한 높이 9.17m에 맞추고, 색이 없는 STL의 석재 재질은 국가유산청 정면 사진을 참고해 표현했습니다. [국가유산청 첨성대 3D 자료 · 공공누리 제1유형](https://digital.khs.go.kr/record/recordDetail3D.do?ichDataUid=13903001708066000200&bizId=BIZ201800002632) · [배포에 사용한 경량본](https://gumisflatland.tistory.com/m/462) · [국가유산청 치수](https://www.data.go.kr/data/15165324/fileData.do) · [경주 첨성대 정면 사진 자료](https://digital.khs.go.kr/buis/buisDetail.do?bizUid=13921921849344500012&ctptNo=1113700310000&ctptUid=13898859665995200028)
+
+불국사 다보탑은 국가유산청이 공공누리 제1유형으로 개방한 OBJ와 표면 사진을 사용했습니다. 측량 당시 함께 기록된 주변 바닥과 울타리를 제거하고, 원본 사진의 색을 경량 모델의 석재 표면에 다시 입혔습니다. [국가유산청 경주 불국사 다보탑 3D 모델링](https://www.data.go.kr/data/15150537/fileData.do) · [공공누리 제1유형 이용 조건](https://www.kogl.or.kr/info/licenseType1.do)
+
+불국사 석가탑은 국가유산청의 1974년 남측 입면도와 상륜부 상세도에 맞춰 높이 10.75m로 재구성했습니다. 석재 표면은 국가유산청의 기단부 사진에서 돌 부분을 잘라 게임용 재질로 가공했습니다. [국가유산청 남측 입면도](https://www.heritage.go.kr/heri/cul/chartImgHeritage.do?file_seq=2837998) · [상륜부 상세도 1](https://www.heritage.go.kr/heri/cul/chartImgHeritage.do?file_seq=2838012) · [상륜부 상세도 2](https://www.heritage.go.kr/heri/cul/chartImgHeritage.do?file_seq=2838013) · [국가유산청 기단부 사진 · 공공누리 제1유형](https://www.heritage.go.kr/heri/cul/imgHeritage.do?ccimId=1612684&ccbaKdcd=11&ccbaAsno=0000210000000&ccbaCtcd=37)
+
 국가유산청이 공공데이터포털에 공개한 실측 자료를 웹용 GLB로 변환하고 경량화했습니다. 원본과 제공처의 이용 조건은 각 자료 페이지에서 확인할 수 있습니다.
 
 | 파일 | 원본 자료 | 원본 이용 조건 |
@@ -94,6 +100,16 @@
 영일대 오션뷰 카페는 해안로 191-1 오브레멘, 바다야장은 해안로 107 미남 대게 회 새우의 지도 위치를 기준으로 배치했습니다. 상호와 좌석, 야외 영업 공간, 메뉴는 게임에 맞게 구성했습니다. [한국관광공사 오브레멘](https://korean.visitkorea.or.kr/detail/ms_detail.do?cotid=5c41872b-747e-4f80-9c83-d74ab662b296) · [네이버 미남 대게 회 새우](https://m.booking.naver.com/booking/6/bizes/642298)
 
 ## 경주
+
+### 불국사
+
+정문 정류장, 일주문, 해탈교, 천왕문, 석교 앞 관람로, 두 탑과 전각의 위치는 OpenStreetMap의 좌표를 경주 지도와 같은 미터 단위로 투영했습니다. 건물 외곽선과 산책로·연못 자료에 원본 객체 번호를 포함했으며, 변환 데이터의 라이선스는 ODbL 1.0입니다. [© OpenStreetMap 기여자 및 이용 조건](https://www.openstreetmap.org/copyright) · [게임용 불국사 지리 데이터](public/bulguksa-geography.js) · [불국사 경내](https://www.openstreetmap.org/way/382655135) · [일주문](https://www.openstreetmap.org/way/786233267) · [해탈교](https://www.openstreetmap.org/way/374028562) · [정문 쪽 정류장](https://www.openstreetmap.org/node/13234500498)
+
+동쪽 대웅전 마당과 서쪽 극락전 마당의 배치, 두 석교와 두 문은 국가유산청·국사편찬위원회·불국사 자료를 참고했습니다. 목조 전각, 현판, 석교와 석축은 기존 게임의 기와·목재·석재 표현으로 재구성했습니다. 대웅전은 앞면과 옆면에 각각 다섯 칸, 극락전은 각각 세 칸을 두었습니다. 마당 높이, 계단 경사, 보행 폭과 정류장 간 즉시 이동은 게임 환경에 맞췄습니다. [국가유산청 불국사 세계유산 안내](https://www.heritage.go.kr/heri/html/HtmlPage.do?pageNo=5_4_2_1&pg=%2Funesco%2FHeritage%2FHeritage_01.jsp) · [국가유산 디지털 서비스 대웅전](https://digital.khs.go.kr/heri/heriDetail.do?ctptUid=13898859672729200586) · [국사편찬위원회 불국사 배치도](https://contents.history.go.kr/data/pdf/eh/eh_r0070_0010.pdf) · [불국사 전각 소개](https://bulguksa.or.kr/bbs/content.php?co_id=palace)
+
+석교의 두 층계가 만나는 곳에 홍예를 표현했습니다. 불국사 안내를 따라 백운교 18단과 청운교 16단, 연화교 10단과 칠보교 8단으로 지었습니다. [불국사 국보 소개](https://www.bulguksa.or.kr/bbs/content.php?co_id=treasure)
+
+### 경주 도심과 경주역
 
 경주역과 황리단길에서 첨성대까지의 도로 중심선, 건물 윤곽, 봉분, 대릉원 담장, 산책로, 연못과 녹지는 OpenStreetMap의 공개 좌표를 경주 시내 기준의 미터 좌표로 변환했습니다. 변환한 지도 데이터는 ODbL 1.0으로 제공합니다. [© OpenStreetMap 기여자](https://www.openstreetmap.org/copyright) · [변환 지도 데이터](public/gyeongju-geography.js) · [황리단길 포석로](https://www.openstreetmap.org/way/1000945164) · [대릉원 경계](https://www.openstreetmap.org/way/42435919) · [첨성대](https://www.openstreetmap.org/way/382132601)
 

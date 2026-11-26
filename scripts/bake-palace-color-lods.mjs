@@ -1,5 +1,6 @@
 // Offline build: node scripts/bake-palace-color-lods.mjs <meshoptimizer-0.22-dir> <three-0.180-dir>
 import assert from "node:assert/strict";
+import {packMeshoptGlb} from "./pack-meshopt-glb.mjs";
 import {readFile,writeFile} from "node:fs/promises";
 import {createRequire} from "node:module";
 import {resolve} from "node:path";
@@ -14,31 +15,6 @@ const [T,{GLTFLoader}]=await Promise.all([import(threeFile("build/three.module.j
   import(threeFile("examples/jsm/loaders/GLTFLoader.js")),MeshoptEncoder.ready,MeshoptSimplifier.ready]);
 MeshoptSimplifier.useExperimentalFeatures=true;
 const directory=fileURLToPath(new URL("../public/",import.meta.url));
-
-function pack(doc,streams){
-  const parts=[],views=[];
-  let physical=0,virtual=0;
-  for(const {bytes,count,stride,mode} of streams){
-    const compressed=MeshoptEncoder.encodeGltfBuffer(bytes,count,stride,mode);
-    const pad=Buffer.alloc((4-compressed.length%4)%4), attributes=mode==="ATTRIBUTES";
-    views.push({buffer:1,byteOffset:virtual,byteLength:bytes.length,target:attributes?34962:34963,
-      ...(attributes?{byteStride:stride}:{}),extensions:{EXT_meshopt_compression:{
-        buffer:0,byteOffset:physical,byteLength:compressed.length,byteStride:stride,mode,count
-      }}});
-    virtual+=Math.ceil(bytes.length/4)*4;
-    physical+=compressed.length+pad.length;
-    parts.push(compressed,pad);
-  }
-  doc.bufferViews=views;
-  doc.buffers=[{byteLength:physical},{byteLength:virtual,extensions:{EXT_meshopt_compression:{fallback:true}}}];
-  doc.extensionsUsed=doc.extensionsRequired=["EXT_meshopt_compression","KHR_mesh_quantization"];
-  const json=Buffer.from(JSON.stringify(doc)), padding=Buffer.alloc((4-json.length%4)%4,32);
-  const header=Buffer.alloc(20), binaryHeader=Buffer.alloc(8);
-  header.write("glTF");header.writeUInt32LE(2,4);header.writeUInt32LE(28+json.length+padding.length+physical,8);
-  header.writeUInt32LE(json.length+padding.length,12);header.write("JSON",16);
-  binaryHeader.writeUInt32LE(physical);binaryHeader.write("BIN",4);
-  return Buffer.concat([header,json,padding,binaryHeader,...parts]);
-}
 
 for(const name of ["sajeongmun","sajeongjeon","gyeonghoeru"]){
   const source=await readFile(resolve(directory,name+".glb"));
@@ -83,7 +59,7 @@ for(const name of ["sajeongmun","sajeongjeon","gyeonghoeru"]){
     {bufferView:2,componentType:5120,count:vertices,type:"VEC3",normalized:true},
     {bufferView:3,componentType:5123,count:triangles.length,type:"SCALAR"}
   ];
-  const model=pack(doc,streams);
+  const model=packMeshoptGlb(MeshoptEncoder,doc,streams);
   await writeFile(resolve(directory,name+"-lod.glb"),model);
   console.log(name,{original:index.length/3,distant:triangles.length/3,vertices,error,bytes:model.length});
 }

@@ -535,6 +535,10 @@ function takeCandidate(heap){
   return first;
 }
 export function planWalk(from,target,feet=0){
+  return planWalkSearch(from,target,feet).next().value;
+}
+// Map previews can pause between search cells. Ordinary game callers finish the same search inline.
+export function* planWalkSearch(from,target,feet=0,shouldPause){
   if(!inWalkingBounds(from)||!inWalkingBounds(target))return [];
   const fromInterior=interiorAt(from.x,from.y),targetInterior=interiorAt(target.x,target.y);
   if(!sameStation(fromInterior,targetInterior))return [];
@@ -544,10 +548,10 @@ export function planWalk(from,target,feet=0){
   const field=walkingField(from,target),{ox,oy,cols,rows,spacing}=field;
   // Two smaller searches around the known gate avoid scanning the length of the palace wall.
   if(field.viaGate&&distance(spawn,from.x,from.y)>0&&distance(spawn,target.x,target.y)>0){
-    const approach=planWalk(from,spawn,feet);
+    const approach=yield* planWalkSearch(from,spawn,feet,shouldPause);
     const end=approach.at(-1);
     if(end?.x===spawn.x&&end.y===spawn.y){
-      const onward=planWalk(spawn,target),destination=onward.at(-1);
+      const onward=yield* planWalkSearch(spawn,target,0,shouldPause),destination=onward.at(-1);
       if(destination&&(!exact||destination.x===target.x&&destination.y===target.y))return [...approach,...onward];
     }
   }
@@ -565,6 +569,7 @@ export function planWalk(from,target,feet=0){
   pushCandidate(queue,{index:start,cost:0,score:firstEstimate,remaining:firstEstimate});
   let best=-1,bestGap=16;
   while(queue.length){
+    if(shouldPause?.())yield;
     const item=takeCandidate(queue),current=item.index;
     if(item.cost!==cost[current])continue;
     const point=gridPoint(current,field),col=current%cols,row=Math.floor(current/cols);
@@ -596,7 +601,11 @@ export function planWalk(from,target,feet=0){
   let cursor=from;
   for(let i=0;i<points.length;){
     let last=i;
-    for(let j=i+1;j<points.length&&clear(cursor,points[j],.36,i?0:feet);j++)last=j;
+    for(let j=i+1;j<points.length;j++){
+      if(shouldPause?.())yield;
+      if(!clear(cursor,points[j],.36,i?0:feet))break;
+      last=j;
+    }
     cursor=points[last];simplified.push(cursor);i=last+1;
   }
   return simplified;

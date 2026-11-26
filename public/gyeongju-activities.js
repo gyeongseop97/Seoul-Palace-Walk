@@ -56,8 +56,8 @@ export function createGyeongjuActivities({me,takeItem,environment,notice,say,mov
   const inside=insideObservatory(localGyeongju(me));
   if(!me.groundSit&&me.seat==null&&(inside||distance(approach)<1.85)){
    actions.set("gjObservatory",inside?
-    {label:"나가기",run:()=>movePlayer({...approach,heading:349},"첨성대 남쪽 창 아래")}:
-    {label:"들어가기",marker:approach,run:()=>movePlayer({...chamber,heading:169},"첨성대 내부")});
+    {label:"나가기",run:()=>movePlayer({...approach,heading:0},"첨성대 남쪽 창 아래")}:
+    {label:"들어가기",marker:approach,run:()=>movePlayer({...chamber,heading:180},"첨성대 내부")});
   }
   if(distance(stars)<14&&environment().night>.55)actions.set("gjStars",{label:"별자리 보기",marker:stars,run:()=>starChart(say,notice)});
   return actions;

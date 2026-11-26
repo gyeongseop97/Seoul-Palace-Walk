@@ -1,6 +1,6 @@
 import {
   route,palacePaths,palaceCourts,palaceGardens,palacePond,palaceWalls,fountain,ticket,ticketApproach,ticketGuide,gate,bridge,court,spawn,
-  middle,hall,stoneHall,stoneFountain,city,pavilions,estateOutline,nearest,distance as near,walkable,solidAt,clearSegment,loftStep,loftHeight,loftStair,planWalk,platformAt
+  middle,hall,stoneHall,stoneFountain,city,pavilions,estateOutline,nearest,distance as near,walkable,solidAt,clearSegment,loftStep,loftHeight,loftStair,planWalkSearch,platformAt
 } from "./layout.js";
 import {normalize,angleDelta,hexCoat,moving,receivePeople,smoothPeople,handPosition,handSide,pairFits} from "./people.js";
 import {ITEMS,PET_MS,FEED_MS,BEACH_JUMP_MS,diningTray,jumpDuration,jumpLift,deckJumpLift,renderedJumpLift} from "./activities.js";
@@ -49,7 +49,7 @@ import {gbWallOutline,clipGbGround} from "./gyeongbok-perimeter.js";
 import {outsideGroundOffset} from "./gyeongbok-terrain.js";
 import {mmcaCourtyards,mmcaBuildings,mmcaLawns} from "./mmca-layout.js";
 import {stationTerraces} from "./station-terraces.js";
-import {approachAt,approachRoute,escalatorSpeed,escalatorDirection,stationApproaches,partAt,concourseParts,boardingIslands,ktxIsland,hallOrigin,westExit,northBridgeExit,rearMarketExit,marketExit,subwayExit,metroInsidePoint,railPoint,railHeight,sameStation,liftAt,liftBanks,liftLanding,floorName,setStationClock,setStationLifts,liftStopPending} from "./station-levels.js";
+import {approachAt,approachRouteSearch,escalatorSpeed,escalatorDirection,stationApproaches,partAt,concourseParts,boardingIslands,ktxIsland,hallOrigin,westExit,northBridgeExit,rearMarketExit,marketExit,subwayExit,metroInsidePoint,railPoint,railHeight,sameStation,liftAt,liftBanks,liftLanding,floorName,setStationClock,setStationLifts,liftStopPending} from "./station-levels.js";
 import {cultureFrontDoors,culturePart,cultureVenues} from "./culture-station-layout.js";
 import {stationHall,hallDoors,terminalDoors,railRooms,railRoomById,railCounters,ktxCoach,ktxBoardingAt,ktxBoardingSpots} from "./rail-station-layout.js";
 import {semaVenue,semaExhibits} from "./sema-layout.js";
@@ -213,7 +213,7 @@ if(onCoast)for(const action of coastModule.coastActions){
  const button=document.createElement("button");button.type="button";button.id="coast-"+action;button.className="primary activity-button";button.hidden=true;
  button.onclick=()=>{coastPlay?.trigger(action);focusGame();};$("context-actions").append(button);
 }
-const gyeongjuButtons=inGyeongju?["stationBus","townBus","train",...gyeongjuModule.gyeongjuActionIds]:[];
+const gyeongjuButtons=inGyeongju?["stationBus","townBus","templeBus","train",...gyeongjuModule.gyeongjuActionIds]:[];
 for(const id of gyeongjuButtons){
  const button=document.createElement("button");button.type="button";button.id="gyeongju-"+id;button.className="primary activity-button";button.hidden=true;
  button.onclick=()=>{gyeongjuMenu().get(id)?.run();focusGame();};$("context-actions").append(button);
@@ -355,9 +355,6 @@ graphicsSelect.addEventListener("change",()=>{
 });
 let fullscreenFallback=false;
 function placeViewControls(){
-  const overview=$("overview-map");
-  if(touchControls.matches)$("map-filter").after(overview);
-  else $("map-corner").prepend(overview);
   const mapKey=$("map-key");
   mobileSettings.open=false;
   if(mobileHeader.matches){
@@ -1729,7 +1726,7 @@ function setMap(open,{fold=false}={}){
   panel.classList.toggle("expanded",open);
   $("map-toggle").setAttribute("aria-expanded",String(mapIsOpen()));
   if(!open){clearMapGestures();if(!mapRoute)setOverview(false);}
-  else if(mapRoute&&!mapRoute.walking&&near(mapRoute.start,me.x,me.y)>5)refreshMapRoute();
+  else if(mapRoute&&!mapRoute.walking&&!mapRoute.planning&&near(mapRoute.start,me.x,me.y)>5)refreshMapRoute();
   if(open&&overlay)(panel.dataset.mode==="teleport"?$("map-mode-teleport"):$("world")).focus({preventScroll:true});
   if(restoreFocus)$("map-toggle").focus({preventScroll:true});
 }
@@ -1749,21 +1746,36 @@ async function coastalMapSteps(target){
 }
 function walkingSteps(target){
   if(regional)return region.coastWalkable(target.x,target.y)?region.spaceWalkRoute(me,target)??[target]:[];
-  const feet=feetHeight(gameTime());
-  const stationRoute=approachRoute(me,target,(a,b)=>planWalk(a,b,feet));
+  return seoulWalkingSearch(me,target,feetHeight(gameTime())).next().value;
+}
+function* seoulWalkingSearch(from,target,feet,shouldPause){
+  const groundSearch=(a,b)=>planWalkSearch(a,b,feet,shouldPause);
+  const stationRoute=yield* approachRouteSearch(from,target,groundSearch);
   if(stationRoute)return stationRoute;
-  const deckExits=cheonggyeDeckExits(me);
+  const deckExits=cheonggyeDeckExits(from);
   if(deckExits){
-    if(cheonggyeDeckStep(me,target.x,target.y)?.up&&cheonggyeDeckExits({...target,up:true})?.[0].x===deckExits[0].x)return [target];
-    for(const exit of deckExits.sort((a,b)=>near(a,me.x,me.y)+near(a,target.x,target.y)-near(b,me.x,me.y)-near(b,target.x,target.y))){
-      const steps=planWalk(exit,target,feet);
+    if(cheonggyeDeckStep(from,target.x,target.y)?.up&&cheonggyeDeckExits({...target,up:true})?.[0].x===deckExits[0].x)return [target];
+    for(const exit of deckExits.sort((a,b)=>near(a,from.x,from.y)+near(a,target.x,target.y)-near(b,from.x,from.y)-near(b,target.x,target.y))){
+      const steps=yield* groundSearch(exit,target);
       if(steps.length)return [exit,...steps];
     }
     return [];
   }
   // Upstairs there is no route grid: head straight for the spot and let each step be checked.
-  const aloft=me.up||loftStair(me.x,me.y)!=null;
-  return aloft?[target]:planWalk(me,target,feet);
+  const aloft=from.up||loftStair(from.x,from.y)!=null;
+  return aloft?[target]:yield* groundSearch(from,target);
+}
+async function seoulMapSteps(target,current){
+  let deadline=performance.now()+4;
+  const from={x:me.x,y:me.y,up:me.up},search=seoulWalkingSearch(from,target,feetHeight(gameTime()),()=>performance.now()>=deadline);
+  while(current()){
+    const part=search.next();
+    if(part.done)return part.value;
+    if(globalThis.scheduler?.yield)await globalThis.scheduler.yield();
+    else await new Promise(resolve=>setTimeout(resolve,0));
+    deadline=performance.now()+4;
+  }
+  return [];
 }
 // The palace ponds are not entered. A walker whose saved place is out in one of them is set
 // back on the nearest bank.
@@ -1780,12 +1792,12 @@ function canWalkTo(){
   return Boolean(session&&!bungeoMode&&!arcade.frozen&&!riding&&!me.bus&&!isBikePassenger(me)&&!queuedBus&&!queuedBike&&!amFollowingHands()&&
     !clinkLocked(time)&&!sickLocked(time)&&(world||worldFailed));
 }
-async function walkTo(target,seat=null,fromMap=false){
+async function walkTo(target,seat=null){
   if(!target||!canWalkTo())return;
   stand();
   const request=++coastalWalkRequest,started={x:me.x,y:me.y},input=manualInputAt;
   let steps;
-  if(inGyeongju||fromMap&&onCoast){
+  if(inGyeongju){
     course=[];pendingSeat=null;
     steps=await coastalMapSteps(target);
     if(request!==coastalWalkRequest||input!==manualInputAt||near(started,me.x,me.y)>.4||!canWalkTo())return;
@@ -1910,7 +1922,6 @@ function teleportToShortcut(destination,fold){
   const linkId=myLink()?.id??(queuedHand?.action==="offer"?queuedHand.id:null);
   if(linkId){queuedHand={action:"release",id:linkId};changeLinks(links);}
   movePlayerTo(destination,destination.name||destination.label);
-  clearMapRoute();
   if(fold||!inGyeongju)chosenDistrict="";
   refreshShortcuts();
   setMap(false,{fold});focusGame();
@@ -1968,6 +1979,8 @@ function resetInput(){coastalWalkRequest++;backgroundTrip=null;clearManualInput(
 function movementInput(){
   let [x,y]=thumb;
   for(const key of keys){const [dx,dy]=vectors[key];x+=dx;y+=dy;}
+  if(!keys.size&&thumbId===undefined&&mapRoute?.walking&&course===mapRoute.steps)
+    return {x:0,y:0,run:true,runBlend:1};
   if(thumbId!==undefined&&!keys.size&&!isCycling(me)&&me.coast?.mode!=="scooter"&&me.coast?.mode!=="surf"){
     const strength=Math.min(1,Math.hypot(x,y)),scale=Math.max(stickWalkLimit,strength);
     return {x:x/scale,y:y/scale,run:stickRun,runBlend:Math.max(0,(strength-stickWalkLimit)/(1-stickWalkLimit))};
@@ -2093,19 +2106,31 @@ window.addEventListener("keyup",event=>{
   keys.delete(event.key.length===1?event.key.toLowerCase():event.key);
 });
 function walkFromMap(event,source=event.target){
+  if(inGyeongju&&browsedMapBox===region.cityMapBox){
+    const index=source.closest("[data-map-district]")?.dataset.mapDistrict;
+    if(index!==undefined){
+      setOverview(false,region.mapDistricts[Number(index)].box);
+      showMapRegion(browsedMapBox);
+      mapSurface.focus({preventScroll:true});
+    }else toast("경주역, 경주 시내, 불국사 중 둘러볼 곳을 눌러 주세요.");
+    return;
+  }
   const site=mapPlaces[Number(source.closest("[data-map-place]")?.dataset.mapPlace)];
-  if(site){showMapRoute(site,{fit:false});return;}
+  if(site){showMapRoute(site,{fit:inGyeongju&&!region.sameGyeongjuArea(me,site)});return;}
   const stamp=stampById.get(source.closest("[data-stamp-id]")?.dataset.stampId);
   if(stamp){showMapRoute(stamp);return;}
   const target=source.closest("[data-walk-x]"),matrix=$("world").getScreenCTM();
   if(!matrix)return;
   const point=target?{x:Number(target.dataset.walkX),y:Number(target.dataset.walkY)}:
     new DOMPoint(event.clientX,event.clientY).matrixTransform(matrix.inverse());
-  walkTo(point,null,true);setMap(false);
+  if(!Number.isFinite(point.x)||!Number.isFinite(point.y)||pointCity(point)!==activeCity||
+     !mapWalkable(point.x,point.y)){toast("걸을 수 있는 지점을 선택해 주세요.");return;}
+  const name=target?.getAttribute("aria-label")||target?.textContent.trim()||"선택한 지점";
+  showMapRoute({x:point.x,y:point.y,name,exact:true},{fit:inGyeongju&&!region.sameGyeongjuArea(me,point)});
 }
 $("world").addEventListener("click",walkFromMap);
 $("world").addEventListener("keydown",event=>{
-  if(!["Enter"," "].includes(event.key)||!event.target.matches("[data-map-place],[data-stamp-id]"))return;
+  if(!["Enter"," "].includes(event.key)||!event.target.matches("[data-map-place],[data-stamp-id],[data-map-district]"))return;
   event.preventDefault();event.stopPropagation();walkFromMap(event);
 });
 const canTapToWalk=started=>thumbId===undefined&&!keys.size&&started>manualInputAt;
@@ -2936,6 +2961,7 @@ function useHeldItem(slot){
 }
 ITEM_SLOTS.forEach((slot,index)=>$(useItemButtons[index]).addEventListener("click",()=>useHeldItem(slot)));
 function movePlayerTo(destination,place){
+  if(inGyeongju&&browsedMapBox)setOverview(false);
   if(me.coast)delete me.coast.track;
   if(bungeoMode)setBungeoCooking(false);
   arcade.stop();
@@ -3015,7 +3041,7 @@ function tasteCoastFood(kind){
 function gyeongjuBus(destination,label){
  const link=myLink()?.id??(queuedHand?.action==="offer"?queuedHand.id:null);
  if(link){queuedHand={action:"release",id:link};changeLinks(links);}
- closeActionMenus();clearMapRoute();setMap(false);
+ closeActionMenus();setMap(false);
  movePlayerTo(destination,label);rememberWalkPosition();
  toast(label+"에 도착했어요.");
 }
@@ -3024,10 +3050,14 @@ function gyeongjuMenu(){
  if(!session||riding||leavingByKtx||me.bus||isCycling(me)||queuedBus||queuedBike)return new Map();
  const actions=gyeongjuActivities?.menu()??new Map();
  if(me.seat!=null||me.groundSit)return actions;
- const {stationExit,stationBus,townBus,townReturnBus}=region.travelStops;
+ const {stationExit,stationBus,townBus,townReturnBus,templeBus}=region.travelStops;
  if(near(stationExit,me.x,me.y)<6)actions.set("train",{label:"열차 타기",marker:stationExit,run:chooseTrainDestination});
- if(near(stationBus,me.x,me.y)<5)actions.set("stationBus",{label:"황리단길행 버스 타기",marker:stationBus,run:()=>gyeongjuBus(townBus,"황리단길 정류장")});
- if(near(townReturnBus,me.x,me.y)<5)actions.set("townBus",{label:"경주역행 버스 타기",marker:townReturnBus,run:()=>gyeongjuBus(stationBus,"경주역 앞 정류장")});
+ const stop=[stationBus,townReturnBus,templeBus].find(p=>near(p,me.x,me.y)<5);
+ if(stop){
+  if(stop!==townReturnBus)actions.set("stationBus",{label:"황리단길행 버스 타기",marker:stop,run:()=>gyeongjuBus(townBus,"황리단길 정류장")});
+  if(stop!==stationBus)actions.set("townBus",{label:"경주역행 버스 타기",marker:stop,run:()=>gyeongjuBus(stationBus,"경주역 앞 정류장")});
+  if(stop!==templeBus)actions.set("templeBus",{label:"불국사행 버스 타기",marker:stop,run:()=>gyeongjuBus(templeBus,"불국사 정류장")});
+ }
  return actions;
 }
 function updateGyeongjuActivities(markers){
@@ -3690,10 +3720,11 @@ function walkCourse(speed,gait){
   else if(arriving){
     course.shift();
     if(!course.length&&mapRoute?.walking&&course===mapRoute.steps){
-      mapRoute.walking=false;
-      mapRoute.start={x:me.x,y:me.y};
-      updateWalkingGuide();
-      toast((mapRoute.stairs?.name??(mapRoute.leaving?"출구":mapRoute.site.name))+" 도착");
+      const transfer=mapRoute.busDirection?" · "+mapRoute.busDirection+" 버스를 타세요.":"";
+      toast((mapRoute.stairs?.name??(mapRoute.leaving?"출구":mapRoute.site.name))+" 도착"+transfer);
+      if(mapRoute.stairs||mapRoute.leaving||mapRoute.site!==mapRoute.requested){
+        mapRoute.walking=false;mapRoute.start={x:me.x,y:me.y};drawMapRoute();updateWalkingGuide();
+      }else clearMapRoute();
     }
   }
   if(!course.length&&pendingSeat!=null){
@@ -4141,15 +4172,19 @@ function drawIndoorMap(base,venue,galleries,mini){
 }
 let overviewOpen=false,overviewLayer;
 let mapViewport=null;
+let browsedMapBox=null;
+const districtPins=[];
 const overviewButton=$("overview-map");
 const mapSurface=$("world");
-function setOverview(open){
+function setOverview(open,box=null){
+  browsedMapBox=box;
+  mapSurface.classList.toggle("district-overview",Boolean(inGyeongju&&box===region.cityMapBox));
   if(overviewOpen===open)return;
   overviewOpen=open;
   overviewButton.setAttribute("aria-pressed",String(overviewOpen));
   overviewButton.textContent=overviewOpen?"주변 지도":"전체 지도";
 }
-overviewButton.addEventListener("click",()=>setOverview(!overviewOpen));
+overviewButton.addEventListener("click",()=>setOverview(!overviewOpen,inGyeongju&&!overviewOpen?region.cityMapBox:null));
 function drawMap(base,mini=false){
   const patternId=mini?"mini-map-grid":"world-map-grid";
   const pattern=svg(svg(base,"defs",{}),"pattern",{id:patternId,width:28,height:28,patternUnits:"userSpaceOnUse"});
@@ -4335,7 +4370,7 @@ function drawOverview(base){
   for(const [point,name] of [[spawn,"덕수궁"],[plazaAt(-12,240),"광화문광장"],[palaceAt(0,245),"경복궁"],
     [hwangudanLandmarks[0],"환구단"],[bukchonAlleyShortcut,"북촌"],[cheonggyeLandmarks[0],"청계천"],
     [songhyeonLandmarks[0],"열린송현"],[stationHall.outsideDoor,"서울역"]]){
-    const destination=svg(layer,"g",{"data-walk-x":point.x,"data-walk-y":point.y});
+    const destination=svg(layer,"g",{"data-map-place":mapPlaces.push({...point,name})-1,role:"button",tabindex:"0","aria-label":name});
     svg(destination,"circle",{cx:point.x,cy:point.y,r:16,fill:"#f2d59b",stroke:"#40392c","stroke-width":5});
     mapLabels.add(destination,{...point,name},null,{area:true});
   }
@@ -4451,11 +4486,16 @@ const miniMapWidth=126,miniMapHeight=126;
 function attr(node,key,value){if(node.getAttribute(key)!==String(value))node.setAttribute(key,value);}
 function setMapView(view){
   const {base}=mapViewport;
-  const centerX=regional?me.x-view.w/2:base.x,centerY=regional?me.y-view.h/2:base.y;
+  const trackPlayer=regional&&!browsedMapBox;
+  const centerX=trackPlayer?me.x-view.w/2:base.x,centerY=trackPlayer?me.y-view.h/2:base.y;
   const x=Math.min(Math.max(base.x+base.w*.96,centerX),Math.max(Math.min(base.x-base.w*.66,centerX),view.x));
   const y=Math.min(Math.max(base.y+base.h*.96,centerY),Math.max(Math.min(base.y-base.h*.66,centerY),view.y));
   mapViewport.view={...view,x,y};
   attr(mapSurface,"viewBox",[x,y,view.w,view.h].join(" "));
+  if(inGyeongju&&browsedMapBox===region.cityMapBox){
+    const units=Math.max(view.w/Math.max(1,mapSurface.clientWidth),view.h/Math.max(1,mapSurface.clientHeight));
+    for(const {pin,point} of districtPins)attr(pin,"transform",`translate(${point.x} ${point.y}) scale(${units})`);
+  }
   mapLabels.setView(base,mapViewport.view,overviewOpen);
 }
 const clearMapGestures=bindMapGestures(mapSurface,{getView:()=>mapViewport,setView:setMapView,onTap:walkFromMap});
@@ -4471,7 +4511,7 @@ mapSurface.addEventListener("pointermove",event=>{if(event.buttons)markMapActivi
 function followOnMap(self){
   const now=performance.now(),elapsed=Math.min(.5,(now-mapFollowed)/1000);
   mapFollowed=now;
-  if(!mapViewport||overviewOpen||mapRoute&&!mapRoute.walking&&!mapRoute.followPlayer||now-mapTouched<MAP_FOLLOW_AFTER_MS)return;
+  if(!mapViewport||overviewOpen||browsedMapBox||mapRoute&&!mapRoute.walking&&!mapRoute.followPlayer||now-mapTouched<MAP_FOLLOW_AFTER_MS)return;
   if(mobileHeader.matches&&!regional)return;
   if(mapBrowseOrigin&&near(mapBrowseOrigin,self.x,self.y)<2)return;
   mapBrowseOrigin=null;
@@ -4498,7 +4538,7 @@ function showMapRegion(box){
   clearMapGestures();
   const base=fitMapRegion(box);
   mapViewport={key:box,base,view:base};
-  if(regional&&!overviewOpen){
+  if(regional&&!overviewOpen&&!browsedMapBox){
     const zoom=Math.max(.23,Math.min(1,340/Math.min(base.w,base.h))),w=base.w*zoom,h=base.h*zoom;
     setMapView({x:me.x-w/2,y:me.y-h/2,w,h});
   }else setMapView(base);
@@ -4551,54 +4591,28 @@ function mapRegionAt(point,inside,overview){
   if(point.y<28&&area==="세종대로")return point.y<-58?plazaApproachBox:southApproachBox;
   return southViewBox;
 }
-const mapRoutePanel=$("map-route"),mapRoutePath=$("map-route-path"),mapRouteEnd=$("map-route-end");
+const mapRoutePanel=$("map-route"),mapRoutePath=$("map-route-path"),mapRouteEnd=$("map-route-end"),miniRoutePath=$("mini-route-path");
 const mapRouteWalk=$("map-route-walk");
-const routePicker=$("map-route-picker");
-let routePickerContext="";
-function refreshRoutePicker(inside){
-  const context=[inside??"outdoors",mapPlaces.length,mapCategory.value].join("|");
-  if(context===routePickerContext)return;
-  routePickerContext=context;
-  const options=[],names=new Set();
-  for(const marker of mapSurface.querySelectorAll("[data-map-place]")){
-    const index=marker.dataset.mapPlace,site=mapPlaces[index];
-    if(!site||names.has(site.name)||pointCity(site)!==activeCity||interiorAt(site.x,site.y)!==inside)continue;
-    if(mapCategory.value!=="all"&&mapCategory.value!==marker.dataset.mapCategory)continue;
-    names.add(site.name);options.push(new Option(site.name,index));
-  }
-  if(!regional&&!inside&&(mapCategory.value==="all"||mapCategory.value==="stamp")){
-    for(const stamp of passportStamps){
-      if(!names.has(stamp.name))options.push(new Option(stamp.name,"stamp:"+stamp.id));
-    }
-  }
-  options.sort((a,b)=>a.text.localeCompare(b.text,"ko"));
-  routePicker.replaceChildren(new Option("목적지 선택",""),...options);
-}
-routePicker.addEventListener("change",()=>{
-  const value=routePicker.value;
-  if(!value)return;
-  const site=value.startsWith("stamp:")?stampById.get(value.slice(6)):mapPlaces[Number(value)];
-  if(site)showMapRoute(site);
-});
 function showMapRoute(site,{fit=true}={}){
   if(pointCity(site)!==activeCity){toast("이 장소가 있는 도시에서 도보 경로를 볼 수 있어요.");return;}
   if(!session)return;
   setMapMode("route");
-  const requested=site;
-  if(inGyeongju&&!region.sameGyeongjuArea(me,site)){
-    site=region.sameGyeongjuArea(me,region.travelStops.stationBus)?region.travelStops.stationBus:region.travelStops.townReturnBus;
+  if(inGyeongju&&!region.sameGyeongjuArea(me,site))
     toast("표시된 정류장에서 버스로 이동할 수 있어요.");
-  }
   resetInput();
-  mapRoute={site,requested,start:{x:me.x,y:me.y},steps:[]};
+  const start={x:me.x,y:me.y};
+  mapRoute={site,requested:site,selectedAt:start,start,steps:[]};
   setMap(true);
   refreshMapRoute(fit);
   $("world").focus({preventScroll:true});
   $("map-panel").scrollIntoView({block:"nearest"});
 }
+function mapWalkable(x,y){
+  return regional?region.coastDrySpot(x,y):walkable(x,y,platformAt(x,y)+.19);
+}
 function mapRouteDestination(site){
   if(site.approach)return site.approach;
-  if(walkable(site.x,site.y,platformAt(site.x,site.y)+.19))return site;
+  if(site.exact||mapWalkable(site.x,site.y))return site;
   const angle=site.angle??0,c=Math.cos(angle),s=Math.sin(angle);
   const width=(site.w??0)/2,depth=(site.d??0)/2;
   for(const padding of [2,5,10,18,30,48]){
@@ -4607,7 +4621,7 @@ function mapRouteDestination(site){
       const bearing=i*Math.PI/4;
       const along=Math.cos(bearing)*(width+padding),across=Math.sin(bearing)*(depth+padding);
       const point={x:site.x+c*along+s*across,y:site.y-s*along+c*across};
-      if(regional?region.coastDrySpot(point.x,point.y):walkable(point.x,point.y,platformAt(point.x,point.y)+.19))candidates.push(point);
+      if(mapWalkable(point.x,point.y))candidates.push(point);
     }
     if(candidates.length)return candidates.sort((a,b)=>near(me,a.x,a.y)-near(me,b.x,b.y))[0];
   }
@@ -4615,33 +4629,38 @@ function mapRouteDestination(site){
 }
 async function refreshMapRoute(fit=false){
   const guide=mapRoute;
+  if(guide.walking&&course===guide.steps)course=[];
+  const previousSite=guide.site,previousInside=guide.inside,start={x:me.x,y:me.y};
+  guide.site=inGyeongju&&!region.sameGyeongjuArea(me,guide.requested)?region.transferStop(me):guide.requested;
+  guide.busDirection=inGyeongju&&guide.site!==guide.requested?region.busDirection(guide.requested):null;
   guide.inside=interiorAt(me.x,me.y);
   guide.indoors=Boolean(guide.inside);
   const targetInterior=interiorAt(guide.site.x,guide.site.y);
   guide.leaving=guide.indoors&&targetInterior!==guide.inside;
   guide.stairs=stationDoorToward(guide.inside,targetInterior)??(guide.leaving?arcadeStairToward(guide.inside,targetInterior):null);
-  guide.start={x:me.x,y:me.y};
+  guide.needsReplan=false;
   guide.loading=!world&&!worldFailed;
   guide.destination=guide.stairs??(guide.leaving?venueAt(guide.inside)?.insideDoor:guide.loading?guide.site:mapRouteDestination(guide.site));
   guide.walking=false;
-  guide.steps=[];
+  if(previousSite!==guide.site||previousInside!==guide.inside)guide.steps=[];
   const request=(guide.request??0)+1;guide.request=request;
   mapRoutePanel.hidden=false;setText($("map-route-name"),guide.requested===guide.site?guide.site.name:guide.requested.name+" · "+guide.site.name+" 경유");
+  let steps=[];
   if(guide.destination&&!guide.loading){
-    if(regional){
-      guide.planning=true;drawMapRoute();
-      const steps=await coastalMapSteps(guide.destination);
-      if(mapRoute!==guide||guide.request!==request)return;
-      guide.planning=false;guide.steps=steps;
-    }else guide.steps=walkingSteps(guide.destination);
+    guide.planning=true;drawMapRoute();
+    const current=()=>mapRoute===guide&&guide.request===request;
+    steps=regional?await coastalMapSteps(guide.destination):await seoulMapSteps(guide.destination,current);
+    if(!current())return;
   }
+  guide.planning=false;guide.start=start;guide.steps=steps;
   const end=guide.steps.at(-1);
   // The pathfinder may end at the nearest reachable cell when a path is obstructed.
   if(end&&near(guide.destination,end.x,end.y)>1.2)guide.steps=[];
   if(fit&&!guide.followPlayer){
+    setOverview(false);
     showMapRegion(mapRegionAt(me,guide.inside,false));
     const {base}=mapViewport,destination=guide.destination;
-    const wide=!guide.indoors&&[guide.start,...guide.steps,destination].some(p=>
+    const wide=destination&&!guide.indoors&&[guide.start,...guide.steps,destination].some(p=>
       p.x<base.x||p.x>base.x+base.w||p.y<base.y||p.y>base.y+base.h);
     setOverview(wide);
     if(wide)showMapRegion(regional?region.coastBox(me,true):fieldViewBox);
@@ -4676,39 +4695,52 @@ function updateWalkingGuide(){
 $("walking-guide-stop").addEventListener("click",()=>{clearMapRoute();focusGame();});
 function drawMapRoute(){
   const guide=mapRoute;
-  if(!guide){attr(mapRoutePath,"visibility","hidden");return;}
+  if(!guide){attr(mapRoutePath,"visibility","hidden");attr(miniRoutePath,"visibility","hidden");return;}
   const {destination,steps,indoors,loading,walking}=guide;
-  const points=[walking?me:guide.start,...steps];
-  let length=0;
-  for(let i=1;i<points.length;i++)length+=near(points[i-1],points[i].x,points[i].y);
+  const start=walking?me:guide.start;
+  if(guide.geometry?.steps!==steps||guide.geometry.count!==steps.length){
+    let tail=0;
+    for(let i=1;i<steps.length;i++)tail+=near(steps[i-1],steps[i].x,steps[i].y);
+    guide.geometry={steps,count:steps.length,tail,points:outline(steps)};
+  }
+  const length=steps.length?near(start,steps[0].x,steps[0].y)+guide.geometry.tail:0;
   const distance=walkingDistance(length);
-  let text=(guide.stairs?"계단까지 ":guide.leaving?"출구까지 ":"도보 ")+distance;
+  const bus=guide.busDirection;
+  let text=(guide.stairs?"계단까지 ":guide.leaving?"출구까지 ":"도보 ")+distance+(bus?" · "+bus+" 환승":"");
   if(loading||guide.planning)text="도보 경로 찾는 중…";
-  else if(length<.25&&near(destination??guide.site,me.x,me.y)<1.2)text=guide.stairs?.name??(guide.leaving?"출구":"도착");
+  else if(length<.25&&near(destination??guide.site,me.x,me.y)<1.2)text=bus?bus+" 버스 타기":guide.stairs?.name??(guide.leaving?"출구":"도착");
   else if(!steps.length)text=me.coast?.mode==="deck"?"크루즈에서 내린 뒤 도보 안내를 시작하세요.":"이 위치에서 걸어가는 길을 찾지 못했어요";
   setText($("map-route-distance"),text);
-  mapRouteWalk.disabled=!steps.length||length<.25||isCycling(me)||!canWalkTo();
+  mapRouteWalk.disabled=walking||guide.planning||!steps.length||length<.25||isCycling(me)||!canWalkTo();
   attr(mapRoutePath,"visibility",destination?"visible":"hidden");
+  attr(miniRoutePath,"visibility",destination?"visible":"hidden");
   if(!destination)return;
-  const path=steps.length?outline(points):"";
+  const path=steps.length?start.x.toFixed(1)+","+start.y.toFixed(1)+" "+guide.geometry.points:"";
   attr(mapRoutePath.children[0],"points",path);
   attr(mapRoutePath.children[1],"points",path);
   attr(mapRouteEnd,"cx",destination.x);attr(mapRouteEnd,"cy",destination.y);
-  attr(mapRouteEnd,"r",indoors?1.7:stampPins.get(guide.site.id)?.getAttribute("r")||mapViewport.view.h/105);
+  attr(mapRouteEnd,"r",indoors?1.7:stampPins.get(guide.site.id)?.getAttribute("r")||(mapViewport?.view.h??520)/105);
+  attr(miniRoutePath.children[0],"points",path);
+  const miniEnd=miniRoutePath.children[1];
+  attr(miniEnd,"cx",destination.x);attr(miniEnd,"cy",destination.y);attr(miniEnd,"r",indoors?1:2.6);
 }
 function clearMapRoute(){
   if(mapRoute?.walking&&course===mapRoute.steps)course=[];
-  mapRoute=null;mapRoutePanel.hidden=true;routePicker.value="";mapRouteWalk.disabled=true;drawMapRoute();updateWalkingGuide();
+  mapRoute=null;mapRoutePanel.hidden=true;mapRouteWalk.disabled=true;drawMapRoute();updateWalkingGuide();
 }
 $("map-route-clear").addEventListener("click",()=>{
   clearMapRoute();
   $("world").focus({preventScroll:true});
 });
 mapRouteWalk.addEventListener("click",async()=>{
-  if(!mapRoute||!canWalkTo()||isCycling(me))return;
-  const guide=mapRoute;
-  if(near(guide.start,me.x,me.y)>.4||guide.walking)await refreshMapRoute();
-  if(guide!==mapRoute||!canWalkTo()||isCycling(me)||near(guide.start,me.x,me.y)>.4)return;
+  if(!mapRoute||mapRoute.walking||mapRoute.planning||!canWalkTo()||isCycling(me))return;
+  const guide=mapRoute,input=manualInputAt;
+  if(guide.needsReplan||near(guide.start,me.x,me.y)>.4){
+    const request=guide.request+1;
+    await refreshMapRoute();
+    if(guide.request!==request)return;
+  }
+  if(guide!==mapRoute||guide.planning||input!==manualInputAt||!canWalkTo()||isCycling(me)||near(guide.start,me.x,me.y)>.4)return;
   if(!guide.steps.length)return;
   // Cache the distance from each waypoint so the closed map can report progress cheaply.
   guide.remainingFrom=new Map();
@@ -4719,6 +4751,7 @@ mapRouteWalk.addEventListener("click",async()=>{
     guide.remainingFrom.set(point,tail);
   }
   stand();guide.walking=true;course=guide.steps;pendingSeat=seatClaim=null;
+  if(browsedMapBox)setOverview(false);
   updateWalkingGuide();
   setMap(false,{fold:true});focusGame();
 });
@@ -4745,7 +4778,6 @@ function updateMaps(self,others){
     attr($("map-heading"),"title",city+" / "+district);
   }
   if(fullMap){
-    if(touchControls.matches)refreshRoutePicker(inside);
     $("world").classList.toggle("overview-map",overview);
     attr(overviewLayer,"visibility",overview?"visible":"hidden");
     overviewButton.hidden=indoors;
@@ -4766,7 +4798,7 @@ function updateMaps(self,others){
   attr($("mini-my"),"transform","translate("+self.x+" "+self.y+") rotate("+self.heading+") scale("+(indoors?.47:1.5)+")");
   for(const {id,layer} of indoorMaps)attr(layer,"visibility",id===inside?"visible":"hidden");
   $("mini-world").classList.toggle("museum-map",indoors);
-  showMapRegion(mapRegionAt(self,inside,overview));
+  showMapRegion(browsedMapBox??mapRegionAt(self,inside,overview));
   followOnMap(self);
   let mapActorUnit=1;
   if(fullMap){
@@ -4793,8 +4825,16 @@ function updateMaps(self,others){
   }
   if(mapRoute){
     if(mapRoute.inside!==inside||mapRoute.loading&&(world||worldFailed))refreshMapRoute(true);
-    else if(mapRoute.walking&&course!==mapRoute.steps)refreshMapRoute();
-    else if(fullMap)drawMapRoute();
+    else if(!mapRoute.walking&&!mapRoute.loading&&!mapRoute.planning&&mapRoute.destination&&
+      mapRoute.site===mapRoute.requested&&!mapRoute.stairs&&!mapRoute.leaving&&
+      near(mapRoute.selectedAt,self.x,self.y)>.45&&near(mapRoute.destination,self.x,self.y)<.45)clearMapRoute();
+    else if(mapRoute.walking&&course!==mapRoute.steps){
+      mapRoute.walking=false;mapRoute.start={x:me.x,y:me.y};mapRoute.needsReplan=true;drawMapRoute();
+    }else if(!mapRoute.walking&&!mapRoute.planning&&!moving(me)&&!keys.size&&thumbId===undefined&&
+      !course.length&&!me.bus&&!riding&&(mapRoute.needsReplan||near(mapRoute.start,me.x,me.y)>.4)){
+      // Keep the selected trail during manual travel. Replan once at the new starting point.
+      refreshMapRoute();
+    }else if(fullMap||mapRoute.walking)drawMapRoute();
   }
   for(const actor of others.values()){
     let mark=markers.get(actor.id);
@@ -4828,6 +4868,19 @@ for(const exhibit of Object.values(museumExhibits)){
 if(regional){
   region.drawCoastMap($("map-landscape"),svg,drawMapPoint);region.drawCoastMap($("mini-landscape"),svg,drawMapPoint,true);
   overviewLayer=svg($("map-landscape"),"g",{});
+  if(inGyeongju){
+    const districts=svg(mapSurface,"g",{class:"map-districts"});
+    const points=region.mapDistricts.map(d=>d.point);
+    svg(districts,"polygon",{points:outline(points),class:"map-bus-links"});
+    for(const [index,{name,point}] of region.mapDistricts.entries()){
+      const pin=svg(districts,"g",{"data-map-district":index,role:"button",tabindex:0,"aria-label":name+" 지도 확대"});
+      svg(pin,"title",{},name+" 지도 확대");
+      svg(pin,"circle",{r:4});
+      svg(pin,"rect",{x:-36,y:5,width:72,height:28,rx:7});
+      svg(pin,"text",{x:0,y:23,"text-anchor":"middle"},name);
+      districtPins.push({pin,point});
+    }
+  }
 }else{
   drawMap($("map-landscape"));overviewLayer=drawOverview($("map-landscape"));drawMap($("mini-landscape"),true);
 }

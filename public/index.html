@@ -196,7 +196,9 @@
             </div>
             <button id="map-toggle" class="minimap" type="button" data-native-touch aria-label="미니맵, 큰 지도 열기" aria-controls="map-panel" aria-expanded="false">
               <svg id="mini-world" viewBox="404 231 126 126" aria-hidden="true">
-                <g id="mini-landscape"></g><g id="mini-people"></g>
+                <g id="mini-landscape"></g>
+                <g id="mini-route-path" visibility="hidden"><polyline/><circle/></g>
+                <g id="mini-people"></g>
                 <g id="mini-track-pin" class="track-map-pin" visibility="hidden"><circle/><circle/></g>
                 <path id="mini-my" d="M0 -4.8 3.4 3 0 1.6 -3.4 3Z" fill="#e5b672" stroke="#fff4da" stroke-width=".75"/>
               </svg>
@@ -429,7 +431,7 @@
         </div>
         <section id="map-route-view" aria-label="길찾기">
         <div class="map-wrap">
-          <svg id="world" viewBox="58 28 520 397" role="group" tabindex="0" aria-label="산책 지도. 휠이나 두 손가락으로 확대·축소하고, 마우스나 손가락으로 끌어서 둘러보세요.">
+          <svg id="world" viewBox="58 28 520 397" role="group" tabindex="0" aria-label="산책 지도. 장소나 길을 누르면 경로가 표시됩니다. 휠이나 두 손가락으로 확대·축소하고 끌어서 둘러보세요.">
             <defs>
               <pattern id="stone" width="20" height="12" patternUnits="userSpaceOnUse"><path d="M0 1h20M0 7h20M5 1v6m10 0v5" stroke="#b59865" stroke-opacity=".5" fill="none"/></pattern>
               <g id="tree"><circle cx="2" cy="4" r="14" fill="#101c18"/><circle r="14" fill="#31493a" stroke="#6c8060" stroke-width="1"/><circle r="6" fill="#435a45"/><circle cx="-3" cy="-4" r="2" fill="#76825b"/></g>
@@ -449,6 +451,7 @@
           </svg>
           <button class="map-location" id="map-center" type="button" aria-label="지도를 내 위치로 이동"><span aria-hidden="true">⌖</span> 내 위치</button>
           <div class="map-corner" id="map-corner">
+            <button id="overview-map" class="quiet" type="button" aria-pressed="false" aria-controls="world">전체 지도</button>
             <a class="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>
           </div>
           <span class="map-north" aria-hidden="true">↑ N</span>
@@ -465,7 +468,6 @@
         <section class="map-itinerary" aria-labelledby="map-destination-label">
           <p class="map-departure">출발 <span aria-hidden="true">·</span> <strong id="location">매표소 앞</strong></p>
           <h3 id="map-destination-label" class="map-sr">도보 목적지</h3>
-          <select id="map-route-picker" aria-label="도보 목적지 선택"><option value="">목적지 선택</option></select>
           <div id="map-route" class="map-route" hidden>
             <div role="status"><strong id="map-route-name"></strong><span id="map-route-distance"></span></div>
             <button id="map-route-clear" class="quiet" type="button" aria-label="도보 경로 지우기">×</button>
@@ -488,7 +490,6 @@
             <option value="stamp">스탬프</option>
           </select>
         </label>
-            <button id="overview-map" class="quiet" type="button" aria-pressed="false" aria-controls="world">전체 지도</button>
           </div>
         <div class="map-footer" id="map-footer"><span class="map-key" id="map-key" aria-label="지도 범례"><span><i class="dot mine"></i>나</span><span><i class="dot theirs"></i>동행</span><span data-map-legend="heritage"><i class="dot map-swatch"></i>유적·전시</span><span data-map-legend="park"><i class="dot map-swatch"></i>정원·광장</span><span data-map-legend="shop"><i class="dot map-swatch"></i>상점·식당</span><span data-map-legend="activity"><i class="dot map-swatch"></i>즐길거리</span><span data-map-legend="bus"><i class="dot map-swatch"></i>버스</span><span data-map-legend="railway"><i class="dot map-swatch"></i>철도역</span><span data-map-legend="subway"><i class="dot map-swatch"></i>지하철</span><span data-map-legend="bike"><i class="dot map-swatch"></i>따릉이</span><span data-map-legend="stamp"><i class="dot map-swatch"></i>찍은 도장</span><span data-map-legend="stamp"><i class="dot stamp-dot unvisited"></i>미방문 도장</span></span></div>
         </details>
@@ -520,7 +521,7 @@
       <div><dt>시점</dt><dd>화면을 드래그해 둘러보고, 장소명 옆 카메라로 시점을 바꿔요.</dd></div>
       <div><dt>상호작용</dt><dd>가까이 가면 오른쪽 아래에 탈것, 음식 등 종류별로 행동이 보여요. 더 있는 곳에서는 ‘더보기’를 누르세요.</dd></div>
       <div><dt>몸짓·감정</dt><dd>손 모양으로 몸짓을, 웃는 얼굴로 감정을 골라요.</dd></div>
-      <div><dt>지도</dt><dd><span class="help-keyboard">장소를 누르면 도보 경로가 보입니다. 순간이동은 지도 아래에서 고르세요.</span><span class="help-touch">지도에서 길찾기 또는 순간이동을 선택하세요.</span></dd></div>
+      <div><dt>지도</dt><dd>지도에서 장소나 길을 누르면 경로가 보입니다. ‘이 길로 걷기’를 누르면 그 길을 따라 달립니다. <span class="help-keyboard">순간이동은 지도 아래에서 고르세요.</span><span class="help-touch">순간이동은 지도 위쪽 탭에서 고르세요.</span></dd></div>
     </dl>
   </dialog>
   <dialog id="walk-bag" aria-labelledby="bag-title">
@@ -676,6 +677,10 @@
     <p>경주 도로·유적지 지형 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> · <a href="./gyeongju-geography.js" download>경주 지리 데이터</a> · <a href="./gyeongju-southern-geography.js" download>계림·월정교 지리 데이터</a></p>
     <p>국가유산청이 제공한 3D 실측 자료를 웹에서 볼 수 있도록 경량화했습니다.</p>
     <ul class="credits">
+      <li>경주 첨성대 · <a href="https://digital.khs.go.kr/record/recordDetail3D.do?ichDataUid=13903001708066000200&amp;bizId=BIZ201800002632" target="_blank" rel="noopener">국가유산청 3D 자료</a> · <a href="https://gumisflatland.tistory.com/m/462" target="_blank" rel="noopener">카리스χάρης 공개 경량본</a>. 게임에서 크기와 석재 색을 맞췄습니다.</li>
+      <li>불국사 다보탑 · <a href="https://www.data.go.kr/data/15150537/fileData.do" target="_blank" rel="noopener">국가유산청 3D 모델과 표면 사진</a> · <a href="https://www.kogl.or.kr/info/licenseType1.do" target="_blank" rel="noopener">공공누리 제1유형</a></li>
+      <li>불국사 석가탑 · 국가유산청 <a href="https://www.heritage.go.kr/heri/cul/chartImgHeritage.do?file_seq=2837998" target="_blank" rel="noopener">남측 입면도</a>와 <a href="https://www.heritage.go.kr/heri/cul/chartImgHeritage.do?file_seq=2838012" target="_blank" rel="noopener">상륜부 실측도</a>로 외형을 재구성하고 <a href="https://www.heritage.go.kr/heri/cul/imgHeritage.do?ccimId=1612684&amp;ccbaKdcd=11&amp;ccbaAsno=0000210000000&amp;ccbaCtcd=37" target="_blank" rel="noopener">기단부 사진</a>을 석재 재질로 가공했습니다. 공공누리 제1유형.</li>
+      <li>불국사 경내 지도 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap 기여자</a> · <a href="./bulguksa-geography.js" download>ODbL 지리 데이터</a> · 전각 및 석교 배치 참고 <a href="https://contents.history.go.kr/data/pdf/eh/eh_r0070_0010.pdf" target="_blank" rel="noopener">국사편찬위원회 안내도</a> · <a href="https://bulguksa.or.kr/bbs/content.php?co_id=palace" target="_blank" rel="noopener">불국사 전각 소개</a></li>
       <li>국가유산청 경복궁 실측 자료 · <a href="https://www.data.go.kr/data/15115251/fileData.do" target="_blank" rel="noopener">경회루</a> · <a href="https://www.data.go.kr/data/15115294/fileData.do" target="_blank" rel="noopener">사정전</a> · <a href="https://www.data.go.kr/data/15115247/fileData.do" target="_blank" rel="noopener">강녕전</a> · <a href="https://www.data.go.kr/data/15115286/fileData.do" target="_blank" rel="noopener">태원전</a> · <a href="https://www.data.go.kr/data/15115265/fileData.do" target="_blank" rel="noopener">건춘문</a> · <a href="https://www.data.go.kr/data/15115249/fileData.do" target="_blank" rel="noopener">비현각</a> · <a href="https://www.data.go.kr/data/15115248/fileData.do" target="_blank" rel="noopener">만춘전</a> · <a href="https://www.data.go.kr/data/15115253/fileData.do" target="_blank" rel="noopener">천추전</a> · <a href="https://www.data.go.kr/data/15115291/fileData.do" target="_blank" rel="noopener">함원전</a> · <a href="https://www.data.go.kr/data/15115295/fileData.do" target="_blank" rel="noopener">자선당</a> · <a href="https://www.data.go.kr/data/15115269/fileData.do" target="_blank" rel="noopener">대전내소주방</a> · <a href="https://www.data.go.kr/data/15092148/fileData.do" target="_blank" rel="noopener">사정문</a></li>
       <li><a href="https://sema.seoul.go.kr/kr/whatson/exhibition/detail?exNo=151&glolangType=KOR" target="_blank" rel="noopener">서울시립미술관 르누아르 전시 기록</a></li>
       <li>모두 사운드 이펙트 · <a href="https://www.youtube.com/watch?v=Ac9VroFOW3U" target="_blank" rel="noopener">새소리</a> · <a href="https://www.youtube.com/watch?v=_F-SpbZvMpM" target="_blank" rel="noopener">고양이</a> · <a href="https://www.youtube.com/watch?v=mMxLoNdvTEs" target="_blank" rel="noopener">타격음</a></li>
@@ -734,7 +739,7 @@
       <section><h3>소원등과 스파클</h3><p>정동 분수대와 경복궁 향원정에서 <strong>소원등</strong>을 눌러 네 면을 꾸미고 지금 서 있는 곳에서 띄워 보세요. 석조전 분수와 경회루 옆 좌판에서는 스파클을 받아 <strong>사용하기</strong>를 누르면 손에 든 폭죽이 반짝여요.</p></section>
       <section><h3>석조전 서관 전시관</h3><p>계단을 올라 문 앞에서 <strong>입장하기</strong>를 누르세요. 삼국·통일신라부터 근대까지 한국 그림과 공예품을 시대별로 볼 수 있어요. 전시품 가까이에서 <strong>작품 설명</strong>을 열어 보세요.</p></section>
       <section><h3>미술관과 동네 식당</h3><p>북촌의 국립현대미술관 서울에서 서도호, 데이미언 허스트, 론 뮤익 등 역대 전시를 바탕으로 만든 작품을 만나 보세요. 지도에서 한식집과 정동 비스트로, 세종 우동집, 삼청 중화식당을 찾을 수 있어요. 직원이 있는 곳에서는 앉아서 <strong>벨 누르기</strong>를, 키오스크가 있는 곳에서는 주문한 뒤 빈 식탁에 앉아 보세요. 음식이 도착하면 <strong>먹기</strong>를 누르세요. 미술관과 식당에는 같은 방 친구와 함께 쓰는 <strong>방명록</strong>도 있어요.</p></section>
-      <section><h3>길에서 만나는 가게</h3><p>광화문에서는 팥빙수·하이볼을, 북촌에서는 꿀떡·매실주를 받아요. 커피, 크레페, 맥주, 약과, 막걸리와 와인도 즐길 수 있어요. 지도에서 가게 이름을 누르면 입구로 걸어갑니다.</p></section>
+      <section><h3>길에서 만나는 가게</h3><p>광화문에서는 팥빙수·하이볼을, 북촌에서는 꿀떡·매실주를 받아요. 커피, 크레페, 맥주, 약과, 막걸리와 와인도 즐길 수 있어요. 지도에서 가게 이름을 눌러 입구까지의 길을 확인하고 ‘이 길로 걷기’를 누르면 출발해요.</p></section>
       <section><h3>붕어빵과 호떡 굽기</h3><p>정동에서는 호떡을, 경복궁과 북촌에서는 붕어빵과 호떡을 구울 수 있어요. 좌판 앞에서 굽기 버튼을 누르면 1인칭으로 도구를 조작할 수 있어요. 붕어빵은 반죽을 붓고 팥이나 슈크림을 넣어요. 호떡은 반죽에 설탕소를 넣고 오므려 철판으로 옮겨요. 누르개로 납작하게 누른 뒤 뒤집어 양면을 구우면 완성이에요. 완성한 간식은 먹거나 친구에게 건넬 수 있고, 광화문 좌판에서는 붕어빵을 손님에게 팔 수도 있어요.</p></section>
       <section><h3>광화문 오락실</h3><p>지도에서 광화문 오락실을 찾아 보세요. 기계 앞에서 집게를 움직여 인형을 뽑거나 농구공을 던질 수 있어요. 펌프는 내려오는 화살표가 판정선에 겹칠 때 조이스틱이나 방향키로 해당 발판을 밟아요.</p></section>
       <section><h3>고양이와 새</h3><p>고양이에게 천천히 다가가 <strong>쓰다듬기</strong>를 눌러 보세요. 츄르를 들고 기다리면 다가오는 고양이에게 <strong>간식 주기</strong>를 할 수 있어요. 친해진 고양이는 잠깐 멈춰 기다리면 먼저 다가오기도 해요. 산책길에서는 까치와 비둘기가 바닥을 쪼거나 나무에 쉬는 모습도 볼 수 있어요.</p></section>

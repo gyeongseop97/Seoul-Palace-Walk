@@ -7,7 +7,7 @@ import {api} from "../room.mjs";
 import {busAt,busSeatPose,nearBus} from "../public/bus-network.js";
 import {BUS_COUNT as firstCoach,busLocalPose} from "../public/sejong-bus.js";
 import {gyeongjuBusCycle,gyeongjuBusInterval,gyeongjuBusStops,gyeongjuBusTimes} from "../public/gyeongju-bus.js";
-import {buildings,gyeongjuClear,gyeongjuRoute,places} from "../public/gyeongju-layout.js";
+import {buildings,gyeongjuClear,gyeongjuRoute,parks,places} from "../public/gyeongju-layout.js";
 import {localGyeongju} from "../public/region-coordinates.js";
 
 const epoch=Date.UTC(2026,0,1),berth=gyeongjuBusStops[0],distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -31,9 +31,16 @@ for(let t=epoch;t<epoch+gyeongjuBusCycle;t+=250){
  }
 }
 assert.equal(arrivals.size,gyeongjuBusStops.length);
+const tombPark=parks.find(p=>p.name==="대릉원").points;
 for(const stop of gyeongjuBusStops){
  const t=arrivals.get(stop.id)+300,board=localGyeongju(stop.board),exit=localGyeongju(stop.exit);
  assert(gyeongjuClear(board,exit)&&gyeongjuRoute(places.hwangnidan,board).length>0,stop.name);
+ const shelter=localGyeongju(stop.shelter);
+ assert(gyeongjuClear(shelter,board),stop.name+" shelter to door");
+ for(const side of [-2.84,0,2.84])for(const depth of [-.9,.9]){
+  const corner=localGyeongju(busLocalPose(stop.shelter,side,depth));
+  assert(!inside(corner,tombPark)&&gyeongjuClear(shelter,corner),stop.name+" shelter outside the tomb wall");
+ }
  assert.equal(nearBus(stop.board,t)?.bus.index,firstCoach);
  assert(gyeongjuBusTimes(stop.id,t).departureMs>0);
  assert.equal(gyeongjuBusTimes(stop.id,t+12300).departureMs,null);

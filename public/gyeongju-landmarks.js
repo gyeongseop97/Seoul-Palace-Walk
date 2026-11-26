@@ -27,7 +27,7 @@ export function observatory(k,p){
  backing(0,12,-Math.PI,Math.PI);backing(15,27,-Math.PI,Math.PI);
  backing(12,15,-Math.PI,-.275);backing(12,15,.275,Math.PI);
  function masonry(a,b,y,h,r,rt){
-  const n=4,outer=[],top=[],inside=[];
+  const n=1,outer=[],top=[],inside=[];
   for(let j=0;j<=n;j++){
    const theta=a+(b-a)*j/n;
    outer.push(vertex(r,y,theta),vertex(rt,y+h,theta));
@@ -126,8 +126,8 @@ export function stationHall(k,p){
   }
  }
 }
-export function stoneGate(k,p,yaw,large){
- const w=large?7.6:4.6,at=localFrame(p.x,p.z,yaw);
+export function stoneGate(k,p,yaw,w){
+ const at=localFrame(p.x,p.z,yaw);
  for(const side of [-1,1]){
   const q=at(side*(w/2-.23),0);k.piece(q.x,.26,q.z,.58,.52,.58,0xb7aca0,yaw);
   k.column(q.x,1.58,q.z,.37,2.66,.37,0x8c4a37);
@@ -166,7 +166,7 @@ export function busShelter(k,p,yaw,label){
  part(0,.65,-.93,3.50,.073,.07,0x8baca9);part(0,1.86,-.93,3.52,.07,.08,0x647d78);
  const glass=at(0,-.93);k.geo(shelterGlass,glass.x,1.24,glass.z,3.50,1.65,1,0xb0d1ce,yaw,shelterGlassMaterial);
  const s=at(-1.36,-.83);k.sign(label,s.x,1.47,s.z,.57,.78,yaw,"#ece8d9","#354a44");
- const title=at(0,.58);k.sign(label,title.x,2.63,title.z,2.37,.28,yaw,"#314e4f");
+ const title=at(0,.64);k.sign(label,title.x,2.55,title.z,2.37,.28,yaw,"#314e4f");
 }
 const shelterGlass=new T.PlaneGeometry(),shelterGlassMaterial=new T.MeshStandardMaterial({
  color:0xe9ffff,transparent:true,opacity:.13,roughness:.36,side:T.DoubleSide,depthWrite:false

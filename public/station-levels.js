@@ -93,6 +93,9 @@ function approachNetwork(){
   return deckNetwork={nodes,feet};
 }
 export function approachRoute(from,to,groundPath){
+  return approachRouteSearch(from,to,function*(a,b){return groundPath(a,b);}).next().value;
+}
+export function* approachRouteSearch(from,to,groundSearch){
   const start=approachAt(from.x,from.y),end=approachAt(to.x,to.y);
   const raised=(p,flag)=>p&&(p.s.h0!==p.s.h1||p.s.kind==="lowerLanding"||p.s.kind==="deck"&&flag);
   const onDeck=raised(start,from.up),toDeck=raised(end,to.up!==false);
@@ -112,7 +115,7 @@ export function approachRoute(from,to,groundPath){
   if(onDeck&&!first||toDeck&&!last)return [];
   const seeds=first?[first]:feet,dist=new Map(),previous=new Map(),before=new Map(),queue=new Set();
   for(const n of seeds){
-    const path=first?[]:groundPath(from,{x:n.x,y:n.y});
+    const path=first?[]:yield* groundSearch(from,{x:n.x,y:n.y});
     if(!first&&(!path.length||gap(path.at(-1),n)>.75))continue;
     before.set(n,path);dist.set(n,gap(from,n));queue.add(n);
   }
@@ -127,7 +130,7 @@ export function approachRoute(from,to,groundPath){
   }
   for(const target of (last?[last]:[...feet].sort((a,b)=>dist.get(a)+gap(a,to)-dist.get(b)-gap(b,to)))){
     if(!dist.has(target))continue;
-    const after=last?[to]:groundPath({x:target.x,y:target.y},to);
+    const after=last?[to]:yield* groundSearch({x:target.x,y:target.y},to);
     if(!after.length||gap(after.at(-1),to)>.75)continue;
     const chain=[];let n=target;
     while(previous.has(n)){chain.push(n);n=previous.get(n);}

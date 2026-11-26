@@ -13,9 +13,9 @@ const service={id:"hwangnam",maxSpeed:10,acceleration:1.35,braking:1.75};
 const dwell=12_000,epoch=Date.UTC(2026,0,1);
 const stops=[
  {id:"gj-heavenly-horse",name:"천마총후문·황리단길",direction:"계림로 · 대릉원 정문 방면",road:"taejong",segment:1,part:.40},
- {id:"gj-daereungwon",name:"대릉원 정문",direction:"첨성로 · 황남골목 방면",road:"gyerim",segment:13,part:.68},
- {id:"gj-cheomseong-ro",name:"첨성로 돌담길",direction:"황남골목 · 황리단길 방면",road:"cheomseong",segment:7,part:.76},
- {id:"gj-hwangnam",name:"황남 한옥골목",direction:"천마총후문 · 대릉원 방면",road:"poseokWest",segment:8,part:.84}
+ {id:"gj-daereungwon",name:"대릉원 정문",direction:"첨성로 · 황남골목 방면",road:"gyerim",segment:16,part:.27},
+ {id:"gj-cheomseong-ro",name:"첨성로 돌담길",direction:"황남골목 · 황리단길 방면",road:"cheomseong",segment:8,part:.20},
+ {id:"gj-hwangnam",name:"황남 한옥골목",direction:"천마총후문 · 대릉원 방면",road:"poseok",segment:2,part:.25}
 ];
 const edges=[];
 function street(id,start,end){
@@ -51,7 +51,7 @@ export const gyeongjuBusStops=stops.map(({id,name,direction},i)=>{
  const {a,b,width}=legs[i].edge,yaw=angle(a,b),tx=Math.sin(yaw),tz=Math.cos(yaw);
  const at=(along,across,rotation)=>asWorld({x:a.x+along*tx-across*tz,z:a.z+along*tz+across*tx},rotation);
  return {id,name,direction,berth:asWorld(legs[i].lane[0],yaw),board:at(3.45,width/2+.80,yaw+Math.PI/2),
-  exit:at(3.75,width/2+1.38,yaw-Math.PI/2),shelter:at(-.75,width/2+2.40,yaw+Math.PI/2),
+  exit:at(3.75,width/2+1.38,yaw-Math.PI/2),shelter:at(-.75,width/2+1.65,yaw+Math.PI/2),
   routeName:hwangnamBus.name,lineLabel:hwangnamBus.summary,tint:hwangnamBus.tint,short:"황남"};
 });
 let cycle=0;

@@ -6,6 +6,7 @@ import {tower,observatoryApproach,insideObservatory} from "./gyeongju-observator
 import {daereungwonPlaces,inCheonmaHall,cheonmaExhibit,michuStoneAt,twinTombName,twinHeight,cheonmaPoint} from "./daereungwon.js";
 import {gyeongjuBikeDocks,crossesBikeRack} from "./gyeongju-bike.js";
 import {raftStops,RAFT_DOCK_WIDTH,onRaftPier} from "./gyeongju-raft-layout.js";
+import {inBulguksa,templeWalkable,templePaths,templeSites} from "./bulguksa-layout.js";
 
 // Local survey frame in metres, east and south of 129.212 E, 35.836 N.
 const point=([x,z])=>({x,z});
@@ -37,7 +38,7 @@ export const places={
  magnolia:place(62.1,-268,"대릉원 목련"),
  photo:place(62.3,-264.3,"대릉원 목련 포토존",356),
  cheomseongdae:place(tower.x,tower.z,"첨성대"),
- observatoryEntrance:{...observatoryApproach,name:"첨성대 남쪽 창",heading:349},
+ observatoryEntrance:{...observatoryApproach,name:"첨성대 남쪽 창",heading:0},
  stars:place(609.1,169.4,"첨성대 별자리 산책길",40),
  gyerimEntry:place(656.8,311.4,"계림 북쪽 산책길",153),
  gyerim:place(593.1,429.4,"계림 숲길",155),
@@ -51,11 +52,29 @@ for(const building of buildings){
  if(tenant){building.kind="market";building.name=tenant.name;}
 }
 export const walls=[...mappedWalls,...southernWalls].map(([kind,line])=>({kind,points:line.map(point)}));
+// The rear gate occupies the surveyed wall opening. The front gatehouse is set back
+// from the outer wall and spans the visitor path along its mapped building footprint.
+const rearJambs=walls.flatMap(w=>[w.points[0],w.points.at(-1)]).sort((a,b)=>dist(a,places.northGate)-dist(b,places.northGate)).slice(0,2);
+const frontGate=buildings.find(b=>b.kind==="gate"&&b.name==="대릉원입구").points;
+const gateAxis=(a,b)=>Math.atan2(a.z-b.z,b.x-a.x);
+Object.assign(places.northGate,mix(rearJambs[0],rearJambs[1],.5));
+Object.assign(places.mainGate,mix(frontGate[0],frontGate[2],.5));
+export const tombGates=[
+ {center:places.northGate,yaw:gateAxis(...rearJambs),width:4.6},
+ {center:places.mainGate,yaw:gateAxis(frontGate[1],frontGate[2]),width:7.6}
+];
 export const parks=[...mappedParks,...southernParks].map(([kind,name,ring])=>({kind,name,points:ring.map(point)}));
 export const mounds=[...mappedMounds,...southernMounds].map(([name,x,z,rx,rz,height,yaw])=>({name,x,z,rx,rz,height,yaw}));
 export const roads=[...mappedRoads,...southernRoads].map(([kind,width,name,line])=>({kind,width,name,points:line.map(point)}));
 function road(kind,width,name,points){roads.push({kind,width,name,points});}
 const fromPairs=pairs=>pairs.map(point);
+// Station square and its one-way bus approach, OSM ways 404569743 / 404569737 / 1167505735.
+export const stationSquare=fromPairs([[-6619.9,4105.2],[-6506.8,4181.7],[-6457.5,4114.3],[-6472,4103.5],
+ [-6468.8,4094.7],[-6498.7,4074.7],[-6499.3,4070.5],[-6492.8,4061],[-6503.5,4053.6],[-6504.7,4049.7],
+ [-6484.3,4021.5],[-6490.7,4016.8],[-6495.9,4018.6],[-6502.5,4020.8],[-6519,4019.4],[-6522.1,4009.4],[-6543.2,4004.7],[-6561.1,4017.5]]);
+const stationLane=fromPairs([[-6338.2,4175.7],[-6382.4,4140.8],[-6415.2,4118.1],[-6429,4114.2],[-6442.5,4115.1],[-6453.2,4120.5],
+ [-6463.4,4132.3],[-6492,4177.9],[-6494.4,4181.5],[-6495.8,4186.4],[-6495.8,4189.9],[-6495.9,4201.3],[-6504.7,4213],[-6532.5,4250]]);
+road("street",7,"경주역 버스 진입로",stationLane);
 road("path",3.6,"천마총 전시관 진입로",[point([-139,-260.2]),places.cheonmaDoor]);
 road("interior",2.3,"천마총 전시실 통로",[places.cheonmaDoor,cheonmaPoint(0,23),places.cheonmaGallery]);
 // Open a gap in the surveyed visitor fence facing the south window.
@@ -74,6 +93,7 @@ if(towerFence){
 // Follow both curbs on the larger roads. Their offset polylines retain the turns in each survey.
 const arteries=roads.filter(r=>r.kind==="street");
 for(const r of arteries){
+ if(r.points===stationLane)continue; // The boarding plaza has its own continuous kerb.
  const line=r.points,normals=line.slice(1).map((p,i)=>{
   const a=line[i],d=dist(a,p)||1;return {x:-(p.z-a.z)/d,z:(p.x-a.x)/d};
  });
@@ -103,9 +123,20 @@ for(const p of fromPairs(junctions)){
   road("crossing",3.8,r.name+" 횡단보도",[{x:q.x-dx*k,z:q.z-dz*k},{x:q.x+dx*k,z:q.z+dz*k}]);
  }
 }
-// A level forecourt links the passenger doors to the city-bound boarding island.
-road("platform",9,"경주역 보행광장",fromPairs([[-6527,4179],[-6519,4172],[-6510,4165],[-6502,4158],[-6491.3,4158.8],[-6481.8,4144.5]]));
-road("crossing",4,"경주역 버스승강장 횡단보도",fromPairs([[-6499.0,4158.7],[-6491.3,4158.8]]));
+// Face the station shelter towards the road, parallel to the actual plaza kerb.
+const kerbStart=stationSquare[1],kerbEnd=stationSquare[2],kerbLength=dist(kerbStart,kerbEnd);
+const kerbNormal={x:(kerbStart.z-kerbEnd.z)/kerbLength,z:(kerbEnd.x-kerbStart.x)/kerbLength};
+const bayStart=mix(kerbStart,kerbEnd,.12),bayEnd=mix(kerbStart,kerbEnd,.72);
+export const stationBusBay=[bayStart,bayEnd,project(bayEnd,stationLane[6],stationLane[7]),project(bayStart,stationLane[6],stationLane[7])];
+export const transferShelterYaw={stationBus:Math.atan2(kerbNormal.x,kerbNormal.z)};
+const streetHeading=yaw=>(540-yaw*180/Math.PI)%360;
+places.stationBus.heading=streetHeading(transferShelterYaw.stationBus);
+road("platform",3.6,"경주역 보행광장",[places.stationExit,point([-6510,4165]),places.stationBus]);
+const crossStart=mix(kerbStart,kerbEnd,.46),crossEnd=project(crossStart,stationLane[6],stationLane[7]);
+road("crossing",3.5,"경주역 버스승강장 횡단보도",[crossStart,{x:crossEnd.x+kerbNormal.x*4.1,z:crossEnd.z+kerbNormal.z*4.1}]);
+// Connect the far side of the marked crossing to the public footway.
+const farCurb=stationLane.slice(6,8).map(p=>({x:p.x+kerbNormal.x*4.5,z:p.z+kerbNormal.z*4.5}));
+road("sidewalk",2.2,"경주역 승강장 맞은편 보도",farCurb);
 road("path",3.1,"경주역 출입구",[places.stationExit,point([-6519,4172])]);
 for(const room of marketRooms){
  const f=room.fit;
@@ -116,12 +147,15 @@ for(const room of marketRooms){
  }
 }
 for(const key of ["townBus","townReturnBus"]){
- const stop=places[key];let end=null,best=Infinity;
- for(const r of roads.filter(r=>r.kind==="sidewalk"))for(let i=1;i<r.points.length;i++){
+ const stop=places[key];let nearest=null,best=Infinity;
+ for(const r of arteries.filter(r=>r.name==="태종로"))for(let i=1;i<r.points.length;i++){
   const q=project(stop,r.points[i-1],r.points[i]),d=dist(stop,q);
-  if(best>d){best=d;end=q;}
+  if(d<best){best=d;nearest={q,width:r.width};}
  }
- road("sidewalk",2.2,"황리단길 정류장 승차대",[stop,end]);
+ const {q,width}=nearest,nx=(stop.x-q.x)/best,nz=(stop.z-q.z)/best;
+ transferShelterYaw[key]=Math.atan2(-nx,-nz);
+ stop.x=q.x+nx*(width/2+1.25);stop.z=q.z+nz*(width/2+1.25);
+ stop.heading=streetHeading(transferShelterYaw[key]);
 }
 
 for(const stop of raftStops){
@@ -167,6 +201,14 @@ for(const w of walls)for(let i=1;i<w.points.length;i++){
  const a=w.points[i-1],b=w.points[i];index([a,b],.28,"walls",{a,b});
 }
 for(const b of buildings)if(b.kind==="building"||b.kind==="station"||b.kind==="observatory")index(b.points,.12,"solids",b.points);
+for(const {center,yaw,width} of tombGates){
+ const c=Math.cos(yaw),s=Math.sin(yaw);
+ for(const side of [-1,1]){
+  const post=side*(width/2-.23);
+  const base=[[-.29,-.29],[.29,-.29],[.29,.29],[-.29,.29]].map(([u,v])=>({x:center.x+(post+u)*c+v*s,z:center.z-(post+u)*s+v*c}));
+  index(base,0,"solids",base);
+ }
+}
 for(const dock of gyeongjuBikeDocks)index(dock.footprint,0,"solids",dock.footprint);
 for(const p of parks)if(p.kind==="water")index(p.points,0,"water",p.points);
 // Each gatehouse footprint straddles a visitor passage, with solid wings on either side.
@@ -181,6 +223,7 @@ for(const m of mounds)index([m],m.name===twinTombName?60:Math.max(m.rx,m.rz),"mo
 const plantings=gyeongjuPlantings(parks,roads,places.stationExit,mounds);
 export function gyeongjuWalkable(p){
  if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.z))return false;
+ if(inBulguksa(p))return templeWalkable(p);
  if(insideObservatory(p))return true;
  if(inCheonmaHall(p))return !cheonmaExhibit(p);
  if(michuStoneAt(p))return false;
@@ -211,9 +254,9 @@ export function gyeongjuClear(a,b){
 
 // Surveyed intersections normally share vertices. Also connect projected sidewalks and
 // adjacent clipped ways where their actual walkable surfaces meet.
-let network;
-function walkingNetwork(){
- if(network)return network;
+const networks=new Map();
+function walkingNetwork(temple){
+ if(networks.has(temple))return networks.get(temple);
  const nodes=[],buckets=new Map(),byPoint=new Map(),cell=9;
  const nearby=(p,radius)=>{
   const out=[];
@@ -238,7 +281,7 @@ function walkingNetwork(){
    nodes[i].edges.add(j);nodes[j].edges.add(i);
   }
  }
- for(const r of roads){
+ for(const r of temple?templePaths:roads){
   if(!pedestrianStreet(r))continue;
   let previous=add(r.points[0]);
   for(let k=1;k<r.points.length;k++){
@@ -253,7 +296,7 @@ function walkingNetwork(){
  // Mark the connected visitor paths in each district; short, isolated service paths
  // can also be the nearest road to a lawn, but cannot by themselves reach town.
  const linked=new Set();
- for(const origin of [places.stars,places.stationExit]){
+ for(const origin of temple?[templeSites[0]]:[places.stars,places.stationExit]){
   const first=nearby(origin,16).sort((i,j)=>dist(nodes[i].p,origin)-dist(nodes[j].p,origin)).find(i=>gyeongjuClear(origin,nodes[i].p));
   const queue=first===undefined?[]:[first];
   for(let head=0;head<queue.length;head++){
@@ -261,7 +304,7 @@ function walkingNetwork(){
    for(const j of nodes[i].edges)if(!linked.has(j))queue.push(j);
   }
  }
- network={nodes,nearby,linked};return network;
+ const network={nodes,nearby,linked};networks.set(temple,network);return network;
 }
 export function gyeongjuRoute(from,to){
  if(!from||!to)return [];
@@ -300,7 +343,7 @@ const groundDirections=[[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[-1,-1],[1,-1]];
 function walkingRoute(from,to,tryGround=true){
  if(!gyeongjuWalkable(from)||!gyeongjuWalkable(to)||dist(from,to)>2500)return [];
  if(dist(from,to)<28&&gyeongjuClear(from,to))return [{x:to.x,z:to.z}];
- const graph=walkingNetwork(),{nodes,nearby}=graph;
+ const graph=walkingNetwork(inBulguksa(from)),{nodes,nearby}=graph;
  // A lawn destination can be well outside the road index's normal junction radius.
  // Widen only as needed and require a traversable approach all the way to a real path.
  const connectors=p=>{

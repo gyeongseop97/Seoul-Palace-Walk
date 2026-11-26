@@ -197,14 +197,14 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 .game-info .scene-status{display:grid;gap:3px;width:fit-content;max-width:100%;pointer-events:none;padding:6px 9px;color:var(--lettering);background:var(--hud-overlay);border:1px solid #d4bf8847;border-radius:8px;overflow-wrap:anywhere}
 .game-info .bus-status{width:auto;border:0;box-shadow:none;background:transparent;padding:0}
 .game-info .bus-status-times{margin-top:3px}
-.game-info{gap:1px}
+.game-info{gap:1px;grid-template-columns:minmax(0,1fr)}
 .walking-guide:not([hidden]){display:flex;align-items:center;gap:8px;width:max-content;max-width:100%;margin:2px 0 4px;padding:3px 3px 3px 11px;border-radius:12px;background:rgb(18 57 47 / 94%);color:#fff9e8}
 .walking-guide>svg{flex:none;color:#ecd49c}
 .walking-guide>div{min-width:0;display:grid;gap:3px}
 .walking-guide strong,.walking-guide small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .walking-guide strong{font-size:13px;line-height:1.35}
 .walking-guide small{font-size:11px;line-height:1.3;color:#d3dfd3;font-variant-numeric:tabular-nums}
-#walking-guide-stop{pointer-events:auto;min-width:44px;min-height:44px;padding:0 5px;background:transparent;border:0;color:#f4e4b6;font-size:12px}
+#walking-guide-stop{pointer-events:auto;flex:none;min-width:44px;min-height:44px;padding:0 5px;background:transparent;border:0;color:#f4e4b6;font-size:12px}
 .scene-wrap.photo-active .walking-guide{display:none}
 .boat-colors{display:flex;flex-wrap:wrap;gap:6px;border:0;padding:0;margin:0 0 17px}
 .boat-colors legend{margin-bottom:8px}
@@ -490,6 +490,14 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 .map-swatch{background:var(--marker-color)}
 .map-marker[role="button"]{cursor:pointer}
 .map-marker-hit{fill:transparent;stroke:none}
+.map-districts{display:none}
+#world.district-overview .map-districts{display:inline}
+#world.district-overview :is(.map-marker,#map-labels){display:none}
+.map-bus-links{fill:none;stroke:#587e76;stroke-width:1.5;stroke-dasharray:4 5;vector-effect:non-scaling-stroke;pointer-events:none}
+.map-districts [data-map-district]{cursor:pointer;fill:#284f43}
+.map-districts rect,.map-districts circle{stroke:#fff8e7;stroke-width:1.3}
+.map-districts text{font-size:12px;font-weight:700;fill:#fff9df}
+.map-districts [data-map-district]:is(:hover,:focus-visible){fill:#173f35}
 .map-marker-dot{fill:var(--marker-color);stroke:#202b25;stroke-width:1.3;vector-effect:non-scaling-stroke}
 .map-marker:is(:hover,:focus-visible) .map-marker-dot{stroke:#fff3d4;stroke-width:2.2}
 .map-marker-label{font-size:var(--map-marker-font);font-weight:650;fill:#fff2da;stroke:#202b25;
@@ -506,6 +514,9 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 #map-route-path polyline:first-child{stroke:var(--pine-3);stroke-width:6}
 #map-route-path polyline:nth-child(2){stroke:#ffda83;stroke-width:3.5}
 #map-route-end{fill:none;stroke:var(--gold-1);stroke-width:5}
+#mini-route-path{pointer-events:none}
+#mini-route-path polyline{fill:none;stroke:#ffda83;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+#mini-route-path circle{fill:#fecc6d;stroke:#254b37;stroke-width:1;vector-effect:non-scaling-stroke}
 .map-route{display:flex;align-items:center;gap:7px;padding:7px 12px;background:var(--pine-4);border-top:1px solid var(--pine-8)}
 .map-route[hidden]{display:none}
 .map-route [role=status]{display:grid;gap:2px;min-width:0;flex:1;font-size:13px;line-height:1.25}
@@ -1230,12 +1241,13 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 }
 #map-panel .map-departure span{padding:0 4px}
 #map-panel .map-departure strong{font-weight:650}
-#map-panel #map-route-picker,#map-panel #shortcut-place{
+#map-panel #shortcut-place{
   width:100%;min-height:44px;margin:0;padding:5px 4px 5px 0;border:0;border-bottom:1px solid var(--map-line);
   border-radius:0;background:transparent;color:var(--map-ink);font-size:20px;font-weight:650;
 }
-#map-panel .map-itinerary:has(#map-route:not([hidden])) #map-route-picker{display:none}
-#map-panel #map-route-picker option,#map-panel #shortcut-place option,#map-panel .map-tools select option{background:var(--map-tile);color:var(--map-ink)}
+#map-panel .map-itinerary:has(#map-route[hidden]),
+#map-panel #map-route-view:has(#map-route[hidden]) #map-route-walk{display:none}
+#map-panel #shortcut-place option,#map-panel .map-tools select option{background:var(--map-tile);color:var(--map-ink)}
 #map-panel .map-route{width:100%;margin:0;padding:0;gap:3px;border:0;background:transparent;color:var(--map-ink)}
 #map-panel .map-route [role=status]{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:3px 8px}
 #map-panel #map-route-name{font-size:clamp(20px,2vw,26px);line-height:1.4;overflow-wrap:anywhere}
@@ -1303,10 +1315,7 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
     background:var(--map-tile);color:var(--map-ink);font:inherit;font-size:12px;font-weight:650;text-shadow:none;box-shadow:none;
   }
   #map-quick-travel #quick-travel-place{flex:1}
-  #map-panel .panel-head h2,#map-panel #map-route-name,#map-panel #map-route-picker,#map-panel #shortcut-place{font-family:inherit}
-  #map-panel #map-route-picker,
-  #map-panel .map-itinerary:has(#map-route[hidden]),
-  #map-panel #map-route-view:has(#map-route[hidden]) #map-route-walk{display:none}
+  #map-panel .panel-head h2,#map-panel #map-route-name,#map-panel #shortcut-place{font-family:inherit}
 }
 @media(max-height:730px),not (pointer:coarse){
   #game-shell .game-sidebar #map-panel[data-mode="route"]{flex:1 1 0;min-height:0;overflow:hidden}

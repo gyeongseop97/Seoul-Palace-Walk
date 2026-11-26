@@ -10,6 +10,7 @@ import {insideObservatory} from "./gyeongju-observatory.js";
 import {inCheonmaHall,twinTombName,twinSection} from "./daereungwon.js";
 import {gyeongjuPoint,localGyeongju,inGyeongjuSpace} from "./region-coordinates.js";
 import {places,roads,buildings,walls,mounds,parks,gyeongjuRoute,gyeongjuWalkable} from "./gyeongju-layout.js";
+import {inBulguksa,templeSites,templePaths,templeHalls,templeBridges,templeCourts,templePonds,templeWoods} from "./bulguksa-layout.js";
 export {gyeongjuOrigin,gyeongjuPoint,inGyeongjuSpace} from "./region-coordinates.js";
 
 const districtByPlace={stationExit:"경주역",stationBus:"경주역",townBus:"황리단길",townReturnBus:"황리단길",hwangnidan:"황리단길",
@@ -24,7 +25,8 @@ const describe=(id,name,guideTitle=name)=>{
 };
 export const travelStops={
  stationExit:describe("stationExit","경주역 출입구"),stationBus:describe("stationBus","경주역 버스정류장"),
- townBus:describe("townBus","황리단길 정류장"),townReturnBus:describe("townReturnBus","경주역행 정류장")
+ townBus:describe("townBus","황리단길 정류장"),townReturnBus:describe("townReturnBus","경주역행 정류장"),
+ templeBus:{...templeSites[0],...gyeongjuPoint(templeSites[0]),district:"불국사",label:templeSites[0].name}
 };
 export const platformArrival=travelStops.stationExit;
 export const counters=marketCounters;
@@ -52,10 +54,11 @@ const sites=[
  [describe("mainGate","대릉원 정문"),"heritage"],[describe("stars","첨성대 관람길","첨성대"),"heritage"],
  [describe("observatoryEntrance","첨성대 남쪽 창"),"heritage"],[describe("gyerimEntry","계림 북쪽 입구"),"park"],
  [describe("gyerim","계림 숲길"),"park"],[describe("woljeongNorth","월정교 북쪽 입구"),"heritage"],
- [describe("woljeong","월정교"),"heritage"],[describe("woljeongSouth","월정교 남쪽 입구"),"heritage"]
+ [describe("woljeong","월정교"),"heritage"],[describe("woljeongSouth","월정교 남쪽 입구"),"heritage"],
+ [travelStops.templeBus,"bus"],...templeSites.slice(1).map(site=>[{...site,...gyeongjuPoint(site),district:"불국사",label:site.name},site.kind])
 ];
 export const destinations=sites.map(([p])=>p);
-const defaultPlace={경주역:"경주역 출입구",황리단길:"황리단길",대릉원:"대릉원 정문","첨성대·계림":"첨성대 관람길","교촌·월정교":"월정교 북쪽 입구"};
+const defaultPlace={경주역:"경주역 출입구",황리단길:"황리단길",대릉원:"대릉원 정문","첨성대·계림":"첨성대 관람길","교촌·월정교":"월정교 북쪽 입구",불국사:"불국사 일주문"};
 export const travelDistricts=Object.fromEntries(Object.entries(defaultPlace).map(([name,first])=>{
  const local=destinations.filter(p=>p.district===name);
  return [name,[local.find(p=>p.name===first),...local.filter(p=>p.name!==first)]];
@@ -80,7 +83,17 @@ export function nearbyGuide(p){
  return nearestDistance<144?site.guide:null;
 }
 const atStation=p=>Math.hypot(p.x-places.stationExit.x,p.z-places.stationExit.z)<680;
-export const sameGyeongjuArea=(a,b)=>atStation(localGyeongju(a))===atStation(localGyeongju(b));
+function walkingArea(point){
+ const p=localGyeongju(point);
+ return inBulguksa(p)?"temple":atStation(p)?"station":"town";
+}
+export const sameGyeongjuArea=(a,b)=>walkingArea(a)===walkingArea(b);
+export function busDirection(to){
+ return {station:"경주역행",town:"황리단길행",temple:"불국사행"}[walkingArea(to)];
+}
+export function transferStop(from){
+ return {station:travelStops.stationBus,town:travelStops.townReturnBus,temple:travelStops.templeBus}[walkingArea(from)];
+}
 export const coastWalkable=(x,y)=>gyeongjuWalkable(localGyeongju({x,y}));
 export const coastDrySpot=coastWalkable;
 const bikeIndoor=p=>insideObservatory(p)||inCheonmaHall(p)||Boolean(marketRoomAt(p));
@@ -133,6 +146,7 @@ export function coastName(p){
  const nearest=locate(p);
  if(nearestDistance<28**2)return nearest.name;
  if(atStation(local))return "경주역 광장";
+ if(inBulguksa(local)&&nearestDistance>=135**2)return "불국사 관람로";
  return nearestDistance<135**2?nearest.name+" 일대":"경주 역사유적지구";
 }
 const bounds=(pts,pad)=>{
@@ -141,17 +155,25 @@ const bounds=(pts,pad)=>{
  return [Math.floor(x-pad),Math.floor(y-pad),Math.ceil(r-x+2*pad),Math.ceil(b-y+2*pad)].join(" ");
 };
 const stationBox=bounds([travelStops.stationBus,travelStops.stationExit],65);
-const townBox=bounds(destinations.filter(p=>!atStation(localGyeongju(p))),70);
+const townBox=bounds(destinations.filter(p=>walkingArea(p)==="town"),70);
+const templeBox=bounds(destinations.filter(p=>p.district==="불국사"),45);
+export const mapDistricts=[
+ {name:"경주역",point:travelStops.stationBus,box:stationBox},
+ {name:"경주 시내",point:travelStops.townBus,box:townBox},
+ {name:"불국사",point:travelStops.templeBus,box:templeBox}
+];
+export const cityMapBox=bounds(mapDistricts.map(d=>d.point),3400);
 const streetBoxes=new Map(destinations.map(p=>[p,[Math.round(p.x)-190,Math.round(p.y)-150,380,300].join(" ")]));
 export function coastBox(p,overview){
- // The overview covers the current walking district. Its bus pin connects to the other district.
+ // Keep route fitting local to the pedestrian network the player is using.
  if(atStation(localGyeongju(p)))return stationBox;
+ if(inBulguksa(localGyeongju(p))&&overview)return templeBox;
  if(overview)return townBox;
  return streetBoxes.get(locate(p));
 }
 export function drawCoastMap(base,svg,drawMarker,mini=false){
  const path=points=>points.map((p,i)=>{const q=gyeongjuPoint(p);return (i?"L":"M")+q.x.toFixed(1)+" "+q.y.toFixed(1);}).join("");
- for(const box of [stationBox,townBox]){
+ for(const box of [stationBox,townBox,templeBox]){
   const [x,y,width,height]=box.split(" ").map(Number);
   svg(base,"rect",{x:x-400,y:y-400,width:width+800,height:height+800,fill:"#d8d4b9"});
  }
@@ -178,5 +200,10 @@ export function drawCoastMap(base,svg,drawMarker,mini=false){
   svg(base,"path",{d,fill:"none",stroke:colors[kind]??colors.path,"stroke-width":width,"stroke-linejoin":"round","stroke-linecap":"round"});
  }
  svg(base,"path",{d:walls.map(w=>path(w.points)).join(""),fill:"none",stroke:"#8f7869","stroke-width":1.5});
+ for(const [rings,fill] of [[templeWoods,"#a9bf9f"],[templePonds,"#9cbcc4"],[templeCourts,"#f5edcf"],
+  [templeHalls.map(b=>b.points),"#b3a896"],[templeBridges.map(b=>b.points),"#c9bfac"]])
+  svg(base,"path",{d:rings.map(r=>path(r)+"Z").join(""),fill});
+ for(const kind of ["footway","path","steps"])svg(base,"path",{d:templePaths.filter(r=>r.kind===kind).map(r=>path(r.points)).join(""),
+  fill:"none",stroke:kind==="steps"?"#ac9a82":"#f5edcf","stroke-width":kind==="footway"?5:2.7,"stroke-linecap":"round","stroke-linejoin":"round"});
  for(const [p,kind] of sites)drawMarker(base,p,kind,mini);
 }

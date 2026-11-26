@@ -109,6 +109,13 @@ Vercel이 게임 화면과 방 API를 제공하고, Turso의 **libSQL** 데이�
 
 광화문광장·경복궁은 다가갈 때 3D 장면을 여러 프레임에 나눠 준비합니다. 멀어진 구역은 화면 렌더링에서 빼고 돌아오면 다시 사용합니다. 전체 지도와 길찾기는 처음부터 사용할 수 있습니다. 경복궁의 충돌 배치를 바꾼 뒤에는 게임과 같은 버전의 Three.js 모듈 경로를 넣어 `node scripts/bake-gyeongbok-obstacles.mjs <Three.js 모듈 경로>`로 경로 데이터를 갱신합니다.
 
+경주 첨성대는 실측 형상을 높이 9.17m로 맞춘 두 개의 GLB를 사용합니다. 가까운 모형에는 실제 석재 요철을 펼쳐 만든 질감이 들어 있습니다. [자료 출처](ASSET-CREDITS.md)에 기재된 경량 ASCII STL에서 파일을 다시 만들 때는 아래 명령을 순서대로 실행합니다. 첫 단계는 NumPy와 Pillow를 사용하고, 두 번째 단계는 meshoptimizer 0.22 패키지 경로를 받습니다.
+
+```sh
+python scripts/bake-cheomseongdae-stone.py <원본.stl> <작업용.webp>
+node scripts/bake-cheomseongdae.mjs <원본.stl> <meshoptimizer-경로> <작업용.webp>
+```
+
 `vercel.json`은 함수 실행 지역을 서울(`icn1`)로 지정합니다. Turso 데이터베이스도 도쿄 등 가까운 지역에 두면 위치 동기화 지연이 가장 작습니다.
 
 ## 자료 출처

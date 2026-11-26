@@ -236,7 +236,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   const createItemProp=makeItemProps(T,kit);
   const walkerModels=makeWalkerModels(T,scene,kit,createItemProp);
   const seaside=coast?.create(outdoors,coast.play,walkerModels,{...kit,chatTexture});
-  const historicCity=gyeongju?.create(outdoors,gyeongju.origin,{...kit,chatTexture},walkerModels);
+  const historicCity=gyeongju?.create(outdoors,gyeongju.origin,{...kit,chatTexture,loadGltf,refreshShadows:()=>{shadowDirty=true;}},walkerModels);
   if(seaside){heavens.visible=false;camera.far=3900;camera.updateProjectionMatrix();}
   const outdoorWalkers={...walkerModels,create(...args){
     const model=walkerModels.create(...args);

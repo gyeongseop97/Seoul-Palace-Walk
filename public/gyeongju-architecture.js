@@ -53,13 +53,16 @@ export function buildingFrame(points){
   twiceArea+=a.x*b.z-a.z*b.x;
  }
  const x=(xmin+xmax)/2,z=(zmin+zmax)/2;
- return {x:x*c+z*s,z:-x*s+z*c,width:xmax-xmin,depth:zmax-zmin,yaw,fill:Math.abs(twiceArea)/2/Math.max(.01,(xmax-xmin)*(zmax-zmin))};
+ return {x:x*c+z*s,z:-x*s+z*c,width:xmax-xmin,depth:zmax-zmin,yaw,outward:twiceArea>0?-1:1,
+  fill:Math.abs(twiceArea)/2/Math.max(.01,(xmax-xmin)*(zmax-zmin))};
 }
-export function drawBuilding(k,b,index,nearestRoad){
+export function drawBuilding(k,b,index,nearestRoad,insideBuilding,nearestPoseok){
  if(b.points.length<3)return;
  const r=buildingFrame(b.points),{x,z,width:w,depth:d,yaw}=r;
  if(w<1.15||d<1.15)return;
- const road=nearestRoad(x,z),shop=road&&road.gap<Math.max(w,d)*.65+10;
+ const reach=Math.max(w,d)*.65+10,mainRoad=nearestPoseok?.(x,z);
+ const hwangStreet=mainRoad&&mainRoad.gap<Math.min(reach,26);
+ const road=hwangStreet?mainRoad:nearestRoad(x,z),shop=road&&road.gap<reach;
  const traditional=r.fill>.70&&w<33&&d<25&&index%5!==2;
  const stone=plaster[index%plaster.length],wood=0x765134;
  const h=traditional?2.6+(index%4)*.16:3.3+(w>15&&index%3===0?3.25:0);
@@ -72,17 +75,17 @@ export function drawBuilding(k,b,index,nearestRoad){
   roof(k,x,h,z,w+.75,Math.min(2.5,d*.22+.34),d+.80,yaw,roofColors[index%4]);
  }else{k.polygon(b.points,h,0xa4a199);}
  if(!shop)return;
- const hwangStreet=z>-377&&z<300&&Math.abs(x-(-190-(z+365)*.08))<26;
  // Doors and lattice windows face the closest street, not a common compass direction.
  let best=null;
  for(let i=0;i<b.points.length;i++){
   const a=b.points[i],t=b.points[(i+1)%b.points.length],dx=t.x-a.x,dz=t.z-a.z,len=Math.hypot(dx,dz);
   if(len<3.4)continue;
-  const px=(a.x+t.x)*.5,pz=(a.z+t.z)*.5,dist=Math.hypot(px-road.x,pz-road.z);
-   const faceTowardsStreet=hwangStreet?Math.abs(px-(-190-(pz+365)*.08))+.32*dist:dist;
-   if(best&&faceTowardsStreet>best.dist)continue;
-  const s=Math.sign((-dz)*(road.x-px)+dx*(road.z-pz))||1;
-  best={px,pz,dist:faceTowardsStreet,len,nx:s*-dz/len,nz:s*dx/len};
+  const px=(a.x+t.x)*.5,pz=(a.z+t.z)*.5,score=Math.hypot(px-road.x,pz-road.z);
+  const nx=r.outward*-dz/len,nz=r.outward*dx/len;
+  const facesStreet=nx*(road.x-px)+nz*(road.z-pz)>=0;
+  if(best&&(best.facesStreet&&!facesStreet||best.facesStreet===facesStreet&&score>best.score))continue;
+  if(insideBuilding?.({x:px+nx*.30,z:pz+nz*.30}))continue;
+  best={px,pz,score,len,nx,nz,facesStreet};
  }
  if(!best)return;
  const {px,pz,len,nx,nz}=best,angle=Math.atan2(nx,nz),at=localFrame(px,pz,angle);
@@ -104,10 +107,13 @@ export function drawBuilding(k,b,index,nearestRoad){
  }
  if((hwangStreet||index%8===0)&&road.gap<22&&len>4){
   const name=b.name||["차방","도자기 공방","황남 다과","책방","소품 공방","황남 제과","수제 아이스크림","사진관","황남식당","찻집","황리단 잡화점"][index%11];
-  const p=at(0,.28),signWidth=Math.min(3.15,len*.51);
+  const hasAwning=hwangStreet&&index%4===0;
+  // On low shopfronts the cloth drops below the lintel. Mount its sign on the outer fascia.
+  const signY=hasAwning ? 2.29 : h-.29,signZ=hasAwning ? .87 : .23;
+  const p=at(0,signZ+.05),signWidth=Math.min(3.15,len*.51);
   const paint=["#65513d","#516960","#78584b","#415659","#785335"][index%5];
-  piece(0,h-.29,.23,signWidth+.08,.54,.09,wood);
-  k.sign(name,p.x,h-.29,p.z,signWidth,.48,angle,paint);
+  piece(0,signY,signZ,signWidth+.08,.54,.09,wood);
+  k.sign(name,p.x,signY,p.z,signWidth,.48,angle,paint);
   if(hwangStreet){
    const apron=Math.max(.65,Math.min(3.5,Math.hypot(road.x-px,road.z-pz)-road.width*.49));
    k.polygon([at(-len/2,.08),at(len/2,.08),at(len/2,apron),at(-len/2,apron)],.035,0xbbafa1,"pavers");
@@ -124,7 +130,7 @@ export function drawBuilding(k,b,index,nearestRoad){
    }
    const curtain=["#a79278","#a1ada0","#c3ac91","#a29888"][index%4];
    for(const j of [-1,0,1])piece(j*.32,2.25,.255,.29,.53,.045,curtain);
-   if(index%4===0){
+   if(hasAwning){
     const span=Math.min(3.2,len*.65),a=at(-span/2,.15),b=at(span/2,.15),c=at(span/2,.83),d=at(-span/2,.83);
     k.face([[a.x,2.55,a.z],[b.x,2.55,b.z],[c.x,2.32,c.z],[d.x,2.32,d.z]],[0,1,2,0,2,3],index%8?0xac8d70:0x8c9b87);
     piece(0,2.275,.82,span,.11,.042,index%8?0x997a5d:0x788573);
