@@ -1,4 +1,5 @@
 import * as T from "three";
+import {coastalMasonry} from "./pohang-masonry.js";
 import {pavilionPoint,pavilionYaw,apronStart,bridgeStart,pierHeight,lowerLevel,upperLevel,stairRun,pillars,upperBounds} from "./pohang-pavilion-layout.js";
 
 export function buildYeongildae(parent,{box,post,rod,oval,sign}){
@@ -57,7 +58,11 @@ export function buildYeongildae(parent,{box,post,rod,oval,sign}){
   }
   box(g,litStone,0,-.89,z,4.54,5.6,.89);
  }
- const archGeometry=new T.BufferGeometry();archGeometry.setAttribute("position",new T.Float32BufferAttribute(archTriangles,3));archGeometry.computeVertexNormals();g.add(new T.Mesh(archGeometry,archMaterial));
+ const archGeometry=new T.BufferGeometry(),archUv=[];
+ for(let i=0;i<archTriangles.length;i+=3)archUv.push(archTriangles[i+2],archTriangles[i+1]);
+ archGeometry.setAttribute("position",new T.Float32BufferAttribute(archTriangles,3));
+ archGeometry.setAttribute("uv",new T.Float32BufferAttribute(archUv,2));
+ archGeometry.computeVertexNormals();g.add(new T.Mesh(archGeometry,coastalMasonry()));
  for(const u of [-14.42,14.42])stoneRail(u,-13.38,u,13.38,lowerLevel,lowerLevel);
  stoneRail(-14.42,13.38,14.42,13.38,lowerLevel,lowerLevel);
  for(const sign of [-1,1])stoneRail(sign*2.57,-13.38,sign*14.42,-13.38,lowerLevel,lowerLevel);
@@ -161,6 +166,5 @@ export function buildYeongildae(parent,{box,post,rod,oval,sign}){
  for(const v of [3.2,11])box(g,strips,0,eave-.18,v,14.9,.035,.065);
  return night=>{warm.emissiveIntensity=night*.66;litStone.emissiveIntensity=night*.27;strips.color.setHex(night>.4?0xffd09b:0xb7895c);};
 }
-const archMaterial=new T.MeshStandardMaterial({color:0xbab7ac,side:T.DoubleSide,roughness:.92});
 const roofMaterial=new T.MeshStandardMaterial({color:0x3b4551,side:T.DoubleSide,roughness:.76});
 const gableMaterial=new T.MeshStandardMaterial({color:0xaf7755,side:T.DoubleSide,roughness:.81});

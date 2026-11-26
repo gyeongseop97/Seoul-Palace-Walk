@@ -128,7 +128,9 @@ function bake(triangles,detail){
     COLOR_0:attribute(Uint8Array.from(colors),4,"VEC4",5121,{normalized:true})};
   if(detail)attributes.TEXCOORD_0=attribute(Float32Array.from(uv,v=>Math.round(v*4096)/4096),8,"VEC2",5126);
   const index=attribute(Uint16Array.from(out),2,"SCALAR",5123);
-  const doc={asset:{version:"2.0",copyright:"Cultural Heritage Administration (KOGL Type 1), lightweight STL by 카리스χάρης, game adaptation."},
+  const copyright="Cultural Heritage Administration (KOGL Type 1), lightweight STL by 카리스χάρης, game adaptation.";
+  const materialCredit=" Stone detail sampled from Korea Heritage Service, 2025, 서라벌 천년왕경 첨성대 (KOGL Type 1): https://www.data.go.kr/data/15165324/fileData.do";
+  const doc={asset:{version:"2.0",copyright:copyright+(detail?materialCredit:"")},
     scene:0,scenes:[{nodes:[0]}],nodes:[{mesh:0}],meshes:[{name:"경주 첨성대",primitives:[{attributes,indices:index,material:0}]}],
     materials:[{doubleSided:true,pbrMetallicRoughness:{metallicFactor:0,roughnessFactor:1,...(detail?{baseColorTexture:{index:0}}:{})}}],accessors};
   return packMeshoptGlb(MeshoptEncoder,doc,streams,detail?atlas:null);

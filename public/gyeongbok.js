@@ -1,4 +1,6 @@
 import {dancheongTexture} from "./palace-dancheong.js";
+import {graniteMaterial} from "./granite-material.js";
+import {graniteBox,graniteBoxGeometry} from "./seoul-granite.js";
 import {
   gwanghwamun,gbSites,gbSite,gbCourts,gbLake,gbPond,gbPaths,gbLawns,gbStation,subwayStops,
   gbFrontApron,gbWoldae,gbHaetae,gbRoyalPavilion,gyeongbokWater,at
@@ -36,6 +38,10 @@ export function* buildGyeongbok(T,scene,kit,tools){
   function slab(color,east,north,width,depth,height,base=0){
     const p=world(east,north);
     return box(color,p.x,base+height/2,p.z,width,height,depth);
+  }
+  function stoneSlab(east,north,width,depth,height,base=0){
+    const p=world(east,north);
+    return graniteBox(T,scene,p.x,base+height/2,p.z,width,height,depth);
   }
   gbNightGlow.length=0;
   const glow=(color,emissive,strength,rest=0)=>{
@@ -321,9 +327,9 @@ export function* buildGyeongbok(T,scene,kit,tools){
   }
   for(const {side,east,north} of gbHaetae){
     const parts=scene.children.length;
-    slab(0xa29c8e,east,north,3.1,4.3,.55,-.15);
-    slab(0xb1ab9c,east,north,2.6,3.8,.72,.4);
-    slab(0xbab4a5,east,north,2.8,4.0,.14,1.12);
+    stoneSlab(east,north,3.1,4.3,.55,-.15);
+    stoneSlab(east,north,2.6,3.8,.72,.4);
+    stoneSlab(east,north,2.8,4.0,.14,1.12);
     solid(east,north,3.1,4.3,3.4);
     const p=world(east,north),statue=haetae(-side*.5);
     statue.position.set(p.x,1.26,p.z);statue.scale.setScalar(1.2);statue.name="광화문 해태상";
@@ -337,24 +343,24 @@ export function* buildGyeongbok(T,scene,kit,tools){
   {
     const {half,south,north,tier}=gbWoldae,mid=(south+north)/2,length=north-south;
     const parts=scene.children.length;
-    slab(0xa7a192,0,mid-.3,half*2+1.2,length+.6,tier+.10,-.10);
+    stoneSlab(0,mid-.3,half*2+1.2,length+.6,tier+.10,-.10);
     solid(0,mid-.3,half*2+1.2,length+.6,tier);
-    slab(stoneTint,0,mid,half*2,length,tier,tier);
+    stoneSlab(0,mid,half*2,length,tier,tier);
     solid(0,mid,half*2,length,tier*2);
     slab(0xcbc4b1,0,mid,7.2,length,.03,tier*2);
     for(const edge of [-3.6,3.6])slab(0x9d978a,edge,mid,.16,length,.035,tier*2);
     // One more step inside the arches, where the terrace meets the gate floor.
-    slab(0xa7a192,0,north+.45,21.2,.9,tier);
+    stoneSlab(0,north+.45,21.2,.9,tier);
     solid(0,north+.45,21.2,.9,tier);
     for(const side of [-1,1]){
       const east=side*(half-.2),count=Math.round(length/2.3);
       for(let i=0;i<=count;i++){
         const n=south+.2+i*(length-.4)/count;
-        slab(0xbdb6a4,east,n,.26,.26,.95,tier*2);
-        slab(0xc8c1af,east,n,.34,.34,.1,tier*2+.95);
+        stoneSlab(east,n,.26,.26,.95,tier*2);
+        stoneSlab(east,n,.34,.34,.1,tier*2+.95);
       }
-      slab(0xb5ae9c,east,mid,.16,length-.4,.14,tier*2+.66);
-      slab(0xb5ae9c,east,mid,.14,length-.4,.3,tier*2+.1);
+      stoneSlab(east,mid,.16,length-.4,.14,tier*2+.66);
+      stoneSlab(east,mid,.14,length-.4,.3,tier*2+.1);
       solid(east,mid,.3,length,tier*2+1.1);
     }
     anchorParts(parts,at(0,mid));
@@ -391,11 +397,11 @@ export function* buildGyeongbok(T,scene,kit,tools){
   for(const {half,south,north,top,base} of tiers){
     const footing=base||-.15;
     // The box supplies the four vertical faces. Tile only its top, using the hall axis.
-    const sides=new T.BoxGeometry(half*2,top-footing,north-south);
+    const sides=graniteBoxGeometry(T,half*2,top-footing,north-south).clone();
     const triangles=Array.from(sides.index.array);
     sides.setIndex([...triangles.slice(0,12),...triangles.slice(18)]);
     const p=world(0,(south+north)/2);
-    flat(sides,matte(stoneTint),p.x,(top+footing)/2,p.z);
+    flat(sides,graniteMaterial(T),p.x,(top+footing)/2,p.z);
     const topSurface=flat(new T.PlaneGeometry(half*2,north-south),materials.terraceStone,p.x,top,p.z);
     topSurface.rotation.x=-Math.PI/2;topSurface.receiveShadow=true;
     uvScale(topSurface,half*2/3.2,(north-south)/3.2);
@@ -406,20 +412,20 @@ export function* buildGyeongbok(T,scene,kit,tools){
       const height=base+(step+1)*riser,out=(4.5-step)*tread;
       const e=east+dx*out,n=northAt+dn*out;
       const w=dx?tread:width,d=dx?width:tread;
-      slab(0xb0ab9a,e,n,w,d,height-footing,footing);
+      stoneSlab(e,n,w,d,height-footing,footing);
       solid(e,n,w,d,height);
     }
     // Stone balustrade posts along the edge.
     for(let i=-6;i<=6;i++){
       if(Math.abs(i)<2)continue;
       for(const n of [south+.3,north-.3]){
-        slab(0xc1b9a6,i*half/6.2,n,.3,.3,.8,top);
+        stoneSlab(i*half/6.2,n,.3,.3,.8,top);
         solid(i*half/6.2,n,.3,.3,top+.8);
       }
     }
     for(const n of [south+.3,north-.3])for(const side of [-1,1]){
       const e=side*half*4/6.2,width=half*4/6.2;
-      slab(0xc1b9a6,e,n,width,.14,.12,top+.56);
+      stoneSlab(e,n,width,.14,.12,top+.56);
       solid(e,n,width,.14,top+.68);
     }
     for(const side of [-1,1]){
@@ -428,11 +434,11 @@ export function* buildGyeongbok(T,scene,kit,tools){
       for(let i=0;i<=count;i++){
         const n=south+.3+i*(north-south-.6)/count;
         if(Math.abs(n-300)<3.3)continue;
-        slab(0xc1b9a6,e,n,.3,.3,.8,top);
+        stoneSlab(e,n,.3,.3,.8,top);
         solid(e,n,.3,.3,top+.8);
       }
       for(const [a,b] of [[south+.3,296.7],[303.3,north-.3]]){
-        slab(0xc1b9a6,e,(a+b)/2,.14,b-a,.12,top+.56);
+        stoneSlab(e,(a+b)/2,.14,b-a,.12,top+.56);
         solid(e,(a+b)/2,.14,b-a,top+.68);
       }
     }
@@ -491,12 +497,12 @@ export function* buildGyeongbok(T,scene,kit,tools){
   for(const side of [-1,1]){
     const length=heungnye.east-1.2-bridgeHalf,east=side*(bridgeHalf+length/2);
     slab(0x4f7377,east,streamNorth,length,streamWidth,.05,.02).material=waterMaterial;
-    for(const edge of [-1,1])slab(0xa5a79e,east,streamNorth+edge*(streamWidth/2+.2),length,.4,.36);
+    for(const edge of [-1,1])stoneSlab(east,streamNorth+edge*(streamWidth/2+.2),length,.4,.36);
     solid(east,streamNorth,length,streamWidth+.8,.36);
-    slab(0xa2a49a,side*bridgeHalf,streamNorth,.34,streamWidth+2.2,.95);
+    stoneSlab(side*bridgeHalf,streamNorth,.34,streamWidth+2.2,.95);
     solid(side*bridgeHalf,streamNorth,.34,streamWidth+2.2,.95);
   }
-  slab(0xb1b1a4,0,streamNorth,bridgeHalf*2,streamWidth+2.4,.08);
+  stoneSlab(0,streamNorth,bridgeHalf*2,streamWidth+2.4,.08);
 
   yield;
   // ---- Gyeonghoeru and its pond ----------------------------------------------------------

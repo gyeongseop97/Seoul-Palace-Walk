@@ -1,4 +1,5 @@
 import {gradePalaceMeshes,palaceMeshHeight} from "./gyeongbok-terrain.js";
+import {graniteBox} from "./seoul-granite.js";
 import {
   route,entranceWalk,pavilions,city,estateOutline,stonewallVerge,palacePaths,palaceCourts,palaceGardens,palacePlantings,palacePond,palaceWalls,
   gate,ticket,ticketGuide,ticketForecourt,bridge,middle,hall,stoneHall,stoneFountain,court,courtAngle,fountain,garden,spawn,addObstacle,solidAt,withObstacleScope
@@ -451,7 +452,7 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
   }
   let waterMaterial;
   function addPond(){
-    waterMaterial=buildPalacePond(T,palacePond,{plot,matte,lawn:gardenMaterials.lawn,placed,line,rand,
+    waterMaterial=buildPalacePond(T,palacePond,{plot,matte,lawn:gardenMaterials.lawn,placed,rand,
       decorate(color,x,y,z,w,h,d,angle){
         const mesh=shape(leaf,color,x,y,z);mesh.scale.set(w,h,d);mesh.rotation.y=angle;
       }});
@@ -795,15 +796,15 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
   const b=placed(bridge);
   const channel=box(0x526f69,b.x,-.035,b.z,2.05,.045,16.5);
   channel.material=matte(0x526f69);
-  box(0xa5a79e,b.x,.117,b.z,5.7,.25,6.7);
+  graniteBox(T,scene,b.x,.117,b.z,5.7,.25,6.7);
   for(const side of [-1,1]){
-    box(0xa2a49a,b.x,.46,b.z+side*3.21,5.6,.53,.34);
+    graniteBox(T,scene,b.x,.46,b.z+side*3.21,5.6,.53,.34);
     block(b.x,b.z+side*3.21,5.6,.34,0,1.07);
-    for(let i=0;i<5;i++)box(0xb1b1a4,b.x-2.31+i*1.15,.80,b.z+side*3.21,.34,.53,.39);
+    for(let i=0;i<5;i++)graniteBox(T,scene,b.x-2.31+i*1.15,.80,b.z+side*3.21,.34,.53,.39);
   }
   for(const edge of [-1,1]){
     block(b.x,b.z+edge*6.1,2.4,4.9,0,.34);
-    box(0x989d90,b.x,.16,b.z+edge*6.0,2.7,.34,4.6);
+    graniteBox(T,scene,b.x,.16,b.z+edge*6.0,2.7,.34,4.6);
   }
   const middleModel=pavilion({...middle,w:10.9,d:6.9,h:3.72,bays:3,angle:courtAngle,gate:true,raised:.24,sign:"中和門"});
   for(const side of [-1,1]){

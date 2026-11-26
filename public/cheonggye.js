@@ -10,6 +10,8 @@ import {insideCorridorPolygon} from "./sejong-corridor-layout.js";
 import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
 import {fountainImpact} from "./fountain-impact.js";
 import {jetTube,jetWater,waterCells,waterNoise} from "./water-shader.js";
+import {graniteMaterial} from "./granite-material.js";
+import {graniteBox} from "./seoul-granite.js";
 
 export function* buildCheonggye(T,root,kit,terrain){
   const {wx,wz,box,cylinder,matte}=kit;
@@ -17,11 +19,14 @@ export function* buildCheonggye(T,root,kit,terrain){
   let seed=7341;
   const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
   const concrete=0x8b8f84,granite=0xa6a99b,cap=0xbcc0b3,rail=0x424b48;
+  const bridgeStone=graniteMaterial(T);
   const stone=[0xa6a596,0x9a9d91,0x929489,0xa1a092,0xaaa89d,0x8d9086];
   const waterLevel=CHEONGGYE_WATER_LEVEL;
   const terrainSurfaces=[];
   function block(color,x,y,width,length,height,level,angle=0){
-    const mesh=box(color,wx(x),level+height/2,wz(y),width,height,length,root);
+    const mesh=color===bridgeStone
+      ?graniteBox(T,root,wx(x),level+height/2,wz(y),width,height,length)
+      :box(color,wx(x),level+height/2,wz(y),width,height,length,root);
     mesh.rotation.y=angle;
     return mesh;
   }
@@ -32,9 +37,10 @@ export function* buildCheonggye(T,root,kit,terrain){
   function mesh(vertices,indices,material,drape=true){
     const geometry=new T.BufferGeometry();
     geometry.setAttribute("position",new T.Float32BufferAttribute(vertices,3));geometry.setIndex(indices);
-    if(material.map){
+    if(material.map||material===bridgeStone){
       const uv=[];
-      for(let i=0;i<vertices.length;i+=3)uv.push(vertices[i]/3.2,vertices[i+2]/3.2);
+      const metres=material===bridgeStone?1:3.2;
+      for(let i=0;i<vertices.length;i+=3)uv.push(vertices[i]/metres,vertices[i+2]/metres);
       geometry.setAttribute("uv",new T.Float32BufferAttribute(uv,2));
     }
     geometry.computeVertexNormals();
@@ -483,7 +489,7 @@ export function* buildCheonggye(T,root,kit,terrain){
     for(const side of sides){
       const edge=t=>{const p=along(t);return {...p,x:p.x+side*width/2};};
       const a=edge(0),b=edge(1);
-      strip(style==="stone"?0x8e8e82:concrete,a,b,.55,.52,-.45);
+      strip(style==="stone"?bridgeStone:concrete,a,b,.55,.52,-.45);
       function bankEnd(side){
         let low=0,high=1;
         for(let i=0;i<14;i++){
@@ -494,13 +500,13 @@ export function* buildCheonggye(T,root,kit,terrain){
         return (low+high)/2;
       }
       const first=bankEnd(-1),last=bankEnd(1),ra=edge(first),rb=edge(last);
-      strip(cap,ra,rb,.36,style==="stone"?.26:.16,.12);
+      strip(style==="stone"?bridgeStone:cap,ra,rb,.36,style==="stone"?.26:.16,.12);
       bar(rail,{...ra,level:.98},{...rb,level:.98},.041);
       for(let i=0;i<15;i++){
         const p=edge(first+(last-first)*i/14);
         if(style==="stone"){
-          block(stone[i%stone.length],p.x,p.y,.43,.24,.85,at(p.x,p.y)+.12);
-          if(i%3===0)block(cap,p.x,p.y,.54,.34,.15,at(p.x,p.y)+.94);
+          block(bridgeStone,p.x,p.y,.43,.24,.85,at(p.x,p.y)+.12);
+          if(i%3===0)block(bridgeStone,p.x,p.y,.54,.34,.15,at(p.x,p.y)+.94);
         }else cylinder(rail,wx(p.x),at(p.x,p.y)+.54,wz(p.y),.039,.84,6,root);
       }
       if(style==="road"){
@@ -517,13 +523,23 @@ export function* buildCheonggye(T,root,kit,terrain){
       const middle=x+skew*.5,a=middle-width/2+1.08,b=middle+width/2-1.08;
       const stations=[a,...cheonggyeStations.filter(x=>x>a&&x<b),b];
       const edges=[-4.98,-4.04].map(inset=>stations.map(x=>bankAt(x,side,inset)));
-      const material=new T.MeshStandardMaterial({color:style==="stone"?0x9d9a89:0x828881,side:T.DoubleSide});
+      const material=style==="stone"?bridgeStone:new T.MeshStandardMaterial({color:0x828881,side:T.DoubleSide});
       const pier=[...edges[0],...edges[1].slice().reverse()];
       surface(pier,material,-.54);
-      grid([...pier,pier[0]].map(p=>[{...p,level:-.54},{...p,level:waterLevel-.48}]),material);
-      if(style==="stone")for(let i=0;i<9;i++){
-        const sx=a+.51+(b-a-1.02)*i/8,p=bankAt(sx,side,-4.016);
-        block(stone[i%stone.length],sx,p.y,1.05,.17,.34,at(sx,p.y)-2.47);
+      const outline=[...pier,pier[0]];
+      const face=grid(outline.map(p=>[{...p,level:-.54},{...p,level:waterLevel-.48}]),material);
+      if(style==="stone"){
+        // Unroll the grain along the pier perimeter and up its vertical faces.
+        const uv=face.geometry.attributes.uv;
+        let distance=0;
+        for(const [j,p] of outline.entries()){
+          if(j)distance+=Math.hypot(p.x-outline[j-1].x,p.y-outline[j-1].y);
+          uv.setXY(j*2,distance,-.54);uv.setXY(j*2+1,distance,waterLevel-.48);
+        }
+        for(let i=0;i<9;i++){
+          const sx=a+.51+(b-a-1.02)*i/8,p=bankAt(sx,side,-4.016);
+          block(bridgeStone,sx,p.y,1.05,.17,.34,at(sx,p.y)-2.47);
+        }
       }
     }
     yield;

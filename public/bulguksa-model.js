@@ -196,7 +196,7 @@ export function* buildBulguksa(k,eye,drawPond){
  });
  tasks.add(templeSites[4],()=>stoneBridges(k));
  function* garden(){
-  for(const pond of templePonds){drawPond(k,pond,rng);yield;}
+  for(const pond of templePonds){drawPond(pond,rng);yield;}
   let trunkGround=0;
   const trees=makeTreeBuilder(T,null,{snapshotPart(mesh){mesh.position.y+=trunkGround;k.treePart(mesh);},registerCrownLod:registerDistrictLod,rand:rng,
    clearance:{meshFits:()=>true,trim:()=>true}});

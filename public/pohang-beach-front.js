@@ -1,4 +1,5 @@
 import * as T from "three";
+import {coastalMasonry} from "./pohang-masonry.js";
 import {beachLimits,beachAccess,sandEdge,sandCrest,cycleX,upperRoadEdge,wallSolid,accessHeight} from "./pohang-beach-profile.js";
 
 const [north,south]=beachLimits;
@@ -15,12 +16,17 @@ export function plantedSpot(z){
  return {x,z};
 }
 export function buildBeachFront(root,rows,{box,post}){
- const batches=new Map();
+ const batches=new Map(),wallUv=[];
  function quad(layer,a,b,c,d){
   if(!batches.has(layer))batches.set(layer,[]);
   batches.get(layer).push(...a,...b,...c,...a,...c,...d);
+  if(layer==="stone"){
+   // The long seawall runs along the beach; stair cheeks turn inland. Keep the grain and joints horizontal on both.
+   const axis=Math.abs(b[0]-a[0])>Math.abs(b[2]-a[2])?0:2;
+   for(const p of [a,b,c,a,c,d])wallUv.push(p[axis],p[1]);
+  }
  }
- const tint={roadPavers:0x777b78,plaza:0xc7c6bb,cycle:0xb87f70,edge:0xa49c8c,seat:0xbaa997,face:0x948d82,nose:0xb8b3a5,stone:0xa9a495,ramp:0xb8afa0};
+ const tint={roadPavers:0x777b78,plaza:0xc7c6bb,cycle:0xb87f70,edge:0xa49c8c,seat:0xbaa997,face:0x948d82,nose:0xb8b3a5,ramp:0xb8afa0};
  const zRows=rows.filter(z=>z>=-833&&z<=284);
  for(let k=1;k<zRows.length;k++){
   const z=zRows[k-1],v=zRows[k],m=(z+v)*.5,a=section(z),b=section(v);
@@ -53,13 +59,13 @@ export function buildBeachFront(root,rows,{box,post}){
  }
  for(const [key,data] of batches){
   const geom=new T.BufferGeometry();geom.setAttribute("position",new T.Float32BufferAttribute(data,3));geom.computeVertexNormals();
-  const mat=new T.MeshStandardMaterial({color:tint[key],side:T.DoubleSide,roughness:.92});
-  if(["plaza","stone","roadPavers","ramp"].includes(key)){
-   const wall=key==="stone";
+  const wall=key==="stone";
+  if(wall)geom.setAttribute("uv",new T.Float32BufferAttribute(wallUv,2));
+  const mat=wall?coastalMasonry():new T.MeshStandardMaterial({color:tint[key],side:T.DoubleSide,roughness:.92});
+  if(["plaza","roadPavers","ramp"].includes(key)){
    mat.onBeforeCompile=shader=>{
     shader.vertexShader="varying vec3 promenadePoint;\n"+shader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\npromenadePoint=position;");
-    const uv=wall?"vec2(promenadePoint.z*.95,promenadePoint.y*3.15)":"promenadePoint.xz/vec2(.64,.39)";
-    shader.fragmentShader="varying vec3 promenadePoint;\n"+shader.fragmentShader.replace("#include <color_fragment>","#include <color_fragment>\nvec2 p="+uv+";p.x+=.5*mod(floor(p.y),2.);vec2 grout=min(fract(p),1.-fract(p))/max(fwidth(p),vec2(.004));float close=1.-smoothstep(9.,42.,length(cameraPosition.xz-promenadePoint.xz));diffuseColor.rgb*=.985+.025*fract(sin(dot(floor(p),vec2(14.32,28.17)))*18453.)-.19*close*(1.-smoothstep(.1,1.1,min(grout.x,grout.y)));");
+    shader.fragmentShader="varying vec3 promenadePoint;\n"+shader.fragmentShader.replace("#include <color_fragment>","#include <color_fragment>\nvec2 p=promenadePoint.xz/vec2(.64,.39);p.x+=.5*mod(floor(p.y),2.);vec2 grout=min(fract(p),1.-fract(p))/max(fwidth(p),vec2(.004));float close=1.-smoothstep(9.,42.,length(cameraPosition.xz-promenadePoint.xz));diffuseColor.rgb*=.985+.025*fract(sin(dot(floor(p),vec2(14.32,28.17)))*18453.)-.19*close*(1.-smoothstep(.1,1.1,min(grout.x,grout.y)));");
    };
    mat.customProgramCacheKey=()=>key;
   }

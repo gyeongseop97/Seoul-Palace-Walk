@@ -134,7 +134,7 @@ function contains(p,polygon){
  }
  return inside;
 }
-function waterFeature(root,k,park,rng){
+function waterFeature(root,park,rng){
  const outline=park.points.map(({x,z})=>({x,y:z}));
  function plot(points,material,y){
   const shape=new T.Shape(points.map(p=>new T.Vector2(p.x,-p.y)));
@@ -146,13 +146,8 @@ function waterFeature(root,k,park,rng){
  }
  const x=outline.reduce((n,p)=>n+p.x,0)/outline.length,y=outline.reduce((n,p)=>n+p.y,0)/outline.length;
  const placed=p=>({x:p.x,z:p.y});
- const line=(a,b)=>{
-  const dx=b.x-a.x,dz=b.y-a.y,len=Math.hypot(dx,dz);
-  return {len,at:(t,o=0)=>({x:a.x+dx*t+dz/len*o,z:a.y+dz*t-dx/len*o})};
- };
- return buildPalacePond(T,{x,y,outline},{plot,placed,line,rand:rng,
-  matte:color=>new T.MeshStandardMaterial({color,roughness:.86}),
-  decorate:(color,x,y,z,w,h,d,yaw)=>k.crown(x,y,z,w,h,d,color,yaw)});
+ return buildPalacePond(T,{x,y,outline},{plot,placed,rand:rng,
+  matte:color=>new T.MeshStandardMaterial({color,roughness:.86})});
 }
 function* streetFurniture(k,p,nearest,isStation,glowMat,bulb){
  const lines=roads.filter(r=>r.kind==="street"&&r.points[0].x>-3000&&
@@ -270,7 +265,7 @@ function* buildDistrict(root,eye,isStation,kit,glowMat,bulb,waterMaterials,bridg
   if(isStation)hills(k,-6530,4150,545,658);else hills(k,240,150,1620,821);
   yield;
   if(!isStation)for(const p of parks){
-   if(relevant(p.points[0].x)&&p.kind==="water"){waterMaterials.push(waterFeature(root,k,p,rng));yield;}
+   if(relevant(p.points[0].x)&&p.kind==="water"){waterMaterials.push(waterFeature(root,p,rng));yield;}
   }
   const treeKit=makeTreeBuilder(T,null,{snapshotPart:k.treePart,registerCrownLod:registerDistrictLod,rand:rng,clearance:{meshFits:()=>true,trim:()=>true}});
   yield;
@@ -313,7 +308,7 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
   yield* publishEntryFloor(temple,k);
   updateTemple=createBulguksaPagodas(temple,kit);
   hills(k,templeOrigin.x,templeOrigin.z+130,690,10834);
-  yield* buildBulguksa(k,buildEye,(builder,points,rng)=>templeWaters.push(waterFeature(temple,builder,{points},rng)));
+  yield* buildBulguksa(k,buildEye,(points,rng)=>templeWaters.push(waterFeature(temple,{points},rng)));
  }
  function ensure(isStation,isTemple,camera){
   const active=isTemple?temple:isStation?station:town;
