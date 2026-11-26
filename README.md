@@ -1,6 +1,6 @@
-# 서울 궁 한바퀴 · Seoul Palace Walk
+# 유람 · Yuram
 
-덕수궁과 정동, 광화문광장, 경복궁을 친구와 함께 걷는 3D 게임입니다. 첫 화면에서 닉네임과 캐릭터를 고른 뒤 **오픈서버**, **방 만들기**, **초대코드 입력** 중에서 선택할 수 있습니다. 돌담 편의점에서 츄르를 사면 근처 고양이가 다가옵니다. **간식 주기** 한 번에 약 5초 동안 먹고, 츄르 한 개로 세 번 줄 수 있습니다.
+서울, 포항, 경주를 친구와 함께 걷고 기차로 오가는 3D 여행 게임입니다. 첫 화면에서 닉네임과 캐릭터를 고른 뒤 **오픈서버**, **방 만들기**, **초대코드 입력** 중에서 선택할 수 있습니다. 돌담 편의점에서 츄르를 사면 근처 고양이가 다가옵니다. **간식 주기** 한 번에 약 5초 동안 먹고, 츄르 한 개로 세 번 줄 수 있습니다.
 
 Vercel이 게임 화면과 방 API를 제공하고, Turso의 **libSQL** 데이터베이스가 초대코드, 참가자 상태, 좌석과 손잡기 상태를 저장합니다. 공식 GitHub Pages 주소는 운영 Vercel의 방 API에 연결되므로 두 주소에서 같은 초대코드를 쓸 수 있습니다.
 
@@ -17,7 +17,7 @@ Vercel이 게임 화면과 방 API를 제공하고, Turso의 **libSQL** 데이�
 ## 2. Turso 데이터베이스 연결
 
 1. [Turso 대시보드](https://app.turso.tech/)에서 프로젝트 전용 데이터베이스를 만듭니다. 엔진을 선택하는 화면에서는 **libSQL**을 고릅니다.
-2. 데이터베이스의 연결 화면에서 주소를 복사하고, 이 데이터베이스에 쓰기 권한이 있는 데이터베이스 토큰을 발급합니다. Turso CLI를 이미 사용한다면 `turso db create deoksugung-hanbakwi`, `turso db show --url deoksugung-hanbakwi`, `turso db tokens create deoksugung-hanbakwi`로 같은 작업을 할 수 있습니다. [Turso 시작 안내](https://docs.turso.tech/quickstart), [libSQL 연결 안내](https://docs.turso.tech/sdk/ts/quickstart#remote-libsql-database-libsql-client)
+2. 데이터베이스의 연결 화면에서 주소를 복사하고, 이 데이터베이스에 쓰기 권한이 있는 데이터베이스 토큰을 발급합니다. Turso CLI를 이미 사용한다면 `turso db create yuram`, `turso db show --url yuram`, `turso db tokens create yuram`로 같은 작업을 할 수 있습니다. [Turso 시작 안내](https://docs.turso.tech/quickstart), [libSQL 연결 안내](https://docs.turso.tech/sdk/ts/quickstart#remote-libsql-database-libsql-client)
 3. Node.js 22.13 이상이 설치된 컴퓨터에서 압축을 푼 폴더를 터미널로 열고, Windows PowerShell에서 아래 명령을 실행합니다.
 
    ```powershell
@@ -32,7 +32,7 @@ Vercel이 게임 화면과 방 API를 제공하고, Turso의 **libSQL** 데이�
    | `TURSO_DATABASE_URL` | Turso에 표시된 `libsql://`로 시작하는 주소 |
    | `TURSO_AUTH_TOKEN` | 해당 데이터베이스에 쓰기 가능한 토큰 |
 
-5. 같은 폴더에서 실행합니다. `서울 궁 한바퀴 데이터베이스가 준비됐습니다.`가 표시되면 방을 만들 준비가 된 상태입니다. 초기화는 필요한 테이블을 생성하며, 다시 실행해도 기존 행을 지우지 않습니다.
+5. 같은 폴더에서 실행합니다. `유람 데이터베이스가 준비됐습니다.`가 표시되면 방을 만들 준비가 된 상태입니다. 초기화는 필요한 테이블을 생성하며, 다시 실행해도 기존 행을 지우지 않습니다.
 
    ```powershell
    npm ci
@@ -49,8 +49,8 @@ Vercel이 게임 화면과 방 API를 제공하고, Turso의 **libSQL** 데이�
 
 ## 4. GitHub Pages 주소도 사용하기
 
-1. `gyeongseop97/Seoul-Palace-Walk` 저장소의 **Settings → Pages**에서 **Deploy from a branch**, `main`, `/(root)`를 사용합니다. `main`에 변경을 반영하면 GitHub가 정적 게임 화면을 다시 게시합니다. [GitHub Pages 게시 설정](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)
-2. [GitHub Pages 게임 주소](https://gyeongseop97.github.io/Seoul-Palace-Walk/)를 열면 같은 사이트의 `public/`으로 이동합니다. 여기서 만든 초대코드로 [Vercel 운영 주소](https://seoulgung-walk.vercel.app/)에서도 입장할 수 있습니다. 두 주소가 Vercel의 같은 방 API와 Turso를 사용하며, 환경 변수는 Vercel에서 관리합니다.
+1. `gyeongseop97/yuram` 저장소의 **Settings → Pages**에서 **Deploy from a branch**, `main`, `/(root)`를 사용합니다. `main`에 변경을 반영하면 GitHub가 정적 게임 화면을 다시 게시합니다. [GitHub Pages 게시 설정](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)
+2. [GitHub Pages 게임 주소](https://gyeongseop97.github.io/yuram/)를 열면 같은 사이트의 `public/`으로 이동합니다. 여기서 만든 초대코드로 [Vercel 운영 주소](https://yuram.vercel.app/)에서도 입장할 수 있습니다. 두 주소가 Vercel의 같은 방 API와 Turso를 사용하며, 환경 변수는 Vercel에서 관리합니다.
 
 ## 컴퓨터에서 먼저 실행
 

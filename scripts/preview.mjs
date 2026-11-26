@@ -19,6 +19,9 @@ const types = {
   ".css": "text/css; charset=utf-8",
   ".jpg": "image/jpeg",
   ".png": "image/png",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+  ".webmanifest": "application/manifest+json",
   ".webp": "image/webp",
   ".glb": "model/gltf-binary"
 };
@@ -61,4 +64,4 @@ createServer(async (incoming, outgoing) => {
   } catch {
     outgoing.writeHead(500).end();
   }
-}).listen(port, host, () => console.log("서울 궁 한바퀴 · http://" + host + ":" + port));
+}).listen(port, host, () => console.log("유람 · http://" + host + ":" + port));

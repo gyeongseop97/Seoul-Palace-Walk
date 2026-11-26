@@ -5,7 +5,7 @@ let client;
 try {
   client = openTursoClient();
   await initializeDatabase(client);
-  console.log("서울 궁 한바퀴 데이터베이스가 준비됐습니다.");
+  console.log("유람 데이터베이스가 준비됐습니다.");
 } catch (error) {
   console.error(error instanceof DatabaseConfigurationError
     ? error.message

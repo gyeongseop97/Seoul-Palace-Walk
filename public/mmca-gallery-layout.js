@@ -182,7 +182,7 @@ const sculptureSeries={
   ],
 };
 const roomSculptures=Object.entries(sculptureSeries).flatMap(([gallery,items])=>items.map(([id,title,x,y,description],series)=>({
-  id,gallery,title,x,y,description,series,credit:"서울 궁 한바퀴 · 게임 창작 조형",
+  id,gallery,title,x,y,description,series,credit:"유람 · 게임 창작 조형",
   source:referenceByRoom.get(gallery).source,sourceLabel:"국립현대미술관 테마 참고 자료",
   radius:4.2,obstacles:[[0,0,3.38,2.88,3.95]],
 })));

@@ -40,14 +40,14 @@ export async function makePhotoCard(picture,{place,date,nickname,mode}){
   const border=Math.max(12,Math.round(width*.02)),footer=Math.max(62,Math.round(width*.085));
   canvas.width=width+border*2;canvas.height=height+border+footer;
   const ctx=canvas.getContext("2d");
-  ctx.fillStyle="#f3e9d2";ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="#f4faff";ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.drawImage(image,border,border,width,height);
-  ctx.fillStyle="#253b2d";ctx.textBaseline="top";
+  ctx.fillStyle="#192c4b";ctx.textBaseline="top";
   ctx.font=`bold ${Math.max(15,Math.round(width*.029))}px "Malgun Gothic",sans-serif`;
   ctx.fillText(place,border,height+border+footer*.17,width);
-  ctx.fillStyle="#425445";
+  ctx.fillStyle="#3d5270";
   ctx.font=`${Math.max(11,Math.round(width*.016))}px "Malgun Gothic",sans-serif`;
-  ctx.fillText(`${photoDate.format(date)} · ${nickname} · 서울 궁 한바퀴`,border,height+border+footer*.59,width);
+  ctx.fillText(`${photoDate.format(date)} · ${nickname} · 유람`,border,height+border+footer*.59,width);
   const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",.87));
   if(!blob)throw Error("공유용 사진을 만들지 못했어요.");
   return {id:crypto.randomUUID(),date,place,mode,blob};
@@ -55,7 +55,7 @@ export async function makePhotoCard(picture,{place,date,nickname,mode}){
 
 export function downloadPhoto(photo){
   const url=URL.createObjectURL(photo.blob),link=document.createElement("a");
-  link.href=url;link.download=`서울-궁-한바퀴-${new Date(photo.date).toISOString().slice(0,10)}.jpg`;link.click();
+  link.href=url;link.download=`유람-${new Date(photo.date).toISOString().slice(0,10)}.jpg`;link.click();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 

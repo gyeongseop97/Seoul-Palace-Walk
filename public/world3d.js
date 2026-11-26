@@ -853,12 +853,12 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const font='650 36px "Segoe UI","Malgun Gothic",sans-serif';
     ctx.font=font;
     canvas.width=Math.ceil(ctx.measureText(nickname).width+65);canvas.height=62;
-    ctx.fillStyle="rgba(13,26,20,.68)";
+    ctx.fillStyle="rgba(242,249,255,.88)";
     ctx.beginPath();ctx.roundRect(1,1,canvas.width-2,60,23);ctx.fill();
-    ctx.strokeStyle="rgba(242,225,180,.32)";ctx.lineWidth=2;ctx.stroke();
+    ctx.strokeStyle="rgba(57,91,139,.65)";ctx.lineWidth=2;ctx.stroke();
     ctx.fillStyle="#"+coat.toString(16).padStart(6,"0");
     ctx.beginPath();ctx.arc(22,31,7,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle="#fff7e4";ctx.font=font;ctx.textBaseline="middle";ctx.fillText(nickname,40,32);
+    ctx.fillStyle="#192c4b";ctx.font=font;ctx.textBaseline="middle";ctx.fillText(nickname,40,32);
     const texture=new T.CanvasTexture(canvas);texture.colorSpace=T.SRGBColorSpace;
     const sprite=new T.Sprite(new T.SpriteMaterial({map:texture,transparent:true,depthWrite:false,toneMapped:false}));
     sprite.scale.set(Math.min(3.6,canvas.width/160),.38,1);sprite.position.y=1.84;
@@ -869,7 +869,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       const canvas=document.createElement("canvas");canvas.width=canvas.height=112;
       const ctx=canvas.getContext("2d");
       ctx.beginPath();ctx.arc(56,56,52,0,Math.PI*2);
-      ctx.fillStyle="rgba(246,229,188,.94)";ctx.fill();ctx.strokeStyle="#795c38";ctx.lineWidth=3;ctx.stroke();
+      ctx.fillStyle="rgba(234,246,255,.94)";ctx.fill();ctx.strokeStyle="#496fa5";ctx.lineWidth=3;ctx.stroke();
       ctx.font='69px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
       ctx.textAlign="left";ctx.textBaseline="alphabetic";
       const bounds=ctx.measureText(emoji);

@@ -1,6 +1,6 @@
-# 서울 궁 한바퀴 자료 출처
+# 유람 자료 출처
 
-시작 화면의 `public/seoul-palace-cover-dancheong.jpg`는 경복궁·덕수궁·광화문을 한 장면에 담은 생성 이미지에, 사용자가 제공한 단청 편액을 참고해 제목을 넣은 그림입니다. 게임 상단의 `public/seoul-palace-wordmark.png`는 사용자가 제공한 세 개의 둥근 윤곽을 바탕으로 생성했습니다. 관람 안내의 `public/seoul-palace-plaque.png`는 사용자가 선택한 편액 이미지입니다. [국가유산청 단청 안내](https://www.heritage.go.kr/heri/html/HtmlPage.do?pageNo=2_5_1_1&pg=%2Fcul%2FcultureEasySub01_13.jsp)
+시작 화면과 공유 카드의 푸른 여행 풍경은 서울·포항·경주를 한 장면에 담아 생성한 게임용 일러스트입니다. 유람 워드마크와 앱 아이콘은 이동 경로를 모티브로 그린 게임 전용 그래픽입니다.
 
 ## 국가유산청 3D 자료
 

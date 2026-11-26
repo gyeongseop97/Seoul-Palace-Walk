@@ -3,12 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-  <meta name="description" content="덕수궁에서 광화문광장을 지나 경복궁까지 친구와 함께 걷는 3D 서울 산책.">
-  <meta name="application-name" content="Seoul Palace Walk">
-  <meta name="theme-color" content="#01281c">
+  <meta name="description" content="서울에서 기차를 타고 포항 바다와 경주 골목으로. 친구와 걷고, 타고, 머무는 3D 여행 게임 유람.">
+  <meta name="application-name" content="유람">
+  <meta name="apple-mobile-web-app-title" content="유람">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ko_KR">
+  <meta property="og:site_name" content="유람">
+  <meta property="og:title" content="유람">
+  <meta property="og:description" content="서울에서 기차를 타고 포항 바다와 경주 골목으로. 친구와 걷고, 타고, 머무는 3D 여행 게임 유람.">
+  <meta property="og:image" content="https://yuram.vercel.app/yuram-share.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="유람 · 푸른 물길로 이어진 서울, 포항, 경주">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#F4FAFF">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <script>
     try {
       const ticket = JSON.parse(sessionStorage.getItem("palace-coast-ticket"));
@@ -29,27 +40,27 @@
   </script>
   <style>
     #ktx-transfer-loading, #ktx-transfer-loading span { display: none; }
-    html[data-ktx-transfer] { background: #10251e; }
+    html[data-ktx-transfer] { background: #e7f4ff; }
     html[data-ktx-transfer] #entry-flow { display: none; }
     html[data-ktx-transfer] #game-shell { visibility: hidden; }
     html[data-ktx-transfer] #ktx-transfer-loading {
       position: fixed; inset: 0; z-index: 10000; display: grid; place-content: center;
-      justify-items: center; gap: 1.15rem; padding: 1.5rem; background: #10251e; color: #f4efdf;
+      justify-items: center; gap: 1.15rem; padding: 1.5rem; background: #e7f4ff; color: #192c4b;
       font: 650 clamp(1.25rem, 4vw, 1.75rem)/1.45 "Segoe UI", "Malgun Gothic", sans-serif;
     }
     html[data-ktx-transfer="pohang"] #ktx-transfer-loading .ktx-to-pohang,
     html[data-ktx-transfer="gyeongju"] #ktx-transfer-loading .ktx-to-gyeongju,
     html[data-ktx-transfer="seoul"] #ktx-transfer-loading .ktx-to-seoul,
     html[data-ktx-transfer="resume"] #ktx-transfer-loading .coast-resume { display: inline; }
-    .ktx-loading-track { display: block; width: 8rem; height: 3px; border-radius: 2px; overflow: hidden; background: #42594b; }
-    .ktx-loading-track::before { content: ""; display: block; width: 38%; height: 100%; background: #e2c283; animation: ktx-progress 1.45s ease-in-out infinite alternate; }
+    .ktx-loading-track { display: block; width: 8rem; height: 3px; border-radius: 2px; overflow: hidden; background: #b9d9f0; }
+    .ktx-loading-track::before { content: ""; display: block; width: 38%; height: 100%; background: #355cc6; animation: ktx-progress 1.45s ease-in-out infinite alternate; }
     @keyframes ktx-progress { to { transform: translateX(163%); } }
     @media (prefers-reduced-motion: reduce) { .ktx-loading-track::before { width: 100%; animation: none; } }
   </style>
   <link rel="manifest" href="./palace.webmanifest">
-  <link rel="apple-touch-icon" href="./palace-icon-192.png?v=palace">
-  <title>서울 궁 한바퀴 | Seoul Palace Walk</title>
-  <link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48" href="./favicon.ico?v=palace-roof">
+  <link rel="apple-touch-icon" href="./yuram-icon-192.png">
+  <title>유람 | Yuram</title>
+  <link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48" href="./favicon.ico?v=yuram-1">
   <link rel="stylesheet" href="./style.css">
   <link rel="stylesheet" href="./passport.css">
   <link rel="stylesheet" href="./minigames.css">
@@ -58,6 +69,8 @@
   <link rel="stylesheet" href="./picnic.css">
   <link rel="stylesheet" href="./walk-bag.css">
   <link rel="stylesheet" href="./play-actions.css">
+  <link rel="stylesheet" href="./yuram-theme.css">
+  <link rel="stylesheet" href="./yuram-cover.css">
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"}}</script>
   <script type="module" src="./walk.js"></script>
 </head>
@@ -66,17 +79,21 @@
     <span class="ktx-to-pohang">포항역으로 이동 중</span><span class="ktx-to-gyeongju">경주역으로 이동 중</span><span class="ktx-to-seoul">서울역으로 이동 중</span><span class="coast-resume">마지막 산책 장소로 이동 중</span>
     <i class="ktx-loading-track" aria-hidden="true"></i>
   </div>
-  <main id="entry-flow" class="entry-flow" aria-label="산책 시작">
+  <main id="entry-flow" class="entry-flow" aria-label="유람 시작">
     <div class="entry-frame">
       <section id="profile-step" class="entry-profile" aria-labelledby="profile-title">
         <figure class="entry-cover">
-          <img src="./seoul-palace-cover-dancheong.jpg" alt="서울 궁 한바퀴 · 단청 편액 아래 가을빛이 물든 서울의 궁궐" width="1536" height="1024" fetchpriority="high">
+          <img class="entry-art" src="./yuram-journey.webp" alt="남산서울타워와 포항 앞바다, 경주 첨성대가 한 풍경으로 이어지는 여행 포스터" width="1440" height="1080" fetchpriority="high">
+          <figcaption class="entry-cover-title">
+            <img class="entry-cover-wordmark" src="./yuram-wordmark.svg" alt="유람" width="180" height="64">
+            <span>서울 · 포항 · 경주</span>
+          </figcaption>
         </figure>
         <form id="profile-form" class="entry-profile-form">
-          <h1 id="profile-title" tabindex="-1">산책 준비</h1>
+          <h1 id="profile-title" tabindex="-1">여행 준비</h1>
           <label class="entry-field" for="nickname">
             <span>닉네임</span>
-            <input id="nickname" name="nickname" type="text" required maxlength="32" placeholder="예: 은행잎" autocomplete="nickname" enterkeyhint="next">
+            <input id="nickname" name="nickname" type="text" required maxlength="32" placeholder="예: 파도" autocomplete="nickname" enterkeyhint="next">
           </label>
           <fieldset class="entry-characters">
             <legend>캐릭터</legend>
@@ -86,7 +103,7 @@
             </div>
           </fieldset>
           <div class="entry-actions">
-            <button id="profile-confirm" class="entry-confirm primary" type="submit">확인 <span aria-hidden="true">→</span></button>
+            <button id="profile-confirm" class="entry-confirm primary" type="submit">다음 <span aria-hidden="true">→</span></button>
             <button id="profile-transfer-open" class="quiet" type="button" aria-haspopup="dialog">이어하기 코드</button>
           </div>
           <p id="profile-status" class="entry-status" role="status"></p>
@@ -95,7 +112,7 @@
       <section id="server-step" class="entry-server" aria-labelledby="server-title" hidden>
         <div class="entry-server-nav">
           <button id="server-back" class="entry-back" type="button"><span aria-hidden="true">←</span> 프로필 수정</button>
-          <img class="entry-wordmark" src="./seoul-palace-wordmark.png" alt="서울 궁 한바퀴" width="576" height="190">
+          <img class="entry-wordmark" src="./yuram-wordmark.svg" alt="유람" width="180" height="64">
         </div>
         <div class="entry-server-head">
           <h1 id="server-title" tabindex="-1">서버 선택</h1>
@@ -133,7 +150,7 @@
   <div id="game-shell" hidden>
   <header class="top">
     <div class="game-identity">
-      <h1 class="brand"><img src="./seoul-palace-wordmark.png" alt="서울 궁 한바퀴" width="576" height="190" decoding="async"></h1>
+      <h1 class="brand"><img src="./yuram-wordmark.svg" alt="유람" width="180" height="64" decoding="async"></h1>
       <span id="header-region">서울</span>
     </div>
     <div class="top-game-actions">
@@ -672,7 +689,7 @@
     </div>
   </dialog>
   <dialog id="credits-dialog" aria-labelledby="credits-title">
-    <div class="dialog-top"><span class="tag" lang="en">Seoul Palace Walk</span><button type="button" class="quiet close" aria-label="닫기">×</button></div>
+    <div class="dialog-top"><span class="tag" lang="en">Yuram</span><button type="button" class="quiet close" aria-label="닫기">×</button></div>
     <h2 id="credits-title">자료 출처</h2>
     <p>경주 도로·유적지 지형 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> · <a href="./gyeongju-geography.js" download>경주 지리 데이터</a> · <a href="./gyeongju-southern-geography.js" download>계림·월정교 지리 데이터</a></p>
     <p>국가유산청이 제공한 3D 실측 자료를 웹에서 볼 수 있도록 경량화했습니다.</p>
@@ -721,11 +738,11 @@
   </dialog>
   <dialog id="visitor-guide-dialog" aria-labelledby="visitor-guide-title">
     <div class="dialog-top">
-      <h2 id="visitor-guide-title">서울 궁 한바퀴 관람 안내</h2>
+      <h2 id="visitor-guide-title">유람 여행 안내</h2>
       <button type="button" class="quiet close" aria-label="닫기">×</button>
     </div>
-    <img class="visitor-guide-plaque" src="./seoul-palace-plaque.png" alt="" width="768" height="169" loading="lazy" decoding="async">
-    <p class="guide-intro">대한문 매표소에서 출발해 광화문광장과 경복궁을 지나 북촌까지 걸어갈 수 있어요. 정동 분수대에서는 서·북쪽 돌담길로, 서울광장 동쪽에서는 횡단보도를 건너 환구단으로 이어져요. <strong>전체 지도</strong>에서 장소 이름을 누르면 도보 경로를 볼 수 있어요.</p>
+
+    <p class="guide-intro">서울에서는 대한문에서 북촌까지 걸어보세요. 서울역에서 KTX를 타면 포항 영일대 해변이나 경주 황리단길로 여행을 이어갈 수 있어요. <strong>전체 지도</strong>에서 장소 이름을 누르면 도보 경로를 볼 수 있어요.</p>
     <button id="tutorial-replay" type="button" class="quiet">처음 조작 안내 다시 보기</button>
     <div class="visitor-guide-list">
       <section><h3>청계천 종이배</h3><p>아래 산책로 물가에서 <strong>종이배 접기</strong>를 눌러 색과 쪽지를 골라 보세요. 물살을 따라가는 배 가까이에서 <strong>종이배 건지기</strong>를 누르면 안에 담긴 쪽지를 읽을 수 있어요.</p></section>

@@ -1,0 +1,217 @@
+/* Shared travel palette for the entry flow, interface chrome and game menus. */
+:root {
+  --yr-paper: #f5fafe;
+  --yr-white: #fff;
+  --yr-ink: #192c4b;
+  --yr-muted: #485e7c;
+  --yr-line: #cbd9e8;
+  --yr-strong-line: #8195ae;
+  --yr-mist: #ebf2f9;
+  --yr-blue: #355cc6;
+  --yr-deep: #23488e;
+  --yr-tint: #e9f2fc;
+  --yr-sky: #a7dff1;
+  --yr-lilac: #d7cef5;
+  --yr-coral: #ff806e;
+  --yr-shadow: 0 8px 24px rgb(32 66 111 / 15%);
+}
+body { background: var(--yr-paper); }
+:is(#entry-flow, #game-shell, dialog, #toast) { color-scheme: light; }
+:is(#entry-flow, dialog) {
+  --ink: var(--yr-ink); --muted: var(--yr-muted); --line: var(--yr-line);
+  --pine-1: var(--yr-white); --pine-2: var(--yr-paper); --pine-3: var(--yr-white);
+  --pine-4: var(--yr-paper); --pine-5: var(--yr-mist); --pine-6: var(--yr-line);
+  --pine-7: var(--yr-strong-line); --pine-8: var(--yr-strong-line); --pine-9: var(--yr-line);
+  --sage-1: var(--yr-muted); --sage-2: var(--yr-muted); --sage-3: var(--yr-muted);
+  --ivory-1: var(--yr-paper); --ivory-2: var(--yr-ink); --ivory-3: var(--yr-ink);
+  --gold-1: var(--yr-deep); --gold-2: var(--yr-deep); --gold-3: var(--yr-deep);
+  --gold-4: var(--yr-blue); --gold-5: var(--yr-strong-line); --gold-6: var(--yr-strong-line);
+  --gold-7: var(--yr-muted); --gold-9: var(--yr-ink); --gold: var(--yr-blue);
+  color: var(--yr-ink);
+}
+:is(#entry-flow, #game-shell, dialog) :focus-visible {
+  outline: 2px solid var(--yr-deep); outline-offset: 2px; box-shadow: 0 0 0 2px white;
+}
+:is(#entry-flow, dialog) :is(input, textarea, select) { accent-color: var(--yr-blue); }
+:is(#entry-flow, dialog) :is(button.primary, .entry-confirm):not(:disabled),
+#game-shell .primary:not(:disabled) { background: var(--yr-blue); border-color: var(--yr-blue); color: white; }
+
+/* Entry forms and room selection. */
+.entry-flow {
+  background: radial-gradient(ellipse at 12% 8%, #e1f1fb 0, transparent 50%),
+    radial-gradient(ellipse at 92% 91%, #eeeefa 0, transparent 42%), var(--yr-paper);
+}
+.entry-profile, .entry-server {
+  background: var(--yr-white); border-color: var(--yr-line);
+  border-radius: 22px; box-shadow: 0 18px 64px rgb(39 66 101 / 12%);
+}
+.entry-profile::before, .entry-server::before { content: none; }
+.entry-flow h1 { color: var(--yr-ink); font-family: inherit; font-weight: 750; }
+.entry-field input, .entry-character-options label, .entry-actions #profile-transfer-open {
+  background: var(--yr-white); color: var(--yr-ink); border-color: var(--yr-strong-line);
+}
+.entry-character-options label:has(input:checked) {
+  color: var(--yr-deep); border-color: var(--yr-blue); background: var(--yr-tint);
+}
+.entry-character-options label:has(input:focus-visible) { outline-color: var(--yr-deep); }
+.entry-flow button:not(:disabled):hover { filter: none; }
+.entry-flow button.primary:not(:disabled):hover { background: var(--yr-deep); }
+.entry-server-option, .entry-code-form { border-color: var(--yr-line); background: var(--yr-paper); }
+.entry-server-option:is(:hover, [aria-expanded="true"]), .entry-server-option.entry-server-open {
+  background: var(--yr-tint); border-color: var(--yr-blue);
+}
+.entry-server-icon { background: white; color: var(--yr-deep); border-color: var(--yr-line); }
+.entry-server-open .entry-server-icon { background: var(--yr-sky); color: var(--yr-ink); border-color: transparent; }
+.entry-back, .entry-server-arrow { color: var(--yr-deep); }
+/* Keep map and game artwork independent of the surrounding chrome. */
+#game-shell {
+  --lacquer: var(--yr-white); --deep-lacquer: var(--yr-paper); --carving: var(--yr-line);
+  --lettering: var(--yr-ink); --gilt: var(--yr-blue); --vermilion: var(--yr-coral);
+  --ink: var(--yr-ink);
+  --hud-overlay: rgb(245 250 254 / 94%); --hud-menu: rgb(255 255 255 / 98%);
+  --hud-button: rgb(252 254 255 / 92%); --hud-primary: var(--yr-sky);
+  background: var(--yr-paper);
+}
+#game-shell > .top { background: var(--yr-white); border-color: var(--yr-line); }
+#game-shell #header-region { color: var(--yr-muted); border-color: var(--yr-line); }
+#game-shell .top :is(.quiet, .mobile-settings summary),
+#game-shell .mobile-settings-actions .quiet {
+  background: var(--yr-white); border-color: var(--yr-line); color: var(--yr-ink);
+}
+#game-shell .top :is(#bag-open, #presence) { color: var(--yr-deep); background: var(--yr-tint); border-color: var(--yr-line); }
+#game-shell .top :is(#bag-open, #presence):hover { border-color: var(--yr-blue); background: #dfedfb; }
+#game-shell .top :is(.quiet, .mobile-settings summary):hover,
+#game-shell .top .mobile-settings[open] summary { background: var(--yr-tint); border-color: var(--yr-strong-line); color: var(--yr-deep); }
+#game-shell .top #controls-help-open, #game-shell #controls-help-open span { color: var(--yr-deep); border-color: var(--yr-blue); }
+#game-shell .mobile-settings-actions { border-color: var(--yr-line); box-shadow: var(--yr-shadow); }
+#game-shell .mobile-settings-actions #invite { background: var(--yr-tint); border-color: var(--yr-line); color: var(--yr-deep); }
+#game-shell .mobile-settings-actions #sound-volume { accent-color: var(--yr-blue); }
+#game-shell .mobile-settings-actions #photo-mode-open small { white-space: normal; overflow-wrap: anywhere; }
+#game-shell #settings-leave { background: #fff1ed; border-inline-start-color: var(--yr-coral); color: #803527; }
+#game-shell .scene-panel { border-color: var(--yr-line); }
+#game-shell .scene-controls { border-color: var(--yr-line); }
+@media (width > 810px) and (not (pointer:coarse)) {
+  #game-shell .scene-controls { background: var(--yr-paper); }
+}
+#game-shell #chat-input { background: rgb(255 255 255 / 96%); color: var(--yr-ink); border-color: var(--yr-strong-line); }
+#game-shell #chat-input::placeholder { color: var(--yr-muted); }
+#game-shell #chat-send:disabled { opacity: 1; background: #e6edf5; border-color: var(--yr-line); color: #526582; }
+#game-shell .game-place { background: rgb(245 250 254 / 85%); color: var(--yr-ink); text-shadow: none; }
+#game-shell .game-info :is(.scene-status, .walking-guide), #game-shell :is(.hand-offer, .hand-status, .cooking-hint, .cat-run-tip) {
+  color: var(--yr-ink); border-color: var(--yr-line); background: var(--hud-overlay);
+}
+#game-shell :is(.tutorial-card, .photo-controls) {
+  background: var(--hud-menu); border-color: var(--yr-line); color: var(--yr-ink); box-shadow: var(--yr-shadow);
+}
+#game-shell :is(.tutorial-card strong, #photo-countdown) { color: var(--yr-deep); }
+#game-shell .photo-controls p { color: var(--yr-muted); }
+#game-shell .tutorial-highlight { outline-color: var(--yr-blue); }
+#game-shell .game-info :is(.bus-status, .bus-status p, .bus-status dt, .walking-guide small) { color: var(--yr-muted); }
+#game-shell .game-info :is(.bus-status dd, .walking-guide > svg, #walking-guide-stop),
+#game-shell .cooking-hint small { color: var(--yr-deep); }
+#game-shell #perspective { color: var(--yr-deep); }
+#game-shell #perspective svg {
+  box-sizing: content-box; width: 18px; height: 18px; padding: 4px; border: 1px solid var(--yr-strong-line);
+  border-radius: 7px; background: var(--hud-button); filter: none;
+}
+#game-shell #perspective:is([data-active], :active) { color: white; }
+#game-shell #perspective:is([data-active], :active) svg { border-color: var(--yr-deep); background: var(--yr-deep); }
+#game-shell .play-social .social-chip { color: var(--yr-ink); text-shadow: none; }
+#game-shell .play-social .social-chip::before { background: var(--hud-button); border-color: var(--yr-strong-line); }
+#game-shell .play-social .social-chip[aria-expanded="true"]::before { background: var(--yr-tint); border-color: var(--yr-blue); }
+#game-shell .scene-wrap :is(.peer-hud button, .gesture-menu button, .emote-menu button, .nearby-actions button):not(:disabled) {
+  background: var(--hud-button); color: var(--yr-ink); border-color: var(--yr-strong-line); text-shadow: none;
+}
+#game-shell .scene-wrap :is(.tutorial-card, .photo-controls) button:not(:disabled) {
+  color: var(--yr-ink); background: var(--yr-paper); border-color: var(--yr-strong-line); text-shadow: none;
+}
+#game-shell .scene-wrap :is(.tutorial-card, .photo-controls) button.primary:not(:disabled) { background: var(--yr-blue); color: white; }
+#game-shell .play-social :is(.gesture-menu, .emote-menu), #game-shell .peer-hud .nearby-actions {
+  border-color: var(--yr-line); box-shadow: var(--yr-shadow);
+}
+#game-shell #nearby-grid .context-choice, #game-shell #nearby-controls .play-secondary button {
+  background: var(--hud-button); border-color: var(--yr-strong-line); color: var(--yr-ink); text-shadow: none;
+}
+#game-shell #nearby-grid .context-choice small { color: var(--yr-muted); }
+#game-shell #nearby-grid .context-choice[data-current-action="primary"] {
+  background: var(--yr-sky); color: var(--yr-ink); border-color: #6087a6;
+}
+#game-shell #nearby-grid .context-choice[data-current-action="primary"] small { color: #304e67; }
+#game-shell #nearby-controls[data-rowing]:has(#raft-helm[data-current-action="primary"]) #nearby-grid [data-current-action="primary"] {
+  background: var(--yr-deep); border-color: var(--yr-blue); color: white;
+}
+#nearby-controls[data-rowing]:has(#raft-helm[data-current-action="primary"]) #nearby-grid [data-current-action="primary"] small { color: white; }
+#game-shell #raft-control-hint { background: var(--yr-deep); color: white; }
+#game-shell .joystick { background: rgb(245 250 254 / 46%); border-color: rgb(25 44 75 / 69%); }
+#game-shell .joystick span { background: rgb(43 75 140 / 81%); border-color: rgb(255 255 255 / 95%); }
+#game-shell .scene-wrap .game-presence { color: var(--yr-ink); background: var(--hud-button); border-color: var(--yr-line); text-shadow: none; }
+#game-shell .tracked-direction { --guide-border: var(--yr-strong-line); --guide-accent: var(--yr-deep); --guide-text: var(--yr-ink); background: var(--hud-overlay); }
+
+#game-shell :is(#map-toggle, #map-panel) {
+  --map-ground: #eaf0f5; --map-grid: #b5c5d2;
+}
+#game-shell #map-panel {
+  --map-paper: var(--yr-paper); --map-tile: var(--yr-white); --map-ink: var(--yr-ink);
+  --map-muted: var(--yr-muted); --map-line: var(--yr-line); --map-pine: var(--yr-deep);
+  scrollbar-color: var(--yr-strong-line) var(--yr-paper);
+}
+#game-shell #map-toggle {
+  background: var(--map-ground); border-color: var(--yr-strong-line); box-shadow: 0 3px 12px rgb(25 44 75 / 23%); filter: none;
+}
+#map-toggle :is(.mini-label, .mini-north) {
+  background: rgb(255 255 255 / 95%); color: var(--yr-deep); box-shadow: 0 0 0 1px rgb(72 94 124 / 24%);
+}
+#mini-world .mini-landmark { fill: var(--yr-ink); stroke: white; }
+#mini-world .room-dot-mini { stroke: white; }
+#mini-world #mini-my { fill: var(--yr-blue); stroke: white; stroke-width: 1.25; }
+#mini-world #mini-route-path polyline { stroke: var(--yr-deep); stroke-width: 2.5; }
+#mini-world #mini-route-path circle { fill: var(--yr-lilac); stroke: var(--yr-deep); stroke-width: 2; }
+:is(#world, #mini-world) .track-map-pin circle:first-child { fill: rgb(167 223 241 / 35%); stroke: var(--yr-deep); }
+:is(#world, #mini-world) .track-map-pin circle:last-child { fill: var(--yr-blue); stroke: white; stroke-width: 1; vector-effect: non-scaling-stroke; }
+#map-panel .map-modes, #map-panel #close-map, #map-panel .map-route span { background: var(--yr-mist); color: var(--yr-deep); }
+#map-panel .map-submit { background: var(--yr-blue); color: white; }
+#map-panel .map-submit:disabled { background: #e5edf4; color: var(--yr-muted); }
+#map-panel .map-corner #overview-map { background: var(--yr-white); }
+#map-panel .map-corner #overview-map[aria-pressed=true] { background: var(--yr-tint); border-color: var(--yr-blue); }
+#map-panel .map-attribution, #map-panel .map-north { color: var(--yr-muted); background: rgb(255 255 255 / 94%); }
+#map-panel #map-route-path polyline:nth-child(2) { stroke: var(--yr-deep); }
+#map-panel #map-route-end { stroke: var(--yr-deep); fill: var(--yr-lilac); }
+#map-panel:has(#map-route:not([hidden])) #my-avatar > circle { fill: var(--yr-blue); stroke: white; }
+#map-panel .map-marker-label { fill: var(--yr-ink); stroke: white; }
+:is(#map-panel #world, #map-toggle #mini-world):not(.museum-map) :is([fill="#9cbcc4"],[fill="#88b6c4"],[fill="#3b777d"]) { fill: #a8d8ef; }
+:is(#map-panel #world, #map-toggle #mini-world):not(.museum-map) :is([fill="#d8d4b9"],[fill="#d5d0b4"],[fill="#465248"]) { fill: #edf1f4; }
+:is(#map-panel #world, #map-toggle #mini-world):not(.museum-map) :is([fill="#b3a896"],[fill="#bcb7a8"],[fill="#827659"],[fill="#82594c"],[fill="#706e61"],[fill="#675d50"]) { fill: #d4dce1; stroke: #c0cdd7; }
+#mini-world:not(.museum-map) :is([fill="#c9d2af"],[fill="#506649"],[fill="#607651"],[fill="#607553"],[fill="#556b4c"]) { fill: #e5ead8; }
+#mini-world:not(.museum-map) :is([fill="#a9bf9f"],[fill="#9eaf7c"],[fill="#314938"],[fill="#465a43"]) { fill: #cfddbf; }
+#mini-world:not(.museum-map) :is([fill="#766c5a"],[fill="#626452"],[fill="#58605b"],[fill="#847e6f"],[fill="#4e5351"]) { fill: #d8cdb6; }
+#mini-world:not(.museum-map) :is([stroke="#a9a59a"],[stroke="#8f7869"],[stroke="#c9b899"],[stroke="#a29e7d"],[stroke="#ae9870"]) { stroke: #cdbda5; }
+#mini-world:not(.museum-map) :is([stroke="#ece5d5"],[stroke="#f5edcf"],[stroke="#efe9d9"],[stroke="#f4ebd6"],[stroke="#eee5d8"]) { stroke: #d9cdb7; }
+#map-panel #shortcut-region button[aria-pressed=true]::after { color: white; }
+
+dialog, dialog#controls-help, dialog#walk-bag, #toast {
+  color: var(--yr-ink); background: var(--yr-paper); border-color: var(--yr-line); box-shadow: var(--yr-shadow);
+}
+dialog::backdrop, #walk-bag::backdrop { background: rgb(24 43 69 / 55%); }
+dialog .tag, dialog a, #roster-dialog .roster-count, #roster-dialog .roster-indicator { color: var(--yr-deep); }
+dialog :is(.character-tabs button[aria-pressed="true"], [data-photo-gallery] figcaption, #leave-save-title, #transit-options summary) { color: var(--yr-ink); }
+dialog :is(.quiet, .close), #walk-bag :is(button, select), #controls-help .close {
+  color: var(--yr-ink); background: white; border-color: var(--yr-strong-line);
+}
+#walk-bag :is(.bag-cell span, #bag-count, #bag-detail), #controls-help dd { color: var(--yr-muted); }
+#walk-bag .bag-cell:disabled { color: var(--yr-muted); background: var(--yr-paper); border-color: var(--yr-line); opacity: 1; }
+#walk-bag .bag-cell[aria-pressed=true] { color: var(--yr-deep); background: var(--yr-tint); border-color: var(--yr-blue); outline-color: var(--yr-blue); }
+#controls-help dl > div { border-color: var(--yr-line); }
+#controls-help kbd { background: var(--yr-mist); color: var(--yr-deep); border-color: var(--yr-line); }
+.passport-dialog { --paper: var(--yr-white); --ink-stamp: var(--yr-ink); }
+.passport-dialog .passport-tabs button[aria-pressed="true"] { background: var(--yr-deep); color: white; border-color: var(--yr-deep); }
+.passport-dialog .passport-paper { --ivory-1: #fffaf0; }
+.passport-dialog :is(.passport-heading h2, .passport-heading p) { color: var(--yr-ink); }
+
+html[data-ktx-transfer], html[data-ktx-transfer] #ktx-transfer-loading,
+#game-shell #loading-game.loading-transition { background: var(--yr-paper); color: var(--yr-ink); }
+.ktx-loading-track { background: var(--yr-line); }
+.ktx-loading-track::before { background: var(--yr-blue); }
+@media (prefers-reduced-transparency:reduce) {
+  #game-shell { --hud-button: white; --hud-overlay: var(--yr-paper); --hud-menu: white; }
+  #game-shell .game-place, #game-shell .joystick, #game-shell #chat-input { background-color: white; }
+}
