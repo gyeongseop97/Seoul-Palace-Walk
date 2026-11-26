@@ -16,11 +16,11 @@ const districtByPlace={stationExit:"경주역",stationBus:"경주역",townBus:"�
  stars:"첨성대·계림",observatoryEntrance:"첨성대·계림",gyerimEntry:"첨성대·계림",gyerim:"첨성대·계림",naemul:"첨성대·계림",
  woljeongNorth:"교촌·월정교",woljeong:"교촌·월정교",woljeongSouth:"교촌·월정교"};
 const tombAtSite={cheonmaDoor:"천마총",geomchong:"검총",twinTomb:twinTombName,michu:"미추왕릉",naemul:"내물왕릉"};
-const describe=(id,name)=>{
+const describe=(id,name,guideTitle=name)=>{
  const p=places[id];
  const tomb=mounds.find(m=>m.name===tombAtSite[id]);
  return {...gyeongjuPoint(p),name,label:name,heading:p.heading??0,district:districtByPlace[id]??"대릉원",
-  caption:tomb?{...gyeongjuPoint(tomb),name:tomb.name.replace("대릉원 ","")}:undefined,guide:{...gyeongjuGuides[id],title:name}};
+  caption:tomb?{...gyeongjuPoint(tomb),name:tomb.name.replace("대릉원 ","")}:undefined,guide:{...gyeongjuGuides[id],title:guideTitle}};
 };
 export const travelStops={
  stationExit:describe("stationExit","경주역 출입구"),stationBus:describe("stationBus","경주역 버스정류장"),
@@ -49,7 +49,7 @@ const sites=[
  [describe("cheonmaDoor","천마총 전시관 입구"),"heritage"],[describe("cheonmaGallery","천마총 전시실"),"heritage"],
  [describe("twinTomb","황남대총 연못 전망길"),"heritage"],[describe("michu","미추왕릉 참배길"),"heritage"],
  [describe("geomchong","검총 관람길"),"heritage"],[describe("naemul","내물왕릉 관람길"),"heritage"],
- [describe("mainGate","대릉원 정문"),"heritage"],[describe("stars","첨성대 관람길"),"heritage"],
+ [describe("mainGate","대릉원 정문"),"heritage"],[describe("stars","첨성대 관람길","첨성대"),"heritage"],
  [describe("observatoryEntrance","첨성대 남쪽 창"),"heritage"],[describe("gyerimEntry","계림 북쪽 입구"),"park"],
  [describe("gyerim","계림 숲길"),"park"],[describe("woljeongNorth","월정교 북쪽 입구"),"heritage"],
  [describe("woljeong","월정교"),"heritage"],[describe("woljeongSouth","월정교 남쪽 입구"),"heritage"]

@@ -3,13 +3,16 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
   const label=primary.firstElementChild;
   const toggle=root.querySelector("#"+prefix+"-toggle");
   const panel=root.querySelector("#"+prefix+"-actions");
-  const buttons=[...panel.querySelectorAll("button")];
+  const allActions=panel.hasAttribute("data-all-actions");
+  const buttons=[...panel.querySelectorAll("button:not([data-action-tool])")];
+  const firstMenuAction=()=>[...panel.querySelectorAll("button")].find(button=>
+    !button.hidden&&!button.disabled&&!(allActions&&button===action));
   const doc=root.ownerDocument;
   let action=null,press=null,lastPanelFocus=null,pinned=null;
   // Remember deliberate selections, including a primary press forwarded into the menu.
   panel.addEventListener("click",event=>{
     const button=event.target.closest("button");
-    if(button&&!button.hidden&&!button.disabled){
+    if(button&&!button.hasAttribute("data-action-tool")&&!button.hidden&&!button.disabled){
       const here=position();
       pinned={button,target:button.dataset.actionTarget,x:here?.x,y:here?.y};
     }
@@ -40,7 +43,7 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
     panel.hidden=false;
     toggle.setAttribute("aria-expanded","true");
     if(toggle.matches(":focus-visible")){
-      (buttons.find(button=>!button.hidden&&!button.disabled)??panel).focus({preventScroll:true});
+      (firstMenuAction()??panel).focus({preventScroll:true});
     }
   });
   panel.addEventListener("click",event=>{
@@ -69,12 +72,17 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
   function refresh(preferredId){
     const available=buttons.filter(button=>!button.hidden);
     const here=position();
-    if(pinned&&(pinned.button.hidden||pinned.button.dataset.actionTarget!==pinned.target||
+    if(pinned&&(pinned.button.hidden||pinned.button.disabled||pinned.button.dataset.actionTarget!==pinned.target||
       (here&&Math.hypot(here.x-pinned.x,here.y-pinned.y)>3)))pinned=null;
-    action=pinned?.button??available.find(button=>button.id===preferredId)
+    const next=pinned?.button??available.find(button=>button.id===preferredId)
       ??available.find(button=>!button.disabled)??available[0]??null;
+    if(allActions&&next!==action){
+      action?.removeAttribute("data-current-action");
+      next?.setAttribute("data-current-action","");
+    }
+    action=next;
     const focused=doc.activeElement;
-    const text=action?.firstChild?.textContent.trim()??"";
+    const text=(action?.querySelector("[data-primary-label]")??action?.firstChild)?.textContent.trim()??"";
     if(primary.hidden===Boolean(action))primary.hidden=!action;
     const disabled=!action||action.disabled;
     if(primary.disabled!==disabled)primary.disabled=disabled;
@@ -87,14 +95,14 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
       if(value)primary.setAttribute(name,value);
       else primary.removeAttribute(name);
     }
-    const hideToggle=available.length<2;
+    const hideToggle=!allActions&&available.length<2;
     if(toggle.hidden!==hideToggle)toggle.hidden=hideToggle;
     if(toggle.hidden){
       close(true);
       if(focused===toggle)focusControls();
     }else if(!panel.hidden&&lastPanelFocus&&(focused===lastPanelFocus||focused===doc.body)&&
-      (lastPanelFocus.hidden||lastPanelFocus.disabled)){
-      (available.find(button=>!button.disabled)??panel).focus({preventScroll:true});
+      (lastPanelFocus.hidden||lastPanelFocus.disabled||(allActions&&lastPanelFocus===action))){
+      (firstMenuAction()??panel).focus({preventScroll:true});
     }
     if(focused===primary&&(primary.hidden||primary.disabled))focusControls();
   }
