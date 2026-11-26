@@ -8,22 +8,22 @@
 .play-command button, .play-command .nearby-actions { pointer-events: auto; }
 
 .context-grid {
+  --context-row-height: 3.375rem;
   display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-content: start; gap: 5px;
+  grid-template-rows: repeat(var(--context-rows,1),var(--context-row-height));
   max-height: min(350px,46dvh); overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y;
-  scrollbar-width: thin; pointer-events: auto;
+  scrollbar-width: thin; scrollbar-gutter: stable; overflow-anchor: none; pointer-events: auto;
 }
-.context-grid:has(#nearby-primary[hidden]) { display: none; }
-.context-grid:has(#nearby-primary:not([hidden])):has(#nearby-secondary[hidden]) { display: flex; justify-content: flex-end; }
+.context-grid[data-empty] { display: none; }
 #game-shell #nearby-grid .context-choice {
   min-width: 0; min-height: 45px; display: grid; align-content: center; justify-items: start; gap: 2px;
   border: 1px solid #688174; border-radius: 9px; padding: 4px 9px; color: #fff9e8; background: #14382ff2;
   font-family: inherit; font-size: 13px; font-weight: 700; text-align: left; line-height: 1.2; text-shadow: none;
 }
-#game-shell #nearby-grid:has(#nearby-secondary[hidden]) .context-choice { min-width: 96px; max-width: 156px; }
-#game-shell #nearby-grid #nearby-primary { background: #eed59b; color: #193a31; border-color: #ccb783; }
+#game-shell #nearby-grid .context-choice[data-current-action="primary"] { background: #eed59b; color: #193a31; border-color: #ccb783; }
 #game-shell #nearby-grid .context-choice:disabled { opacity: .84; }
 .context-choice small { grid-row: 1; font-size: 10px; line-height: 1.05; font-weight: 650; color: #c0d3c6; }
-#nearby-primary small { color: #47624c; }
+#nearby-grid .context-choice[data-current-action="primary"] small { color: #47624c; }
 #nearby-grid .context-choice span {
   grid-row: 2; display: block; max-width: 100%; -webkit-line-clamp: unset; overflow: visible;
   white-space: normal; word-break: keep-all; overflow-wrap: anywhere;
@@ -36,13 +36,14 @@
 .play-secondary { display: none; justify-content: flex-end; }
 #game-shell #nearby-controls .play-secondary button { width: auto; }
 #raft-control-hint {
-  align-self: flex-end; border-radius: 8px; padding: 5px 8px; background: #12382fee; color: #f6efdc;
+  position: absolute; right: 0; bottom: calc(100% + 6px); pointer-events: none;
+  border-radius: 8px; padding: 5px 8px; background: #12382fee; color: #f6efdc;
   font-size: 11px; line-height: 1.3;
 }
-#game-shell #nearby-controls[data-rowing]:has(#raft-helm[data-current-action="primary"]) #nearby-grid #nearby-primary {
+#game-shell #nearby-controls[data-rowing]:has(#raft-helm[data-current-action="primary"]) #nearby-grid [data-current-action="primary"] {
   background: #12382f; color: #f6efdc; border-color: #527467;
 }
-#nearby-controls[data-rowing]:has(#raft-helm[data-current-action="primary"]) #nearby-primary small { color: #c0d3c6; }
+#nearby-controls[data-rowing]:has(#raft-helm[data-current-action="primary"]) #nearby-grid [data-current-action="primary"] small { color: #c0d3c6; }
 
 .play-social { position: relative; display: flex; align-items: center; gap: 5px; margin-left: 3px; }
 #game-shell .play-social .social-chip {
@@ -71,21 +72,26 @@
 }
 @media (pointer:coarse) {
   .scene-wrap { --play-width: clamp(144px,46vw,184px); }
+  .context-grid { --context-row-height: 4rem; }
   #game-shell #nearby-grid .context-choice { padding-inline: 5px; }
-  #game-shell #nearby-grid:has(#nearby-secondary[hidden]) .context-choice { min-width: 68px; max-width: 120px; }
   .peer-hud > button {
     width: fit-content; min-width: 48px; max-width: 62px; padding-inline: 3px; word-break: keep-all;
   }
   .peer-hud .nearby-actions { width: min(188px,calc(100vw - 28px)); }
   #game-shell .play-secondary #jump:not([hidden]) { display: block; }
-  .play-secondary:has(#jump:not([hidden])) { display: flex; }
+  /* Jump disappears on vehicles. Keep its space so the action under the player's thumb stays put. */
+  .play-secondary { display: flex; min-height: 44px; }
+  #raft-control-hint { bottom: 0; }
   #game-shell #nearby-controls .play-secondary button { min-height: 44px; }
   #game-shell .play-social .social-chip { min-height: 44px; }
   .play-social .social-chip::before { inset-block: 6px; }
 }
+@media (pointer:coarse) and (max-width:350px) {
+  .context-grid { --context-row-height: 4.5rem; }
+}
 @media (orientation:landscape) and (max-height:560px) {
   .scene-wrap { --play-bottom: 7px; }
-  .context-grid { max-height: clamp(55px,calc(100dvh - 210px),46dvh); }
+  .context-grid { max-height: clamp(var(--context-row-height),calc(100dvh - 210px),46dvh); }
   #game-shell .play-social :is(.gesture-menu,.emote-menu) { max-height: min(185px,calc(100dvh - 205px)); }
 }
 @media (orientation:portrait) and (max-width:430px), (orientation:landscape) and (max-width:540px) {

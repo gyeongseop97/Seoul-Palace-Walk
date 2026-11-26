@@ -3055,6 +3055,15 @@ function updateCoastActivities(markers){
  setText($("location"),region.coastName(me));
  const caption=$("coast-status");caption.hidden=!hint;if(hint)setText(caption,hint);
 }
+function nearbyActionScope(){
+  if(onCoast){
+    const seat=me.coast?.mode==="table"?me.coast.seat:
+      !$("coast-table").hidden?Number($("coast-table").dataset.actionTarget):null;
+    if(seat!=null)return "tavern-"+Math.floor(seat/4);
+    if(me.coast?.mode==="deck"||!$("coast-embark").hidden)return "cruise";
+  }
+  return inGyeongju?region.marketDiningAt(me)?.id??activeCity:interiorAt(me.x,me.y)??activeCity;
+}
 const venueDoorButton=$("museum-door");
 function nearbyArcadeStairs(){
   if(arcade.kind)return null;
@@ -4009,7 +4018,7 @@ function frame(now){
     updateHandControls();
     const heldGift=!me.bus&&!isCycling(me)&&ITEM_SLOTS.some(s=>validPacked(me[s]));
     setActivity("give-held",heldGift&&giftPeers().length?"물건 건네기":null,bagLocked());
-    nearbyControls.refresh(preferredNearbyAction(time));peerControls.refresh(preferredPeerAction(time));
+    nearbyControls.refresh(preferredNearbyAction(time),nearbyActionScope());peerControls.refresh(preferredPeerAction(time));
     if(coastMarkers)coastMarker=selectCoastMarker(coastMarkers);
     leaveWater();
     updateLocationGuides();updateMaps(self,others);updateWalkingGuide();

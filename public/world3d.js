@@ -88,6 +88,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   const scannedGrounds=[];
   const camera=new T.PerspectiveCamera(57,1,.15,1290);
   const renderer=new T.WebGLRenderer({antialias:true,powerPreference:"high-performance"});
+  // Reading shader compiler logs on first draw synchronously waits for the GPU.
+  if(renderer.debug)renderer.debug.checkShaderErrors=new URLSearchParams(location.search).has("debugShaders");
   renderer.toneMapping=T.ACESFilmicToneMapping;
   renderer.toneMappingExposure=1.07;
   const handheld=matchMedia("(pointer:coarse)").matches;
@@ -443,10 +445,10 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       container.dataset.yiStatue="modeled";
     }
   }
-  function placeSurvey(scene,{name,point,groups,angle,scale,northSurvey,root}){
-    scene.position.set(wx(point.x),outsideGroundOffset(point),wz(point.y));
-    scene.rotation.y=angle+(name==="gyeonghoeru"?Math.PI/2:0);
-    scene.scale.setScalar(scale);
+  async function placeSurvey(model,{name,point,groups,angle,scale,northSurvey,root}){
+    model.position.set(wx(point.x),outsideGroundOffset(point),wz(point.y));
+    model.rotation.y=angle+(name==="gyeonghoeru"?Math.PI/2:0);
+    model.scale.setScalar(scale);
     const bay=groups[0]?.userData.door;
     const entrance=surveyDoors[name]??(northSurvey&&bay?{
       x:0,z:point.d*.5,width:(bay.b-bay.a+1)*point.w/point.bays-.6,
@@ -455,7 +457,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const clippingPlanes=entrance?doorPlanes(entrance,point,angle):null;
     if(clippingPlanes)renderer.localClippingEnabled=true;
     const anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
-    scene.traverse(mesh=>{
+    model.traverse(mesh=>{
       if(!mesh.isMesh)return;
       const material=mesh.material;
       material.flatShading=false;material.metalness=0;material.roughness=.92;
@@ -467,7 +469,11 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       material.needsUpdate=true;
       mesh.castShadow=mesh.receiveShadow=true;
     });
-    root.add(scene);
+    // Keep the current building on screen while the GPU prepares the incoming model.
+    if(renderer.extensions?.has("KHR_parallel_shader_compile")){
+      await renderer.compileAsync(model,camera,scene);
+    }
+    root.add(model);
   }
   async function loadLandmark(item){
     const {name,groups,onLoaded,northSurvey,lod}=item;
@@ -489,7 +495,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
           }
         }
       }
-      placeSurvey(asset.scene,item);
+      await placeSurvey(asset.scene,item);
       if(!northSurvey)scannedGrounds.push(surveyGroundField(T,asset.scene,asset.scene.position.y));
       if(lod)lod.setNear(asset.scene);
       else for(const group of replaced)group.visible=false;
@@ -516,7 +522,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       item.lod=createSurveyLod(groups[0],center,width,streamRange,async()=>{
         const {scene}=await loadGltf(`./${name}-lod.glb`);
         scene.visible=false;
-        placeSurvey(scene,item);
+        await placeSurvey(scene,item);
         return scene;
       },()=>{cullAt=0;});
       lodSurveys.push(item);

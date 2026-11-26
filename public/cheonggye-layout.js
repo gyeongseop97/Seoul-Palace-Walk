@@ -1,5 +1,6 @@
 import {addLandmarks,addObstacle,addZone} from "./layout.js";
 import {insideCorridorPolygon} from "./sejong-corridor-layout.js";
+import {fixedOutlineTest as polygonTest} from "./ground-index.js";
 
 const point=(x,y)=>({x,y});
 const ring=vertices=>vertices.map(([x,y])=>point(x,y));
@@ -219,10 +220,6 @@ const upperWalks=[...surfaceKinds(["plaza","paving","crossing"]).filter(outline=
 const lowerWalks=[walkersNorth,walkersSouth,...surfaceKinds(["wood","stones"])];
 // The riverside roads carry little traffic and may be walked on.
 const roadWalks=[...surfaceKinds(["road"]),...cheonggyeRoadLeads.map(({outline})=>outline)];
-const polygonTest=(outline=>{
-  const xs=outline.map(p=>p.x),ys=outline.map(p=>p.y),lowX=Math.min(...xs),highX=Math.max(...xs),lowY=Math.min(...ys),highY=Math.max(...ys);
-  return (x,y)=>x>=lowX&&x<=highX&&y>=lowY&&y<=highY&&inside(outline,x,y);
-});
 const onAccess=accessWalks.map(polygonTest),onDeck=deckLanes.map(({outline})=>polygonTest(outline));
 const onLower=lowerWalks.map(polygonTest),onUpper=upperWalks.map(polygonTest),onRoad=roadWalks.map(polygonTest);
 const onBanks=[walkersNorth,walkersSouth].map(polygonTest);
@@ -238,10 +235,9 @@ export function cheonggyeWalkable(x,y){
   return inCheonggye(x,y)&&(onAccess.some(contains=>contains(x,y))||onLower.some(contains=>contains(x,y))||
     !atWaterfallOpening(x,y)&&(onUpper.some(contains=>contains(x,y))||onRoad.some(contains=>contains(x,y))));
 }
-export const cheonggyeRailOpening=(x,y)=>cheonggyeAccess.some(({outline})=>inside(outline,x,y));
+export const cheonggyeRailOpening=(x,y)=>onAccess.some(contains=>contains(x,y));
 
-function accessProgress({points,width,outline},x,y){
-  if(!inside(outline,x,y))return null;
+function accessProgress({points,width},x,y){
   let best=width*width,elapsed=0,progress=0;
   for(let i=1;i<points.length;i++){
     const a=points[i-1],b=points[i],dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
@@ -255,12 +251,12 @@ function accessProgress({points,width,outline},x,y){
 export function cheonggyeLevel({x,y,up}){
   if(!inCheonggye(x,y))return null;
   if(up&&onDeck.some(contains=>contains(x,y)))return .12;
-  for(const route of cheonggyeAccess){
+  const access=onAccess.findIndex(contains=>contains(x,y));
+  if(access!==-1){
+    const route=cheonggyeAccess[access];
     const t=accessProgress(route,x,y);
-    if(t!=null){
-      const drop=cheonggyeAccessDrop(route,t);
-      return -depth*(route.kind==="steps"?Math.floor(drop*23)/23:drop)+.04;
-    }
+    const drop=cheonggyeAccessDrop(route,t);
+    return -depth*(route.kind==="steps"?Math.floor(drop*23)/23:drop)+.04;
   }
   if(inside(footbridge.footprint,x,y)){
     const t=clamp((y-footbridge.north)/(footbridge.south-footbridge.north));

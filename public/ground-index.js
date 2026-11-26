@@ -1,3 +1,22 @@
+export function pointInOutline(x,y,vertices){
+  let inside=false;
+  for(let i=0,j=vertices.length-1;i<vertices.length;j=i++){
+    const a=vertices[i],b=vertices[j];
+    if((a.y>y)!==(b.y>y)&&x<(b.x-a.x)*(y-a.y)/(b.y-a.y)+a.x)inside=!inside;
+  }
+  return inside;
+}
+
+// Surveyed walkways have fixed vertices. Reject distant outlines before testing their edges.
+export function fixedOutlineTest(vertices){
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  for(const {x,y} of vertices){
+    minX=Math.min(minX,x);maxX=Math.max(maxX,x);
+    minY=Math.min(minY,y);maxY=Math.max(maxY,y);
+  }
+  return (x,y)=>x>=minX&&x<=maxX&&y>=minY&&y<=maxY&&pointInOutline(x,y,vertices);
+}
+
 // Spatial lookup for the same projected polygons used by the map and the 3D ground.
 export function groundIndex(surfaces,step=32){
   const index=new Map();

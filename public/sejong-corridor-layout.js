@@ -1,5 +1,7 @@
 import {addLandmarks,addZone,project} from "./layout.js";
 import {eastCurb,eastRoadWidth,plazaAt} from "./plaza-layout.js";
+import {fixedOutlineTest} from "./ground-index.js";
+export {pointInOutline as insideCorridorPolygon} from "./ground-index.js";
 
 const point=(x,y)=>({x,y});
 const outline=vertices=>vertices.map(([x,y])=>point(x,y));
@@ -114,14 +116,9 @@ export const corridorEastWalkSpine=[seoulPlazaApproach,...outline([
   [525,-187],[525,-231],[521,-244],[521.1,-250],[521.6,-284],[521.75,-292],[520.5,-297]
 ]),plazaAt(43,7.2)];
 
-export function insideCorridorPolygon(x,y,vertices){
-  let inside=false;
-  for(let i=0,j=vertices.length-1;i<vertices.length;j=i++){
-    const a=vertices[i],b=vertices[j];
-    if((a.y>y)!==(b.y>y)&&x<(b.x-a.x)*(y-a.y)/(b.y-a.y)+a.x)inside=!inside;
-  }
-  return inside;
-}
+const onCrossing=corridorCrossings.map(({outline})=>fixedOutlineTest(outline));
+const onBranch=corridorBranches.map(({outline})=>fixedOutlineTest(outline));
+const onSidewalk=corridorSidewalks.map(fixedOutlineTest);
 
 export function inSejongCorridor(x,y){
   const {minX,maxX,minY,maxY}=corridorBounds;
@@ -129,9 +126,9 @@ export function inSejongCorridor(x,y){
 }
 
 export function corridorWalkable(x,y){
-  if(corridorCrossings.some(({outline})=>insideCorridorPolygon(x,y,outline)))return true;
-  if(corridorBranches.some(({outline})=>insideCorridorPolygon(x,y,outline)))return false;
-  return corridorSidewalks.some(outline=>insideCorridorPolygon(x,y,outline));
+  if(onCrossing.some(contains=>contains(x,y)))return true;
+  if(onBranch.some(contains=>contains(x,y)))return false;
+  return onSidewalk.some(contains=>contains(x,y));
 }
 
 addZone({name:"세종대로",contains:inSejongCorridor,walkable:corridorWalkable});

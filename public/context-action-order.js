@@ -28,6 +28,27 @@ for(const [key,{ids}] of Object.entries(categories)){
   ids.forEach((id,order)=>idOrder.set(id,{key,order}));
 }
 
+// Successive steps prefer the same slot. When both steps are available, both keep their own button.
+const continuationOf=new Map([
+  ["bungeo-serve","bungeo-accept"],
+  ["dining-eat","dining-order"],
+  ["gyeongju-townBus","gyeongju-stationBus"],
+  ["coast-cityBus","coast-bus"],
+  ["coast-exitBus","coast-bus"],
+  ["coast-disembark","coast-embark"],
+  ["coast-release","coast-helm"],
+  ["coast-return","coast-tour"],
+  ["coast-moor","coast-tour"],
+  ["coast-deckStand","coast-deckSit"],
+  ["coast-stand","coast-table"],
+  ["coast-clam","coast-grill"],
+  ["coast-studioWater","coast-studioClimb"]
+]);
+
+export function contextActionFamily(button){
+  return continuationOf.get(button.id)??button.id;
+}
+
 function categoryOf(button){
   const id=button.id,target=button.dataset.actionTarget??"";
   if(id==="museum-door"&&target.startsWith("ktx-coach-"))return "travel";

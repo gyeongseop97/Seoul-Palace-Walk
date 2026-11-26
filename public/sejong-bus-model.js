@@ -125,7 +125,10 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
     const options={now:0,clock:0,delta:0,seat:driverSeatPose,steeringGrips:grips};
     let angle=0,last=-Infinity,uniformBuilt=false;
     return (target,time,near)=>{
-      if(!near){driver.group.visible=false;last=-Infinity;return;}
+      if(!near){
+        driver.group.removeFromParent();driver.group.visible=false;last=-Infinity;return;
+      }
+      if(!driver.group.parent)cab.add(driver.group);
       const elapsed=time-last;
       if(elapsed>=0&&elapsed<42)return;
       const delta=Number.isFinite(elapsed)&&elapsed<300?Math.max(.016,elapsed/1000):.17;
@@ -151,7 +154,7 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
   function model(index){
     const service=route?.vehicle?.(index);
     const bus=new T.Group();bus.name=(service?.name??route?.name??"세종대로 순환버스")+" "+(index+1)+"호";
-    bus.visible=false;busGroup.add(bus);
+    bus.visible=false;
     const frame=0x26333e,roof=0xe0e4e3,coat=service?.coat??(index%2===0?0x3677b8:0x2f6fae),body=service?.body??0x2d597f;
     const trim=0x9cabb4,seatBlue=0x4d7395,cushion=0x587f9f,aisle=0x696b66;
     const wide=BUS_WIDTH/2,front=BUS_LENGTH/2;
@@ -290,7 +293,7 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
       if(distance>=(distant&&entry?.bus.visible?175:145)){
         if(distant&&state)distant.place(index,wx(state.x),height(state)+.015,wz(state.y),(180-state.heading)*Math.PI/180);
         if(entry?.bus.visible){
-          entry.bus.visible=false;entry.previous=null;entry.steer(0,time,false);
+          entry.bus.removeFromParent();entry.bus.visible=false;entry.previous=null;entry.steer(0,time,false);
           if(route?.vehicle){spares.get(entry.pool).push(entry);vehicles[index]=null;}
         }
         continue;
@@ -302,6 +305,8 @@ export function buildSejongBusModels(T,scene,kit,walkerModels,height=()=>0,shelt
         entry.pool=pool;entry.bus.name=service.name+" "+(index+1)+"호";vehicles[index]=entry;
       }
       const {bus,doors,wheels,steer,previous}=entry;
+      // A hidden hierarchy still incurs Three's per-frame world-matrix traversal.
+      if(!bus.parent)busGroup.add(bus);
       bus.visible=true;
       bus.position.set(wx(state.x),height(state)+.015,wz(state.y));bus.rotation.y=(180-state.heading)*Math.PI/180;
       const moved=previous?Math.hypot(previous.x-state.x,previous.y-state.y):0;

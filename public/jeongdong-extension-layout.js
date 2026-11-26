@@ -1,4 +1,5 @@
 import {addLandmarks,addObstacle,addZone,fountain} from "./layout.js";
+import {fixedOutlineTest} from "./ground-index.js";
 
 const point=([x,y])=>({x,y});
 const points=coordinates=>coordinates.map(point);
@@ -63,6 +64,7 @@ export const extensionRibbon=(points,half)=>[...extensionEdge(points,half),...ex
 const parkCourt=points([[8,17],[24,15],[33,20],[35,34],[27,43],[12,39],[6,30]]);
 const footprints=[parkCourt,...jeongdongExtensionPaths.map(({points,width,edges})=>
   edges?[...edges[0],...edges[1].slice().reverse()]:extensionRibbon(points,width/2))];
+const pathTests=footprints.map(fixedOutlineTest);
 export const jeongdongParkCourt=parkCourt;
 
 const wall=(kind,height,coordinates)=>({kind,height,points:points(coordinates)});
@@ -82,14 +84,6 @@ export const jeongdongBoundaryWalls=[
   wall("brick",1.9,[[123.8,76.6],[108.2,69.7],[86.9,62.3],[67.6,51.8],[50.5,40.5],[31.8,35]])
 ];
 
-function inOutline(x,y,outline){
-  let inside=false;
-  for(let i=0,j=outline.length-1;i<outline.length;j=i++){
-    const a=outline[i],b=outline[j];
-    if((a.y>y)!==(b.y>y)&&x<(b.x-a.x)*(y-a.y)/(b.y-a.y)+a.x)inside=!inside;
-  }
-  return inside;
-}
 export function extensionSegments(points){
   return points.slice(1).map((b,index)=>{
     const a=points[index],dx=b.x-a.x,dy=b.y-a.y;
@@ -107,7 +101,7 @@ export function registerJeongdongExtension(){
   addZone({
     name:"덕수궁 돌담길",
     contains:(x,y)=>x>=minX&&x<=maxX&&y>=minY&&y<=maxY,
-    walkable:(x,y)=>footprints.some(outline=>inOutline(x,y,outline))
+    walkable:(x,y)=>pathTests.some(contains=>contains(x,y))
   });
   addLandmarks(jeongdongExtensionLandmarks);
   for(const {points,kind} of jeongdongBoundaryWalls){

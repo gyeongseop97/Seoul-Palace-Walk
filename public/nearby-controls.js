@@ -1,4 +1,5 @@
-import {groupContextActions} from "./context-action-order.js";
+import {contextActionFamily,groupContextActions} from "./context-action-order.js";
+import {createContextActionLayout} from "./context-action-layout.js";
 
 export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>null){
   const primary=root.querySelector("#"+prefix+"-primary");
@@ -12,11 +13,12 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
   const slots=[];
   const doc=root.ownerDocument;
   let lastPanelFocus=null,pinned=null;
-  let choices=[],lastPreferred;
+  const layout=grid&&createContextActionLayout();
+  let choices=[],featured=null,lastPreferred,lastScope,rows=0,revision=0,layoutDirty=true;
   const layoutInputs=[];
-  function contextChanged(available,preferredId){
-    let changed=lastPreferred!==preferredId||layoutInputs.length!==available.length;
-    lastPreferred=preferredId;
+  function contextChanged(available,preferredId,scope){
+    let changed=layoutDirty||lastPreferred!==preferredId||lastScope!==scope||layoutInputs.length!==available.length;
+    lastPreferred=preferredId;lastScope=scope;layoutDirty=false;
     layoutInputs.length=available.length;
     for(let i=0;i<available.length;i++){
       const button=available[i],disabled=button.disabled,target=button.dataset.actionTarget,label=actionLabel(button);
@@ -63,29 +65,40 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
   function addSlot(element){
     const slot={element,label:element.firstElementChild,category:element.querySelector("[data-category-text]"),action:null,press:null};
     slots.push(slot);
+    const pressSnapshot=()=>({revision,action:slot.action,label:slot.label.textContent,target:slot.action?.dataset.actionTarget});
     slot.element.addEventListener("pointerdown",event=>{
-      slot.press={id:event.pointerId,action:slot.action,label:slot.label.textContent,target:slot.action?.dataset.actionTarget};
+      slot.press={...pressSnapshot(),id:event.pointerId};
     });
+    slot.element.addEventListener("keydown",event=>{
+      if(event.key!==" "&&event.key!=="Enter")return;
+      if(event.repeat){event.preventDefault();return;}
+      slot.press={...pressSnapshot(),key:event.key};
+    });
+    slot.element.addEventListener("keyup",event=>{if(slot.press?.key===event.key)expirePress(slot);});
+    slot.element.addEventListener("blur",()=>{if(slot.press?.key)expirePress(slot);});
     slot.element.addEventListener("click",()=>{
       const {press,action}=slot;
       slot.press=null;
       if(!action||action.hidden||action.disabled)return;
-      if(press&&(press.action!==action||press.label!==slot.label.textContent||press.target!==action.dataset.actionTarget))return;
+      if(press&&(press.invalid||press.revision!==revision||press.action!==action||press.label!==slot.label.textContent||press.target!==action.dataset.actionTarget))return;
       close();action.click();
     });
   }
   for(const element of grid?grid.querySelectorAll("button"):[primary])addSlot(element);
-  function endPress(event){
-    const slot=slots.find(s=>s.press?.id===event.pointerId);
-    if(!slot)return;
+  function expirePress(slot){
     const press=slot.press;
     setTimeout(()=>{if(slot.press===press)slot.press=null;},0);
+  }
+  function endPress(event){
+    const slot=slots.find(s=>s.press?.id===event.pointerId);
+    if(slot)expirePress(slot);
   }
   doc.addEventListener("pointerup",endPress);
   doc.addEventListener("pointercancel",endPress);
   function growGrid(){
     const element=doc.createElement("button"),label=doc.createElement("span"),category=doc.createElement("small");
     element.type="button";element.className="quiet context-choice";element.id=prefix+"-choice-"+(slots.length+1);
+    element.hidden=true;element.disabled=true;
     category.id=element.id+"-type";category.setAttribute("data-category-text","");category.setAttribute("aria-hidden","true");
     element.append(label,category);grid.append(element);addSlot(element);
   }
@@ -96,6 +109,7 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
     const disabled=!action||action.disabled;
     if(element.disabled!==disabled)element.disabled=disabled;
     const text=actionLabel(action);
+    if(slot.press&&(disabled||slot.press.action!==action||slot.press.label!==text||slot.press.target!==action?.dataset.actionTarget))slot.press.invalid=true;
     if(label.textContent!==text)label.textContent=text;
     if(choice){
       const category=handDetails.get(action)?.textContent.trim()||choice.group.label;
@@ -113,30 +127,54 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
       else element.removeAttribute(name);
     }
   }
-  function refresh(preferredId){
+  function refresh(preferredId,scope){
     const available=buttons.filter(button=>!button.hidden);
     const here=position();
     if(pinned&&(pinned.button.hidden||pinned.button.disabled||pinned.button.dataset.actionTarget!==pinned.target||
       (here&&Math.hypot(here.x-pinned.x,here.y-pinned.y)>3)))pinned=null;
     const focused=doc.activeElement;
     if(grid){
-      let focusAction;
-      if(contextChanged(available,preferredId)){
+      let focusAction,distanceToBottom;
+      if(contextChanged(available,preferredId,scope)||layout.leftArea(here)){
         if(grid.contains(focused)&&focused.matches(":focus-visible"))focusAction=slots.find(slot=>slot.element===focused)?.action;
         const previousCount=choices.length;
         const groups=groupContextActions(available,preferredId);
-        choices=groups.flatMap(group=>group.buttons.map(button=>({button,group})));
-        while(slots.length<choices.length)growGrid();
-        const first=choices[0]?.button??null;
-        if(slots[0].action!==first){
-          slots[0].action?.removeAttribute("data-current-action");
-          first?.setAttribute("data-current-action","primary");
+        const ordered=groups.flatMap(group=>group.buttons.map(button=>({button,group})));
+        const {placed,fresh}=layout.arrange(ordered,scope,here);
+        choices=placed;
+        if(fresh)revision++;
+        const nextRows=Math.ceil(choices.length/2);
+        if(fresh||nextRows!==rows){
+          distanceToBottom=fresh?0:Math.max(0,grid.scrollHeight-grid.clientHeight-grid.scrollTop);
+          rows=nextRows;
+          grid.style.setProperty("--context-rows",String(rows));
         }
-        for(let i=choices.length;i<previousCount;i++)show(slots[i],null);
+        grid.toggleAttribute("data-empty",!rows);
+        while(slots.length<choices.length)growGrid();
+        const first=ordered[0]?.button??null;
+        if(featured!==first){
+          featured?.removeAttribute("data-current-action");
+          first?.setAttribute("data-current-action","primary");
+          featured=first;
+        }
+        for(let i=0;i<Math.max(previousCount,choices.length);i++){
+          const slot=slots[i],choice=choices[i],element=slot.element;
+          if(choice){
+            const row=String(rows-Math.floor(i/2)),column=String(i%2+1);
+            if(element.style.gridRow!==row)element.style.gridRow=row;
+            if(element.style.gridColumn!==column)element.style.gridColumn=column;
+          }else if(slot.action)show(slot,null);
+          if(choice?.button&&choice.button===featured){
+            if(element.dataset.currentAction!=="primary")element.setAttribute("data-current-action","primary");
+          }else if(element.hasAttribute("data-current-action"))element.removeAttribute("data-current-action");
+        }
       }
       choices.forEach((choice,i)=>show(slots[i],choice.button,choice));
+      if(distanceToBottom!==undefined)grid.scrollTop=Math.max(0,grid.scrollHeight-grid.clientHeight-distanceToBottom);
       if(focusAction){
-        const next=slots.find(s=>s.action===focusAction&&!s.element.disabled)?.element;
+        const former=slots.find(s=>s.element===focused);
+        const next=(slots.find(s=>s.action===focusAction&&!s.element.disabled)??
+          (former?.action&&!former.element.disabled&&contextActionFamily(former.action)===contextActionFamily(focusAction)?former:null))?.element;
         if(!next)focusControls();
         else if(next!==focused)next.focus();
       }
@@ -156,7 +194,7 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
     }
     if(slots.some(({element})=>focused===element&&(element.hidden||element.disabled)))focusControls();
   }
-  return {refresh,close,reset(){pinned=null;for(const slot of slots)slot.press=null;close();},
-    isPrimary:button=>slots[0].action===button,actionFor:element=>slots.find(slot=>slot.element===element)?.action,
+  return {refresh,close,reset(){pinned=null;layout?.reset();layoutDirty=true;revision++;close();},
+    isPrimary:button=>(grid?featured:slots[0].action)===button,actionFor:element=>slots.find(slot=>slot.element===element)?.action,
     ownsFocus:()=>grid?grid.contains(doc.activeElement)&&doc.activeElement.matches(":focus-visible"):!panel.hidden&&panel.contains(doc.activeElement)};
 }
