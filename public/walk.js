@@ -3035,8 +3035,8 @@ function stopAtPressedExit(event){
   resetInput();
 }
 venueDoorButton.addEventListener("pointerdown",stopAtPressedExit);
-for(const id of ["nearby-primary","nearby-secondary"])$(id).addEventListener("pointerdown",event=>{
-  if(nearbyControls.actionFor(event.currentTarget)===venueDoorButton)stopAtPressedExit(event);
+$("nearby-grid").addEventListener("pointerdown",event=>{
+  if(nearbyControls.actionFor(event.target.closest("button"))===venueDoorButton)stopAtPressedExit(event);
 });
 window.addEventListener("pointerup",event=>{
   const pressed=exitPress;
@@ -3563,6 +3563,7 @@ function updateActivities(time,guideNearby,coastMarkers){
     const carrying=spec?.meal&&item?.remaining&&!atDiningTable();
     button.disabled=(!carrying&&!canUseItem(time,slot))||churu&&(!nearbyFeedCat||time-(me.pet?.at??0)<PET_MS);
     if(spec){
+      attr(button,"data-action-target",item.kind);
       const itemLabel=spec.name+(item.remaining&&!feedingHere&&!spec.plush?` · ${item.remaining}회`:"");
       setText(button.firstElementChild,itemLabel);
       setText(button.lastElementChild,action);

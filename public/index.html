@@ -263,14 +263,19 @@
           </div>
           <div class="game-hud">
             <div class="play-command" id="nearby-controls">
-              <button id="nearby-primary" type="button" class="primary" hidden><span></span></button>
-              <button id="nearby-secondary" type="button" class="quiet" hidden><span></span></button>
+              <div id="nearby-grid" class="context-grid" role="group" aria-label="주변 행동">
+                <button id="nearby-primary" type="button" class="primary context-choice" hidden><span></span><small id="nearby-primary-type" data-category-text aria-hidden="true"></small></button>
+                <button id="nearby-secondary" type="button" class="quiet context-choice" hidden><span></span><small id="nearby-secondary-type" data-category-text aria-hidden="true"></small></button>
+                <button id="nearby-third" type="button" class="quiet context-choice" hidden><span></span><small id="nearby-third-type" data-category-text aria-hidden="true"></small></button>
+                <button id="nearby-fourth" type="button" class="quiet context-choice" hidden><span></span><small id="nearby-fourth-type" data-category-text aria-hidden="true"></small></button>
+              </div>
               <div class="play-secondary">
                 <button id="nearby-toggle" type="button" class="quiet" aria-expanded="false" aria-controls="nearby-actions" hidden>더보기</button>
                 <button id="jump" type="button" class="quiet" disabled>점프</button>
               </div>
               <small id="raft-control-hint" hidden>앞뒤로 젓기 · 좌우로 회전</small>
-              <div class="nearby-actions" id="nearby-actions" role="group" aria-label="행동" tabindex="-1" data-scroll-actions data-all-actions hidden>
+              <div class="nearby-actions" id="nearby-actions" role="group" aria-label="추가 상호작용" tabindex="-1" data-scroll-actions hidden>
+                <div id="nearby-more-groups"></div>
                 <div class="play-context" id="context-actions">
                   <button id="visitor-guide" type="button" class="quiet activity-button" aria-haspopup="dialog" aria-controls="visitor-guide-dialog" hidden>관람 안내 읽기</button>
                   <button id="bus-action" type="button" class="quiet activity-button" hidden>버스 타기</button>
@@ -503,7 +508,7 @@
       <div class="help-touch"><dt>걷기·달리기</dt><dd>왼쪽 조이스틱을 살짝 밀면 걷고, 끝까지 밀면 달려요.</dd></div>
       <div><dt>점프</dt><dd><span class="help-keyboard"><kbd>Space</kbd></span><span class="help-touch">오른쪽 아래 점프 버튼</span></dd></div>
       <div><dt>시점</dt><dd>화면을 드래그해 둘러보고, 장소명 옆 카메라로 시점을 바꿔요.</dd></div>
-      <div><dt>상호작용</dt><dd>사물이나 장소에 다가가면 화면 오른쪽에 가능한 행동이 나타나요.</dd></div>
+      <div><dt>상호작용</dt><dd>가까이 가면 오른쪽 아래에 탈것, 음식 등 종류별로 행동이 보여요. 더 있는 곳에서는 ‘더보기’를 누르세요.</dd></div>
       <div><dt>몸짓·감정</dt><dd>손 모양으로 몸짓을, 웃는 얼굴로 감정을 골라요.</dd></div>
       <div><dt>지도</dt><dd>지도에서 길찾기 또는 순간이동을 선택하세요.</dd></div>
     </dl>
