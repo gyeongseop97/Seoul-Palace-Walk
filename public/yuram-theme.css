@@ -132,8 +132,8 @@ body { background: var(--yr-paper); }
   box-sizing: content-box; width: 18px; height: 18px; padding: 4px; border: 1px solid var(--yr-strong-line);
   border-radius: 7px; background: var(--hud-button); filter: none;
 }
-#game-shell #perspective:is([data-active], :active) { color: white; }
-#game-shell #perspective:is([data-active], :active) svg { border-color: var(--yr-deep); background: var(--yr-deep); }
+#game-shell #perspective:is([data-view="first"], :active) { color: white; }
+#game-shell #perspective:is([data-view="first"], :active) svg { border-color: var(--yr-deep); background: var(--yr-deep); }
 #game-shell .play-social .social-chip { color: var(--yr-ink); text-shadow: none; }
 #game-shell .play-social .social-chip::before { background: var(--hud-button); border-color: var(--yr-strong-line); }
 #game-shell .play-social .social-chip[aria-expanded="true"]::before { background: var(--yr-tint); border-color: var(--yr-blue); }
@@ -165,10 +165,10 @@ body { background: var(--yr-paper); }
   background: var(--yr-deep); border-color: var(--yr-blue); color: white;
 }
 #nearby-controls[data-rowing]:has(#raft-helm[data-current-action="primary"]) #nearby-grid [data-current-action="primary"] small { color: white; }
-#game-shell #nearby-controls #nearby-grid[data-has-key-pages] [data-current-action="primary"]:not([data-interaction-key="E"]) {
+#game-shell #nearby-controls #nearby-grid:has([data-key-primary]) [data-current-action="primary"]:not([data-key-primary]) {
   background: var(--hud-button); color: var(--yr-ink); border-color: var(--yr-strong-line);
 }
-#game-shell #nearby-grid[data-has-key-pages] .context-choice[data-interaction-key="E"] {
+#game-shell #nearby-grid .context-choice[data-key-primary] {
   background: var(--yr-sky); color: var(--yr-ink); border-color: #6087a6;
 }
 #game-shell #raft-control-hint { background: var(--yr-deep); color: white; }
@@ -201,6 +201,57 @@ dialog .tag, dialog a, #roster-dialog .roster-count, #roster-dialog .roster-indi
 dialog :is(.character-tabs button[aria-pressed="true"], [data-photo-gallery] figcaption, #leave-save-title, #transit-options summary) { color: var(--yr-ink); }
 dialog :is(.quiet, .close), #walk-bag :is(button, select), #controls-help .close {
   color: var(--yr-ink); background: white; border-color: var(--yr-strong-line);
+}
+dialog.place-guide {
+  border: 1px solid var(--yr-line); border-radius: 20px;
+  background: var(--yr-white); color: var(--yr-ink); box-shadow: var(--yr-shadow);
+  overscroll-behavior: contain;
+}
+.place-guide h2, #visitor-guide-dialog.place-guide h2 {
+  font-family: inherit; font-weight: var(--yr-title-weight); letter-spacing: -.035em;
+  line-height: 1.3; color: var(--yr-ink); word-break: keep-all; overflow-wrap: anywhere;
+}
+#landmark-guide-dialog {
+  --guide-inset: clamp(20px,4vw,28px); width: min(440px,calc(100vw - 28px)); padding: 0;
+}
+.place-guide-heading {
+  padding: 22px var(--guide-inset) 19px;
+  background: var(--yr-tint); border-bottom: 1px solid var(--yr-line);
+}
+#landmark-guide-area, #exhibit-gallery {
+  margin: 0 0 6px; color: var(--yr-deep); font-weight: var(--yr-action-weight); font-size: 13px; letter-spacing: 0;
+}
+#landmark-guide-description {
+  margin: 18px var(--guide-inset); color: var(--yr-ink);
+  font-size: 16px; line-height: 1.7; word-break: keep-all; overflow-wrap: anywhere;
+}
+#landmark-guide-walk {
+  margin: 0 var(--guide-inset) 16px; padding: 0 13px; background: var(--yr-paper);
+  border: 1px solid var(--yr-line); border-radius: 10px;
+}
+#landmark-guide-walk summary {
+  min-height: 44px; align-content: center; cursor: pointer; color: var(--yr-deep); font-weight: var(--yr-action-weight);
+}
+#landmark-guide-directions { margin: 0 0 13px; color: var(--yr-muted); line-height: 1.6; }
+.place-guide-footer {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px;
+  padding: 10px var(--guide-inset) 14px; border-top: 1px solid var(--yr-line);
+}
+#landmark-guide-source {
+  display: inline-flex; align-items: center; min-height: 44px; font-size: 13px; color: var(--yr-deep); overflow-wrap: anywhere;
+}
+#landmark-guide-dialog .sheet-dismiss {
+  min-height: 44px; padding: 0 20px; margin-inline-start: auto; border: 0; border-radius: 10px;
+  background: var(--yr-blue); color: var(--yr-white); font-size: 15px; font-weight: var(--yr-action-weight);
+}
+#visitor-guide-dialog .dialog-top { background: var(--yr-white); }
+.place-guide .visitor-guide-list section { border-color: var(--yr-line); background: var(--yr-paper); }
+#transit-from { color: var(--yr-muted); }
+@media (max-width:810px), (pointer:coarse) {
+  #landmark-guide-dialog {
+    width: min(100%,520px); max-width: none; inset: auto 0 0; margin: 0 auto;
+    border-radius: 20px 20px 0 0; padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 #walk-bag :is(.bag-cell span, #bag-count, #bag-detail), #controls-help dd { color: var(--yr-muted); }
 #walk-bag .bag-cell:disabled { color: var(--yr-muted); background: var(--yr-paper); border-color: var(--yr-line); opacity: 1; }

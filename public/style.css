@@ -419,16 +419,16 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 .raft-only{display:none}
 #bus-seat-dialog[data-vehicle="raft"] .raft-only{display:block}
 #bus-seat-dialog[data-vehicle="raft"] .bus-direction{display:none}
-:is(#bus-seat-dialog[data-vehicle="raft"],#landmark-guide-dialog){
+#bus-seat-dialog[data-vehicle="raft"]{
   box-sizing:border-box;width:min(380px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 32px);
   padding:25px 24px 22px;overflow:auto;overscroll-behavior:contain;color-scheme:light;
   color:#15372c;background:#f8f5ea;border:1px solid #e6e5d7;border-radius:20px;box-shadow:0 16px 55px #0e211e40;
 }
-:is(#bus-seat-dialog[data-vehicle="raft"],#landmark-guide-dialog)::backdrop{background:rgb(16 40 34 / 58%)}
-:is(#bus-seat-dialog[data-vehicle="raft"],#landmark-guide-dialog) .sheet-area{
+#bus-seat-dialog[data-vehicle="raft"]::backdrop{background:rgb(16 40 34 / 58%)}
+#bus-seat-dialog[data-vehicle="raft"] .sheet-area{
   color:#53695c;margin:0 0 6px;font-size:12px;line-height:1.4;font-weight:700;
 }
-:is(#bus-seat-dialog[data-vehicle="raft"],#landmark-guide-dialog) h2{
+#bus-seat-dialog[data-vehicle="raft"] h2{
   margin:0;color:#17382e;font:700 25px/1.3 "Nanum Myeongjo",Batang,"AppleMyungjo",Georgia,serif;
 }
 #bus-seat-dialog[data-vehicle="raft"] .dialog-top{padding:0 0 17px;border-bottom:1px solid #d6dcd0}
@@ -450,16 +450,9 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 #bus-seat-dialog[data-vehicle="raft"] #bus-seats button:nth-child(3){grid-area:bow}
 #bus-seat-dialog[data-vehicle="raft"] #bus-seat-time{margin:0 0 10px;font-size:12px;color:#526a5a}
 #bus-seat-dialog[data-vehicle="raft"] .raft-seat-note{margin:10px 0 0;font-size:12px;color:#496453}
-#landmark-guide-dialog{background:#fffdf6}
-#landmark-guide-description{margin:20px 0 12px;color:#1a382d;font-size:16px;line-height:1.72;font-weight:550;word-break:keep-all;overflow-wrap:break-word}
-#landmark-guide-walk{margin:8px 0 12px;font-size:13px;color:#52695c}
-#landmark-guide-walk summary{min-height:32px;align-content:center;cursor:pointer}
-#landmark-guide-directions{margin:3px 0;color:#405a4d}
-#landmark-guide-source{display:inline-block;font-size:12px;color:#486353;text-underline-offset:3px}
-#landmark-guide-dialog .sheet-dismiss{display:block;width:100%;min-height:44px;margin-top:18px;border:0;border-radius:10px;background:#123d32;color:#fffaf0;font-size:15px;font-weight:700}
-:is(#bus-seat-dialog[data-vehicle="raft"],#landmark-guide-dialog) :focus-visible{outline:2px solid #19745b;outline-offset:2px}
+#bus-seat-dialog[data-vehicle="raft"] :focus-visible{outline:2px solid #19745b;outline-offset:2px}
 @media(max-width:810px),(pointer:coarse){
-  :is(#bus-seat-dialog[data-vehicle="raft"],#landmark-guide-dialog){
+  #bus-seat-dialog[data-vehicle="raft"]{
     width:min(100%,520px);inset:auto 0 0;margin:0 auto;max-height:calc(100dvh - 14px);
     padding:22px max(22px,env(safe-area-inset-right)) max(21px,env(safe-area-inset-bottom)) max(22px,env(safe-area-inset-left));
     border-radius:21px 21px 0 0;
@@ -1106,8 +1099,8 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
 .game-fullscreen .fullscreen-exit-icon{display:inline}
 #game-shell #perspective{display:grid;place-items:center;position:relative;pointer-events:auto;z-index:4;flex:none;width:44px;height:44px;padding:0;border:0;background:transparent;color:#fff4da}
 #perspective svg{width:24px;height:24px;filter:drop-shadow(0 1px 2px #07160e) drop-shadow(0 0 1px #07160e);pointer-events:none}
-#game-shell #perspective[data-active],#game-shell #perspective:active{color:var(--gold-2)}
-#perspective[data-active] circle{fill:currentColor}
+#game-shell #perspective[data-view="first"],#game-shell #perspective:active{color:var(--gold-2)}
+#perspective[data-view="first"] .view-third,#perspective[data-view="third"] .view-first{display:none}
 .game-place{background:rgb(1 32 23 / 40%);text-shadow:0 1px 2px #102018,0 0 1px #102018}
 #game-shell .scene-wrap :is(button.quiet,button.primary,.game-command button,.peer-hud button,.gesture-menu button,.emote-menu button):not(:disabled),
 #game-shell .game-presence{background-color:var(--hud-button);color:var(--lettering);border-color:#d6bd8b55;text-shadow:0 1px 2px #14251c}

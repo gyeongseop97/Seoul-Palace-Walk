@@ -1,14 +1,13 @@
 import {contextActionFamily,groupContextActions} from "./context-action-order.js";
 import {createContextActionLayout} from "./context-action-layout.js";
-
-const actionKeys=["E","F","G"];
+import {contextKeyPages} from "./context-action-keys.js";
 
 export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>null){
   const primary=root.querySelector("#"+prefix+"-primary");
   const grid=root.querySelector("#"+prefix+"-grid");
   const toggle=root.querySelector("#"+prefix+"-toggle");
   const panel=root.querySelector("#"+prefix+"-actions");
-  const buttons=[...panel.querySelectorAll("button")];
+  let buttons=[...panel.querySelectorAll("button")];
   const labels=new Map([...panel.querySelectorAll("[data-primary-label]")].map(label=>[label.closest("button"),label]));
   const actionLabel=button=>(labels.get(button)??button?.firstChild)?.textContent.trim()??"";
   const handDetails=new Map([...labels.keys()].map(button=>[button,button.querySelector("small")]));
@@ -17,7 +16,7 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
   let lastPanelFocus=null,pinned=null;
   const layout=grid&&createContextActionLayout();
   let choices=[],featured=null,lastPreferred,lastScope,rows=0,revision=0,layoutDirty=true;
-  let keyboardEnabled=false,keyboardOptions=[],keyboardPage=0;
+  let keyboardEnabled=false,keyPages=[],keyboardPage=0;
   const layoutInputs=[];
   function contextChanged(available,preferredId,scope){
     let changed=layoutDirty||lastPreferred!==preferredId||lastScope!==scope||layoutInputs.length!==available.length;
@@ -132,10 +131,11 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
     }
   }
   function renderKeyboardPage(){
-    const start=keyboardPage*actionKeys.length;
-    const page=keyboardOptions.slice(start,start+actionKeys.length);
+    const page=keyPages[keyboardPage]??{},entries=Object.entries(page);
+    const primary=page.F??page.Q??page.E;
     for(const slot of slots){
-      const key=actionKeys[page.indexOf(slot)];
+      const key=entries.find(([,action])=>action===slot.action)?.[0];
+      slot.element.toggleAttribute("data-key-primary",Boolean(primary&&slot.action===primary));
       if(key===slot.element.dataset.interactionKey)continue;
       if(key){
         slot.element.setAttribute("data-interaction-key",key);
@@ -145,34 +145,35 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
         slot.element.removeAttribute("aria-keyshortcuts");
       }
     }
-    return page;
+    return primary;
   }
   function updateKeyboardOptions(enabled,fresh){
     keyboardEnabled=enabled;
-    keyboardOptions=enabled?slots.filter(({action})=>action&&!action.hidden&&!action.disabled):[];
-    const primaryIndex=keyboardOptions.findIndex(({action})=>action===featured);
-    if(primaryIndex>0)keyboardOptions.unshift(...keyboardOptions.splice(primaryIndex,1));
-    grid.toggleAttribute("data-has-key-pages",keyboardOptions.length>actionKeys.length);
-    if(fresh||keyboardPage*actionKeys.length>=keyboardOptions.length)keyboardPage=0;
+    const actions=enabled?slots.filter(slot=>slot.action).map(slot=>slot.action):[];
+    const primaryIndex=actions.indexOf(featured);
+    if(primaryIndex>0)actions.unshift(...actions.splice(primaryIndex,1));
+    keyPages=contextKeyPages(actions);
+    grid.toggleAttribute("data-has-key-pages",keyPages.length>1);
+    if(fresh||keyboardPage>=keyPages.length)keyboardPage=0;
     renderKeyboardPage();
   }
   function useShortcut(code){
-    if(code==="KeyR"){
-      const pages=Math.ceil(keyboardOptions.length/actionKeys.length);
-      if(pages<2)return false;
-      keyboardPage=(keyboardPage+1)%pages;
-      const items=renderKeyboardPage().map(({element})=>element.getBoundingClientRect());
+    if(code==="KeyG"){
+      if(keyPages.length<2)return false;
+      keyboardPage=(keyboardPage+1)%keyPages.length;
+      const primary=renderKeyboardPage();
+      const items=slots.filter(slot=>slot.element.hasAttribute("data-interaction-key")).map(({element})=>element.getBoundingClientRect());
       const bounds=grid.getBoundingClientRect();
       let top=Math.min(...items.map(item=>item.top)),bottom=Math.max(...items.map(item=>item.bottom));
-      if(bottom-top>bounds.height)({top,bottom}=items[0]);
+      if(bottom-top>bounds.height)({top,bottom}=slots.find(slot=>slot.action===primary).element.getBoundingClientRect());
       if(top<bounds.top)grid.scrollTop+=top-bounds.top;
       else if(bottom>bounds.bottom)grid.scrollTop+=bottom-bounds.bottom;
       return true;
     }
-    const index=actionKeys.findIndex(key=>code==="Key"+key);
-    if(index<0)return false;
-    const slot=keyboardOptions[keyboardPage*actionKeys.length+index],action=slot?.action;
-    if(!action||action.hidden||action.disabled||slot.target!==action.dataset.actionTarget||slot.label.textContent!==actionLabel(action))return false;
+    const action=keyPages[keyboardPage]?.[code.replace(/^Key/,"")];
+    if(!action||action.hidden||action.disabled)return false;
+    const slot=slots.find(slot=>slot.action===action);
+    if(!slot||slot.target!==action.dataset.actionTarget||slot.label.textContent!==actionLabel(action))return false;
     action.click();
     return true;
   }
@@ -246,7 +247,8 @@ export function bindNearbyControls(root,focusGame,prefix="nearby",position=()=>n
     }
     if(slots.some(({element})=>focused===element&&(element.hidden||element.disabled)))focusControls();
   }
-  return {refresh,close,useShortcut,reset(){pinned=null;layout?.reset();layoutDirty=true;revision++;if(grid)updateKeyboardOptions(false,true);close();},
-    isPrimary:button=>(grid?(keyboardOptions[keyboardPage*actionKeys.length]?.action??featured):slots[0].action)===button,actionFor:element=>slots.find(slot=>slot.element===element)?.action,
+  return {refresh,close,useShortcut,collectButtons(){buttons=[...panel.querySelectorAll("button")];layoutDirty=true;pinned=null;},
+    reset(){pinned=null;layout?.reset();layoutDirty=true;revision++;if(grid)updateKeyboardOptions(false,true);close();},
+    isPrimary:button=>(grid?(keyPages[keyboardPage]?.F??featured):slots[0].action)===button,actionFor:element=>slots.find(slot=>slot.element===element)?.action,
     ownsFocus:()=>grid?grid.contains(doc.activeElement)&&doc.activeElement.matches(":focus-visible"):!panel.hidden&&panel.contains(doc.activeElement)};
 }

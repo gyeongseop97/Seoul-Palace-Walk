@@ -89,11 +89,19 @@ function walkingArea(point){
  return inBulguksa(p)?"temple":atStation(p)?"station":"town";
 }
 export const sameGyeongjuArea=(a,b)=>walkingArea(a)===walkingArea(b);
+const busTerminals={
+ station:{name:"경주역",board:travelStops.stationBus,arrive:travelStops.stationBus},
+ town:{name:"황리단길",board:travelStops.townReturnBus,arrive:travelStops.townBus},
+ temple:{name:"불국사",board:travelStops.templeBus,arrive:travelStops.templeBus}
+};
 export function busDirection(to){
- return {station:"경주역행",town:"황리단길행",temple:"불국사행"}[walkingArea(to)];
+ return busTerminals[walkingArea(to)].name+"행";
 }
 export function transferStop(from){
- return {station:travelStops.stationBus,town:travelStops.townReturnBus,temple:travelStops.templeBus}[walkingArea(from)];
+ return busTerminals[walkingArea(from)].board;
+}
+export function transferDestinations(stop){
+ return Object.values(busTerminals).filter(terminal=>terminal.board!==stop);
 }
 export function gyeongjuNextUp(from,to){
  return cheonmaLayer({...localGyeongju(from),up:from.up},localGyeongju(to));

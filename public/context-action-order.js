@@ -5,7 +5,7 @@ const categories={
   travel:{label:"이동·탈것",ids:[
     "coast-disembark","coast-exitBus","raft-moor","ktx-destination","raft-helm","bus-action","coast-embark",
     "coast-moor","coast-release","coast-helm","coast-return","coast-tour","gyeongju-train","coast-train","subway",
-    "gyeongju-stationBus","gyeongju-townBus","gyeongju-templeBus","coast-bus","coast-cityBus","bike-action","bike-park",
+    "gyeongju-boardBus","coast-bus","coast-cityBus","bike-action","bike-park","bike-tandem",
     "coast-parkScooter","coast-scooter","coast-surf","coast-board","station-lift"
   ]},
   food:{label:"음식·음료",ids:[
@@ -32,7 +32,6 @@ for(const [key,{ids}] of Object.entries(categories)){
 const continuationOf=new Map([
   ["bungeo-serve","bungeo-accept"],
   ["dining-eat","dining-order"],
-  ["gyeongju-townBus","gyeongju-stationBus"],
   ["coast-cityBus","coast-bus"],
   ["coast-exitBus","coast-bus"],
   ["coast-disembark","coast-embark"],

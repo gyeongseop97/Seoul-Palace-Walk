@@ -229,8 +229,11 @@
           <div class="game-info">
             <div class="place-row">
               <strong class="game-place" id="game-place">매표소 앞</strong>
-              <button id="perspective" type="button" aria-label="1인칭으로 전환" title="1인칭으로 전환">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5h4l1.7-3h6.6l1.7 3h4a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.8"/></svg>
+              <button id="perspective" type="button" data-view="third" aria-label="현재 3인칭 · 1인칭으로 전환" title="현재 3인칭 · 1인칭으로 전환">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <g class="view-first"><path d="M1.7 12s3.6-6.5 10.3-6.5S22.3 12 22.3 12 18.7 18.5 12 18.5 1.7 12 1.7 12Z"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></g>
+                  <g class="view-third"><path d="M3 8V4h4m10 0h4v4m0 8v4h-4M7 20H3v-4"/><circle cx="12" cy="9" r="3.05" fill="currentColor" stroke="none"/><path d="M6.5 18.3a5.5 5.5 0 0 1 11 0Z" fill="currentColor" stroke="none"/></g>
+                </svg>
               </button>
             </div>
             <div class="play-social" role="group" aria-label="몸짓과 감정" aria-keyshortcuts="T">
@@ -286,7 +289,7 @@
           </div>
           <div class="game-hud">
             <div class="play-command" id="nearby-controls">
-              <small class="context-cycle-hint"><kbd>R</kbd> 다음 행동 묶음</small>
+              <small class="context-cycle-hint"><kbd>G</kbd> 다음 행동</small>
               <div id="nearby-grid" class="context-grid" role="group" aria-label="주변 행동" data-scroll-actions data-empty>
                 <button id="nearby-primary" type="button" class="primary context-choice" hidden><span></span><small id="nearby-primary-type" data-category-text aria-hidden="true"></small></button>
                 <button id="nearby-secondary" type="button" class="quiet context-choice" hidden><span></span><small id="nearby-secondary-type" data-category-text aria-hidden="true"></small></button>
@@ -540,8 +543,9 @@
       <div class="help-keyboard"><dt>걷기·달리기</dt><dd><kbd>Shift</kbd>를 한 번 누르면 달리고, 다시 누르면 걸어요.</dd></div>
       <div class="help-touch"><dt>걷기·달리기</dt><dd>왼쪽 조이스틱을 살짝 밀면 걷고, 끝까지 밀면 달려요.</dd></div>
       <div><dt>점프</dt><dd><span class="help-keyboard"><kbd>Space</kbd></span><span class="help-touch">오른쪽 아래 점프 버튼</span></dd></div>
-      <div><dt>시점</dt><dd>화면을 드래그해 둘러보고, 장소명 옆 카메라로 시점을 바꿔요.</dd></div>
-      <div class="help-keyboard"><dt>상호작용</dt><dd>가까이서 행동 옆의 <kbd>E</kbd>, <kbd>F</kbd>, <kbd>G</kbd>를 누르세요. 네 가지 이상이면 <kbd>R</kbd>로 다음 묶음을 봐요.</dd></div>
+      <div><dt>시점</dt><dd>장소명 옆의 눈은 1인칭, 프레임 속 사람은 3인칭이에요. 눌러서 시점을 바꾸고 화면을 드래그해 둘러보세요.</dd></div>
+      <div class="help-keyboard"><dt>주변 행동</dt><dd><kbd>F</kbd>로 탈것에 타거나 물건을 받고 건물에 들어가요. 여러 행동이 겹치면 타기가 먼저예요. <kbd>R</kbd>은 보조 행동, <kbd>G</kbd>는 다음 행동 묶음이에요.</dd></div>
+      <div class="help-keyboard"><dt>손에 든 물건</dt><dd>왼손은 <kbd>Q</kbd>, 오른손은 <kbd>E</kbd>로 사용해요. 빈손 쪽 키로는 화면에 표시된 다른 행동을 할 수 있어요.</dd></div>
       <div class="help-touch"><dt>상호작용</dt><dd>가까이 가면 오른쪽 아래에 행동이 보여요. 원하는 행동을 누르고, 더 보려면 목록을 위아래로 밀어 보세요.</dd></div>
       <div class="help-keyboard"><dt>가방·지도</dt><dd><kbd>I</kbd>로 가방을, <kbd>M</kbd>으로 지도를 열어요. 같은 키를 다시 누르면 닫혀요.</dd></div>
       <div class="help-keyboard"><dt>감정표현·몸짓</dt><dd><kbd>T</kbd>를 누른 채 원하는 표현에 마우스를 옮긴 뒤 키를 떼세요. 중앙의 두 칸을 클릭하면 감정표현과 몸짓을 바꿔요.</dd></div>
@@ -660,13 +664,17 @@
     <p id="transit-from"></p>
     <div id="transit-options" role="group" aria-label="게임 속 목적지"></div>
   </dialog>
-  <dialog id="landmark-guide-dialog" aria-labelledby="landmark-guide-title">
-    <p id="landmark-guide-area" class="sheet-area"></p>
-    <h2 id="landmark-guide-title"></h2>
+  <dialog id="landmark-guide-dialog" class="place-guide" aria-labelledby="landmark-guide-title">
+    <header class="place-guide-heading">
+      <p id="landmark-guide-area"></p>
+      <h2 id="landmark-guide-title"></h2>
+    </header>
     <p id="landmark-guide-description"></p>
     <details id="landmark-guide-walk" hidden><summary>산책 안내</summary><p id="landmark-guide-directions"></p></details>
-    <a id="landmark-guide-source" target="_blank" rel="noopener">공식 자료 보기 ↗</a>
-    <button type="button" class="close sheet-dismiss">닫기</button>
+    <footer class="place-guide-footer">
+      <a id="landmark-guide-source" target="_blank" rel="noopener">공식 자료 보기 ↗</a>
+      <button type="button" class="primary close sheet-dismiss">닫기</button>
+    </footer>
   </dialog>
   <dialog id="wish-drawing" aria-labelledby="wish-drawing-title">
     <div class="dialog-top">
@@ -754,7 +762,7 @@
     <p>전시 이미지와 확대 재현한 유물의 출처입니다.</p>
     <ul id="exhibit-credits" class="credits"></ul>
   </dialog>
-  <dialog id="visitor-guide-dialog" aria-labelledby="visitor-guide-title">
+  <dialog id="visitor-guide-dialog" class="place-guide" aria-labelledby="visitor-guide-title">
     <div class="dialog-top">
       <h2 id="visitor-guide-title">유람 여행 안내</h2>
       <button type="button" class="quiet close" aria-label="닫기">×</button>
@@ -789,7 +797,7 @@
       <p>내릴 층을 선택해 주세요.</p><div id="station-lift-floors" class="choices"></div>
     </form>
   </dialog>
-  <dialog id="exhibit-dialog" aria-labelledby="exhibit-title">
+  <dialog id="exhibit-dialog" class="place-guide" aria-labelledby="exhibit-title">
     <div class="dialog-top"><span class="tag" id="exhibit-gallery"></span><button type="button" class="quiet close" aria-label="닫기">×</button></div>
     <h2 id="exhibit-title"></h2>
     <p id="exhibit-period" class="exhibit-period"></p>

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {cafeLayout,gyeongjuClear,gyeongjuMoundHeight,gyeongjuRoute,gyeongjuWalkable,gyeongjuWallTop,mounds,places,roads,tombGates,transferShelterYaw,walls} from "../public/gyeongju-layout.js";
 import {cafeFittings} from "../public/gyeongju-cafe.js";
-import {destinations,travelDistricts,travelStops,transferStop,sameGyeongjuArea} from "../public/gyeongju-region.js";
+import {destinations,travelDistricts,travelStops,transferDestinations,transferStop,sameGyeongjuArea} from "../public/gyeongju-region.js";
 import {inBulguksa,templeAxis,templeCameraBlocked,templeHeight,templePoint,templeSites,stairPaths,stoneStairs,templePlantings,templePaths,templePagodas,templePonds} from "../public/bulguksa-layout.js";
 import {drapePath,groundHeightAt} from "../public/bulguksa-ground.js";
 import {templeHallTerraces} from "../public/bulguksa-hall-layout.js";
@@ -41,7 +41,12 @@ assert.equal(travelDistricts["불국사"][0].name,"불국사 일주문");
 for(const from of templeSites)for(const to of templeSites)if(from!==to)walk(from,to);
 for(const a of [travelStops.stationBus,travelStops.townReturnBus,travelStops.templeBus]){
  assert.equal(transferStop(a),a);
+ const options=transferDestinations(a);
+ assert.equal(options.length,2);
  for(const b of [travelStops.stationBus,travelStops.townReturnBus,travelStops.templeBus]){
+  const choice=options.find(option=>option.board===b);
+  if(a===b)assert.equal(choice,undefined);
+  else assert.equal(choice.arrive,b===travelStops.townReturnBus?travelStops.townBus:b);
   assert.equal(sameGyeongjuArea(a,b),a===b);
   if(a!==b)assert.deepEqual(gyeongjuRoute(localGyeongju(a),localGyeongju(b)),[]);
  }
