@@ -52,7 +52,7 @@ function random(seed){
 }
 const districts=stops.map(district),zones=[...new Set(districts)];
 const byZone=zones.map(zone=>stops.map((_,i)=>i).filter(i=>districts[i]===zone));
-const PERIOD=10800,groups=77;
+const PERIOD=10800,groups=91;
 const meetingPoints=[[464,298],[217,334],[548,220],[552,-154],[665,-143],[480,-545],[400,-862],[438,-1110],[727,-1258],[942,-1840]]
   .map(([x,y])=>stops.reduce((best,p,i)=>distance({x,y},p)<distance({x,y},stops[best])?i:best,0));
 const interests=["shop","meal","seat","water","photo","cat"];

@@ -5043,7 +5043,7 @@ if(arrivalRegion){
 }else if(document.documentElement.dataset.ktxTransfer)delete document.documentElement.dataset.ktxTransfer;
 function loadWorld(){
   if(world||worldLoading)return worldLoading;
-  worldLoading=Promise.all([import("./world3d.js"),onCoast?import("./coast-scene.js"):inGyeongju?import("./gyeongju-scene.js"):null]).then(([{makeWorld},stage])=>{
+  worldLoading=Promise.all([import("./world3d.js"),onCoast?import("./coast-scene.js"):inGyeongju?import("./gyeongju-scene.js"):import("./seoul-resident-streets.js")]).then(([{makeWorld},stage])=>{
     if(onCoast&&!coastPlay)coastPlay=coastModule.createCoastPlay({
       me,visit:()=>session,view:()=>ownView,request,now:gameTime,surfaceHeight:point=>world?.floorHeight(point),
       changed:()=>{dirty=true;},reset:resetInput,notice:toast,openMonitor:openStudioMonitor,chooseTrainDestination,
@@ -5053,8 +5053,8 @@ function loadWorld(){
     });
     if(inGyeongju&&!gyeongjuActivities)gyeongjuActivities=gyeongjuModule.createGyeongjuActivities({me,now:gameTime,environment:()=>currentEnvironment,takeItem:takeCoastFood,notice:toast,movePlayer:movePlayerTo,
       say:text=>{if(queuedChat||chatInput.value.trim())return false;chatInput.value=text;$("chat-form").requestSubmit();return true;}});
-    world=makeWorld($("game"),{onCatFlee,catSeed:session?.room,graphics:graphicsSelect.value,
-      coast:onCoast?{origin:coastOrigin,create:stage.createCoastScene,visitors:stage.coastVisitors,play:coastPlay,stations:region.counters}:null,
+    world=makeWorld($("game"),{onCatFlee,catSeed:session?.room,graphics:graphicsSelect.value,residentStreets:stage.residentStreets??stage.default,
+      coast:onCoast?{origin:coastOrigin,create:stage.createCoastScene,visitors:stage.coastVisitors,residentActivity:stage.residentActivity,play:coastPlay,stations:region.counters}:null,
       gyeongju:inGyeongju?{origin:region.gyeongjuOrigin,create:stage.createGyeongjuScene,stations:region.counters??[]}:null});worldFailed=false;
     if(!regional)drawDestinations(world);$("loading-game").hidden=!inGyeongju;
     if($("character-dialog").open)refreshCharacterPreview();

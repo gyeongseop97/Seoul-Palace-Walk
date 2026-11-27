@@ -1,4 +1,5 @@
 import * as T from "three";
+export {default as residentStreets} from "./gyeongju-resident-streets.js";
 import {roads,buildings,mounds,parks,walls,places,woljeongBridge,stationSquare,stationBusBay,transferShelterYaw,tombGates,gyeongjuWalkable,gyeongjuMoundHeight,gyeongjuWallTop} from "./gyeongju-layout.js";
 import {drawWoljeongSteps,woljeongFooting} from "./woljeong-model.js";
 import {createRaftScene,drawRaftPiers} from "./gyeongju-raft-model.js";
