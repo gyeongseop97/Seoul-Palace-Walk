@@ -21,7 +21,8 @@ import {buildCoastActionMarker} from "./coast-action-marker.js";
 import {twinTombName,inCheonmaHall} from "./daereungwon.js";
 import {moundMesh} from "./gyeongju-mound-surface.js";
 import {drawCheonma,drawMichu} from "./daereungwon-model.js";
-import {inBulguksa,templeOrigin,templeHeight,templeCameraBlocked} from "./bulguksa-layout.js";
+import {inBulguksa,templeOrigin,templeAxis,templeHeight,templeCameraBlocked} from "./bulguksa-layout.js";
+import {worshipHalls} from "./bulguksa-hall-layout.js";
 import {buildBulguksa,createBulguksaPagodas} from "./bulguksa-model.js";
 import {nearbyConstruction} from "./gyeongju-construction.js";
 
@@ -295,6 +296,10 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
  const displayLamp=new T.PointLight(0xffe7b7,0,10,1.45);
  const exhibitPosition=new T.Vector3(-137.75,2.8,-273.6);
  const exit=places.stationExit,doorwayPosition=new T.Vector3(exit.x+1.3,3.8,exit.z-1.8);
+ const altarLights=worshipHalls.map(b=>{
+  const p=templeAxis(b.u,b.v);
+  return new T.Vector3(p.x,b.floor+b.plinth+2.9,p.z);
+ });
  displayLamp.position.copy(exhibitPosition);outdoors.add(glow,bridgeLight,displayLamp);
  if(kit.prepareScenery)for(const district of [station,town,temple]){
   district.addEventListener("childadded",({child})=>child.traverse(kit.prepareScenery));
@@ -355,10 +360,11 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
     updateTemple?.(camera.position);
     tickWater(templeWaters,((state.clock??Date.now())/1000)%14400,night);
    }
-   // The entrance and the tomb exhibit are kilometres apart and can share one light slot.
-   displayLamp.position.copy(isStation?doorwayPosition:exhibitPosition);
-   displayLamp.distance=isStation?20:10;
-   displayLamp.intensity=isStation?6+night*1.5:Math.hypot(camera.position.x-exhibitPosition.x,camera.position.z-exhibitPosition.z)<38?12:0;
+   // The station, tomb exhibit and temple halls share one interior light.
+   const altar=isTemple&&altarLights.find(p=>Math.hypot(p.x-camera.position.x,p.z-camera.position.z)<19);
+   displayLamp.position.copy(altar||(isStation?doorwayPosition:exhibitPosition));
+   displayLamp.distance=altar?13:isStation?20:10;
+   displayLamp.intensity=altar?15+night*5:isStation?6+night*1.5:Math.hypot(camera.position.x-exhibitPosition.x,camera.position.z-exhibitPosition.z)<38?12:0;
    if(isStation)stationGlass.emissive.copy(reflectedSky).lerp(lobbyGlow,night);
    if(!isStation&&Math.hypot(camera.position.x-restaurant.x,camera.position.z-restaurant.z)<55){
     staff??=createMarketStaff(town,kit,walkerModels);

@@ -21,10 +21,12 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <script>
+    const requestedCity = new URLSearchParams(location.search).get("region");
+    const regionalCity = requestedCity === "pohang" || requestedCity === "gyeongju";
+    document.documentElement.dataset.loadingCity = regionalCity ? requestedCity : "seoul";
     try {
       const ticket = JSON.parse(sessionStorage.getItem("palace-coast-ticket"));
-      const region = new URLSearchParams(location.search).get("region");
-      const regional = region === "pohang" || region === "gyeongju";
+      const region = requestedCity, regional = regionalCity;
       if (ticket?.room && ticket.id && ticket.key && ticket.nickname) {
         if (regional && ticket.region === "boarding" && (ticket.destination ?? "pohang") === region) document.documentElement.dataset.ktxTransfer = region;
         if (!regional && ticket.region === "returning") document.documentElement.dataset.ktxTransfer = "seoul";
@@ -33,30 +35,11 @@
         const entry = JSON.parse(sessionStorage.getItem("palace-map-entry"));
         const nickname = localStorage.getItem("jeongdong-nickname");
         if (nickname && (entry?.name === nickname || (ticket?.region === region && ticket.nickname === nickname))) {
-          document.documentElement.dataset.ktxTransfer = "resume";
+          document.documentElement.dataset.ktxTransfer = region;
         }
       }
     } catch {}
   </script>
-  <style>
-    #ktx-transfer-loading, #ktx-transfer-loading span { display: none; }
-    html[data-ktx-transfer] { background: #e7f4ff; }
-    html[data-ktx-transfer] #entry-flow { display: none; }
-    html[data-ktx-transfer] #game-shell { visibility: hidden; }
-    html[data-ktx-transfer] #ktx-transfer-loading {
-      position: fixed; inset: 0; z-index: 10000; display: grid; place-content: center;
-      justify-items: center; gap: 1.15rem; padding: 1.5rem; background: #e7f4ff; color: #192c4b;
-      font: 650 clamp(1.25rem, 4vw, 1.75rem)/1.45 "Segoe UI", "Malgun Gothic", sans-serif;
-    }
-    html[data-ktx-transfer="pohang"] #ktx-transfer-loading .ktx-to-pohang,
-    html[data-ktx-transfer="gyeongju"] #ktx-transfer-loading .ktx-to-gyeongju,
-    html[data-ktx-transfer="seoul"] #ktx-transfer-loading .ktx-to-seoul,
-    html[data-ktx-transfer="resume"] #ktx-transfer-loading .coast-resume { display: inline; }
-    .ktx-loading-track { display: block; width: 8rem; height: 3px; border-radius: 2px; overflow: hidden; background: #b9d9f0; }
-    .ktx-loading-track::before { content: ""; display: block; width: 38%; height: 100%; background: #355cc6; animation: ktx-progress 1.45s ease-in-out infinite alternate; }
-    @keyframes ktx-progress { to { transform: translateX(163%); } }
-    @media (prefers-reduced-motion: reduce) { .ktx-loading-track::before { width: 100%; animation: none; } }
-  </style>
   <link rel="manifest" href="./palace.webmanifest">
   <link rel="apple-touch-icon" href="./yuram-icon-192.png?v=2">
   <title>유람 | Yuram</title>
@@ -71,13 +54,16 @@
   <link rel="stylesheet" href="./play-actions.css">
   <link rel="stylesheet" href="./yuram-theme.css">
   <link rel="stylesheet" href="./yuram-cover.css">
+  <link rel="stylesheet" href="./city-loading.css">
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"}}</script>
   <script type="module" src="./walk.js"></script>
 </head>
 <body>
-  <div id="ktx-transfer-loading" role="status" aria-live="polite" aria-atomic="true">
-    <span class="ktx-to-pohang">포항역으로 이동 중</span><span class="ktx-to-gyeongju">경주역으로 이동 중</span><span class="ktx-to-seoul">서울역으로 이동 중</span><span class="coast-resume">마지막 산책 장소로 이동 중</span>
-    <i class="ktx-loading-track" aria-hidden="true"></i>
+  <div id="ktx-transfer-loading" class="city-loading" role="status" aria-live="polite" aria-atomic="true">
+    <div class="city-loading-center">
+      <strong class="ktx-to-pohang">포항으로 이동 중</strong><strong class="ktx-to-gyeongju">경주로 이동 중</strong><strong class="ktx-to-seoul">서울로 이동 중</strong>
+      <i class="city-loading-track" aria-hidden="true"></i>
+    </div>
   </div>
   <main id="entry-flow" class="entry-flow" aria-label="유람 시작">
     <div class="entry-frame">
@@ -199,7 +185,9 @@
       <article class="panel scene-panel">
         <div class="scene-wrap">
           <div id="game" tabindex="0" role="group" aria-label="3D 산책. 조이스틱이나 방향키로 이동, 드래그로 시야 회전, 마우스 휠이나 두 손가락으로 확대 및 축소">
-            <p id="loading-game">산책길을 열고 있어요.</p>
+            <div id="loading-game" class="city-loading" role="status" aria-live="polite" aria-atomic="true">
+              <div class="city-loading-center"><strong>산책길을 열고 있어요.</strong><i class="city-loading-track" aria-hidden="true"></i></div>
+            </div>
             <div id="bungeo-hint" class="cooking-hint" hidden>
               <span id="bungeo-instruction" role="status"></span>
               <small id="bungeo-keyboard"></small>
@@ -311,6 +299,7 @@
                   <button id="subway" type="button" class="quiet activity-button" aria-haspopup="dialog" aria-controls="transit-dialog" hidden>지하철 타기</button>
                   <button id="ktx-destination" type="button" class="primary activity-button" hidden>KTX 목적지 선택</button>
                   <button id="museum-door" type="button" class="quiet activity-button" hidden>입장하기</button>
+                  <button id="worship" type="button" class="quiet activity-button" hidden>기도하기</button>
                   <button id="venue-guestbook" type="button" class="quiet activity-button" aria-haspopup="dialog" aria-controls="guestbook-dialog" hidden>방명록</button>
                   <button id="dining-call" type="button" class="quiet activity-button" hidden>벨 누르기</button>
                   <button id="dining-order" type="button" class="quiet activity-button" aria-haspopup="dialog" aria-controls="dining-menu-dialog" hidden>주문하기</button>

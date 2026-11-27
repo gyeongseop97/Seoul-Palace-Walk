@@ -1,4 +1,5 @@
 import {plushItems} from "./plush-items.js";
+import {gestureAt} from "./avatar-gestures.js";
 export const PET_MS=1450;
 export const FEED_MS=5000;
 export const JUMP_MS=740;
@@ -115,9 +116,13 @@ export function diningTray(avatar,clock){
 
 export function avatarHands(avatar,clock,{riding,seated,walking}){
   const claspSide=!riding&&(avatar.hand===-1||avatar.hand===1)?avatar.hand:0;
-  const tray=riding?null:diningTray(avatar,clock);
-  const first=riding||tray?null:heldProp(avatar.item,clock,"item",1);
-  const second=riding||tray?null:heldProp(avatar.secondItem,clock,"secondItem",-1);
+  const active=gestureAt(avatar,clock);
+  const gesture=active?.worship&&(riding||seated||walking||avatar.bus||claspSide)?null:active;
+  // Both hands are free during worship. Held objects return as soon as the pose ends.
+  const handsEmpty=riding||gesture?.worship;
+  const tray=handsEmpty?null:diningTray(avatar,clock);
+  const first=handsEmpty||tray?null:heldProp(avatar.item,clock,"item",1);
+  const second=handsEmpty||tray?null:heldProp(avatar.secondItem,clock,"secondItem",-1);
   const itemFor=side=>side===1?first:second;
   const feedAge=clock-avatar.feed?.at,petAge=clock-avatar.pet?.at;
   const feedActive=feedAge>=0&&feedAge<FEED_MS;
@@ -130,7 +135,7 @@ export function avatarHands(avatar,clock,{riding,seated,walking}){
   const sharedSide=avatar.sharedUmbrella;
   const umbrellaHand=!tray&&(sharedSide===1||sharedSide===-1)
     ?[sharedSide,-sharedSide].find(side=>side!==claspSide&&!itemFor(side)&&side!==petSide)??0:0;
-  return {claspSide,item:main?.item,spec:main?.spec,itemAge:main?.itemAge??Infinity,carrying,tray,feedAge,feeding,
+  return {gesture,claspSide,item:main?.item,spec:main?.spec,itemAge:main?.itemAge??Infinity,carrying,tray,feedAge,feeding,
     petAge,petting:Boolean(petSide),petSide,itemSide:main?.side??1,waveSide:freeSide,umbrellaHand,itemFor,
     feedingSide:feeding?using.side:0};
 }

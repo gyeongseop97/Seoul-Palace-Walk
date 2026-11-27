@@ -18,7 +18,7 @@ const categories={
   ]},
   activity:{label:"체험",ids:[
     "boat-catch","boat-fold","foot-kick","minigame","picnic","coast-festival","fountain-show","gyeongju-gjStars",
-    "wish","pet-cat","mmca-light"
+    "worship","wish","pet-cat","mmca-light"
   ]},
   guide:{label:"관람·안내",ids:["landmark-guide","visitor-guide","museum-exhibit","venue-guestbook"]},
   item:{label:"소지품",ids:["take-item","use-item","use-second-item","umbrella"]}

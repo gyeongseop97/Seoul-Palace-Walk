@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import {cafeLayout,gyeongjuClear,gyeongjuMoundHeight,gyeongjuRoute,gyeongjuWalkable,gyeongjuWallTop,mounds,places,roads,tombGates,transferShelterYaw,walls} from "../public/gyeongju-layout.js";
 import {cafeFittings} from "../public/gyeongju-cafe.js";
-import {destinations,travelDistricts,travelStops,transferDestinations,transferStop,sameGyeongjuArea} from "../public/gyeongju-region.js";
+import {destinations,travelDistricts,travelStops,transferDestinations,transferStop,sameGyeongjuArea,templeWorshipAt,enteringBikeInterior,coastName} from "../public/gyeongju-region.js";
 import {inBulguksa,templeAxis,templeCameraBlocked,templeHeight,templePoint,templeSites,stairPaths,stoneStairs,templePlantings,templePaths,templePagodas,templePonds} from "../public/bulguksa-layout.js";
 import {drapePath,groundHeightAt} from "../public/bulguksa-ground.js";
 import {templeHallTerraces} from "../public/bulguksa-hall-layout.js";
-import {localGyeongju} from "../public/region-coordinates.js";
+import {localGyeongju,gyeongjuPoint} from "../public/region-coordinates.js";
 import {cheonmaLayer,cheonmaPoint,twinHeight,twinTombName} from "../public/daereungwon.js";
 import {moundMesh,moundSurfaceHeight} from "../public/gyeongju-mound-surface.js";
 
@@ -69,6 +69,16 @@ for(const hall of templeHallTerraces.filter(h=>h.plinth)){
  const foot=templeAxis(hall.u,hall.v+hall.deckD/2+hall.stairRun+.06),landing=templeAxis(hall.u,hall.v+hall.deckD/2-.3);
  assert(gyeongjuClear(foot,landing)&&gyeongjuClear(landing,foot),hall.name+" front steps");
  assert(Math.abs(templeHeight(landing)-templeHeight(foot)-hall.plinth)<.01,hall.name+" raised deck");
+ const point=(x,z)=>templeAxis(hall.u+x,hall.v+z);
+ const pad=point(0,hall.interior.padZ),door=point(0,hall.bodyD/2);
+ const marker=templeWorshipAt(gyeongjuPoint(pad));
+ assert(marker&&Math.abs(marker.h-templeHeight(pad))<.1&&Math.abs(marker.heading-351.4)<.1,hall.name+" altar-facing floor action");
+ assert.equal(templeWorshipAt(gyeongjuPoint(door)),null);
+ assert(gyeongjuClear(foot,pad)&&gyeongjuClear(pad,foot),hall.name+" enter and leave through the open doors");
+ assert(!gyeongjuWalkable(point(hall.bodyW/2,0))&&!gyeongjuWalkable(point(0,hall.interior.screenZ+.7)),hall.name+" solid wall and altar");
+ assert(!templeCameraBlocked(pad,templeHeight(pad)+1.6)&&templeCameraBlocked(pad,hall.floor+hall.interior.eave+.15),hall.name+" interior camera clearance");
+ assert(enteringBikeInterior(gyeongjuPoint(landing),gyeongjuPoint(pad)));
+ assert.equal(coastName(gyeongjuPoint(pad)),"불국사 "+hall.name+" 법당");
 }
 for(const path of templePaths)drapePath(path,(ring,indices)=>{
  for(let i=0;i<indices.length;i+=3){

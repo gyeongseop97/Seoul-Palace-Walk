@@ -108,8 +108,12 @@ export function templeCameraBlocked(p,y){
  if(h<.04)return true;
  if(h>11)return false;
  if(h<2.7&&templeScreenAt(templeAxes(p)))return true;
- if(footprints.some(b=>h>=b.overhead&&h<=b.height&&inFootprint(p,b)&&
-  (b.id!==244539247&&b.id!==244539240||h>5||hallTerraceAt(templeAxes(p))?.solid)))return true;
+ if(footprints.some(b=>{
+  if(h<b.overhead||h>b.height||!inFootprint(p,b))return false;
+  if(b.id!==244539247&&b.id!==244539240)return true;
+  const terrace=hallTerraceAt(templeAxes(p));
+  return terrace?.solid||h>=(terrace?.ceiling??5);
+ }))return true;
  return templePagodas.some(t=>h<t.height&&(h<2?pagodaBase(p,t):Math.hypot(t.x-p.x,t.z-p.z)<(h<5?2:1.26)));
 }
 const cells=new Map();
@@ -181,6 +185,6 @@ export const templeSites=[
  add("연화교·칠보교",-39,39,"극락전 앞 안양문으로 향하는 두 석교입니다. 대웅전 앞 석교의 서쪽에 자리해요.","연화교와 칠보교를 차례로 올라 안양문을 지나면 극락전이 보입니다."),
  add("다보탑",2.2,4.8,"대웅전 앞 동쪽 탑입니다. 사각 기단 위에 돌난간과 팔각형 구조가 겹겹이 올라가요.","같은 마당 서쪽의 석가탑과 형태를 비교해 보세요.","heritage",63),
  add("석가탑",-5.5,4.5,"대웅전 앞 서쪽에 선 삼층석탑입니다. 두 층의 기단 위에 세 층의 탑신을 쌓았어요.","동쪽에 다보탑, 북쪽에 대웅전이 있습니다.","heritage",275),
- add("불국사 대웅전",-1,-3,"불국사의 동쪽 중심 전각입니다. 마당 남쪽에 자하문이 있고, 두 탑 너머 북쪽으로 대웅전이 자리합니다.","법당 앞마당을 걸어 서쪽 극락전 쪽 관람로로 가 보세요."),
- add("불국사 극락전",-48,12,"안양문 안쪽의 서쪽 영역입니다. 대웅전 마당보다 낮은 석단 위에 자리해요.","동쪽 위로는 대웅전 마당이, 남쪽 아래로는 연화교와 칠보교가 보입니다.")
+ add("불국사 대웅전",-1,-3,"불국사의 동쪽 중심 전각입니다. 마당 남쪽에 자하문이 있고, 두 탑 너머 북쪽으로 대웅전이 자리합니다.","두 탑을 지나 정면 돌계단을 올라 열린 문으로 들어가세요. 불단 앞 방석에서 절할 수 있어요."),
+ add("불국사 극락전",-48,12,"안양문 안쪽의 서쪽 영역입니다. 대웅전 마당보다 낮은 석단 위에 자리해요.","극락전 정면 돌계단을 올라 열린 문으로 들어가세요. 불단 앞 방석에서 절하고 같은 문으로 나오세요.")
 ];

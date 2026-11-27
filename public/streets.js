@@ -5,6 +5,8 @@ import {
   gate,ticket,ticketGuide,ticketForecourt,bridge,middle,hall,stoneHall,stoneFountain,court,courtAngle,fountain,garden,spawn,addObstacle,solidAt,withObstacleScope
 } from "./layout.js";
 import {buildWestern} from "./western.js";
+import {jeongdongChurchEntry} from "./seoul-worship-entries.js";
+import {churchDoor} from "./seoul-church-doors.js";
 import {fromBuilding,pavilionStairAccess,hallTerraceHeight} from "./museum.js";
 import {standPlantingFootprints} from "./street-stands.js";
 import {diningVenues} from "./dining-data.js";
@@ -547,6 +549,7 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
       box(trim,0,y-.75,side*(d/2+.025),w,.075,.12,group);
       for(let i=0;i<bays;i++){
         const px=(i-(bays-1)/2)*w/bays;
+        if(spec.church&&side===-1&&floor<2&&Math.abs(spec.x+px-jeongdongChurchEntry.facade.x)<2)continue;
         box(trim,px,y,side*(d/2+.06),1.51,1.93,.13,group);
         box((i+floor)%3===0?0x73919c:0x516e7a,px,y,side*(d/2+.14),1.23,1.66,.063,group);
         box(trim,px,y,side*(d/2+.183),.047,1.66,.035,group);
@@ -554,6 +557,10 @@ export function buildJeongdong(T,scene,kit,{deferGyeongbok=false}={}) {
       }
     }
     if(spec.church){
+      const entry=jeongdongChurchEntry,door=churchDoor(T,kit,entry,true);
+      door.position.set(wx(entry.facade.x),0,wz(entry.facade.y));
+      door.userData.terrainAnchor=entry.facade;scene.add(door);
+      nameplate(entry.name,door,2.2,1.77,.24,1.28,.34,"#514332","#eddec2");
       const towerX=-w*.25;
       box(0x9c604b,towerX,h-2,-d*.38,4.35,h+4.7,4.4,group);
       box(0xb6856d,towerX,h+3.9,-d*.38,4.59,.24,4.61,group);

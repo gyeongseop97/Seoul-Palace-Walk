@@ -1,6 +1,7 @@
 import {addLandmarks,addZone,project} from "./layout.js";
 import {eastCurb,eastRoadWidth,plazaAt} from "./plaza-layout.js";
 import {fixedOutlineTest} from "./ground-index.js";
+import {seoulCathedralEntry} from "./seoul-worship-entries.js";
 export {pointInOutline as insideCorridorPolygon} from "./ground-index.js";
 
 const point=(x,y)=>({x,y});
@@ -44,7 +45,10 @@ const corridorForecourts=[
   outline([[445.5,74.5],[472.5,74.5],[472.5,125.5],[445.5,125.5]]),
   outline([[435.2,-228],[452.7,-228],[452.7,-166],[435.2,-166]]),
   // The rear passage runs around the south side of the exhibition hall.
-  outline([[409.4,112.5],[438.9,112.5],[448.5,121.9],[448.5,125.5],[409.4,125.5]])
+  outline([[409.4,112.5],[438.9,112.5],[448.5,121.9],[448.5,125.5],[409.4,125.5]]),
+  // Connect the cathedral door to the rear passage and the opening in the Doldam-gil wall.
+  outline([[400,105],[405.2,107],[403.1,112.4],[412,112.8],[412,118.1],[403.7,118.1],
+    [404.9,128.9],[399.2,128.9],[397.8,116.6],[397.8,112.7]])
 ];
 export const corridorSidewalks=[
   profileBand(1,2),profileBand(3,4),
@@ -93,7 +97,7 @@ export const corridorCrossings=[
 
 export const corridorLandmarks=[
   project("서울도시건축전시관",37.56690,126.97674),
-  project("대한성공회 서울주교좌성당",37.567064,126.976086),
+  {...project(seoulCathedralEntry.name,37.567064,126.976086),approach:seoulCathedralEntry.outsideDoor},
   project("서울특별시의회",37.56763,126.97667),
   project("코리아나호텔",37.56823,126.97665),
   project("프레스센터",37.56743,126.97786),

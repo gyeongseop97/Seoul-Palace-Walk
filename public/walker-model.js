@@ -999,6 +999,8 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const contact=clink?Math.max(0,1-Math.abs(clinkAge-900)/170)*.045:0;
     const performance=gestureHands(position,clock,hands,{riding:riding||scooting,busy:Boolean(clink||carryingTray||eatingMeal)});
     const {pose:acting,sick,fall,umbrellaOpen,umbrellaSide}=performance;
+    model.worshipPose=acting?.worship?acting:null;
+    const kneel=model.worshipPose?.kneel??0;
     model.surfboardCarrySide=position.coast?.board&&position.coast.mode==="walk"&&!seat&&!riding&&!position.bus&&
       position.photograph==null&&!tray?[-1,1].find(side=>!itemFor(side)&&side!==claspSide&&side!==petSide&&
         side!==umbrellaSide&&!performance.hand(side))??0:0;
@@ -1094,20 +1096,21 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const biteAge=clock-snack?.started;
     const taste=biteAge>=410&&biteAge<1250?{bungeoppang:"grin",bungeoppangCustard:"grin",bungeoppangBurnt:"pout",bungeoppangTorn:"cat"}[snack.kind]:null;
     const bathing = Boolean(seat?.footBath) && seated > .5, hemLift = bathing ? 1 : 0;
-    appearance(model,position,blinkTick>3970&&blinkTick<4100,blushLevel,woozy,Boolean(sick?.weight>.38),smiling?"peace":taste,bathing);
+    const eyesClosed=blinkTick>3970&&blinkTick<4100||acting?.kind==="churchPrayer"&&acting.weight>.65;
+    appearance(model,position,eyesClosed,blushLevel,woozy,Boolean(sick?.weight>.38),smiling?"peace":taste,bathing);
     model.shoesAside.visible=bathing&&seated>.99;
     if (model.hem.visible) {
-      model.hem.scale.set(1+seated*.08,1-seated*.61,1+stride*.10);
+      model.hem.scale.set(1+seated*.08,1-seated*.61-kneel*.52,1+stride*.10);
       model.hem.rotation.set(-seated*.37-sprint*.12,pendulum*sway*.065,pendulum*sway*.044);
     }
     if (model.skirt.visible) {
       // At the water the hem is gathered up over the knees.
-      model.skirt.scale.set(1+seated*.12+folded*.42,1-seated*.10-crouch*.24-hemLift*.30,1+stride*.18+seated*.16);
+      model.skirt.scale.set(1+seated*.12+folded*.42,1-seated*.10-crouch*.24-hemLift*.30-kneel*.51,1+stride*.18+seated*.16+kneel*.22);
       model.skirt.rotation.set(-seated*.72-sprint*.085,pendulum*sway*.065,pendulum*sway*.059);
       for (const leg of legs) leg.bottom.visible = seated > .64;
     }
     if (model.dressSkirt.visible) {
-      model.dressSkirt.scale.set(.92*(1+seated*.10+folded*.27),.50*(1-seated*.16-hemLift*.20),.92*(1+stride*.14+seated*.20));
+      model.dressSkirt.scale.set(.92*(1+seated*.10+folded*.27),.50*(1-seated*.16-hemLift*.20-kneel*.44),.92*(1+stride*.14+seated*.20+kneel*.23));
       model.dressSkirt.rotation.set(-seated*.80-sprint*.085,pendulum*sway*.065,pendulum*sway*.059);
     }
     for (let i=0;i<2;i++) {
@@ -1141,6 +1144,11 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
         +airborne*(.17+i*.05)+Math.max(0,danceStep)*dance*.081;
       leg.target.set(side*(STANCE+crouch*.033+dance*.044)-pelvis.position.x,ankleY-pelvis.position.y,
         mix(step+crouch*.09,seat?.footBath?.22:.42,seated)+paddle*.085+airborne*(.10+i*.05)+danceStep*dance*.10);
+      // Keep both knees facing the altar and tuck the shins back toward the heels.
+      if(kneel){
+        leg.target.lerp(target.set(side*.129,.10-pelvis.position.y,-.31),kneel);
+        leg.target.y+=Math.sin(Math.PI*kneel)*.085;
+      }
       // Knees open outward while each ankle tucks across the opposite shin.
       if(tavern)leg.target.z-=pelvis.position.z;
       if(folded>.0001){
@@ -1150,7 +1158,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       pole.set(side*folded*1.36,folded*.02,1-folded*.52);
       solve(leg,leg.target,pole);
       const roll = (footPhase < stance ? 0 : Math.sin(swing*TAU)*.24*stride) * (1-seated);
-      pitch.setFromAxisAngle(xAxis,roll+seated*.06-Math.max(0,paddle)*.35);
+      pitch.setFromAxisAngle(xAxis,roll+seated*.06-Math.max(0,paddle)*.35+kneel*2.56);
       leg.end.quaternion.copy(globalLower).invert().multiply(pitch);
       leg.end.rotateY(-side*folded*1.25);
     }
@@ -1299,7 +1307,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const reaction = position.emote, age = (clock-reaction?.at)/1000;
     emote.visible = age >= -.3 && age < 3.15 && Boolean(emojiTexture);
     const labelY = (model.hat ? 1.69 : model.tallHair ? 1.59 : 1.52)+
-      (riding ? CYCLING_LIFT : seated*(SEAT_LIFT-.145*BODY)-crouch*.225*BODY);
+      (riding ? CYCLING_LIFT : seated*(SEAT_LIFT-.145*BODY)-crouch*.225*BODY)-.20*kneel-.39*(model.worshipPose?.bow??0);
     if (model.label) model.label.position.y = labelY+(model.labelLift??0);
     if (emote.visible) {
       const map = emojiTexture(reaction.emoji);

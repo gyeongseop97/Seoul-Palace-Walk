@@ -165,6 +165,10 @@ export function makeFirstPersonView(T,createItemProp){
       frame(shoulder,side*1.16,-1.56,.55);
       frame(elbow,side*(riding?.86:.93),-1.13+(performanceHand?Math.max(0,y+.55)*.46*weight:0),.68);
       frame(wrist,x,y+bob*.020,z);
+      if(acting?.worship){
+        // Palms meet at the same spacing on phone and widescreen cameras.
+        wrist.x=mix(wrist.x,side*.034*size,weight*(1-acting.bow));
+      }
       if(stroke){
         const {sweep,fold,idle}=stroke;
         frame(shoulder,side*.93,-1.13,.38);

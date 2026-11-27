@@ -263,10 +263,6 @@ dialog.place-guide {
 .passport-dialog .passport-paper { --ivory-1: #fffaf0; }
 .passport-dialog :is(.passport-heading h2, .passport-heading p) { color: var(--yr-ink); }
 
-html[data-ktx-transfer], html[data-ktx-transfer] #ktx-transfer-loading,
-#game-shell #loading-game.loading-transition { background: var(--yr-paper); color: var(--yr-ink); }
-.ktx-loading-track { background: var(--yr-line); }
-.ktx-loading-track::before { background: var(--yr-blue); }
 @media (prefers-reduced-transparency:reduce) {
   #game-shell { --hud-button: white; --hud-overlay: var(--yr-paper); --hud-menu: white; }
   #game-shell .game-place, #game-shell .joystick, #game-shell #chat-input { background-color: white; }

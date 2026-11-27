@@ -112,7 +112,7 @@ function edges(width,weights){
 export function* drawBulguksaHall(k,b){
  const center=templeAxis(b.u,b.v),at=localFrame(center.x,center.z,yaw),base=b.floor,plinth=b.plinth;
  const great=b.name==="대웅전",gate=!b.plinth,anyang=b.name==="안양문";
- const eave=great?6.28:gate?4.18:4.98,rise=great?4.58:gate?3.05:3.59;
+ const eave=b.interior?.eave??4.18,rise=great?4.58:gate?3.05:3.59;
  const beam=eave-(great?1.36:1.06),xHalf=b.bodyW/2,zHalf=b.bodyD/2;
  const part=(u,y,v,w,h,d,col,turn=0)=>{const p=at(u,v);k.piece(p.x,base+y,p.z,w,h,d,col,yaw+turn);};
  function panel(u,y,v,w,h,angle,mat){
@@ -143,7 +143,7 @@ export function* drawBulguksaHall(k,b){
  }else part(0,.022,0,b.bodyW+.72,.044,b.bodyD+.82,0xb6ac96);
  yield;
  const columnsX=edges(b.bodyW,b.frontBays),columnsZ=edges(b.bodyD,Array(b.sideBays).fill(1));
- const columnWidth=great?.49:gate?.4:.43;
+ const columnWidth=b.interior?.columnWidth??.4;
  function column(u,v){
   const p=at(u,v),top=beam+.17,bottom=plinth+.22;
   k.column(p.x,base+plinth+.095,p.z,columnWidth*1.52,.19,columnWidth*1.52,stone);
@@ -155,11 +155,67 @@ export function* drawBulguksaHall(k,b){
   for(const v of columnsZ.slice(1,-1))column(side*xHalf,v);
  }
  if(!gate){
-  part(0,plinth+.045,0,b.bodyW,.09,b.bodyD,0x92744e);
-  // The open leaves reveal a shaded timber interior behind the front line of columns.
-  part(0,(plinth+beam)/2,-zHalf*.58,b.bodyW-.42,beam-plinth,.16,0x72563c);
+  const {screenZ,altarW,cushionXs,padZ}=b.interior;
+  const floor=plinth+.09;
+  part(0,plinth+.04,0,b.bodyW,.08,b.bodyD,0x72583e);
+  const rows=Math.ceil(b.bodyD/.46),boardColors=[0xb08e64,0xa8845b,0xb7966c];
+  for(let i=0;i<rows;i++){
+   const v=-zHalf+i*b.bodyD/rows;
+   k.floorboard(at,-xHalf,xHalf,v+.004,v+b.bodyD/rows-.004,base+floor,boardColors[i%3],i);
+  }
+  part(0,(plinth+beam)/2,screenZ,b.bodyW-.42,beam-plinth,.16,0x72563c);
   for(const u of [-xHalf*.56,xHalf*.56])column(u,-zHalf*.25);
-  if(great)panel(0,(plinth+beam)/2,-zHalf*.58+.095,(beam-plinth)*1.78,beam-plinth-.09,0,photographic("altar",inner));
+  if(great)panel(0,(plinth+beam)/2,screenZ+.095,(beam-plinth)*1.78,beam-plinth-.09,0,photographic("altar",inner));
+  const shelfZ=screenZ+.62;
+  part(0,floor+.34,shelfZ,altarW-.16,.68,.84,0x834b36);
+  part(0,floor+.70,shelfZ,altarW,.085,1.04,0xa77549);
+  for(const side of [-1,1]){
+   const candle=at(side*(altarW/2-.32),shelfZ+.22);
+   k.column(candle.x,base+floor+.78,candle.z,.23,.06,.23,0xbf9a58);
+   k.column(candle.x,base+floor+.94,candle.z,.09,.28,.09,0xf5e4b1);
+  }
+  if(!great){
+   part(0,floor+1.77,screenZ+.105,2.14,2.16,.045,0xb99b62);
+   part(0,floor+1.77,screenZ+.137,2.04,2.06,.025,0x805345);
+   const oval=(x,y,z,w,h,d,color)=>{
+    const p=at(x,shelfZ+z);k.crown(p.x,base+floor+y,p.z,w,h,d,color,yaw);
+   };
+   const limb=(a,b,r,color)=>{
+    const point=([x,y,z])=>({...at(x,shelfZ+z),y:base+floor+y});
+    k.beam(point(a),point(b),r,color);
+   };
+   oval(0,1.72,-.38,.70,.87,.06,0xb69865);
+   oval(0,1.72,-.35,.63,.80,.055,0x53766b);
+   oval(0,2.00,-.28,.34,.36,.050,0xc1a16b);
+   oval(0,.89,0,.61,.15,.38,0xa97337);
+   oval(0,1.08,.04,.53,.22,.31,0xba853a);
+   oval(0,1.52,0,.34,.45,.23,0xbe8a41);
+   oval(0,1.99,.01,.204,.247,.176,0xd9a854);
+   oval(0,2.14,-.008,.198,.122,.171,0x85623d);
+   oval(0,2.245,-.022,.092,.082,.091,0x88643c);
+   oval(0,1.99,.167,.039,.069,.033,0xc29751);
+   oval(0,1.925,.156,.046,.010,.013,0xa17242);
+   for(const side of [-1,1]){
+    oval(side*.18,1.976,.008,.043,.094,.042,0xd5a553);
+    oval(side*.075,2.014,.151,.046,.012,.015,0x8e673f);
+   }
+   // The figure's left palm is raised and the right hand rests on the crossed legs.
+   limb([.212,1.75,.015],[.31,1.40,.09],.106,0xb57e3a);
+   limb([.31,1.40,.09],[.295,1.64,.22],.074,0xd0a050);
+   oval(.29,1.69,.222,.067,.095,.042,0xe2b362);
+   limb([-.225,1.74,.01],[-.32,1.39,.10],.105,0xc6944b);
+   limb([-.32,1.39,.10],[-.18,1.19,.28],.075,0xd2a453);
+   oval(-.135,1.17,.29,.11,.046,.068,0xdfaf59);
+   for(const dy of [0,.075]){
+    limb([.19,1.79-dy,.125],[-.12,1.51-dy,.203],.018,0xd9aa58);
+    limb([-.12,1.51-dy,.203],[-.225,1.42-dy,.14],.018,0xd9aa58);
+   }
+  }
+  for(const x of cushionXs){
+   part(x,floor+.021,padZ,.85,.042,1.08,great?0x9d554b:0x53756a);
+   part(x,floor+.047,padZ,.79,.012,1.02,great?0xb06b57:0x67857a);
+  }
+  for(const lane of [-1,0,1])part(0,eave-.19,lane*zHalf*.64,b.bodyW,.21,.22,0x855b41);
  }
  yield;
  brackets??=bracketGeometry();
@@ -185,13 +241,16 @@ export function* drawBulguksaHall(k,b){
      const pattern=front?(great&&centerBay?"flower":"diamond"):"straight";
      const drawn=doorMaterial(b.name,pattern);
      const mat=great&&front?photographic(centerBay?"flowerDoor":"sideDoor",drawn):drawn;
+     mat.side=T.DoubleSide;
      for(let n=0;n<leaves;n++){
       const opened=front&&centerBay&&(n===1||n===2),u=mid+(n+.5-leaves/2)*pitch;
       const a=site(opened?mid+(n===1?-1:1)*pitch*.98:u,opened?-pitch/2:-.055);
       if(opened)panel(a.x,(upper+lower)/2,a.z,pitch-.045,upper-lower,angle+(n===1?1:-1)*1.36,mat);
       else imageAt(u,(upper+lower)/2,-.055,pitch-.038,upper-lower,mat);
      }
-     piece(mid,lower-.08,0,clear,.16,.25,deepWood);
+     if(front&&centerBay){
+      for(const side of [-1,1])piece(mid+side*pitch*1.5,lower-.08,0,pitch,.16,.25,deepWood);
+     }else piece(mid,lower-.08,0,clear,.16,.25,deepWood);
     }else{
      piece(mid,(plinth+beam)/2,-.12,width-.16,beam-plinth,.19,0xc4af8f);
      piece(mid,plinth+.58,.008,width-.2,.13,.11,0x896951);

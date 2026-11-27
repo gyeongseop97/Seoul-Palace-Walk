@@ -30,6 +30,7 @@ import {semaVenue} from "./sema-layout.js";
 import { mmcaVenue,mmcaExhibits,mmcaWalls } from "./mmca-gallery-layout.js";
 import { diningTrayPose,diningVenues,stationDining } from "./dining-data.js";
 import { registerDiningNavigation } from "./dining-layout.js";
+import {chapels,chapelById,registerChapelObstacles} from "./chapel-layout.js";
 import { buildDiningFacade } from "./dining-world.js";
 import { PET_MS, FEED_MS, ITEMS, diningTray, jumpLift, renderedJumpLift } from "./activities.js";
 import { bikeFallAt } from "./avatar-gestures.js";
@@ -375,6 +376,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   }
   addObstacle(339,537.5,2.4,1.05,0,1.25);
   registerDiningNavigation(benches,diningVenues.filter(v=>v!==stationDining));
+  if(!regional)registerChapelObstacles(addObstacle);
   benches.push(...cheonggyeSeats);
   registerDiningNavigation(benches,[stationDining]);
   registerRailFurniture(addObstacle,benches);
@@ -387,11 +389,12 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     ...stations.map(station=>({...station,kind:"food",label:station.kind==="churu"?"츄르 사기":ITEMS[station.kind].name+" 받기"})),
     ...ktxBoardingSpots.map(spot=>({...spot,ktxTrack:spot.track,kind:"enter",label:ktxCoach.enterLabel})),
     {...ktxCoach.insideDoor,kind:"exit",label:ktxCoach.exitLabel},
-    ...[museum,mmcaVenue,semaVenue,ARCADE_SITE,...diningVenues.filter(v=>v!==stationDining),...railRooms.filter(v=>v!==ktxCoach&&v.id!=="ktx-platform")].flatMap(venue=>[
+    ...[museum,mmcaVenue,semaVenue,ARCADE_SITE,...chapels,...diningVenues.filter(v=>v!==stationDining),...railRooms.filter(v=>v!==ktxCoach&&v.id!=="ktx-platform")].flatMap(venue=>[
       {...venue.outsideDoor,kind:"enter",label:venue.enterLabel??(venue===ARCADE_SITE?"오락실 입장":diningById[venue.id]?"식당 입장":"전시관 입장")},
       {...venue.insideDoor,kind:"exit",label:venue.exitLabel??"나가기"}
     ]),
     ...Object.values(ARCADE_STAIRS).flat().map(point=>amenity(point,point.name)),
+    ...chapels.map(venue=>amenity(venue.prayerPoint,"기도하기")),
     ...diningVenues.map(venue=>({...(venue.kioskPoint??venue.menuPoint),kind:"food",
       label:venue.kioskPoint?"키오스크 주문":"카운터 주문"})),
     ...bikeDocks.map(dock=>amenity(dock.access,"따릉이 대여")),
@@ -633,7 +636,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     return {root,outsideDoor:venue.outsideDoor,load,*build(){
       const features=yield* this.module[builder](T,root,makeKit(root),venue,walkerModels);
       if(venue===ARCADE_THIRD_SITE)Object.assign(features,yield* buildClassics(T,features.room,makeKit(features.room)));
-      if(arcadeFloors.has(venue.id)||railRoomById[venue.id])yield* consolidate(root,new Set());
+      if(arcadeFloors.has(venue.id)||railRoomById[venue.id]||chapelById[venue.id])yield* consolidate(root,new Set());
       features?.afterBatch?.();
       this.view=features;
       return [];
@@ -641,6 +644,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   }
   const indoorsById={
     museum:gallery,
+    ...Object.fromEntries(chapels.map(venue=>[venue.id,indoorDistrict(venue,()=>import("./chapel-world.js"),"buildChapel")])),
     ...Object.fromEntries(railRooms.filter(v=>!cultureVenues.includes(v)).map(venue=>[venue.id,indoorDistrict(venue,()=>import("./rail-station-world.js"),"buildRailRoom")])),
     [semaVenue.id]:indoorDistrict(semaVenue,()=>import("./sema-gallery.js"),"buildSemaGallery"),
     [mmcaVenue.id]:indoorDistrict(mmcaVenue,()=>import("./mmca-gallery.js"),"buildMmcaGallery"),
@@ -803,9 +807,12 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     }
     const waiting=required.some(incomplete);
     if(loading){
-      loading.hidden=!waiting&&!required.some(district=>district.failed);
-      const message=waiting?"산책길을 열고 있어요.":"산책길을 불러오지 못했어요.";
-      if(loading.textContent!==message)loading.textContent=message;
+      const failed=!waiting&&required.some(district=>district.failed);
+      loading.hidden=!waiting&&!failed;
+      loading.classList.toggle("loading-error",failed);
+      const message=failed?"산책길을 불러오지 못했어요.":indoors?inside.root.name+" 불러오는 중":"서울로 이동 중";
+      const caption=loading.querySelector("strong");
+      if(caption&&caption.textContent!==message)caption.textContent=message;
     }
     return waiting;
   }
@@ -1497,6 +1504,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const cameraPoint=(outsideBus||outsideRaft)&&bus?bus:seat??anchor;
     const watchLift=seaside?.watchLift()??0;
     anchorPoint.set(wx(cameraPoint.x),eyeHeight+watchLift,wz(cameraPoint.y));
+    const worship=anchorModel?.worshipPose;
+    if(worship)anchorPoint.y-=worship.kneel*(firstPerson?.24:.14)+worship.bow*(firstPerson?.67:.28);
     if(tavernView||rowingView)anchorModel?.headJoint.localToWorld(anchorPoint.set(0,.266,.22));
     if(carryingBoardView){
       // Lean over the carrying shoulder when looking down so the gripping hand fits even on a phone.
@@ -1528,7 +1537,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       camera.fov+=(zoomFov-camera.fov)*(1-Math.exp(-delta*12));
       camera.updateProjectionMatrix();
     }
-    const viewPitch=firstPerson?Math.max(-87,Math.min(65,view.tilt+(tavernView?15:0))):
+    const worshipPitch=worship?worship.weight*9+worship.bow*46:0;
+    const viewPitch=firstPerson?Math.max(-87,Math.min(65,view.tilt+(tavernView?15:0)+worshipPitch)):
       Math.max(-83,Math.min(62,(shipOrbit?24:outsideBus?23:outsideRaft?18:14)+(view.tilt<0?view.tilt*1.22:view.tilt)));
     const bathView=!firstPerson&&seat?.footBath;
     const pitch=tightStreamView?Math.max(20,Math.min(41,viewPitch)):bathView?Math.max(23,viewPitch):viewPitch;
@@ -1670,7 +1680,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     bungeoCustomer.placeChat(cameraUp);
     if(anchorModel&&cameraDistance<1.08)anchorModel.group.visible=false;
     if(arcadeFloors.has(insideId)&&cameraDistance<3.2&&anchorModel?.label)anchorModel.label.visible=false;
-    const umbrella=firstPerson&&!bodyView&&anchor.sharedUmbrella&&anchorModel?.umbrella;
+    const umbrella=firstPerson&&!bodyView&&anchor.sharedUmbrella&&anchorModel?.umbrella?.visible&&anchorModel.umbrella;
     if(umbrella?.visible){
       if(!firstPersonUmbrella){firstPersonUmbrella=umbrella.clone();outdoors.add(firstPersonUmbrella);}
       umbrella.getWorldPosition(firstPersonUmbrella.position);

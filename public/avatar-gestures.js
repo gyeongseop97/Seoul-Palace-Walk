@@ -1,5 +1,6 @@
 import {isCycling} from "./sejong-bike.js";
-export const GESTURE_DURATIONS=Object.freeze({wave:2450,clap:2250,punch:2100,dance:3600,heart:2500,cheer:2450,peace:2700});
+export const GESTURE_DURATIONS=Object.freeze({wave:2450,clap:2250,punch:2100,dance:3600,heart:2500,cheer:2450,peace:2700,
+  templeBow:5200,churchPrayer:4400});
 export const SICK_DURATION_MS=2150;
 export const MAX_ALCOHOL_LEVEL=8;
 export const MAX_ALCOHOL_DRINKS=8;
@@ -28,7 +29,17 @@ export function gestureAt(avatar,clock){
   const duration=GESTURE_DURATIONS[kind],age=clock-at;
   if(!at||!Number.isFinite(age)||age< -240||age>=duration)return null;
   const time=Math.max(0,age)/1000;
-  return {kind,time,weight:ease(Math.min(time/.235,(duration/1000-time)/.32))};
+  const weight=ease(Math.min(time/.235,(duration/1000-time)/.32));
+  if(kind==="templeBow"){
+    // Join the palms, kneel, lower the forehead, then rise in reverse order.
+    const kneel=ease((time-.36)/.88)*ease((4.95-time)/.84);
+    const bow=ease((time-1.22)/.92)*ease((4.07-time)/.86);
+    return {kind,time,weight,worship:true,kneel,bow};
+  }
+  if(kind==="churchPrayer"){
+    return {kind,time,weight:ease(Math.min(time/.65,(duration/1000-time)/.68)),worship:true,kneel:0,bow:0};
+  }
+  return {kind,time,weight};
 }
 
 export function alcoholLevel(avatar,clock){
@@ -96,9 +107,9 @@ export function gestureHands(avatar,clock,hands,{riding,busy}){
   const {claspSide,itemFor,petting,feeding,petSide,waveSide,umbrellaHand}=hands;
   const grounded=!riding&&!avatar.bus;
   const sick=grounded?sickPoseAt(avatar,clock):null,fall=grounded?bikeFallAt(avatar,clock):null;
-  const gesture=grounded&&!busy&&!petting&&!feeding&&!sick&&!fall?gestureAt(avatar,clock):null;
-  const umbrellaOpen=Boolean(grounded&&avatar.umbrella&&!fall);
-  const needsBoth=gesture?.kind==="clap"||gesture?.kind==="heart";
+  const gesture=grounded&&!busy&&!petting&&!feeding&&!sick&&!fall?hands.gesture:null;
+  const umbrellaOpen=Boolean(grounded&&avatar.umbrella&&!fall&&!gesture?.worship);
+  const needsBoth=gesture?.kind==="clap"||gesture?.kind==="heart"||gesture?.worship;
   const centreUmbrella=needsBoth&&!avatar.sharedUmbrella&&!claspSide&&!itemFor(1)&&!itemFor(-1);
   const umbrellaSide=umbrellaOpen&&!centreUmbrella?umbrellaHand||[1,-1].find(side=>side!==claspSide&&!itemFor(side)&&side!==petSide&&
     (gesture?.kind!=="wave"||side!==waveSide)):0;
@@ -115,6 +126,9 @@ export function gestureBody(pose){
   const {kind,time,weight,heave}=pose;
   const sway=Math.sin(time*TAU*1.36),bounce=Math.cos(time*TAU*2.72);
   switch(kind){
+    case "templeBow":return {x:0,y:-.286*pose.kneel-.018*pose.bow,pitch:.065*weight+1.365*pose.bow,
+      yaw:0,roll:0,headPitch:.10*weight+.19*pose.bow,headRoll:0};
+    case "churchPrayer":return {x:0,y:0,pitch:.07*weight,yaw:0,roll:0,headPitch:.24*weight,headRoll:0};
     case "dance":return {x:sway*.061*weight,y:(bounce*.023-.025)*weight,pitch:.045*weight,
       yaw:sway*.21*weight,roll:-sway*.17*weight,headPitch:bounce*.06*weight,headRoll:sway*.13*weight};
     case "punch":return {x:0,y:0,pitch:.07*weight,yaw:Math.sin(time*TAU*1.75)*.21*weight,
@@ -134,6 +148,12 @@ export function gestureBody(pose){
 export function gestureHand(pose,side,waveSide,firstPerson=false){
   const {kind,time,weight,heave}=pose;
   switch(kind){
+    case "templeBow":
+    case "churchPrayer":{
+      const bow=pose.bow;
+      return firstPerson?{x:side*(.052+.29*bow),y:-.47-.27*bow,z:.67+.22*bow,bend:-.09-1.17*bow,roll:-side*(.22-.17*bow)}:
+        {x:side*(.042+.20*bow),y:.34+.15*bow,z:.29+.090*bow,bend:-.18-.75*bow,roll:-side*.21*(1-bow)};
+    }
     case "wave":{
       if(side!==waveSide)return null;
       const swing=Math.sin(time*17),lift=Math.cos(time*17);

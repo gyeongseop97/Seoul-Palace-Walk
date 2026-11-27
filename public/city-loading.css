@@ -1,0 +1,89 @@
+:root,
+html[data-ktx-transfer="seoul"] #ktx-transfer-loading {
+  --journey-paper: #ddeeff;
+  --journey-ink: #14366a;
+  --journey-gif: url("./art/loading-seoul.gif");
+  --journey-still: url("./art/loading-seoul.png");
+}
+html[data-loading-city="pohang"],
+html[data-ktx-transfer="pohang"] #ktx-transfer-loading {
+  --journey-paper: #c1edf2;
+  --journey-ink: #074d67;
+  --journey-gif: url("./art/loading-pohang.gif");
+  --journey-still: url("./art/loading-pohang.png");
+}
+html[data-loading-city="gyeongju"],
+html[data-ktx-transfer="gyeongju"] #ktx-transfer-loading {
+  --journey-paper: #d8e8f9;
+  --journey-ink: #243760;
+  --journey-gif: url("./art/loading-gyeongju.gif");
+  --journey-still: url("./art/loading-gyeongju.png");
+}
+#ktx-transfer-loading,
+#ktx-transfer-loading strong { display: none; }
+html[data-ktx-transfer] #entry-flow { display: none; }
+html[data-ktx-transfer] #game-shell { visibility: hidden; }
+html[data-ktx-transfer] #ktx-transfer-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+}
+html[data-ktx-transfer="seoul"] #ktx-transfer-loading .ktx-to-seoul,
+html[data-ktx-transfer="pohang"] #ktx-transfer-loading .ktx-to-pohang,
+html[data-ktx-transfer="gyeongju"] #ktx-transfer-loading .ktx-to-gyeongju { display: block; }
+#ktx-transfer-loading, #game-shell #loading-game {
+  isolation: isolate;
+  overflow: hidden;
+  place-items: center;
+  background-color: var(--journey-paper);
+  color: var(--journey-ink);
+  text-align: center;
+}
+.city-loading::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--journey-gif) center / contain no-repeat;
+  pointer-events: none;
+}
+.city-loading-center {
+  display: grid;
+  justify-items: center;
+  gap: clamp(12px, 1.8vh, 18px);
+  /* Keep the bar on the horizontal centreline with the city name above it. */
+  transform: translateY(calc(-50% + 3px));
+}
+.city-loading-center strong {
+  color: inherit;
+  font: 850 clamp(22px, 3.5vmin, 42px)/1.18 "Malgun Gothic", system-ui, sans-serif;
+  letter-spacing: -.055em;
+}
+.city-loading-track {
+  display: block;
+  width: clamp(128px, 22vmin, 210px);
+  height: 6px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--journey-ink) 16%, var(--journey-paper));
+}
+.city-loading-track::after {
+  content: "";
+  display: block;
+  width: 46%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--journey-ink);
+  animation: city-loading-slide 1.35s ease-in-out infinite alternate;
+}
+@keyframes city-loading-slide { to { transform: translateX(117.39%); } }
+#loading-game.loading-error::before, #loading-game.loading-error .city-loading-track { display: none; }
+/* Ordinary district streaming can continue behind a playable scene. */
+#game-shell #loading-game:not(.loading-transition):not(.loading-error) { background: transparent; pointer-events: none; }
+#loading-game:not(.loading-transition):not(.loading-error) .city-loading-center,
+#loading-game:not(.loading-transition):not(.loading-error)::before { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .city-loading::before { background-image: var(--journey-still); }
+  .city-loading-track::after { animation: none; margin: auto; }
+}

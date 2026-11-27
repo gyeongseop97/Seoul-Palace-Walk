@@ -19,6 +19,7 @@ const types = {
   ".css": "text/css; charset=utf-8",
   ".jpg": "image/jpeg",
   ".png": "image/png",
+  ".gif": "image/gif",
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
   ".webmanifest": "application/manifest+json",

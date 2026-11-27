@@ -1,6 +1,7 @@
 import {outdoorRailBlocks,railStepAllowed,sameStation} from "./station-levels.js";
 import {worldExtent} from "./world-extent.js";
 import {interiorAt,interiorBounds} from "./interior-layout.js";
+import {jeongdongChurchEntry} from "./seoul-worship-entries.js";
 
 const origin = {lat:37.56780,lng:126.97150};
 export const eastMetres=88263, northMetres=111000;
@@ -227,7 +228,7 @@ export const city = [
   {...p("서울광장",37.56572,126.97791), w:62,d:47,h:0},
   {...p("서울시청 서소문청사",37.56447,126.97497),w:47,d:24,h:31},
   {...p("서울시의회 별관",37.56454,126.97400),w:39,d:23,h:16,surveyReplaced:true},
-  {...p("정동제일교회",37.56522,126.97298),w:21,d:26,h:11,brick:true,church:true},
+  {...p(jeongdongChurchEntry.name,37.56522,126.97298),w:21,d:26,h:11,brick:true,church:true,approach:jeongdongChurchEntry.outsideDoor},
   {...p("서울도서관",37.566283,126.977873),w:55,d:22.4,h:19},
   {...p("정동극장",37.56563,126.97308),w:27,d:21,h:14}
 ];

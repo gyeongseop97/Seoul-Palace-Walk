@@ -4,6 +4,8 @@ import {cheonggyeAccess,cheonggyeRoadLeads,cheonggyeSurfaces} from "./cheonggye-
 import {seoulPlazaOutline} from "./seoul-hwangudan-layout.js";
 import {makeCrosswalkMarkings,streetSegmentParts} from "./crosswalk-markings.js";
 import {makeStreetSurfaceCut} from "./street-surface-cuts.js";
+import {seoulCathedralEntry} from "./seoul-worship-entries.js";
+import {churchDoor} from "./seoul-church-doors.js";
 import {corridorProfile,corridorProfileAt,corridorSidewalks,corridorEastLandingKerb,seoulPlazaCrossingLanding,corridorMainRoad,corridorAvenueJoin,corridorBranches,corridorCrossings,
   insideCorridorPolygon} from "./sejong-corridor-layout.js";
 
@@ -310,6 +312,14 @@ function buildCorridorFacades({T,group,wx,wz,box,matte,block:buildBlock,obstacle
   mass(0xa76c53,419.8,83.7,12.4,13.3,19.3,0,-.38);
   block(0xceb38f,419.8,83.7,12.85,13.9,.46,18.7,-.38);
   block(0x66564a,419.8,83.7,12.9,13.9,1.0,19.3,-.38);
+  const face=seoulCathedralEntry.facade;
+  at(face.x,face.y);
+  const door=churchDoor(T,{box,matte},seoulCathedralEntry,false);
+  door.position.set(wx(face.x),0,wz(face.y));group.add(anchored(door));
+  const plaqueOffset=3.26;
+  label(seoulCathedralEntry.name,face.x+plaqueOffset*Math.cos(face.angle)+.19*Math.sin(face.angle),
+    face.y-plaqueOffset*Math.sin(face.angle)+.19*Math.cos(face.angle),1.76,2.56,face.angle,"#e9dbc2","#514a3d");
+  at(409.8,88.1);
   for(let i=0;i<6;i++){
     const y=68.4+i*6.5;
     block(0x593d34,418.5,y,.26,1.61,3.07,5.22,-.38);

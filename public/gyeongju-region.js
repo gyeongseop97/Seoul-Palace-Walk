@@ -12,6 +12,8 @@ import {gyeongjuPoint,localGyeongju,inGyeongjuSpace} from "./region-coordinates.
 import {places,roads,buildings,walls,mounds,parks,gyeongjuRoute,gyeongjuWalkable} from "./gyeongju-layout.js";
 import {inBulguksa,templeSites,templePaths,templeHalls,templeBridges,templeCourts,templePonds,templeWoods} from "./bulguksa-layout.js";
 import {lawnEdge} from "./bulguksa-ground.js";
+import {templeRoomAt} from "./bulguksa-hall-layout.js";
+export {templeWorshipAt} from "./bulguksa-hall-layout.js";
 export {gyeongjuOrigin,gyeongjuPoint,inGyeongjuSpace} from "./region-coordinates.js";
 
 const districtByPlace={stationExit:"경주역",stationBus:"경주역",townBus:"황리단길",townReturnBus:"황리단길",hwangnidan:"황리단길",
@@ -65,6 +67,7 @@ export const travelDistricts=Object.fromEntries(Object.entries(defaultPlace).map
  return [name,[local.find(p=>p.name===first),...local.filter(p=>p.name!==first)]];
 }));
 const shopGuides=new Map(sites.filter(([,type])=>type==="shop").map(([site])=>[site.name,site.guide]));
+const templeGuides=new Map(templeSites.map(site=>[site.name,site.guide]));
 // The location badge, guide action and map all sample the same position on an update.
 let lastX=NaN,lastY=NaN,nearestSite=null,nearestDistance=Infinity;
 export const coastDistrict=p=>locate(p)?.district??"경주 역사유적지구";
@@ -78,8 +81,10 @@ function locate(p){
  return nearestSite;
 }
 export function nearbyGuide(p){
- const room=marketRoomAt(localGyeongju(p));
+ const local=localGyeongju(p),room=marketRoomAt(local);
  if(room)return shopGuides.get(room.name);
+ const hall=inBulguksa(local)&&templeRoomAt(local);
+ if(hall)return templeGuides.get("불국사 "+hall.name);
  const site=locate(p);
  return nearestDistance<144?site.guide:null;
 }
@@ -111,7 +116,7 @@ export function coastWalkable(x,y,passage){
  return gyeongjuWalkable(localGyeongju({x,y}),from,Number.isFinite(passage?.airFeet)?passage.airFeet:undefined);
 }
 export const coastDrySpot=coastWalkable;
-const bikeIndoor=(p,up)=>insideObservatory(p)||!up&&inCheonmaHall(p)||Boolean(marketRoomAt(p));
+const bikeIndoor=(p,up)=>insideObservatory(p)||!up&&inCheonmaHall(p)||Boolean(marketRoomAt(p))||Boolean(inBulguksa(p)&&templeRoomAt(p));
 export const enteringBikeInterior=(from,to)=>bikeIndoor(localGyeongju(to),gyeongjuNextUp(from,to))&&!bikeIndoor(localGyeongju(from),from.up);
 export function coastDryStep(a,b){
  const n=Math.max(1,Math.ceil(Math.hypot(a.x-b.x,a.y-b.y)/.35));
@@ -161,6 +166,8 @@ export function registerGyeongju(){
 export function coastName(p){
  const local=localGyeongju(p),room=marketRoomAt(local);
  if(room)return room.name;
+ const hall=inBulguksa(local)&&templeRoomAt(local);
+ if(hall)return "불국사 "+hall.name+" 법당";
  if(inCheonmaHall(local))return p.up?"천마총 봉분":"천마총 전시관";
  if(insideObservatory(local))return "첨성대 내부";
  const nearest=locate(p);
