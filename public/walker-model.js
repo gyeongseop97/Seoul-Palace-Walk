@@ -976,7 +976,9 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const driving = riding && isBikeDriver(position),passenger = riding && isBikePassenger(position);
     const lift = riding||scooting ? 0 : jump;
     const airborne = Math.min(1,lift/JUMP_HEIGHT);
-    const walking = Boolean(position.stepping && !seat && !riding && !scooting && jump<.06);
+    const skating=position.sport==="skate",pushing=skating&&position.sportPush;
+    const skateStroke=pushing?Math.sin(clock*.006):0;
+    const walking = Boolean(position.stepping && !position.sport && !seat && !riding && !scooting && jump<.06);
     const running = walking && Boolean(position.running);
     const hands=avatarHands(position,clock,{riding:riding||scooting,seated:Boolean(seat),walking});
     const {claspSide,feedAge,feeding,petAge,petting:pet,petSide,umbrellaHand,itemFor,feedingSide,tray}=hands;
@@ -1083,6 +1085,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
       headJoint.rotation.set(-.030-sprint*.070+crouch*.16+(eatingMeal?.dip??0)*.18+(eatingMeal?.lift??0)*.078+(bodyPose?.headPitch??0)*idleGesture,
         -pendulum*sway*.05+wobble*.65,(position.kiss||0)*.105+breath*.020-pendulum*sway*.045+(bodyPose?.headRoll??0)*idleGesture+wobble);
     }
+    if(position.greetingLook)headJoint.rotation.y+=position.greetingLook;
     if(tavern)tavernDining.lean(model,seat,tavern);
     body.rotation.z=scooting?0:-(fall?.weight??0)*1.48;
     model.shadow.visible = !seat&&!scooting;
@@ -1131,6 +1134,11 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
         solve(leg,leg.target,forward);
         leg.end.quaternion.copy(globalLower).invert();
         continue;
+      }
+      if(skating){
+        const push=Math.max(0,side*skateStroke);
+        leg.target.set(side*(STANCE+.19*push)-pelvis.position.x,SOLE+.045+push*.025-pelvis.position.y,.10*side*skateStroke+.045);
+        solve(leg,leg.target,forward);leg.end.quaternion.copy(globalLower).invert();continue;
       }
       const footPhase = (phase + i*.5)%1;
       const swing = clamp((footPhase-stance)/(1-stance));
@@ -1215,6 +1223,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
         continue;
       }
       let x = side*.385*REACH, y = .012+seated*.09, z = .020+seated*.19;
+      if(skating){x=side*(.44+.065*side*skateStroke);y=.16+.06*side*skateStroke;z=.075-.14*side*skateStroke;}
       z += side*pendulum*sway*(.17+sprint*.10);
       y += sprint*sway*(.050+Math.max(0,side*pendulum)*.12);
       x += side*airborne*.14; y += airborne*.30; z += airborne*.08;

@@ -2,6 +2,7 @@ import {mappedRoads,mappedBuildings,mappedWalls,mappedMounds,mappedParks} from "
 import {southernRoads,southernBuildings,southernWalls,southernMounds,southernParks} from "./gyeongju-southern-geography.js";
 import {marketRooms,marketBuilding,marketRoomAt} from "./gyeongju-market.js";
 import {gyeongjuPlantings} from "./gyeongju-planting-layout.js";
+import {centerline} from "./outdoor-sports.js";
 import {tower,observatoryApproach,insideObservatory} from "./gyeongju-observatory.js";
 import {daereungwonPlaces,inCheonmaHall,cheonmaExhibit,cheonmaRoofHeight,cheonmaLayer,cheonmaLocal,crossesGalleryWall,michuStoneAt,twinTombName,cheonmaPoint} from "./daereungwon.js";
 import {moundSurfaceHeight} from "./gyeongju-mound-surface.js";
@@ -187,7 +188,8 @@ const pedestrianStreet=r=>r.kind!=="street"||r.name==="포석로";
 // The same surveyed districts as the buildings and roads. Unmarked ground between the
 // features is grass, including the verge around the station forecourt.
 function openGround(p){
- return p.x>=-323&&p.x<=706&&p.z>=-522&&p.z<=223||
+ return p.x>=850&&p.x<=1173&&Math.abs(p.z-centerline(1120-p.x))<=53||
+  p.x>=-323&&p.x<=706&&p.z>=-522&&p.z<=223||
   p.x>=270&&p.x<=860&&p.z>=223&&p.z<=870||
   p.x>=-6770&&p.x<=-6398&&p.z>=4036&&p.z<=4342;
 }

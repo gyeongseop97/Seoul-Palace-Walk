@@ -80,6 +80,9 @@ const validCoast=s=>s==null||coastModes.has(s.mode)&&typeof s.board==="boolean"&
 const validAvatar = (a) => validPoint(a) && validCoast(a.coast) && [a.groundSit,a.kissReady].every(v=>v===undefined||typeof v==="boolean") &&
   (a.bagClaim==null||validId(a.bagClaim)) &&
   (a.character===undefined || a.character==="man" || a.character==="woman") &&
+  (a.sport==null||["luge","sled","skate"].includes(a.sport)) &&
+  (a.sportPush==null||typeof a.sportPush==="boolean") &&
+  (a.sportMove==null||a.sport==="skate"&&["spin","hop","fall"].includes(a.sportMove)&&validTime(a.sportAt)) &&
   validLook(a.look) &&
   (a.wave===undefined || finite(a.wave,0,9999999999999)) &&
   (a.kick===undefined || validTime(a.kick)) &&

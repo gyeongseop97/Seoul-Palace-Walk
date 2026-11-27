@@ -12,6 +12,7 @@ import {surferPose,boardAttitude} from "./coast-surfing.js";
 import {hullAttitude,deckToSea,seaToDeck,deckHeight,gangwayHeight,exitGate,cruiseScale,mainFloor,salonBowDoor,salonSideHalfWidth,inSalonPortDoor} from "./coast-vessel-layout.js";
 import {cruiseSeatById,cruiseSeatHeading,cruiseSeatSpot} from "./coast-vessel-seats.js";
 export {default as residentStreets} from "./pohang-resident-streets.js";
+import {replyToWave} from "./resident-greeting.js";
 import cruiseStreets from "./cruise-resident-streets.js";
 import {createResidentLife} from "./resident-life.js";
 import {surfSample} from "./pohang-surf-waves.js";
@@ -240,10 +241,11 @@ export function createCoastScene(root,play,walkers,kit){
   }
  }
  let passengerLife,passengerRoom;
+ const passengerGreetings=new Map();
  function passengers(clock,anchor,players,room,limit){
   const sea=seaPoint(anchor);
   if(Math.hypot(sea.x-play.ship.x,sea.z-play.ship.z)>72)return [];
-  if(!passengerLife||passengerRoom!==room){passengerRoom=room;passengerLife=createResidentLife(cruiseStreets,room,"cruise");}
+  if(!passengerLife||passengerRoom!==room){passengerGreetings.clear();passengerRoom=room;passengerLife=createResidentLife(cruiseStreets,room,"cruise");}
   const local=seaToDeck(play.ship,sea,clock,mainFloor);
   const taken=new Set(players.map(p=>p.coast?.deckSeat).filter(Boolean));
   return passengerLife.visible(clock,{x:local.x,y:local.z},null,[],limit,()=>null).map(p=>{
@@ -251,8 +253,10 @@ export function createCoastScene(root,play,walkers,kit){
    const seat=cruiseSeatById.get(p.deckSeat);
    const seated=seat&&!taken.has(seat.id);
    if(seated){taken.add(seat.id);point=cruiseSeatSpot(seat);heading=cruiseSeatHeading(play.ship,seat);}
-   return {...p,...coastPoint(deckToSea(play.ship,point,clock,mainFloor)),heading,groundSit:false,
+   const pose={...p,...coastPoint(deckToSea(play.ship,point,clock,mainFloor)),heading,groundSit:false,
     coast:{mode:"deck",deckX:point.x,deckZ:point.z,floor:mainFloor,deckSeat:seated?seat.id:undefined}};
+   if(!passengerGreetings.has(p.id))passengerGreetings.set(p.id,{});
+   replyToWave(passengerGreetings.get(p.id),pose,players,clock);return pose;
   });
  }
  function hideBoard(id){

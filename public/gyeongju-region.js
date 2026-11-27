@@ -1,3 +1,4 @@
+import {hillStart,hillLength,hillPoint,hillLane} from "./outdoor-sports.js";
 import {addLandmarks,addZone} from "./layout.js";
 import {gyeongjuGuides} from "./gyeongju-guide.js";
 import {marketRooms,marketCounters,marketRoomAt} from "./gyeongju-market.js";
@@ -40,6 +41,7 @@ const cityBusSites=gyeongjuBusStops.map((stop,index)=>{
   source:"https://www.gyeongju.go.kr/hwangridan/images/gj_map_kor.pdf",sourceLabel:"경주시 황리단길 안내도"}};
 });
 const sites=[
+ [{...hillStart,name:"산악 루지·잔디썰매 출발장",label:"산악 루지·잔디썰매",district:"교촌·월정교",heading:270,guide:{title:"산악 루지·잔디썰매",description:"월정교 동쪽에 조성한 게임 속 산악 코스예요.",directions:"출발장에서 탈것을 고르세요. 좌우로 조향하고 뒤로 당겨 감속하세요. 깃발 사이로 지나면 기록에서 벌점을 피할 수 있어요."}},"activity"],
  [travelStops.stationExit,"railway"],[travelStops.stationBus,"bus"],[travelStops.townBus,"bus"],[travelStops.townReturnBus,"bus"],
  [describe("hwangnidan","황리단길"),"activity"],
  ...marketRooms.map(r=>[{...gyeongjuPoint(r.entry),name:r.name,label:r.name,heading:r.heading,district:r.id==="pub"?"교촌·월정교":"황리단길",guide:{...r.guide,title:r.name}},"shop"]),
@@ -206,6 +208,10 @@ export function drawCoastMap(base,svg,drawMarker,mini=false){
  for(const [kind,fill] of [["lawn","#c9d2af"],["wood","#a9bf9f"],["water","#9cbcc4"]]){
   svg(base,"path",{d:parks.filter(p=>p.kind===kind).map(p=>path(p.points)+"Z").join(""),fill});
  }
+ const courseLine=side=>Array.from({length:69},(_,i)=>localGyeongju(hillPoint(i*hillLength/68,side)));
+ svg(base,"path",{d:path([...courseLine(-40),...courseLine(40).reverse()])+"Z",fill:"#b1c29a"});
+ for(const [kind,color] of [["luge","#9a9c99"],["sled","#8ea75f"]])
+  svg(base,"path",{d:path(courseLine(hillLane(kind))),fill:"none",stroke:color,"stroke-width":8,"stroke-linecap":"round"});
  const blocks=buildings.map(b=>path(b.points)+"Z").join("");
  svg(base,"path",{d:blocks,fill:"#b3a896",stroke:"#9e9586","stroke-width":.5});
  for(const m of mounds){

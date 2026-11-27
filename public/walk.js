@@ -13,6 +13,7 @@ import {bindSceneTouch} from "./scene-touch.js";
 import {bindPlayViewport} from "./play-viewport.js";
 import {bindPaperBoats} from "./paper-boat-client.js";
 import {bindNearbyControls} from "./nearby-controls.js";
+import {createSportControls} from "./sport-controls.js";
 import {bindMapGestures} from "./map-gestures.js";
 import {drawMapGround,fitMapBounds,mapFormat,nearbyMap} from "./map-format.js";
 import {bindMapLabels} from "./map-labels.js";
@@ -33,7 +34,7 @@ import {stationSurfaces,stationBuildings} from "./station-survey.js";
 import {westSurfaces,westBuildings,westSites,westRegion,westWalkable} from "./west-district-layout.js";
 
 import {bukchonAlleyShortcut,bukchonBounds,bukchonPaths,bukchonLandmarks,bukchonWalkable,bukchonLawns} from "./bukchon-layout.js";
-import {hwangudanGround,hwangudanPaths,hwangudanLandmarks,hwangudanBuildings,hwangudanWalkable,
+import {rinkLandmark,hwangudanGround,hwangudanPaths,hwangudanLandmarks,hwangudanBuildings,hwangudanWalkable,
   seoulPlazaOutline,seoulPlazaLawn} from "./seoul-hwangudan-layout.js";
 import {cheonggyeDeckExits,cheonggyeDeckStep,cheonggyeLandmarks,cheonggyeLevel,cheonggyeRoadLeads,cheonggyeStations,cheonggyeSurfaces,cheonggyeWalkable,inCheonggye,riverAt,bankAt,streamTerraces,terraceWidth,springBed,cheonggyeCascade} from "./cheonggye-layout.js";
 import {FOOT_BATH_PERIOD,footKickAge} from "./walker-model.js";
@@ -503,7 +504,7 @@ function updateEnvironment(time){
   }
   const wet=["rain","snow"].includes(currentEnvironment.weather)&&!interiorAt(me.x,me.y);
   if(!wet)umbrellaFolded=false;
-  const available=wet&&!me.bus&&!riding&&!isCycling(me);
+  const available=wet&&!me.sport&&!me.bus&&!riding&&!isCycling(me);
   const ready=available&&me.seat==null;
   const link=myLink(),sharing=isUmbrellaLink(link);
   const guest=sharing&&link.active&&link.follower===session.id;
@@ -870,7 +871,7 @@ function syncExpressionTriggers(){
 syncExpressionTriggers();
 touchControls.addEventListener("change",()=>{closeActionMenus();syncExpressionTriggers();});
 function gestureReady(time,kind){
-  if(!session||riding||me.bus||me.coast?.mode==="surf"||isCycling(me)||queuedBus||queuedBike||myLink()?.active||
+  if(!session||me.sport||riding||me.bus||me.coast?.mode==="surf"||isCycling(me)||queuedBus||queuedBike||myLink()?.active||
     photoMode.camera||minigames.active()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||carryingDiningTray(time)||mealBiteLocked(time)||
     jumpInProgress(time)||ITEM_SLOTS.some(slot=>itemAnimating(me[slot],time)))return false;
   if(!kind)return true;
@@ -1428,6 +1429,7 @@ function returnToLobby(message=""){
   saveBag();bagCommand=null;walkBag.close();
   const old=session;
   rememberWalkPosition();
+  if(sports.active)sports.stop();
   leaveBeacon();session=null;clearSyncTimer();resetInput();
   nearbyControls.reset();peerControls.reset();paperBoats.reset();
   queuedHand=queuedFeed=queuedChat=null;people.clear();changeLinks([]);resetLocationGuides();
@@ -1700,6 +1702,7 @@ window.addEventListener("pageshow",event=>{
 });
 
 function canJump(time){
+  if(sports.active)return me.sport==="skate";
   if(!session||!world||bungeoMode||arcade.kind||riding||me.bus||isCycling(me)||queuedBus||queuedBike||sharingUmbrella()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||carryingDiningTray(time)||mealBiteLocked(time)||jumpInProgress(time))return false;
   if(onCoast&&!coastPlay?.canJumpHere())return false;
   if(me.coast?.deckJumpY!=null)return deckJumpLift(me,time)===0;
@@ -1708,6 +1711,7 @@ function canJump(time){
 function jump(){
   const time=gameTime();
   if(!canJump(time))return;
+  if(sports.active){sports.trick("hop");return;}
   if(pendingSeat)course=[];
   pendingSeat=seatClaim=null;stand();
   rememberWalkPosition();
@@ -1892,6 +1896,7 @@ const plazaDestinations=[
 const gyeongbokDestinations=[...gbShortcuts.slice(0,3),busShortcut("gyeongbokgung","정류장"),
   {...uijeongbuEntry,label:"의정부지",heading:30}];
 const hwangudanDestinations=[
+  {...rinkLandmark,label:rinkLandmark.name},
   ...hwangudanLandmarks.slice(0,2).map(point=>({...point,label:point.name,aria:point.name+"로 순간이동"})),
   busShortcut("seoul-plaza","정류장")
 ];
@@ -2034,6 +2039,7 @@ function movementInput(){
   return {x,y,run,runBlend:Number(run)};
 }
 function beginBackgroundTrip(){
+  if(sports.active)return;
   if(backgroundTrip||!session||!world||riding||photoMode.camera||me.bus||me.coast?.mode==="surf"||me.seat!=null||isBikePassenger(me)||amFollowingHands()||
     arcade.frozen||bungeoMode||(!keys.size&&thumbId===undefined&&!course.length))return;
   const input=movementInput(),length=Math.hypot(input.x,input.y);
@@ -2537,7 +2543,7 @@ function seatTaken(index,seat){
   return [...people.values()].some(({avatar})=>avatar.bus?.index===index&&avatar.bus.seat===seat);
 }
 function transportReady(time){
-  return Boolean(session&&world&&!riding&&!me.bus&&!queuedBus&&!queuedBike&&!myLink()&&!queuedHand&&
+  return Boolean(session&&world&&!me.sport&&!riding&&!me.bus&&!queuedBus&&!queuedBike&&!myLink()&&!queuedHand&&
     me.seat==null&&!me.up&&!jumpInProgress(time)&&!feedingLocked(time)&&time-(me.pet?.at??0)>=PET_MS&&
     !sickLocked(time)&&!ITEM_SLOTS.some(slot=>itemAnimating(me[slot],time)));
 }
@@ -3010,7 +3016,9 @@ $("landmark-guide").addEventListener("click",()=>{
   $("landmark-guide-walk").open=false;
   $("landmark-guide-walk").hidden=!guide.directions;
   $("landmark-guide-directions").textContent=guide.directions??"";
-  $("landmark-guide-source").href=guide.source;
+  $("landmark-guide-source").hidden=!guide.source;
+  if(guide.source)$("landmark-guide-source").href=guide.source;
+  else $("landmark-guide-source").removeAttribute("href");
   $("landmark-guide-source").textContent=(guide.sourceLabel??"공식 자료 보기")+" ↗";
   $("landmark-guide-dialog").showModal();
 });
@@ -3078,6 +3086,7 @@ function useHeldItem(slot){
 }
 ITEM_SLOTS.forEach((slot,index)=>$(useItemButtons[index]).addEventListener("click",()=>useHeldItem(slot)));
 function movePlayerTo(destination,place){
+  if(sports.active)sports.stop();
   if(browsedMapBox)setOverview(false);
   if(me.coast)delete me.coast.track;
   if(bungeoMode)setBungeoCooking(false);
@@ -3390,6 +3399,10 @@ $("museum-exhibit").addEventListener("click",()=>{
   $("exhibit-dialog").showModal();
 });
 
+const sports=createSportControls({me,city:activeCity,now:gameTime,movePlayer:movePlayerTo,reset:resetInput,focus:focusGame,toast,setActivity,
+  sync(){dirty=true;wakeSync();},
+  canStart:()=>Boolean(session&&world&&!riding&&!me.bus&&!isCycling(me)&&!queuedBus&&!queuedBike&&!myLink()?.active&&!photoMode.camera&&!arcade.kind&&!minigames.active()&&!me.groundSit&&me.seat==null)
+});
 function setActivity(id,label,disabled=false){
   const button=$(id);
   if(button.hidden===Boolean(label))button.hidden=!label;
@@ -3759,7 +3772,7 @@ function updateActivities(time,guideNearby,coastMarkers){
   setText($("ground-sit"),me.groundSit?"일어나기":"앉기");
   if(!$("gesture-menu").hidden||expressionWheel.showingGestures)syncGestureButtons(time);
   expressionWheel.refresh();
-  const eligible=world&&session&&!me.bus&&!isCycling(me)&&!queuedBus&&!queuedBike;
+  const eligible=world&&session&&!me.sport&&!me.bus&&!isCycling(me)&&!queuedBus&&!queuedBike;
   updateSocial(time,eligible);
   updateBungeoControls(time);
   for(const [kind,point] of Object.entries(ARCADE_GAMES))setActivity("arcade-"+kind,canStartArcade(point)?arcadeLabels[kind]:null);
@@ -3843,7 +3856,7 @@ function mapDirection(dx,dy,cameraRelative){
 }
 function freeLookHeading(time){
   if(!(firstPerson||gyeongjuActivities?.insideTower())||!session||!world||photoMode.camera||riding||bungeoMode||arcade.kind||minigames.active())return null;
-  if(me.bus||isCycling(me)||me.seat!=null||me.groundSit||coastPlay?.locked()||me.coast?.mode==="surf"||amFollowingHands())return null;
+  if(me.sport||me.bus||isCycling(me)||me.seat!=null||me.groundSit||coastPlay?.locked()||me.coast?.mode==="surf"||amFollowingHands())return null;
   if(worshipping(time)||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||mealBiteLocked(time))return null;
   return normalize(ownView.pan);
 }
@@ -3919,6 +3932,13 @@ function motion(now,elapsed){
   if(photoMode.camera){
     if(moving(me)||me.blocked){Object.assign(me,{vx:0,vy:0,running:false,blocked:false});dirty=true;wakeSync();}
     soundscape(gameTime(now),0,false);return false;
+  }
+  if(sports.active){
+    const input=movementInput(),relative=thumbId!==undefined||document.activeElement!==$("world");
+    const [x,y]=mapDirection(input.x,input.y,relative);
+    const traveled=sports.step(elapsed,input,{x,y},gameTime(now));
+    if(traveled||moving(me))dirty=true;
+    return traveled;
   }
   const oldX=me.x,oldY=me.y,link=myLink(),follower=amFollowingHands();
   const wasMoving=moving(me)||me.blocked,wasBlocked=me.blocked,wasRunning=me.running;
@@ -4053,6 +4073,7 @@ function selectCoastMarker(markers){
   return closest;
 }
 function preferredNearbyAction(time){
+  if(!$("sport-ride").hidden)return "sport-ride";
   if(!$("worship").hidden&&!$("worship").disabled)return "worship";
   if(onCoast&&me.coast?.mode==="table"){
     for(const id of ["coast-grill","coast-order","coast-clam","coast-drink","coast-fish","coast-bell"]){
@@ -4185,7 +4206,7 @@ function frame(now){
     const tutorialPaused=Boolean(photoMode.camera||riding||minigames.active()||document.hidden||document.querySelector("dialog[open]"));
     if(tutorial.needsStart&&world&&!tutorialPaused)tutorial.start();
     tutorial.update(now,tutorialPaused);
-    const seatEnabled=world&&session&&!me.bus&&(!onCoast||me.coast?.mode==="walk")&&!isCycling(me)&&!queuedBus&&!queuedBike&&!myLink()?.active&&!feedingLocked(time);
+    const seatEnabled=world&&session&&!me.sport&&!me.bus&&(!onCoast||me.coast?.mode==="walk")&&!isCycling(me)&&!queuedBus&&!queuedBike&&!myLink()?.active&&!feedingLocked(time);
     const bench=seatEnabled&&me.seat==null&&!pendingSeat&&!seatClaim?benchNearby():null;
     const eating=mealBiteLocked(time);
     const seatLabel=me.seat!=null?(eating?"식사 중":"일어나기"):seatClaim?"자리 확인 중":pendingSeat?
@@ -4210,6 +4231,7 @@ function frame(now){
     updateHandControls();
     const heldGift=!me.bus&&!isCycling(me)&&ITEM_SLOTS.some(s=>validPacked(me[s]));
     setActivity("give-held",heldGift&&giftPeers().length?"물건 건네기":null,bagLocked());
+    sports.update();
     nearbyControls.refresh(preferredNearbyAction(time),nearbyActionScope(),nearbyKeyboardAvailable());
     peerControls.refresh(preferredPeerAction(time));
     if(coastMarkers)coastMarker=selectCoastMarker(coastMarkers);
@@ -4469,6 +4491,7 @@ function drawTransport(base,mini){
   for(const stop of transitStops)if(stop.mode==="subway")drawMapPoint(base,{...stop.arrive,name:stop.name},"subway",mini);
 }
 function drawMapPoints(base,mini){
+  drawMapPoint(base,rinkLandmark,"activity",mini);
   const plazaHeritage=["woldae","yi","sejong","ruins"];
   const heritage=[
     ...stationSites,...westSites,...pavilions,...gbSites,...corridorLandmarks,...jeongdongExtensionLandmarks,...hwangudanLandmarks,

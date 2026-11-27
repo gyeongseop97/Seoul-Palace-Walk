@@ -1,3 +1,4 @@
+import {replyToWave} from "./resident-greeting.js";
 import {clearSegment} from "./layout.js";
 import {stops as seoulStops,createVisitorWalks,streetLine,onLine} from "./visitor-walks.js";
 import {diningVenues} from "./dining-data.js";
@@ -260,6 +261,7 @@ export function addCityVisitors(T,kit,models,{benches,stations,parkLife,floorHei
           }
         }
       }
+      if(!seat&&vehicleFloor==null&&!v.camera?.visible&&!pose.pet)replyToWave(v,pose,players,clock);
       models.update(v.model,pose,{now,clock,delta:poseDelta,seat,floor:vehicleFloor??floorHeight(pose),turnEase:1-Math.exp(-poseDelta*8)});
       if(seat?.tray||v.hadMeal)showMeal(pose,seat,clock);
       if(seat?.footBath||v.wasBathing)water(v.id,now,seat,pose,clock);
@@ -269,7 +271,7 @@ export function addCityVisitors(T,kit,models,{benches,stations,parkLife,floorHei
   function setRoom(id){
     if(room===id)return;
     room=id;walks=makeWalks(id);
-    for(const v of visitors.values()){hide(v,Infinity);v.visit=null;v.catCycle=null;}
+    for(const v of visitors.values()){hide(v,Infinity);v.visit=null;v.catCycle=null;v.greeting=null;}
   }
   return {update,setRoom};
 }

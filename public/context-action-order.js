@@ -6,7 +6,7 @@ const categories={
     "coast-disembark","coast-exitBus","raft-moor","ktx-destination","raft-helm","bus-action","coast-embark",
     "coast-moor","coast-release","coast-helm","coast-return","coast-tour","gyeongju-train","coast-train","subway",
     "gyeongju-boardBus","coast-bus","coast-cityBus","bike-action","bike-park","bike-tandem",
-    "coast-parkScooter","coast-scooter","coast-surf","coast-board","station-lift"
+    "coast-parkScooter","sport-ride","sport-lift","coast-scooter","coast-surf","coast-board","station-lift"
   ]},
   food:{label:"음식·음료",ids:[
     "dining-eat","dining-order","dining-call","bungeo-serve","bungeo-accept","bungeo-open","bungeo-gift",
@@ -18,7 +18,7 @@ const categories={
   ]},
   activity:{label:"체험",ids:[
     "boat-catch","boat-fold","foot-kick","minigame","picnic","coast-festival","fountain-show","gyeongju-gjStars",
-    "worship","wish","pet-cat","mmca-light"
+    "sport-extra","worship","wish","pet-cat","mmca-light"
   ]},
   guide:{label:"관람·안내",ids:["landmark-guide","visitor-guide","museum-exhibit","venue-guestbook"]},
   item:{label:"소지품",ids:["take-item","use-item","use-second-item","umbrella"]}

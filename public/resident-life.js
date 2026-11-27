@@ -1,3 +1,4 @@
+import {replyToWave} from "./resident-greeting.js";
 import {ALCOHOL_DURATION_MS} from "./avatar-gestures.js";
 
 const period=600;
@@ -181,6 +182,7 @@ export function createResidentLife(graph,room,city){
     const progress=age/(leg.end-leg.start);pose.coast={mode:"walk",track:a[4]+(b[4]-a[4])*progress};
    }
    decorate?.(pose,person,clock,a,b);
+   replyToWave(person,pose,players,clock);
    return pose;
   });
  }

@@ -1,5 +1,5 @@
 const boarding=new Set([
-  "bike-action","bike-park","bike-tandem","bus-action","subway",
+  "sport-ride","bike-action","bike-park","bike-tandem","bus-action","subway",
   "gyeongju-boardBus","gyeongju-train","coast-bus","coast-cityBus","coast-exitBus","coast-train",
   "coast-embark","coast-disembark","coast-scooter","coast-parkScooter","coast-board","coast-surf"
 ]);

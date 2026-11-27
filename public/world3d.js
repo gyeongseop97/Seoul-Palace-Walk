@@ -1,4 +1,6 @@
 import * as T from "three";
+import {createSportVenue,createIceMarks,poseSport} from "./outdoor-sports-scene.js";
+import {onRink,rink,sportFloor,hillFinish} from "./outdoor-sports.js";
 import { buildJeongdong, hallRooms } from "./streets.js";
 import { addWater } from "./water.js";
 import { addObstacle, solidAt, platformAt, loftHeight, bridge, gate, middle, hall, stoneHall, courtAngle, fountain,ticketGuide } from "./layout.js";
@@ -153,7 +155,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   }));
   // Keep the sky enclosing the camera along the entire north–south walk.
   const outdoors=new T.Group(),heavens=new T.Group();
-  let arcadeBowGeometry;
+  let arcadeBowGeometry,sportVenue,iceMarks;
   outdoors.matrixAutoUpdate=false;
   sky.renderOrder=-3;heavens.add(sky);outdoors.add(heavens);scene.add(outdoors);
   scene.fog=new T.FogExp2(0xc6dbe3,.0039);
@@ -986,7 +988,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
   }
   // Low kerbs, benches and ledges can be stood on after a jump, so they raise the floor too.
   function floorHeight(position){
-    if(historicCity)return historicCity.surface(position);
+    if(historicCity)return Math.max(sportFloor(position),historicCity.surface(position));
+    if(!seaside&&onRink(position))return outsideGroundOffset(position)+.13;
     if(seaside)return seaside.surface(position);
     const rail=railHeight(position.x,position.y);
     if(rail!=null)return rail+platformAt(position.x,position.y,true);
@@ -1207,6 +1210,9 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     prevTime=now;
     const anchor=state.monitorFocus??me,angle=view.pan*Math.PI/180,insideId=state.monitorFocus?null:interiorAt(anchor.x,anchor.y),indoors=Boolean(insideId),
       atPlaza=inGwanghwamunPlaza(anchor.x,anchor.y);
+    const nearSport=!indoors&&(city==="seoul"?Math.hypot(anchor.x-rink.x,anchor.y-rink.y)<220:city==="gyeongju"&&Math.hypot(anchor.x-hillFinish.x-135,anchor.y-hillFinish.y)<420);
+    if(nearSport&&!sportVenue){sportVenue=createSportVenue(city,origin,outsideGroundOffset);outdoors.add(sportVenue);}
+    if(sportVenue)sportVenue.visible=nearSport;
     const interior=indoorsById[insideId];
     const service=gyeongju||diningById[insideId]?state.diningService??[]:[];
     const baking=state.bungeoMode&&(cookingStallById(state.bungeoMode.stall)??BUNGEO_STALL);
@@ -1358,6 +1364,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     if(hwangudan.root.parent===outdoors)updateHwangudan?.(night);
     if(!indoors&&cheonggye.root.parent===outdoors)updateCheonggye?.(now*.001,night,scene.fog.color,anchor,state.paperBoats,clock);
     const roster=[me,...peers];
+    if(nearSport&&city==="seoul"){iceMarks??=createIceMarks(outdoors,origin,outsideGroundOffset);iceMarks(roster,clock);}
+    else iceMarks?.([],clock);
     const passengers=seaside?.passengers(clock,anchor,roster,residentRoom,quality.sparse?2:4)??[];
     const locals=passengers.concat(residents.visible(clock,anchor,insideId,roster,(quality.sparse?7:14)-passengers.length,interiorAt,coast?.residentActivity));
     const visibleWalkers=roster.concat(locals),present=new Set(visibleWalkers.map(player=>player.id));
@@ -1427,7 +1435,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       if(!model){model=walkerModels.create(player.coat??0xab5947,player.nickname,labelSprite,player.nickname??player.id);models.set(player.id,model);}
       else if(!model.group.parent)scene.add(model.group);
       const floor=footing(player.bikeDriverPosition??player);
-      const tableSeat=seatAt(player,clock);
+      const downhill=player.sport==="luge"||player.sport==="sled";
+      const tableSeat=downhill?{x:player.x,y:player.y,heading:player.heading,base:footBathSeatBase(floor+.29)}:seatAt(player,clock);
       const waterPoint=tableSeat?.waterPoint;
       drawRipples(player.id,now,
         waterPoint?{...waterPoint,level:outsideGroundOffset(waterPoint)+CHEONGGYE_WATER_LEVEL+.016,seat:tableSeat,kick:footKickAge(player,clock)}:null);
@@ -1444,6 +1453,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       }
       walkerModels.update(model,diningPose(player),{now,clock,delta:animationDelta,seat:tableSeat,floor,jump:renderedJumpLift(player,clock,floor),emojiTexture,chatTexture,
         turnEase:player===me?1-Math.exp(-delta*22):1,steeringGrips:player===pilot?rowing?.hands:null});
+      if(player.sport||model.sportKind)poseSport(model,player,clock,floor);
       seaside?.pose(player,model);
       minigameWorld.pose(player,model,state.photoCapture);
       if(arcadeFloors.has(insideId)){

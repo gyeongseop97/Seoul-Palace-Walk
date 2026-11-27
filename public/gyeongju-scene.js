@@ -6,6 +6,7 @@ import {createRaftScene,drawRaftPiers} from "./gyeongju-raft-model.js";
 import {RAFT_DECK_HEIGHT,raftHeave,raftPierHeight} from "./gyeongju-raft-layout.js";
 import {isRaftBus} from "./bus-network.js";
 import {gyeongjuPlantings} from "./gyeongju-planting-layout.js";
+import {centerline,hillHeight} from "./outdoor-sports.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {buildPalacePond} from "./palace-pond-model.js";
 import {pondWater,tickWater} from "./water-shader.js";
@@ -269,8 +270,16 @@ function* buildDistrict(root,eye,isStation,kit,glowMat,bulb,waterMaterials,bridg
   if(!isStation)for(const p of parks){
    if(relevant(p.points[0].x)&&p.kind==="water"){waterMaterials.push(waterFeature(root,p,rng));yield;}
   }
-  const treeKit=makeTreeBuilder(T,null,{snapshotPart:k.treePart,registerCrownLod:registerDistrictLod,rand:rng,clearance:{meshFits:()=>true,trim:()=>true}});
+  let treeBase=0;
+  const treeKit=makeTreeBuilder(T,null,{snapshotPart:mesh=>{mesh.position.y+=treeBase;k.treePart(mesh);mesh.position.y-=treeBase;},registerCrownLod:registerDistrictLod,rand:rng,clearance:{meshFits:()=>true,trim:()=>true}});
   yield;
+  if(!isStation)for(let i=0;i<60;i++){
+   const s=4.4*i,side=(i%2?1:-1)*(17+i*17%26);
+   treeBase=hillHeight(s,side);
+   treeKit.grow(1120-s,centerline(s)+side,{height:4.8+i*7%4,style:i%3?"cloud":"column",palette:["pine","deep","amber","olive"][i%4]});
+   yield;
+  }
+  treeBase=0;
   for(const tree of gyeongjuPlantings(parks,roads,places.stationExit,mounds).trees){
    if(relevant(tree.x)){treeKit.grow(tree.x,tree.z,tree);yield;}
   }

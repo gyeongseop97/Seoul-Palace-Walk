@@ -58,6 +58,10 @@
 }
 .play-secondary { display: none; justify-content: flex-end; }
 #game-shell #nearby-controls .play-secondary button { width: auto; }
+#sport-status {
+  position:absolute;right:0;bottom:calc(100% + 6px);width:max-content;max-width:min(76vw,340px);pointer-events:none;
+  padding:5px 9px;border-radius:8px;background:#153353e8;color:#fff;font-variant-numeric:tabular-nums;
+}
 #raft-control-hint {
   position: absolute; right: 0; bottom: calc(100% + 6px); pointer-events: none;
   border-radius: 8px; padding: 5px 8px; background: #12382fee; color: #f6efdc;

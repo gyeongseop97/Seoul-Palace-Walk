@@ -18,6 +18,7 @@ export const hwangudanHotelPorch={x:714.9,y:368,angle:.08};
 export const hwangudanDrums=outline([[695.4,333.3],[694.5,336.7],[693.65,339.9]]);
 export const hwangudanRelics=outline([[744.4,315.9],[746,316.6],[747.3,318.1]]);
 
+export const rinkLandmark=place("서울광장 아이스링크",568.6,209,180,0,"스케이트를 신고 방향을 밀어 활주하세요. 빙판에서 점프와 회전을 할 수 있어요.");
 export const hwangudanLandmarks=[
   place("환구단 정문",652.3,294.45,113,-12,"2007년 우이동에서 다시 발견된 환구단의 정문입니다. 2009년 소공동의 지금 자리로 옮겨 복원했고, 주변에는 2025년 열린 정원이 조성됐습니다."),
   place("황궁우",716.3,321.45,22,-25,"1899년에 지은 3층 팔각 건물로, 하늘의 신위를 모셨습니다. 환구단 본단은 일제강점기에 철거됐고 황궁우는 그 자리에 남아 있습니다."),
@@ -217,4 +218,4 @@ export function registerHwangudanNavigation(){
 }
 
 addZone({name:"환구단",contains:inHwangudan,walkable:hwangudanWalkable});
-addLandmarks(hwangudanLandmarks);
+addLandmarks([...hwangudanLandmarks,rinkLandmark]);
