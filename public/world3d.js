@@ -1432,16 +1432,19 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const raft=historicCity&&(isRaftBus(anchor.bus?.index)||watchesRaft(state.photoCamera??anchor))?clientRaftAt(clock):null;
     const pilot=raft?.helm&&roster.find(player=>player.id===raft.helm&&isRaftBus(player.bus?.index));
     const rowing=pilot&&helmStroke(raft,pilot.bus.seat,clock);
+    const parkRiders=new Set((state.amusementSessions??[]).flatMap(ride=>ride.riders.map(person=>person.id)));
     visibleWalkers.forEach((player,index)=>{
       let model=models.get(player.id);
-      const visible=sameStation(interiorAt(player.x,player.y),insideId)&&Math.hypot(player.x-anchor.x,player.y-anchor.y)<135;
+      const onRide=parkRiders.has(player.id);
+      const visible=sameStation(interiorAt(player.x,player.y),insideId)&&(Math.hypot(player.x-anchor.x,player.y-anchor.y)<135||onRide&&historicCity);
       if(!visible){if(model){model.group.visible=false;model.group.removeFromParent();walkerModels.clearChat(model);seaside?.hideBoard(player.id);}drawRipples(player.id,now);
         updateTableTray(player,null,clock);return;}
       if(!model){model=walkerModels.create(player.coat??0xab5947,player.nickname,labelSprite,player.nickname??player.id);models.set(player.id,model);}
       else if(!model.group.parent)scene.add(model.group);
+      if(model.ridePose){model.group.rotation.set(0,0,0);model.ridePose=false;}
       const floor=footing(player.bikeDriverPosition??player);
       const downhill=player.sport==="luge"||player.sport==="sled";
-      const tableSeat=downhill?{x:player.x,y:player.y,heading:player.heading,base:footBathSeatBase(floor+.29)}:seatAt(player,clock);
+      const tableSeat=onRide?{x:player.x,y:player.y,heading:0,base:0}:downhill?{x:player.x,y:player.y,heading:player.heading,base:footBathSeatBase(floor+.29)}:seatAt(player,clock);
       const waterPoint=tableSeat?.waterPoint;
       drawRipples(player.id,now,
         waterPoint?{...waterPoint,level:outsideGroundOffset(waterPoint)+CHEONGGYE_WATER_LEVEL+.016,seat:tableSeat,kick:footKickAge(player,clock)}:null);
@@ -1709,7 +1712,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     cameraUp.set(0,1,0).applyQuaternion(camera.quaternion);
     for(const model of models.values())if(model.group.visible&&model.chatSprite)walkerModels.placeChat(model,cameraUp);
     bungeoCustomer.placeChat(cameraUp);
-    if(anchorModel&&(cameraDistance<1.08||state.amusementRide))anchorModel.group.visible=false;
+    if(anchorModel&&(state.amusementRide?state.amusementRide.id==="wheel":cameraDistance<1.08))anchorModel.group.visible=false;
     if(arcadeFloors.has(insideId)&&cameraDistance<3.2&&anchorModel?.label)anchorModel.label.visible=false;
     const umbrella=firstPerson&&!bodyView&&anchor.sharedUmbrella&&anchorModel?.umbrella?.visible&&anchorModel.umbrella;
     if(umbrella?.visible){
@@ -1730,7 +1733,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       }
     }
     for(const player of roster){
-      if(player.id===anchor.id)continue;
+      if(player.id===anchor.id||parkRiders.has(player.id))continue;
       const group=models.get(player.id)?.group;
       if(group?.visible&&Math.hypot(group.position.x-camera.position.x,group.position.z-camera.position.z)<.70&&
         camera.position.y>=group.position.y-.10&&camera.position.y<group.position.y+1.72)group.visible=false;
@@ -1789,7 +1792,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       sheltered:Boolean(shelter||anchor.umbrella),sharedShelter:Boolean(shelter),inside:indoors||Boolean(bus&&firstPerson&&!firstPersonRaft),
       sparse:quality.sparse,pixelRatio:quality.pinned?quality.max:quality.ratio,night});
     seaside?.update(state,night,camera,renderer.domElement.height,quality.sparse||quality.ratio<.9,locals);
-    historicCity?.update(state,night,camera,raft,rowing);
+    historicCity?.update(state,night,camera,raft,rowing,models);
     if(waitingForEntryFloor){
       if(!historicCity.entryReady(camera))return false;
       waitingForEntryFloor=false;

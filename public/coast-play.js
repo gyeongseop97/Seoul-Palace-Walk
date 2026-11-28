@@ -178,7 +178,7 @@ export function createCoastPlay({me,visit,view,request,now,changed,reset,notice,
    grills=new Map(orders.filter(o=>o.cookingClams>0).map(o=>[o.spot,o.grillUntil-6500]));
   }catch{
    if(c&&now()-lastError>5000){notice("항구와 연결을 다시 시도하고 있어요.");lastError=now();}
-  }finally{nextPoll=now()+(pending.length?250:boat.helm?450:1500);}
+  }finally{nextPoll=now()+(pending.length?350:boat.helm?450:s.mode==="table"?1500:4500);}
  }
  function stepAboard(spot){
   deck=spot;

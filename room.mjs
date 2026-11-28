@@ -29,6 +29,7 @@ import {ensureRoomPhotos,roomPhotoPayload,selectRoomPhoto,validPhoto,writeRoomPh
 import {getRoomWeather} from "./server/room-weather.mjs";
 import {arcadeSnapshotLifetime,cleanArcadeActivity} from "./server/room-arcade.mjs";
 import {ensureRoomBowling,pruneRoomBowling,roomBowling,selectRoomBowling,validBowling} from "./server/room-bowling.mjs";
+import {ensureAmusement,pruneAmusement,roomAmusement,selectAmusement,validAmusement} from "./server/room-amusement.mjs";
 import {cleanupSocial,clinkStatement,leaveClinks,selectSocial,socialPayload,startFountainShow} from "./server/social.mjs";
 import {ensureMinigameTables} from "./database/minigame-schema.mjs";
 import {cleanupMinigames,leaveMinigames,minigamePayload,minigameStatements,selectMinigames,validMinigame} from "./server/minigames.mjs";
@@ -583,7 +584,7 @@ export async function api(request,env){
     const reply=await exchangeMotion(db,body,Date.now());
     return reply?json(reply):json({error:"움직임을 읽을 수 없어요."},400);
   }
-  const {minigame,picnic,dining,bungeo,bowling}=body;
+  const {minigame,picnic,dining,bungeo,bowling,amusement}=body;
   const inventory=body.inventory;
   if(inventory&&(!key||!validInventory(inventory,id)))return json({error:"가방 요청을 확인해 주세요."},400);
   const diningVenue=dining?.venue??body.diningVenue;
@@ -625,6 +626,7 @@ export async function api(request,env){
   if(picnic!=null&&(!key||avatar===undefined||!validPicnic(picnic)))return json({error:"피크닉 요청을 읽을 수 없어요."},400);
   if(bungeo!=null&&(!key||avatar===undefined||!validBungeo(bungeo,id)))return json({error:"조리 좌판 요청을 읽을 수 없어요."},400);
   if(bowling!=null&&(!key||avatar===undefined||!validBowling(bowling)))return json({error:"볼링 요청을 읽을 수 없어요."},400);
+  if(amusement!=null&&(!key||avatar===undefined||!validAmusement(amusement)))return json({error:"놀이기구 탑승 정보를 확인해 주세요."},400);
   if(diningVenue!=null&&(!key||!isDiningVenue(diningVenue))||dining!=null&&(!key||avatar===undefined||!validDiningCommand(dining))){
     return json({error:"식당 요청을 읽을 수 없어요."},400);
   }
@@ -641,6 +643,8 @@ export async function api(request,env){
   if(watchBungeo)await ensureBungeoTables(db);
   const watchBowling=Boolean(key&&(bowling||body.bowlingWatch===true));
   if(watchBowling)await ensureRoomBowling(db);
+  const watchAmusement=Boolean(key&&(amusement||body.amusementWatch===true));
+  if(watchAmusement)await ensureAmusement(db);
   const watchLifts=key&&(body.lift||body.liftWatch===true);
   if(watchLifts)await ensureLiftTables(db);
   const tandem=Boolean(key&&(body.bikeOffers===true||tandemActions.has(bike?.action)));
@@ -666,6 +670,7 @@ export async function api(request,env){
       operations.push(...cleanupPicnics(db,room,now));
       if(watchBungeo)operations.push(...cleanupBungeo(db,now));
       if(watchBowling)operations.push(pruneRoomBowling(db,now));
+      if(watchAmusement)operations.push(pruneAmusement(db,now));
       if(diningVenue)operations.push(pruneDiningService(db,now));
       operations.push(db.prepare(`
         DELETE FROM handholds WHERE created < ? AND
@@ -710,6 +715,7 @@ export async function api(request,env){
   if(bungeo)operations.push(...bungeoStatements(db,bungeoContext));
   const bungeoSelection=watchBungeo?operations.push(selectBungeo(db,bungeoContext))-1:-1;
   const bowlingSelection=watchBowling?operations.push(selectRoomBowling(db,room))-1:-1;
+  const amusementSelection=watchAmusement?operations.push(selectAmusement(db,room))-1:-1;
   const diningSelection=diningVenue?operations.push(selectDiningService(db,room,diningVenue))-1:-1;
   const socialContext={room,id,key,now,online,show,clink};
   if(show)operations.push(startFountainShow(db,socialContext));
@@ -755,6 +761,8 @@ export async function api(request,env){
     }else delete avatar.bikeRide;
   }
   const receiver={id,avatar:avatars.get(id)};
+  const amusementState=watchAmusement?await roomAmusement(db,{room,id,key,command:amusement,
+    row:results[amusementSelection].results[0],rows}):{};
   const bungeoState=watchBungeo?bungeoPayload(await advanceBungeoOrder(db,bungeoContext,receiver.avatar,
     results[bungeoSelection].results[0]),bungeoContext):{};
   const bowlingState=watchBowling?await roomBowling(db,{room,id,key,now,avatar:receiver.avatar,command:bowling,
@@ -801,6 +809,7 @@ export async function api(request,env){
     ...picnicPayload(results[picnicSelection].results[0],picnic),
     ...bungeoState,
     ...bowlingState,
+    ...amusementState,
     dining:tableService,
     handholds,umbrellas,
     bikeOffer:tandem?bikeOffer:undefined,

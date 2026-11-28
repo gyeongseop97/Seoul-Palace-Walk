@@ -17,10 +17,10 @@ export const parkRides=[
 export const parkGuide="https://www.gjw.co.kr/images/contents/guidemap.pdf";
 const boardingHelp=[
   "정문을 지나 산책로를 따라가거나, 지도에서 놀이기구 입구를 선택하세요.",
-  "관람차에 타고 위로 올라가며 보문호 주변을 둘러보세요.",
-  "배가 앞뒤로 크게 흔들리는 동안 탑승 시점으로 파크를 볼 수 있어요.",
-  "방향키나 화면 버튼으로 운전하고 다른 차와 부딪혀 보세요.",
-  "천천히 올라가 정상에서 잠깐 멈춘 뒤 수직으로 떨어져요."
+  "친구와 이 입구에서 타면 같은 칸에 앉아요. 보문호를 함께 둘러보세요.",
+  "친구와 나란히 앉아 바이킹이 가장 높이 올라가는 순간을 기다려 보세요.",
+  "친구와 한 대씩 타고 방향키나 화면 버튼으로 서로 부딪혀 보세요.",
+  "친구와 같은 열차를 타요. 정상에서 잠깐 멈춘 뒤 수직으로 떨어져요."
 ];
 export const parkDestinations=[parkEntrance,...parkRides.map(ride=>({
   ...ride.gate,name:ride.name+" 입구",

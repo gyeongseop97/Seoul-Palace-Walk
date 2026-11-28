@@ -2,23 +2,26 @@ import {receiveArcade} from "./arcade-presence.js";
 
 // World interactions use reliable room updates. Position and arcade samples can overtake one another.
 export function createMotionStream(request){
-  let owner=null,next=0,inflight=0,sequence=0,lastKey="",lastSend=-Infinity,healthyUntil=0;
+  let owner=null,next=0,inflight=0,sequence=0,lastKey="",lastSend=-Infinity,healthyUntil=0,wasActive=false;
   return {
     healthy:now=>now<healthyUntil,
     tick({visit,people,me,now,clock,active,arcadePacket}){
-      if(owner!==visit){owner=visit;next=0;inflight=0;sequence=Date.now()*1000;lastKey="";healthyUntil=0;lastSend=-Infinity;}
+      if(owner!==visit){owner=visit;next=0;inflight=0;sequence=Date.now()*1000;lastKey="";healthyUntil=0;lastSend=-Infinity;wasActive=false;}
       if(now<next||inflight>=2||!people.size)return;
       let nearby=false,remoteActive=false;
       for(const peer of people.values()){
         if(Math.hypot(peer.position.x-me.x,peer.position.y-me.y)>108)continue;
         nearby=true;
-        remoteActive||=Boolean(peer.stepping||peer.arcade||peer.live?.frames.at(-1)?.arcade);
+        remoteActive||=Boolean(peer.stepping||peer.arcade||currentArcade(peer,clock));
       }
       if(!nearby){next=now+500;return;}
       const {x,y,heading,vx,vy,running,blocked}=me,arcade=arcadePacket();
+      const inMotion=Boolean(active||arcade||remoteActive);
+      if(!inMotion&&!wasActive){next=now+150;return;}
+      wasActive=inMotion;
       const key=JSON.stringify([x,y,heading,vx,vy,running,blocked,arcade]);
       const send=key!==lastKey||now-lastSend>=1000;
-      next=now+(active||arcade||remoteActive?78:180);
+      next=now+(arcade?150:220);
       const motion={x,y};
       if(send){
         motion.frame={seq:++sequence,at:clock,heading,vx,vy,running:Boolean(running),blocked:Boolean(blocked),arcade};

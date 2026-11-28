@@ -371,14 +371,14 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
    const p=local;
    if(marketCameraBlocked(p,y))return true;
    return y<4.2&&insideSolid(p);
-  },update(state,night,camera,raft,rowing){
+  },update(state,night,camera,raft,rowing,models){
    const player={x:state.me.x-origin.x,z:state.me.y-origin.y};
    amusement.visible=inAmusementPark(player);
    if(amusement.visible){
     station.visible=town.visible=temple.visible=false;
     displayLamp.intensity=0;
     updateAmusement??=buildGyeongjuWorld(T,amusement,kit);
-    updateAmusement(camera,state.amusementRide,state.clock??Date.now());
+    updateAmusement(camera,state.amusementRide,state.clock??Date.now(),state.amusementSessions??[],models);
     marker(null,camera);
     return;
    }

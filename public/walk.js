@@ -555,7 +555,7 @@ function labelPerspective(view=currentPerspective()){
 const sound=getGameSound();
 const piano=createBeachPiano($("beach-piano"),sound);
 const seaFishing=createSeaFishing($("sea-fishing"),()=>sound.splash());
-const amusement=createAmusementRides($("amusement-ride-panel"),()=>{resetInput();focusGame();});
+const amusement=createAmusementRides($("amusement-ride-panel"),{token,wake:wakeSync,notify:toast,onFinish:()=>{resetInput();focusGame();}});
 function nearbyAmusement(){
   if(!inGyeongju||!session||!world||amusement.active||riding||me.bus||isCycling(me)||me.seat!=null||
     me.groundSit||photoMode.camera||myLink()?.active)return null;
@@ -567,7 +567,7 @@ $("amusement-ride").addEventListener("click",()=>{
   if(!ride)return;
   resetInput();closeActionMenus();
   Object.assign(me,{vx:0,vy:0,running:false});dirty=true;
-  amusement.start(ride,performance.now());
+  amusement.start(ride);
 });
 function canFish(){
   return Boolean(onCoast&&session&&world&&me.coast?.mode==="walk"&&!riding&&!me.bus&&!bungeoMode&&
@@ -1212,27 +1212,25 @@ function scheduleSync(delay){
   clearSyncTimer();syncDue=due;
   syncTimer=setTimeout(()=>{clearSyncTimer();pendingRoomSync=sync();},delay);
 }
-function movingCadence(){
-  if(motionStream.healthy(performance.now()))return 300;
-  // Keep busy public rooms from multiplying database traffic as people join.
-  // Other walkers predict my motion between reports, so ten updates a second is plenty.
-  return session.mode==="open"?110+Math.min(60,Math.max(0,people.size-5)*6):
-    90+Math.min(40,Math.max(0,people.size-8)*3);
+function pendingRoomAction(){
+  return queuedRaft||queuedLift||queuedHand||queuedClink||queuedBus||queuedBike||queuedDining||queuedMinigame||
+    queuedChat||queuedFeed||queuedPhoto||queuedPicnic||queuedShow||bagCommand||seatClaim||bungeoQueue.length||bowlingQueue.length||amusement.pending;
 }
 function wakeSync(){
   if(!session||document.hidden||syncFailures)return;
-  const command=queuedRaft||queuedLift||queuedHand||queuedClink||queuedBus||queuedBike||queuedDining||queuedMinigame||queuedChat||bungeoQueue.length||bowlingQueue.length;
-  scheduleSync(Math.max(0,syncStarted+(command?45:movingCadence())-performance.now()));
+  scheduleSync(Math.max(0,syncStarted+(pendingRoomAction()||amusement.driving?45:220)-performance.now()));
 }
 function syncCadence(){
-  if(motionStream.healthy(performance.now()))return movingCadence();
-  const fast=dirty||myLink()||queuedHand||queuedFeed||queuedChat||queuedBus||queuedBike||seatClaim||moving(me)||me.blocked||
-    queuedShow||queuedClink||queuedPhoto||queuedMinigame||queuedPicnic||queuedDining||bungeoQueue.length||arcade.kind||bowlingQueue.length;
-  if(fast)return movingCadence();
-  for(const {avatar} of people.values())if(moving(avatar)||avatar.blocked)return movingCadence();
-  return session.mode==="open"?(people.size?195+Math.min(55,Math.max(0,people.size-5)*5):330):
-    (people.size?120:250);
+  if(pendingRoomAction())return 100;
+  if(amusement.driving||isRaftBus(me.bus?.index)||bungeoMode||liftRide||arcade.kind==="bowling")return 350;
+  if(!people.size)return 4000;
+  if(myLink()||minigames.active()||roomPhoto||amusement.rides.some(ride=>ride.kind==="bumper"))return 350;
+  if(motionStream.healthy(performance.now()))return 1200;
+  if(moving(me)||me.blocked||arcade.kind)return 350;
+  for(const {avatar} of people.values())if(moving(avatar)||avatar.blocked)return 350;
+  return 1400;
 }
+const backgroundCadence=()=>backgroundTrip?1150:4500;
 async function sync(){
   const visit=session;
   if(!active||!visit||syncInFlight===visit)return;
@@ -1247,19 +1245,21 @@ async function sync(){
   const show=queuedShow,clink=queuedClink,photo=queuedPhoto,minigame=queuedMinigame,picnicCommand=queuedPicnic;
   const bungeo=bungeoQueue[0],bungeoWatch=bungeo?.stall??nearbyCookingStall(me)?.id;
   const bowling=bowlingQueue[0],bowlingWatch=Boolean(bowling||interiorAt(me.x,me.y)===ARCADE_SITE.id);
+  const rideCommand=amusement.packet(gameTime(sent));
+  const amusementWatch=Boolean(rideCommand||inGyeongju&&region.coastDistrict(me)==="경주월드");
   syncStarted=sent;
   const sincePost=Date.now()-lastPost;
   const arcadePacket=arcade.kind&&arcade.kind!=="bowling"?arcadeSnapshot(arcade.state(sent)):null;
   const arcadeKey=arcadePacket?JSON.stringify(arcadePacket):"";
   const inventory=bagCommand;
   const lift=queuedLift;
-  const post=lift||inventory||dirty||hand||claim||feed||chat||bus||bike||show||clink||photo||minigame||picnicCommand||dining||bungeo||bowling||
+  const post=rideCommand||lift||inventory||dirty||hand||claim||feed||chat||bus||bike||show||clink||photo||minigame||picnicCommand||dining||bungeo||bowling||
     sincePost>=3800||sincePost>=125&&arcadeKey!==lastArcadePost;
   const base={room:visit.room,id:visit.id,key:visit.key,
     ...(raftWatch?{raftWatch:true}:null),...(raft?{raft}:null),
     ...(lift?{lift}:null),...(partAt(me.x,me.y)?{liftWatch:true}:null),
     bikeOffers:isBikeDriver(me)||Boolean(tandemOffer),diningVenue:serviceVenue,...(bungeoWatch?{bungeoWatch}:null),
-    ...(bowlingWatch?{bowlingWatch}:null)};
+    ...(bowlingWatch?{bowlingWatch}:null),...(amusementWatch?{amusementWatch:true}:null)};
   const avatar=post?{...me,catFriends:passport.friendlyCatIds()}:null;
   if(avatar){delete avatar.bag;delete avatar.plushHead;delete avatar.plushBack;}
   if(avatar&&arcadePacket)avatar.arcade=arcadePacket;
@@ -1267,15 +1267,19 @@ async function sync(){
   if(avatar){if(chat)avatar.chat=chat;else delete avatar.chat;}
   if(avatar&&(avatar.wish===lastWishSynced||gameTime(sent)-avatar.wish>=WISH_FLIGHT_MS))delete avatar.wishArt;
   const body=post?{...base,avatar,view:{...ownView},hand,feed,bus,bike,show,clink,photo,minigame,picnic:picnicCommand,dining,inventory,
-    ...(bungeo?{bungeo}:null),...(bowling?{bowling}:null)}:base;
+    ...(bungeo?{bungeo}:null),...(bowling?{bowling}:null),...(rideCommand?{amusement:rideCommand}:null)}:base;
   if(post)dirty=false;
   try{
-    const response=await request("/api/room",body),data=await response.json();
+    const response=await request("/api/room",body);
+    if(!active||session!==visit)return;
+    if(response.status===402){returnToLobby("서버 사용 한도에 도달해 현재 게임이 일시 중지되어 있어요.");return;}
+    const data=await response.json();
     if(!active||session!==visit)return;
     if(response.status===409){returnToLobby(data.error);return;}
     if(!response.ok)throw Error(data.error);
     const received=performance.now();
     updateClock(data.serverTime,sent,received);
+    if(amusementWatch)amusement.receive(data,rideCommand,visit.id);
     setBusYields(data.busYields);
     if(Object.hasOwn(data,"raft"))receiveRaft(data.raft,visit.id,gameTime(received));
     if(raft&&queuedRaft===raft){
@@ -1380,7 +1384,7 @@ async function sync(){
   }finally{
     if(syncInFlight===visit)syncInFlight=null;
     if(active&&session===visit){
-      const delay=document.hidden?1150:syncFailures?Math.min(1500,200*2**Math.min(3,syncFailures-1)):
+      const delay=syncFailures?Math.min(8000,800*2**Math.min(4,syncFailures-1)):document.hidden?backgroundCadence():
         Math.max(5,syncCadence()-(performance.now()-sent));
       scheduleSync(delay);
     }
@@ -1480,6 +1484,7 @@ function returnToLobby(message=""){
   if(bungeoMode)setBungeoCooking(false);
   arcade.stop();
   bowlingQueue.length=0;bowlingMatch=lastBowlingPlace=null;
+  amusement.reset();
   bungeoQueue.length=0;clearBungeoState();
   $("bungeo-status").hidden=$("bungeo-order-status").hidden=$("bungeo-hint").hidden=true;
   guestbook.close();diningMenu.close();galleryLight=0;
@@ -1573,6 +1578,7 @@ async function enterRoom(action,code){
     }
     const continuing=Boolean(response?.ok);
     if(!response||response.status===409)response=await request("/api/rooms",entry);
+    if(response.status===402)throw Error("서버 사용 한도에 도달해 현재 게임이 일시 중지되어 있어요.");
     const data=await response.json();
     if(!active||navigation!==pageVersion){
       if(response.ok&&!transferring)leaveBeacon({room:data.room,id,key});
@@ -1730,7 +1736,7 @@ window.addEventListener("pagehide",()=>{
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden){beginBackgroundTrip();rememberWalkPosition();clearManualInput();exitPress=null;sound.bus(null);sound.plazaShow(null);sound.rain(0);sound.stream(0);}
   else finishBackgroundTrip();
-  clearSyncTimer();scheduleSync(document.hidden?1150:0);
+  clearSyncTimer();scheduleSync(document.hidden?backgroundCadence():0);
 });
 window.addEventListener("online",()=>{if(!document.hidden)scheduleSync(0);});
 window.addEventListener("pageshow",event=>{
@@ -4191,7 +4197,7 @@ function preferredPeerAction(time){
 function frame(now){
   const elapsed=Math.max(0,Math.min(56,now-lastFrame))/1000;lastFrame=now;
   requestAnimationFrame(frame);
-  if(!session||leavingByKtx){liftRide=null;amusement.stop();return;}
+  if(!session||leavingByKtx){liftRide=null;if(amusement.active)amusement.reset();return;}
   const time=gameTime(now);
   if(alcoholSip&&time>=alcoholSip.at){
     Object.assign(me,finishAlcoholSip(me,alcoholSip.at,alcoholSip.empty));
@@ -4282,9 +4288,9 @@ function frame(now){
   }
   const perspective=currentPerspective();
   labelPerspective(perspective);
-  const amusementRide=amusement.update(now,me,Boolean(world&&session&&inGyeongju&&!photoMode.camera));
+  const amusementRide=amusement.update(time,me,Boolean(world&&session&&inGyeongju&&!photoMode.camera));
   lastScene={paperBoats:paperBoats.states(),me:self,peers:[...others.values()],parkedBikes,view:ownView,coastMarker,gyeongjuMarker:inGyeongju?coastMarker:null,
-    firstPerson:perspective.first&&!amusementRide,amusementRide,
+    firstPerson:perspective.first&&!amusementRide,amusementRide,amusementSessions:amusement.rides,
     photoCamera:photoMode.camera,photoCapture:Boolean(photoMode.camera),environment,guideNearby,destination:course.at(-1),clock:time,fountainShow,galleryLight,
     diningService:diningService?.venue===currentDining()?.id?diningService?.tickets??[]:[],
     minigames:minigames.states(),minigameAction:minigames.localAction(),picnics:picnic.states(),bungeoMolds,bungeoOrder,bungeoStock,bungeoMode,

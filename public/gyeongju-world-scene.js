@@ -96,7 +96,7 @@ export function buildGyeongjuWorld(T,root,kit){
       for(const end of [-1,1])box(cabinColor,side*1.15,-.57,end*.93,.15,1.81,.15,cabin);
     }
     box(cabinColor,0,-.77,-.96,2.25,.62,.10,cabin);
-    box(cream,0,-.72,-.61,2.04,.15,.62,cabin);
+    for(const side of [-1,1])box(cream,0,-.72,side*.61,2.04,.15,.62,cabin);
     box(cream,0,.39,0,2.65,.17,2.15,cabin);
     box(cabinColor,0,-.93,.96,2.23,.28,.1,cabin);
     cabins.push(cabin);
@@ -159,7 +159,14 @@ export function buildGyeongjuWorld(T,root,kit){
     box(blue,0,-.04,row*1.02,3.25,.28,.96,train);
     for(let seat=0;seat<4;seat++)box(brick,(seat-1.5)*.76,.44,row*1.02+.26,.44,.65,.38,train);
   }
-  const eye=new T.Vector3(),target=new T.Vector3();
+  const eye=new T.Vector3(),target=new T.Vector3(),forward=new T.Vector3(),up=new T.Vector3(0,1,0);
+  const trainFrame=new T.Matrix4(),facing=new T.Quaternion();
+  const seats={
+    wheel:Array.from({length:4},(_,i)=>({object:cabins[0],x:i<2?-.46:.46,y:-1.13,z:i%2?-.59:.59,yaw:i%2?0:Math.PI})),
+    viking:Array.from({length:14},(_,i)=>({object:ship,x:i%2?.73:-.73,y:-.19,z:[0,-1,1,-2,2,-3,3][i>>1]*1.45,yaw:Math.PI})),
+    coaster:Array.from({length:12},(_,i)=>({object:train,x:(i%4-1.5)*.76,y:-.28,z:Math.floor(i/4)*1.02,yaw:Math.PI})),
+    bumper:cars.map(object=>({object,x:0,y:.02,z:.12,yaw:Math.PI}))
+  };
   const timings=[[0,0],[11,.275],[13,.319],[14.6,.319],[17,.40],[21,.55],[29,.74],[38,.93],[42,1]];
   function coasterProgress(seconds){
     const i=timings.findIndex(([time])=>time>=seconds);
@@ -168,31 +175,48 @@ export function buildGyeongjuWorld(T,root,kit){
     return a+(b-a)*(seconds-start)/(end-start);
   }
   function pose(camera,object,seat,look){
-    root.updateMatrixWorld(true);
     camera.position.copy(object.localToWorld(eye.set(...seat)));
     camera.lookAt(object.localToWorld(target.set(...look)));
   }
-  return function update(camera,active,clock){
-    const time=active?.elapsed??0;
-    wheel.rotation.z=(active?.id==="wheel"?time/64:(clock%64000)/64000)*Math.PI*2;
+  return function update(camera,active,clock,sessions,models){
+    function seconds(kind,duration){
+      const shared=sessions.find(ride=>ride.kind===kind);
+      return shared?Math.max(0,(clock-shared.starts)/1000):(clock/1000)%duration;
+    }
+    wheel.rotation.z=seconds("wheel",64)/64*Math.PI*2;
     for(const cabin of cabins)cabin.rotation.z=-wheel.rotation.z;
-    const swingTime=active?.id==="viking"?time:(clock%34000)/1000;
+    const swingTime=seconds("viking",34);
     swing.rotation.x=Math.sin(swingTime*1.02)*1.13*Math.max(0,Math.min(1,swingTime/8,(34-swingTime)/6));
-    const t=coasterProgress(active?.id==="coaster"?time:(clock%42000)/1000);
+    const t=coasterProgress(seconds("coaster",42));
     train.position.copy(track.getPoint(t));
-    train.quaternion.setFromUnitVectors(new T.Vector3(0,0,-1),track.getTangent(t).normalize());
+    forward.copy(train.position).add(track.getTangent(t));
+    train.quaternion.setFromRotationMatrix(trainFrame.lookAt(train.position,forward,up));
+    const sharedCars=sessions.find(ride=>ride.kind==="bumper")?.cars;
     cars.forEach((car,i)=>{
+      if(sharedCars){
+        const {x,z,yaw}=sharedCars[i];car.position.set(x,.15,z);car.rotation.y=yaw;return;
+      }
       const path=(clock/1000)*(.34+i*.06)+i*1.48,distance=3+i*1.35;
       car.position.x=Math.cos(path)*distance;car.position.z=Math.sin(path)*distance;
       car.rotation.y=-path;
     });
-    if(active?.id==="bumper"){
-      cars[0].position.set(active.x,.15,active.z);
-      cars[0].rotation.y=active.yaw;
-      active.opponents=cars.slice(1).map(car=>({x:car.position.x,z:car.position.z}));
-      pose(camera,cars[0],[0,1.15,2.5],[0,.8,-3]);
-    }else if(active?.id==="wheel")pose(camera,cabins[0],[0,-.15,.8],[0,-1.1,16]);
-    else if(active?.id==="viking")pose(camera,ship,[0,1.05,4],[0,1,-8]);
-    else if(active?.id==="coaster")pose(camera,train,[0,1.15,-.08],[0,1.15,-12]);
+    for(const session of sessions){
+      for(const rider of session.riders){
+        const model=models.get(rider.id);
+        if(!model?.group.parent)continue;
+        const {object,x,y,z,yaw}=seats[session.kind][rider.seat];
+        object.localToWorld(model.group.position.set(x,y,z));
+        object.getWorldQuaternion(model.group.quaternion);
+        model.group.quaternion.multiply(facing.setFromAxisAngle(up,yaw));
+        model.ridePose=true;
+      }
+    }
+    if(!active)return;
+    const {object,x,z}=seats[active.id][active.seat];
+    if(active.id==="wheel"){
+      const side=Math.sign(z);
+      pose(camera,object,[x,.04,z],[x+.32,-.22,z-side*3.4]);
+    }else if(active.id==="bumper")pose(camera,object,[0,2.2,3.6],[0,.72,-3.4]);
+    else pose(camera,object,[x*.62,2.04,z+2.55],[x*.55,.95,z-3.4]);
   };
 }
