@@ -1,0 +1,38 @@
+#sea-fishing {
+  width: min(92vw, 30rem);
+  max-height: 90dvh;
+  overflow: auto;
+}
+
+.fishing-water {
+  position: relative;
+  height: clamp(4rem, 18vh, 8rem);
+  overflow: hidden;
+  border-radius: .55rem;
+  background: repeating-linear-gradient(175deg, transparent 0 13px, #bcece817 14px 15px, transparent 16px 28px),
+    linear-gradient(175deg, #4e9e9d, #2a586f 60%, #24465b);
+}
+
+.fishing-bobber {
+  position: absolute;
+  top: 44%;
+  left: 50%;
+  width: .8rem;
+  height: 1.05rem;
+  border-radius: 50% 50% 42% 42%;
+  background: linear-gradient(#f78762 52%, #fff6e7 53%);
+  box-shadow: 0 .35rem 0 .22rem #bcedeb36;
+  transition: top .16s, left .25s, opacity .18s;
+}
+
+[data-zone="0"] .fishing-bobber { top: 67%; left: 30%; }
+[data-zone="2"] .fishing-bobber { top: 26%; left: 70%; }
+[data-phase="ready"] .fishing-bobber { opacity: 0; }
+[data-phase="bite"] .fishing-bobber { top: 64%; opacity: .28; }
+.fishing-zones { display: flex; gap: .35rem; margin-top: .6rem; }
+.fishing-zones button[aria-pressed="true"], [data-reel].reeling { outline: 2px solid currentColor; outline-offset: -4px; }
+[data-reel] { touch-action: none; user-select: none; }
+.fishing-gauges:not([hidden]) { display: grid; gap: .3rem; margin-bottom: .65rem; }
+.fishing-gauges label { display: grid; grid-template-columns: 6rem 1fr; align-items: center; }
+.fishing-gauges :is(meter, progress) { width: 100%; accent-color: #38826d; }
+.fishing-help { font-size: .83rem; }

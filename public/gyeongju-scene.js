@@ -27,6 +27,8 @@ import {inBulguksa,templeOrigin,templeAxis,templeHeight,templeCameraBlocked} fro
 import {worshipHalls} from "./bulguksa-hall-layout.js";
 import {buildBulguksa,createBulguksaPagodas} from "./bulguksa-model.js";
 import {nearbyConstruction} from "./gyeongju-construction.js";
+import {inAmusementPark} from "./gyeongju-world-layout.js";
+import {buildGyeongjuWorld} from "./gyeongju-world-scene.js";
 
 const stationSide=x=>x < -3000;
 const entryFloors=new WeakMap();
@@ -296,6 +298,9 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
  const bridgeRoof=illuminatedRoofMaterial();
  const bulb=new T.CylinderGeometry(.5,.45,1,8),insideSolid=obstacleGrid();
  station.name="경주역 광장";town.name="경주 역사유적지구";temple.name="불국사";outdoors.add(station,town,temple);
+ const amusement=new T.Group();
+ amusement.name="경주월드";amusement.visible=false;outdoors.add(amusement);
+ let updateAmusement;
  const marker=buildCoastActionMarker(outdoors,outdoors,()=>.01);
  const updateRaft=createRaftScene(town);
  let raftLift=0;
@@ -345,12 +350,14 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
   return uploads>0||before!==active.children.length;
  }
  return {benches:marketBenches,entryReady(camera){
+   if(amusement.visible)return Boolean(updateAmusement);
    const district=temple.visible?temple:station.visible?station:town;
    const floor=entryFloors.get(district);
    return Boolean(floor?.length&&floor.every(mesh=>mesh.layers.test(camera.layers)));
   },surface(world){
    if(isRaftBus(world.bus?.index))return RAFT_DECK_HEIGHT+raftLift;
    const p={x:world.x-origin.x,z:world.y-origin.y};
+   if(inAmusementPark(p))return 0;
    if(inBulguksa(p))return templeHeight(p);
    return insideObservatory(p)?tower.landing:raftPierHeight(p)||footbridge.surface(p)||Math.max(gyeongjuMoundHeight(p,world.up),gyeongjuWallTop(p));
   },cameraBlocked(world,y){
@@ -365,6 +372,16 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
    if(marketCameraBlocked(p,y))return true;
    return y<4.2&&insideSolid(p);
   },update(state,night,camera,raft,rowing){
+   const player={x:state.me.x-origin.x,z:state.me.y-origin.y};
+   amusement.visible=inAmusementPark(player);
+   if(amusement.visible){
+    station.visible=town.visible=temple.visible=false;
+    displayLamp.intensity=0;
+    updateAmusement??=buildGyeongjuWorld(T,amusement,kit);
+    updateAmusement(camera,state.amusementRide,state.clock??Date.now());
+    marker(null,camera);
+    return;
+   }
    const isStation=stationSide(camera.position.x),isTemple=inBulguksa(camera.position),changed=ensure(isStation,isTemple,camera);
    if(isTemple){
     updateTemple?.(camera.position);

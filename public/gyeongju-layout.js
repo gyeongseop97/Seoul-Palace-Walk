@@ -1,6 +1,7 @@
 import {mappedRoads,mappedBuildings,mappedWalls,mappedMounds,mappedParks} from "./gyeongju-geography.js";
 import {southernRoads,southernBuildings,southernWalls,southernMounds,southernParks} from "./gyeongju-southern-geography.js";
 import {marketRooms,marketBuilding,marketRoomAt} from "./gyeongju-market.js";
+import {inAmusementPark,parkWalkable,parkRoute} from "./gyeongju-world-layout.js";
 import {gyeongjuPlantings} from "./gyeongju-planting-layout.js";
 import {centerline} from "./outdoor-sports.js";
 import {tower,observatoryApproach,insideObservatory} from "./gyeongju-observatory.js";
@@ -249,6 +250,7 @@ export function gyeongjuMoundHeight(p,upper=false){
 }
 export function gyeongjuWalkable(p,from,feet){
  if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.z))return false;
+ if(inAmusementPark(p)||from&&inAmusementPark(from))return parkWalkable(p);
  if(inBulguksa(p))return templeWalkable(p,feet,from);
  if(insideObservatory(p))return true;
  if(from&&!from.up&&inCheonmaHall(from)&&crossesGalleryWall(from,p))return false;
@@ -352,6 +354,7 @@ function walkingNetwork(temple){
  const network={nodes,nearby,linked};networks.set(temple,network);return network;
 }
 export function gyeongjuRoute(from,to){
+ if(inAmusementPark(from)||inAmusementPark(to))return parkRoute(from,to);
  if(!from||!to)return [];
  if(from.up&&inCheonmaHall(from)){
   // A map route beginning above the gallery must first leave on the grass.

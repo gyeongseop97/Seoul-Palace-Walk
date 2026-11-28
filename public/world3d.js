@@ -1709,7 +1709,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     cameraUp.set(0,1,0).applyQuaternion(camera.quaternion);
     for(const model of models.values())if(model.group.visible&&model.chatSprite)walkerModels.placeChat(model,cameraUp);
     bungeoCustomer.placeChat(cameraUp);
-    if(anchorModel&&cameraDistance<1.08)anchorModel.group.visible=false;
+    if(anchorModel&&(cameraDistance<1.08||state.amusementRide))anchorModel.group.visible=false;
     if(arcadeFloors.has(insideId)&&cameraDistance<3.2&&anchorModel?.label)anchorModel.label.visible=false;
     const umbrella=firstPerson&&!bodyView&&anchor.sharedUmbrella&&anchorModel?.umbrella?.visible&&anchorModel.umbrella;
     if(umbrella?.visible){

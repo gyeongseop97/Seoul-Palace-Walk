@@ -46,6 +46,7 @@
   <link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48" href="./favicon.ico?v=yuram-4">
   <link rel="stylesheet" href="./style.css">
   <link rel="stylesheet" href="./beach-piano.css">
+  <link rel="stylesheet" href="./sea-fishing.css">
   <link rel="stylesheet" href="./passport.css">
   <link rel="stylesheet" href="./minigames.css">
   <link rel="stylesheet" href="./photo-mode.css">
@@ -185,6 +186,16 @@
     <section class="experience" aria-label="함께 걷기">
       <article class="panel scene-panel">
         <div class="scene-wrap">
+          <div id="amusement-ride-panel" aria-label="놀이기구 탑승" hidden>
+            <strong></strong><output aria-label="남은 운행 시간"></output>
+            <button type="button" class="quiet" data-stop-ride>내리기</button>
+            <div data-steering hidden>
+              <button type="button" class="quiet" data-drive="left" aria-label="왼쪽으로 조향">←</button>
+              <button type="button" class="quiet" data-drive="forward" aria-label="전진">↑</button>
+              <button type="button" class="quiet" data-drive="back" aria-label="후진">↓</button>
+              <button type="button" class="quiet" data-drive="right" aria-label="오른쪽으로 조향">→</button>
+            </div>
+          </div>
           <div id="game" tabindex="0" role="group" aria-label="3D 산책. 조이스틱이나 방향키로 이동, 드래그로 시야 회전, 마우스 휠이나 두 손가락으로 확대 및 축소">
             <div id="loading-game" class="city-loading" role="status" aria-live="polite" aria-atomic="true">
               <div class="city-loading-center"><strong>산책길을 열고 있어요.</strong><i class="city-loading-track" aria-hidden="true"></i></div>
@@ -311,6 +322,8 @@
                   <button id="bungeo-accept" type="button" class="quiet activity-button" aria-describedby="bungeo-order-status" hidden>주문 받기</button>
                   <button id="bungeo-open" type="button" class="quiet activity-button" hidden>붕어빵 굽기</button>
                   <button id="beach-piano-open" type="button" class="quiet activity-button" hidden>피아노 연주</button>
+                  <button id="sea-fishing-open" type="button" class="quiet activity-button" hidden>바다낚시</button>
+                  <button id="amusement-ride" type="button" class="quiet activity-button" hidden>놀이기구 타기</button>
                   <button id="bungeo-serve" type="button" class="quiet activity-button" aria-describedby="bungeo-order-status" hidden>손님에게 건네기</button>
                   <button id="bungeo-gift" type="button" class="quiet activity-button" hidden>붕어빵 건네기</button>
                   <button id="arcade-claw" type="button" class="quiet activity-button" hidden>인형뽑기</button>
@@ -528,6 +541,28 @@
   </main>
   </div>
   <div id="passport-mount"></div>
+  <dialog id="sea-fishing" aria-labelledby="sea-fishing-title" data-zone="1">
+    <form method="dialog" class="dialog-top">
+      <h2 id="sea-fishing-title">영일대 바다낚시</h2>
+      <button type="submit" class="quiet close" data-fishing-close aria-label="낚시 끝내기">×</button>
+    </form>
+    <div class="fishing-water" aria-hidden="true"><span class="fishing-bobber"></span></div>
+    <div class="fishing-zones" aria-label="던질 위치">
+      <button type="button" class="quiet" data-fishing-zone aria-pressed="false">가까이</button>
+      <button type="button" class="quiet" data-fishing-zone aria-pressed="true">중간</button>
+      <button type="button" class="quiet" data-fishing-zone aria-pressed="false">멀리</button>
+    </div>
+    <p role="status"></p>
+    <div class="fishing-gauges" data-gauges hidden>
+      <label>줄 장력 <meter data-tension min="0" max="1" low=".55" high=".8" optimum=".2"></meter></label>
+      <label>끌어올리기 <progress data-progress max="1"></progress></label>
+    </div>
+    <button type="button" class="primary" data-cast autofocus>낚싯대 던지기</button>
+    <button type="button" class="quiet" data-twitch hidden>미끼 움직이기 · E</button>
+    <button type="button" class="primary" data-reel hidden>눌러서 줄 감기</button>
+    <p class="fishing-help">스페이스로 던지고 챔질하세요. 물고기가 걸리면 누르고 있는 동안 줄이 감깁니다.</p>
+    <details><summary data-tally></summary><ul data-records></ul></details>
+  </dialog>
   <dialog id="beach-piano" aria-labelledby="beach-piano-title">
     <form method="dialog">
       <div class="dialog-top">

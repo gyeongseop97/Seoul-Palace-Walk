@@ -13,6 +13,7 @@ import {gyeongjuPoint,localGyeongju,inGyeongjuSpace} from "./region-coordinates.
 import {places,roads,buildings,walls,mounds,parks,gyeongjuRoute,gyeongjuWalkable} from "./gyeongju-layout.js";
 import {inBulguksa,templeSites,templePaths,templeHalls,templeBridges,templeCourts,templePonds,templeWoods} from "./bulguksa-layout.js";
 import {lawnEdge} from "./bulguksa-ground.js";
+import {inAmusementPark,parkBoundary,parkDestinations,parkWalkways} from "./gyeongju-world-layout.js";
 import {templeRoomAt} from "./bulguksa-hall-layout.js";
 export {templeWorshipAt} from "./bulguksa-hall-layout.js";
 export {gyeongjuOrigin,gyeongjuPoint,inGyeongjuSpace} from "./region-coordinates.js";
@@ -41,6 +42,7 @@ const cityBusSites=gyeongjuBusStops.map((stop,index)=>{
   source:"https://www.gyeongju.go.kr/hwangridan/images/gj_map_kor.pdf",sourceLabel:"경주시 황리단길 안내도"}};
 });
 const sites=[
+ ...parkDestinations.map(point=>[point,"activity"]),
  [{...hillStart,name:"산악 루지·잔디썰매 출발장",label:"산악 루지·잔디썰매",district:"교촌·월정교",heading:270,guide:{title:"산악 루지·잔디썰매",description:"월정교 동쪽에 조성한 게임 속 산악 코스예요.",directions:"출발장에서 탈것을 고르세요. 좌우로 조향하고 뒤로 당겨 감속하세요. 깃발 사이로 지나면 기록에서 벌점을 피할 수 있어요."}},"activity"],
  [travelStops.stationExit,"railway"],[travelStops.stationBus,"bus"],[travelStops.townBus,"bus"],[travelStops.townReturnBus,"bus"],
  [describe("hwangnidan","황리단길"),"activity"],
@@ -63,7 +65,7 @@ const sites=[
  [travelStops.templeBus,"bus"],...templeSites.slice(1).map(site=>[{...site,...gyeongjuPoint(site),district:"불국사",label:site.name},site.kind])
 ];
 export const destinations=sites.map(([p])=>p);
-const defaultPlace={경주역:"경주역 출입구",황리단길:"황리단길",대릉원:"대릉원 정문","첨성대·계림":"첨성대 관람길","교촌·월정교":"월정교 북쪽 입구",불국사:"불국사 일주문"};
+const defaultPlace={경주역:"경주역 출입구",황리단길:"황리단길",대릉원:"대릉원 정문","첨성대·계림":"첨성대 관람길","교촌·월정교":"월정교 북쪽 입구",불국사:"불국사 일주문",경주월드:"경주월드 정문"};
 export const travelDistricts=Object.fromEntries(Object.entries(defaultPlace).map(([name,first])=>{
  const local=destinations.filter(p=>p.district===name);
  return [name,[local.find(p=>p.name===first),...local.filter(p=>p.name!==first)]];
@@ -93,12 +95,13 @@ export function nearbyGuide(p){
 const atStation=p=>Math.hypot(p.x-places.stationExit.x,p.z-places.stationExit.z)<680;
 function walkingArea(point){
  const p=localGyeongju(point);
- return inBulguksa(p)?"temple":atStation(p)?"station":"town";
+ return inAmusementPark(p)?"park":inBulguksa(p)?"temple":atStation(p)?"station":"town";
 }
 export const sameGyeongjuArea=(a,b)=>walkingArea(a)===walkingArea(b);
 const busTerminals={
  station:{name:"경주역",board:travelStops.stationBus,arrive:travelStops.stationBus},
  town:{name:"황리단길",board:travelStops.townReturnBus,arrive:travelStops.townBus},
+ park:{name:"경주월드",board:parkDestinations[0],arrive:parkDestinations[0]},
  temple:{name:"불국사",board:travelStops.templeBus,arrive:travelStops.templeBus}
 };
 export function busDirection(to){
@@ -174,6 +177,7 @@ export function coastName(p){
  if(insideObservatory(local))return "첨성대 내부";
  const nearest=locate(p);
  if(nearestDistance<28**2)return nearest.name;
+ if(inAmusementPark(local))return "경주월드";
  if(atStation(local))return "경주역 광장";
  if(inBulguksa(local)&&nearestDistance>=135**2)return "불국사 관람로";
  return nearestDistance<135**2?nearest.name+" 일대":"경주 역사유적지구";
@@ -186,16 +190,19 @@ const bounds=(pts,pad)=>{
 const stationBox=bounds([travelStops.stationBus,travelStops.stationExit],65);
 const townBox=bounds(destinations.filter(p=>walkingArea(p)==="town"),70);
 const templeBox=bounds([...templePaths,...templeHalls].flatMap(r=>r.points.map(gyeongjuPoint)),28);
+const amusementBox=bounds(parkBoundary.map(gyeongjuPoint),22);
 const [coreX,coreY,coreWidth,coreHeight]=templeBox.split(" ").map(Number);
 const lawnBox=bounds(lawnEdge.map(gyeongjuPoint),8);
 export const mapDistricts=[
  {name:"경주역",point:travelStops.stationBus,box:stationBox},
  {name:"경주 시내",point:travelStops.townBus,box:townBox},
+ {name:"경주월드",point:parkDestinations[0],box:amusementBox},
  {name:"불국사",point:travelStops.templeBus,box:templeBox}
 ];
 export const cityMapBox=bounds(mapDistricts.map(d=>d.point),3400);
 export const mapGround="#d8d4b9";
 export function routeMapBox(p){
+ if(inAmusementPark(localGyeongju(p)))return amusementBox;
  // Keep route fitting local to the pedestrian network the player is using.
  if(atStation(localGyeongju(p)))return stationBox;
  if(inBulguksa(localGyeongju(p))){
@@ -205,6 +212,8 @@ export function routeMapBox(p){
 }
 export function drawCoastMap(base,svg,drawMarker,mini=false){
  const path=points=>points.map((p,i)=>{const q=gyeongjuPoint(p);return (i?"L":"M")+q.x.toFixed(1)+" "+q.y.toFixed(1);}).join("");
+ svg(base,"path",{d:path(parkBoundary)+"Z",fill:"#bac6a0",stroke:"#839578","stroke-width":2});
+ for(const walkway of parkWalkways)svg(base,"path",{d:path(walkway),fill:"none",stroke:"#f3dfb4","stroke-width":9,"stroke-linecap":"round","stroke-linejoin":"round"});
  for(const [kind,fill] of [["lawn","#c9d2af"],["wood","#a9bf9f"],["water","#9cbcc4"]]){
   svg(base,"path",{d:parks.filter(p=>p.kind===kind).map(p=>path(p.points)+"Z").join(""),fill});
  }

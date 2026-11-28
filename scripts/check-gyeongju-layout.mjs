@@ -34,16 +34,23 @@ function walk(from,to){
 }
 const stops=["townBus","townReturnBus","hwangnidan","cafe","cafeCounter","northGate","photo","mainGate","stars",
  "gyerimEntry","gyerim","woljeongNorth","woljeong","woljeongSouth"];
-assert.equal(Object.keys(travelDistricts).length,6);
+assert.equal(Object.keys(travelDistricts).length,7);
 assert.deepEqual(new Set(Object.values(travelDistricts).flat()),new Set(destinations));
 for(const site of destinations)assert.ok(gyeongjuWalkable(localGyeongju(site)),site.name+" 순간이동");
 assert.equal(travelDistricts["불국사"][0].name,"불국사 일주문");
 for(const from of templeSites)for(const to of templeSites)if(from!==to)walk(from,to);
-for(const a of [travelStops.stationBus,travelStops.townReturnBus,travelStops.templeBus]){
+const amusementGate=travelDistricts["경주월드"][0];
+assert.equal(amusementGate.name,"경주월드 정문");
+assert.equal(travelDistricts["경주월드"].length,5);
+for(const ride of travelDistricts["경주월드"].slice(1)){
+ assert.ok(gyeongjuRoute(localGyeongju(amusementGate),localGyeongju(ride)).length,ride.name);
+}
+const terminals=[travelStops.stationBus,travelStops.townReturnBus,travelStops.templeBus,amusementGate];
+for(const a of terminals){
  assert.equal(transferStop(a),a);
  const options=transferDestinations(a);
- assert.equal(options.length,2);
- for(const b of [travelStops.stationBus,travelStops.townReturnBus,travelStops.templeBus]){
+ assert.equal(options.length,3);
+ for(const b of terminals){
   const choice=options.find(option=>option.board===b);
   if(a===b)assert.equal(choice,undefined);
   else assert.equal(choice.arrive,b===travelStops.townReturnBus?travelStops.townBus:b);

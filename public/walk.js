@@ -20,6 +20,9 @@ import {bindMapLabels} from "./map-labels.js";
 import {getGameSound} from "./sound.js";
 import {beachPiano} from "./beach-market-layout.js";
 import {createBeachPiano} from "./beach-piano.js";
+import {fishingSpot} from "./sea-fishing.js";
+import {createSeaFishing} from "./sea-fishing-client.js";
+import {amusementRideNear,createAmusementRides} from "./gyeongju-world-client.js";
 import {ceremonyAt} from "./palace-people.js";
 import {cityHallStation,gbSites,gbLake,gbPond,gbPaths,gbCourts,gbLawns,gbShortcuts,wishPond,inGyeongbok,gbWoldae,onWoldaeApproach,nearWoldaeRailing,at as palaceAt,gyeongbokWater} from "./gyeongbok-layout.js";
 import {inGwanghwamunPlaza,plazaAt,plazaSites,plazaOutline,plazaPaths,plazaShortcuts,plazaBeds,plazaAvenueOutline,plazaEastSidewalks,plazaSideForecourts,plazaUijeongbuApproach,plazaSideJunction,plazaCrossingLandings,eastCurb,plazaEastWalkSpine,eastRoadWidth,sajikRoad,sejongParkOutline} from "./plaza-layout.js";
@@ -551,6 +554,30 @@ function labelPerspective(view=currentPerspective()){
 }
 const sound=getGameSound();
 const piano=createBeachPiano($("beach-piano"),sound);
+const seaFishing=createSeaFishing($("sea-fishing"),()=>sound.splash());
+const amusement=createAmusementRides($("amusement-ride-panel"),()=>{resetInput();focusGame();});
+function nearbyAmusement(){
+  if(!inGyeongju||!session||!world||amusement.active||riding||me.bus||isCycling(me)||me.seat!=null||
+    me.groundSit||photoMode.camera||myLink()?.active)return null;
+  const ride=amusementRideNear(me);
+  return ride&&clearSegment(me,ride.point)?ride:null;
+}
+$("amusement-ride").addEventListener("click",()=>{
+  const ride=nearbyAmusement();
+  if(!ride)return;
+  resetInput();closeActionMenus();
+  Object.assign(me,{vx:0,vy:0,running:false});dirty=true;
+  amusement.start(ride,performance.now());
+});
+function canFish(){
+  return Boolean(onCoast&&session&&world&&me.coast?.mode==="walk"&&!riding&&!me.bus&&!bungeoMode&&
+    me.seat==null&&!me.groundSit&&!photoMode.camera&&!myLink()?.active&&
+    near(fishingSpot,me.x,me.y)<=2.5&&clearSegment(me,fishingSpot));
+}
+$("sea-fishing-open").addEventListener("click",()=>{
+  if(!canFish())return;
+  resetInput();closeActionMenus();seaFishing.open();
+});
 function nearBeachPiano(){
   return Boolean(onCoast&&session&&world&&!bungeoMode&&!riding&&!me.bus&&!isCycling(me)&&
     me.seat==null&&!photoMode.camera&&near(beachPiano.action,me.x,me.y)<2.3&&clearSegment(me,beachPiano.action));
@@ -1868,7 +1895,7 @@ function leaveWater(){
 }
 function canWalkTo(){
   const time=gameTime();
-  return Boolean(session&&!bungeoMode&&!arcade.frozen&&!riding&&!me.bus&&!isBikePassenger(me)&&!queuedBus&&!queuedBike&&!amFollowingHands()&&
+  return Boolean(session&&!bungeoMode&&!amusement.active&&!arcade.frozen&&!riding&&!me.bus&&!isBikePassenger(me)&&!queuedBus&&!queuedBike&&!amFollowingHands()&&
     !clinkLocked(time)&&!sickLocked(time)&&(world||worldFailed));
 }
 async function walkTo(target,seat=null){
@@ -2114,7 +2141,7 @@ window.addEventListener("focus",finishBackgroundTrip);
 window.addEventListener("blur",arcade.clear);
 function playShortcutsAvailable(){
   return !touchControls.matches&&session&&active&&!riding&&!awaitingMapFrame&&!leavingByKtx&&
-    !photoMode.camera&&!bungeoMode&&!arcade.kind&&!minigames.active()&&!mobileSettings.open&&
+    !photoMode.camera&&!bungeoMode&&!amusement.active&&!arcade.kind&&!minigames.active()&&!mobileSettings.open&&
     !document.querySelector("dialog[open]");
 }
 function nearbyKeyboardAvailable(){
@@ -2214,7 +2241,7 @@ function walkFromMap(event,source=event.target){
       setOverview(false,region.mapDistricts[Number(index)].box);
       showMapRegion(browsedMapBox);
       mapSurface.focus({preventScroll:true});
-    }else toast("경주역, 경주 시내, 불국사 중 둘러볼 곳을 눌러 주세요.");
+    }else toast("경주역, 경주 시내, 경주월드, 불국사 중 둘러볼 곳을 눌러 주세요.");
     return;
   }
   const site=mapPlaces[Number(source.closest("[data-map-place]")?.dataset.mapPlace)];
@@ -2238,7 +2265,7 @@ $("world").addEventListener("keydown",event=>{
 const canTapToWalk=started=>thumbId===undefined&&!keys.size&&started>manualInputAt;
 const clearSceneTouch=bindSceneTouch($("game"),gameShell,{
   allowHeldTap:()=>Boolean(photoMode.camera),
-  canTap:started=>Boolean(session&&(photoMode.camera||canTapToWalk(started)||ktxBoardingAt(me.x,me.y))),
+  canTap:started=>Boolean(session&&!amusement.active&&(photoMode.camera||canTapToWalk(started)||ktxBoardingAt(me.x,me.y))),
   onBegin:()=>{setEmotes(false);focusGame();},
   onTap:(x,y,started)=>{
     if(photoMode.camera){photoMode.toggleTools();return;}
@@ -2259,7 +2286,7 @@ const clearSceneTouch=bindSceneTouch($("game"),gameShell,{
     }
   },
   onDrag:(dx,dy,x,y)=>{
-    if(bungeoMode||arcade.kind==="pump"||arcade.kind==="mole")return;
+    if(bungeoMode||amusement.active||arcade.kind==="pump"||arcade.kind==="mole")return;
     if(photoMode.camera){photoMode.drag(dx,dy);return;}
     if(arcade.kind==="baseball"){arcade.aimBaseball(world?.pickBaseballAim(x,y));return;}
     if(isClassic(arcade.kind)){arcade.tapClassic(world?.pickClassicTap(x,y,arcade.kind),true);return;}
@@ -3787,6 +3814,9 @@ function updateActivities(time,guideNearby,coastMarkers){
   const eligible=world&&session&&!me.sport&&!me.bus&&!isCycling(me)&&!queuedBus&&!queuedBike;
   updateSocial(time,eligible);
   updateBungeoControls(time);
+  setActivity("sea-fishing-open",canFish()?"바다낚시":null);
+  const amusementRide=nearbyAmusement();
+  setActivity("amusement-ride",amusementRide?amusementRide.name+" 타기":null);
   for(const [kind,point] of Object.entries(ARCADE_GAMES))setActivity("arcade-"+kind,canStartArcade(point)?arcadeLabels[kind]:null);
   const stairs=eligible&&nearbyArcadeStairs();
   setActivity("arcade-stairs",stairs?stairs.name:null);
@@ -4126,7 +4156,7 @@ function preferredNearbyAction(time){
   if(!$("sit").hidden&&!$("sit").disabled&&$("sit").dataset.footBath==="true")return "sit";
   if(!$("arcade-stairs").hidden)return "arcade-stairs";
   if(!venueDoorButton.hidden&&!venueDoorButton.disabled&&interiorAt(me.x,me.y))return venueDoorButton.id;
-  for(const id of ["bungeo-serve","bungeo-accept","bungeo-open","bungeo-gift","beach-piano-open"]){
+  for(const id of ["bungeo-serve","bungeo-accept","bungeo-open","bungeo-gift","beach-piano-open","sea-fishing-open","amusement-ride"]){
     const action=$(id);
     if(!action.hidden&&!action.disabled)return id;
   }
@@ -4161,7 +4191,7 @@ function preferredPeerAction(time){
 function frame(now){
   const elapsed=Math.max(0,Math.min(56,now-lastFrame))/1000;lastFrame=now;
   requestAnimationFrame(frame);
-  if(!session||leavingByKtx){liftRide=null;return;}
+  if(!session||leavingByKtx){liftRide=null;amusement.stop();return;}
   const time=gameTime(now);
   if(alcoholSip&&time>=alcoholSip.at){
     Object.assign(me,finishAlcoholSip(me,alcoholSip.at,alcoholSip.empty));
@@ -4184,7 +4214,7 @@ function frame(now){
     coastPlay.tick(elapsed,photoMode.camera?[0,0]:axis);
   }
   landJump(time);
-  const stepping=studioMonitor?.active?false:backgroundTrip?advanceBackgroundTrip():motion(now,elapsed);
+  const stepping=studioMonitor?.active||amusement.active?false:backgroundTrip?advanceBackgroundTrip():motion(now,elapsed);
   if(me.blushLevel&&time>=me.blushUntil){me.blushLevel=0;me.blushUntil=0;me.alcoholGlasses=0;me.sickAt=0;dirty=true;}
   faceFirstPersonView(time);
   stationConveyor(elapsed);
@@ -4215,7 +4245,7 @@ function frame(now){
     if(coastPlay)updateCoastActivities(coastMarkers);
     if(inGyeongju)updateGyeongjuActivities(coastMarkers);
     if(world&&!regional)passport.visit(me);
-    const tutorialPaused=Boolean(photoMode.camera||riding||minigames.active()||document.hidden||document.querySelector("dialog[open]"));
+    const tutorialPaused=Boolean(photoMode.camera||riding||amusement.active||minigames.active()||document.hidden||document.querySelector("dialog[open]"));
     if(tutorial.needsStart&&world&&!tutorialPaused)tutorial.start();
     tutorial.update(now,tutorialPaused);
     const seatEnabled=world&&session&&!me.sport&&!me.bus&&(!onCoast||me.coast?.mode==="walk")&&!isCycling(me)&&!queuedBus&&!queuedBike&&!myLink()?.active&&!feedingLocked(time);
@@ -4252,8 +4282,9 @@ function frame(now){
   }
   const perspective=currentPerspective();
   labelPerspective(perspective);
+  const amusementRide=amusement.update(now,me,Boolean(world&&session&&inGyeongju&&!photoMode.camera));
   lastScene={paperBoats:paperBoats.states(),me:self,peers:[...others.values()],parkedBikes,view:ownView,coastMarker,gyeongjuMarker:inGyeongju?coastMarker:null,
-    firstPerson:perspective.first,
+    firstPerson:perspective.first&&!amusementRide,amusementRide,
     photoCamera:photoMode.camera,photoCapture:Boolean(photoMode.camera),environment,guideNearby,destination:course.at(-1),clock:time,fountainShow,galleryLight,
     diningService:diningService?.venue===currentDining()?.id?diningService?.tickets??[]:[],
     minigames:minigames.states(),minigameAction:minigames.localAction(),picnics:picnic.states(),bungeoMolds,bungeoOrder,bungeoStock,bungeoMode,

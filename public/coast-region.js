@@ -19,11 +19,12 @@ import {harborStops,busLines,stopById,transitRoads} from "./pohang-transit.js";
 import {scooterHubs} from "./coast-scooters.js";
 import {festivalBooth} from "./pohang-festival-site.js";
 import {beachMarketObstacle,beachMarketStalls,beachPiano} from "./beach-market-layout.js";
+import {fishingDock} from "./sea-fishing.js";
 import {surfLineup} from "./pohang-surf-waves.js";
 import {tavernArrival,tavernBlockIndex,tavernObstacle,tavernTerrace} from "./coast-tavern-layout.js";
 
 export const platformArrival={...coastPoint(arrival),heading:38};
-export const destinations=[[stationForecourt,"포항역 광장"],[stopById("beach"),"영일대 정류장"],[boardRack,"백사장 · 서핑보드 대여"],[{x:dock.x-1,z:dock.z},"선착장"],[parkEntry,"스페이스워크"],[tavernArrival,"바다야장"],[pavilionApproach,"해상누각"],[seaPoint(beachPiano.action),"영일대 야시장"]]
+export const destinations=[[stationForecourt,"포항역 광장"],[stopById("beach"),"영일대 정류장"],[boardRack,"백사장 · 서핑보드 대여"],[fishingDock,"선착장 · 바다낚시"],[parkEntry,"스페이스워크"],[tavernArrival,"바다야장"],[pavilionApproach,"해상누각"],[seaPoint(beachPiano.action),"영일대 야시장"]]
  .map(([p,name])=>({...coastPoint(p),label:name,name,heading:p.heading??90}));
 export {counters};
 // The model of the offshore hall has open colonnades at both levels.
@@ -180,7 +181,7 @@ export function drawCoastMap(base,svg,drawMarker,mini=false){
  svg(base,"polygon",{points:pts([[-10,1.4],[10,1.4],[10,13.05],[-10,13.05]].map(([u,v])=>pavilionPoint(u,v))),fill:"#726c61"});
  path(stationWalkLine,"#c9a362",1.6);
  drawMarker(base,{...coastPoint(platformDoor),label:"KTX 승강장",name:"KTX 승강장"},"railway",mini);
- const categories=["railway","bus","activity","activity","heritage","shop","heritage"];
+ const categories=["railway","bus","activity","activity","heritage","shop","heritage","shop"];
  destinations.forEach((p,i)=>{if(i!==1)drawMarker(base,p,categories[i],mini);});
  for(const stop of harborStops){
   const name=stop.name+" · "+(stop.line==="express"?"급행 ":"")+stop.direction;
