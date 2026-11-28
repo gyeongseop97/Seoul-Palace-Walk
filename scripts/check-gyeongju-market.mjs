@@ -6,7 +6,7 @@ import {adaptDatabase} from "../server/database.mjs";
 import {api} from "../room.mjs";
 import {diningServiceRoute,diningTrayPose} from "../public/dining-data.js";
 import {gyeongjuWalkable,gyeongjuClear,gyeongjuRoute,places} from "../public/gyeongju-layout.js";
-import {marketRooms,marketBenches,marketCounters,marketDining,marketDiningAt} from "../public/gyeongju-market.js";
+import {marketRooms,cityBenches,canyonDining,marketCounters,marketDining,marketDiningAt} from "../public/gyeongju-market.js";
 import {gyeongjuPoint} from "../public/region-coordinates.js";
 import {ITEMS} from "../public/activities.js";
 
@@ -33,30 +33,33 @@ async function send(path,body){
 }
 try{
  await initializeDatabase(client);
- const {room,code}=await send("rooms",{...player,view,action:"create",avatar:marketDining.menuPoint});
- await send("rooms",{...peer,view,action:"join",code,avatar:marketDining.menuPoint});
- const table=marketDining.benches[0],seat=marketBenches.indexOf(table),slot=table.slots[0];
+ for(const venue of [marketDining,canyonDining]){
+ const kind=venue.dishes[0].kind;
+ const {room,code}=await send("rooms",{...player,view,action:"create",avatar:venue.menuPoint});
+ await send("rooms",{...peer,view,action:"join",code,avatar:venue.menuPoint});
+ const table=venue.benches[0],seat=cityBenches.indexOf(table),slot=table.slots[0];
  const sitting={...slot.approach,heading:slot.heading,seat,seatSide:0};
  const opposite={...table.slots[1].approach,heading:table.slots[1].heading,seat,seatSide:1};
  const call=async(p,avatar,action,kind)=>{
-  const dining=action?{action,kind,request:token(),venue:marketDining.id}:undefined;
-  return (await send("room",{room,...p,avatar,view,dining,diningVenue:marketDining.id})).dining;
+  const dining=action?{action,kind,request:token(),venue:venue.id}:undefined;
+  return (await send("room",{room,...p,avatar,view,dining,diningVenue:venue.id})).dining;
  };
  assert.equal((await call(player,{...sitting,seat:0},"bell")).result,"unavailable");
  let ticket=(await call(player,sitting,"bell")).self;
  assert.equal(ticket.phase,"summoned");assert.equal(ticket.table.index,0);
- assert(diningServiceRoute(ticket.table,marketDining).length>0);
+ assert(diningServiceRoute(ticket.table,venue).length>0);
  const waiting=await call(peer,opposite,"bell");
  assert.equal(waiting.self.phase,"queued");assert.equal(waiting.tickets.length,2);
  clock=ticket.phaseUntil+1;ticket=(await call(player,sitting)).self;
- assert.equal(ticket.phase,"ordering");ticket=(await call(player,sitting,"order","ssambapSet")).self;
+ assert.equal(ticket.phase,"ordering");ticket=(await call(player,sitting,"order",kind)).self;
  for(const phase of ["cooking","serving"]){
   assert.equal(ticket.phase,phase);clock=ticket.phaseUntil+1;ticket=(await call(player,sitting)).self;
  }
  assert.equal(ticket.phase,"served");assert.deepEqual(diningTrayPose(ticket.table),slot.tray);
  assert.equal((await call(peer,opposite)).tickets.find(t=>t.player===player.id).phase,"served");
- for(let n=ITEMS.ssambapSet.uses-1;n>=0;n--){
-  const eaten=await call(player,sitting,"bite");assert.equal(eaten.self.remaining,n);clock+=ITEMS.ssambapSet.duration+1;
+ for(let n=ITEMS[kind].uses-1;n>=0;n--){
+  const eaten=await call(player,sitting,"bite");assert.equal(eaten.self.remaining,n);clock+=ITEMS[kind].duration+1;
  }
- console.log("Four walk-in Gyeongju shop approaches, counter and seat clearance, shared table bell, serving, tray placement, opposite seats and all bites passed.");
+ }
+ console.log("Both restaurants served. Four walk-in Gyeongju shop approaches, counter and seat clearance, shared table bell, serving, tray placement, opposite seats and all bites passed.");
 }finally{Date.now=originalClock;globalThis.fetch=originalFetch;client.close();}

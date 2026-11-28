@@ -218,6 +218,51 @@ export function makeDiningDishes(T,{shape,cylinder,box}){
     }
   }
 
+  const foldedStrip=new T.Shape();
+  for(let i=0;i<=36;i++){
+    const t=i/36,x=.021*Math.sin(t*Math.PI*5)-.003,y=t*.095;
+    if(i===0)foldedStrip.moveTo(x,y);else foldedStrip.lineTo(x,y);
+  }
+  for(let i=36;i>=0;i--){
+    const t=i/36;foldedStrip.lineTo(.021*Math.sin(t*Math.PI*5)+.003,t*.095);
+  }
+  foldedStrip.closePath();
+  const fishcakeRibbon=new T.ExtrudeGeometry(foldedStrip,{
+    depth:.031,bevelEnabled:true,bevelSegments:1,bevelThickness:.002,bevelSize:.002
+  }).translate(0,0,-.0155);
+  function fishcakeUdon(group){
+    udon(group);
+    for(const [x,z,tilt,angle] of [[-.045,-.018,.56,.63],[.006,-.054,-.43,-.55]]){
+      const skewer=new T.Group();group.add(skewer);skewer.position.set(x,.039,z);
+      skewer.rotation.set(-.24,angle,tilt);
+      cylinder(0xcd995c,0,.090,0,.0027,.18,7,skewer);
+      shape(fishcakeRibbon,0xd5a565,0,.013,0,skewer);
+    }
+  }
+
+  function spicyPorkRice(group){
+    topping(group,0xf5e3bb,0,.025,0,.111,.030,.107);
+    for(let i=0;i<15;i++){
+      const angle=i*2.399,r=.018+(i%5)*.010;
+      const x=-.045+Math.cos(angle)*r,z=Math.sin(angle)*r*1.5;
+      topping(group,i%2?0xffefd0:0xe1c99e,x,.055-Math.hypot(x,z)*.16,z,.004,.003,.008).rotation.y=angle;
+    }
+    topping(group,0x9c3821,.034,.043,-.004,.068,.015,.087);
+    for(let i=0;i<12;i++){
+      const angle=i*2.399,r=.012+(i%4)*.012,x=.034+Math.cos(angle)*r,z=Math.sin(angle)*r*1.4;
+      const y=.061+.009*(1-r/.06);
+      const pork=topping(group,i%3?0xb8522c:0x93391e,x,y,z,.027,.010,.015);
+      pork.rotation.set(.17,angle,Math.sin(i)*.30);
+      topping(group,0xd97c42,x+.004,y+.006,z,.018,.004,.005).rotation.y=angle;
+    }
+    for(let i=0;i<9;i++){
+      const angle=i*2.399,r=.009+i*.003;
+      const x=.012+Math.cos(angle)*r,z=Math.sin(angle)*r;
+      box(i%3===0?0xcf873c:0x629045,x,.080,z,.007,.006,.023,group).rotation.y=angle;
+      topping(group,0xf1ce89,x+.014,.079,z+.009,.002,.002,.004).rotation.y=angle;
+    }
+  }
+
   function jjajangmyeon(group){
     topping(group,0xe4bd7d,0,.015,0,.111,.027,.106);
     pastaLayers.forEach((noodles,i)=>shape(noodles,i%3===0?0xe8bd6d:0xf4d17d,0,.028,0,group));
@@ -303,5 +348,6 @@ export function makeDiningDishes(T,{shape,cylinder,box}){
     sujebi:tray(sujebi,0xd7ccb1),mushroomPasta:tray(mushroomPasta,0x576a65,{plate:true,utensilKind:"fork"}),
     beefCurry:tray(beefCurry,0xeadbc3,{plate:true}),chickenSandwich:tray(chickenSandwich,0xeee4ca,{plate:true,utensilKind:"fork",fries:true}),
     udon:tray(udon,0x455946,{utensilKind:"chopsticks"}),jjajangmyeon:tray(jjajangmyeon,0xe3d5bd,{utensilKind:"chopsticks"}),
+    fishcakeUdon:tray(fishcakeUdon,0x425d68,{utensilKind:"chopsticks"}),spicyPorkRice:tray(spicyPorkRice,0xb98a5a),
     friedRice:tray(friedRice,0x5e7994,{plate:true})};
 }

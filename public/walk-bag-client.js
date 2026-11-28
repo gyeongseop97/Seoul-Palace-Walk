@@ -3,6 +3,7 @@ import {BAG_SIZE,portable,wearSlots,packedBoard,canPackBoard} from "./walk-inven
 import {ITEM_SLOTS,handLabel} from "./held-items.js";
 const icons={bear:"🧸",rabbit:"🐰",cat:"🐱",duck:"🐤",panda:"🐼",star:"⭐",frog:"🐸",penguin:"🐧",
   ssambap:"🥬",hwangnamBread:"🥮",sikhye:"🥤",beopju:"🍶",
+  churros:"🥖",icedAmericano:"🧊",blueSlush:"🥤",greenLatte:"🍵",fishcakeUdon:"🍜",spicyPorkRice:"🍚",
   coffee:"☕",cannedBeer:"🍺",cupNoodles:"🍜",cheese:"🧀",beer:"🍺",wine:"🍷",fruitWine:"🍷",highball:"🥃",makgeolli:"🍶",crepe:"🥞",cake:"🍰",
   triangleRice:"🍙",fruitMochi:"🍓",stationBurger:"🍔",churu:"🐾",riceCake:"🍡",sparkler:"🎇",yakgwa:"🌼",bingsu:"🍧"};
 

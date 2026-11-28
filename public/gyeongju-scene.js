@@ -10,7 +10,7 @@ import {centerline,hillHeight} from "./outdoor-sports.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {buildPalacePond} from "./palace-pond-model.js";
 import {pondWater,tickWater} from "./water-shader.js";
-import {marketRooms,marketBenches,marketCameraBlocked} from "./gyeongju-market.js";
+import {marketRooms,cityBenches,canyonDining,marketCameraBlocked} from "./gyeongju-market.js";
 import {drawMarket,createMarketStaff} from "./gyeongju-market-model.js";
 import {drawGyeongjuBikeDockSteps} from "./gyeongju-bike-model.js";
 import {gyeongjuBikeDocks} from "./gyeongju-bike.js";
@@ -27,7 +27,9 @@ import {inBulguksa,templeOrigin,templeAxis,templeHeight,templeCameraBlocked} fro
 import {worshipHalls} from "./bulguksa-hall-layout.js";
 import {buildBulguksa,createBulguksaPagodas} from "./bulguksa-model.js";
 import {nearbyConstruction} from "./gyeongju-construction.js";
-import {inAmusementPark} from "./gyeongju-world-layout.js";
+import {makeDiningStaff} from "./dining-staff.js";
+import {parkVisitors} from "./gyeongju-world-visitors.js";
+import {inAmusementPark,parkSolid} from "./gyeongju-world-layout.js";
 import {buildGyeongjuWorld} from "./gyeongju-world-scene.js";
 
 const stationSide=x=>x < -3000;
@@ -291,7 +293,7 @@ function* buildDistrict(root,eye,isStation,kit,glowMat,bulb,waterMaterials,bridg
 }
 export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
  const station=new T.Group(),town=new T.Group(),temple=new T.Group(),restaurant=marketRooms.find(r=>r.id==="restaurant");
- let staff,updateTemple;
+ let staff,canyonStaff,updateTemple;
  const lampMaterial=new T.MeshStandardMaterial({color:0xffe1b5,emissive:0xffcc79,emissiveIntensity:0,roughness:.5});
  const reflectedSky=new T.Color(0x7896a3),lobbyGlow=new T.Color(0xd1aa80);
  const stationGlass=new T.MeshStandardMaterial({vertexColors:true,roughness:.36,emissive:reflectedSky,emissiveIntensity:.18});
@@ -349,7 +351,7 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
   }while(uploads<8&&performance.now()<deadline);
   return uploads>0||before!==active.children.length;
  }
- return {benches:marketBenches,entryReady(camera){
+ return {visitors:parkVisitors,benches:cityBenches,entryReady(camera){
    if(amusement.visible)return Boolean(updateAmusement);
    const district=temple.visible?temple:station.visible?station:town;
    const floor=entryFloors.get(district);
@@ -362,6 +364,7 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
    return insideObservatory(p)?tower.landing:raftPierHeight(p)||footbridge.surface(p)||Math.max(gyeongjuMoundHeight(p,world.up),gyeongjuWallTop(p));
   },cameraBlocked(world,y){
    const local={x:world.x-origin.x,z:world.y-origin.y};
+   if(inAmusementPark(local))return parkSolid(local,y);
    if(inBulguksa(local))return templeCameraBlocked(local,y);
    const turf=gyeongjuMoundHeight(local,true);
    if(inCheonmaHall(local))return y>3.05&&y<turf+.08;
@@ -378,8 +381,15 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
     station.visible=town.visible=temple.visible=false;
     displayLamp.intensity=0;
     updateAmusement??=buildGyeongjuWorld(T,amusement,kit);
-    updateAmusement(camera,state.amusementRide,state.clock??Date.now(),state.amusementSessions??[],models);
-    marker(null,camera);
+    updateAmusement(camera,state.amusementRide,state.clock??Date.now(),state.amusementSessions??[],models,night);
+    if(Math.hypot(state.me.x-canyonDining.center.x,state.me.y-canyonDining.center.y)<55){
+     if(!canyonStaff){
+      const room=new T.Group();room.position.set(canyonDining.center.x-origin.x,0,canyonDining.center.y-origin.y);
+      amusement.add(room);canyonStaff=makeDiningStaff(T,room,kit,canyonDining,walkerModels);
+     }
+     canyonStaff.update(state.clock??Date.now(),state.diningService??[]);
+    }
+    marker(state.photoCapture?null:state.gyeongjuMarker,camera);
     return;
    }
    const isStation=stationSide(camera.position.x),isTemple=inBulguksa(camera.position),changed=ensure(isStation,isTemple,camera);

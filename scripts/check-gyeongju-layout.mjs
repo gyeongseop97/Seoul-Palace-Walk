@@ -41,7 +41,7 @@ assert.equal(travelDistricts["불국사"][0].name,"불국사 일주문");
 for(const from of templeSites)for(const to of templeSites)if(from!==to)walk(from,to);
 const amusementGate=travelDistricts["경주월드"][0];
 assert.equal(amusementGate.name,"경주월드 정문");
-assert.equal(travelDistricts["경주월드"].length,5);
+assert.equal(travelDistricts["경주월드"].length,17);
 for(const ride of travelDistricts["경주월드"].slice(1)){
  assert.ok(gyeongjuRoute(localGyeongju(amusementGate),localGyeongju(ride)).length,ride.name);
 }

@@ -2,13 +2,14 @@ import {parkRides} from "./gyeongju-world-layout.js";
 import {gyeongjuPoint} from "./region-coordinates.js";
 
 export const rideDefinitions=new Map(parkRides.map(ride=>[ride.id,{...ride,point:gyeongjuPoint(ride.gate)}]));
-export const rideCapacity={wheel:4,viking:14,coaster:12,bumper:5};
+export const rideCapacity=Object.fromEntries(parkRides.map(r=>[r.id,r.capacity]));
 export const boardingDelay=4000;
 const stepMs=40,arenaRadius=9.45,carDiameter=1.74;
 
 export function newRide(kind,now){
   const starts=now+boardingDelay;
   const session={kind,starts,ends:starts+1000*rideDefinitions.get(kind).duration,riders:[]};
+  if(kind==="cups")session.cupSpins=Array(6).fill(0);
   if(kind==="bumper"){
     session.tick=starts;
     session.cars=[0,1,.5,1.34,1.67].map(turn=>{
@@ -27,20 +28,22 @@ function drive(car,throttle,steer){
   car.vz=car.vz*.944-Math.cos(car.yaw)*force;
   car.x+=car.vx*dt;car.z+=car.vz*dt;
 }
-function contain(car){
+function contain(car,time){
   const length=Math.hypot(car.x,car.z);
   if(length<=arenaRadius)return;
   const nx=car.x/length,nz=car.z/length,speed=Math.max(0,car.vx*nx+car.vz*nz);
+  if(speed>.9){car.bumpAt=time;car.bumpForce=speed;}
   car.x=nx*arenaRadius;car.z=nz*arenaRadius;
   car.vx-=1.65*speed*nx;car.vz-=1.65*speed*nz;
 }
-function bump(a,b){
+function bump(a,b,time){
   const dx=b.x-a.x,dz=b.z-a.z,distance=Math.hypot(dx,dz);
   if(distance>=carDiameter)return;
   const nx=distance?dx/distance:1,nz=distance?dz/distance:0;
   const correction=(carDiameter-distance)*.5;
   a.x-=nx*correction;a.z-=nz*correction;b.x+=nx*correction;b.z+=nz*correction;
   const impulse=.86*Math.max(0,(a.vx-b.vx)*nx+(a.vz-b.vz)*nz);
+  if(impulse>.7){a.bumpAt=b.bumpAt=time;a.bumpForce=b.bumpForce=impulse;}
   a.vx-=nx*impulse;a.vz-=nz*impulse;b.vx+=nx*impulse;b.vz+=nz*impulse;
 }
 
@@ -62,8 +65,8 @@ export function advanceCars(session,clock){
       }
     }
     for(let i=0;i<session.cars.length;i++){
-      for(let j=i+1;j<session.cars.length;j++)bump(session.cars[i],session.cars[j]);
+      for(let j=i+1;j<session.cars.length;j++)bump(session.cars[i],session.cars[j],session.tick);
     }
-    session.cars.forEach(contain);
+    session.cars.forEach(car=>contain(car,session.tick));
   }
 }

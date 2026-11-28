@@ -112,6 +112,7 @@ export function buildDiningKitchen(T,room,kit,venue){
 }
 
 const uniforms={
+  "gj-canyon":{character:"woman",hair:"bun",eyes:"soft",outfit:"tee",shirt:0xddbf8b,apron:0x985342,hat:0x6e6556},
   "gj-hwangnam-table":{character:"woman",hair:"bob",eyes:"soft",outfit:"tee",shirt:0xe3c8a0,apron:0x526743,hat:0xc3af87},
   "coast-tavern":{character:"woman",hair:"bob",eyes:"soft",outfit:"tee",shirt:0xeadac2,apron:0x375f64,hat:0xdfcaaa},
   "station-foodhall":{character:"woman",hair:"bob",eyes:"soft",outfit:"tee",shirt:0xd4e1de,apron:0x385565,hat:0xe9dcc8},

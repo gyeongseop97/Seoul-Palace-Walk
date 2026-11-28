@@ -135,6 +135,13 @@ export function makeRegionalItemProps(T,{box,cylinder,shape}){
   limeGeometry.rotateX(Math.PI/2);
   const iceGeometry=new T.BoxGeometry(.040,.043,.041);
   const frost=new T.MeshStandardMaterial({color:0xf8f6df,roughness:.27,transparent:true,opacity:.58});
+  const churroSection=new T.Shape(Array.from({length:20},(_,i)=>{
+    const angle=i*Math.PI/10,r=i%2?.014:.022;
+    return new T.Vector2(Math.cos(angle)*r,Math.sin(angle)*r);
+  }));
+  const churroStick=new T.ExtrudeGeometry(churroSection,{
+    depth:.28,bevelEnabled:true,bevelThickness:.003,bevelSize:.0015,bevelSegments:1
+  }).rotateX(-Math.PI/2);
 
   function berry(parent,color,x,y,z,w,h,d){
     const mesh=shape(berryGeometry,color,x,y,z,parent);
@@ -144,7 +151,58 @@ export function makeRegionalItemProps(T,{box,cylinder,shape}){
     const glass=new T.Mesh(tumbler,clearGlass);glass.renderOrder=1;parent.add(glass);
     shape(tumblerRim,0xdfebe4,0,.106,0,parent);
   }
+  function remainingPortions(age,remaining=3){
+    return Math.max(0,Math.min(3,remaining+Number(age>=0&&age<.65)));
+  }
+  function parkDrink(parent,kind){
+    drinkGlass(parent);
+    const coffee=kind==="icedAmericano",latte=kind==="greenLatte";
+    const liquid=new T.Group();
+    liquid.position.y=-.09;parent.add(liquid);
+    cylinder(coffee?0x4d281b:latte?0xe9dfb5:0x148bcc,0,.087,0,.058,.174,24,liquid,1.15);
+    if(latte){
+      cylinder(0xadc476,0,.115,0,.062,.055,24,liquid,1.04);
+      cylinder(0x759d55,0,.157,0,.065,.038,24,liquid,1.025);
+      cylinder(0xd8dcb7,0,.177,0,.066,.006,24,liquid);
+    }
+    if(coffee||latte){
+      for(const [x,z,angle] of [[-.030,.016,.4],[.020,-.030,.65],[.026,.027,-.2]]){
+        const ice=new T.Mesh(iceGeometry,frost);
+        ice.position.set(x,.176,z);ice.rotation.set(.16,angle,.23);liquid.add(ice);
+      }
+    }else{
+      berry(liquid,0x53c9e2,0,.176,0,.064,.034,.064);
+      for(let i=0;i<9;i++){
+        const angle=i*2.4,r=.018+(i%3)*.016;
+        berry(liquid,i%2?0x91e5ee:0x37b0da,Math.cos(angle)*r,.209-r*.27,Math.sin(angle)*r,.009,.006,.010);
+      }
+    }
+    const straw=cylinder(coffee?0x342e2c:latte?0xede3c8:0xffc03e,-.024,.095,-.018,.0045,.20,8,parent);
+    straw.rotation.z=-.18;
+    cylinder(latte?0x668251:coffee?0x976345:0xf1d894,0,-.004,0,.066,.041,24,parent,1.015);
+    cylinder(0xf5e7c7,0,.014,0,.067,.004,24,parent);
+    return {update(age,remaining){liquid.scale.y=remainingPortions(age,remaining)/3;liquid.visible=liquid.scale.y>0;}};
+  }
   return {
+    icedAmericano:parent=>parkDrink(parent,"icedAmericano"),
+    greenLatte:parent=>parkDrink(parent,"greenLatte"),
+    blueSlush:parent=>parkDrink(parent,"blueSlush"),
+    churros(parent){
+      const sticks=new T.Group();sticks.position.y=-.066;parent.add(sticks);
+      for(const dir of [-1,1]){
+        const stick=new T.Group();stick.position.x=dir*.009;stick.rotation.z=-dir*.11;
+        stick.scale.y=dir===1?.91:1;sticks.add(stick);
+        shape(churroStick,dir===1?0xbd783b:0xcb8840,0,0,0,stick);
+        for(let i=0;i<13;i++){
+          const angle=i*2.4;
+          berry(stick,0xedc18a,Math.cos(angle)*.020,.10+i*.013,Math.sin(angle)*.020,.002,.0025,.002);
+        }
+      }
+      cylinder(0xf0ddb3,0,-.032,0,.027,.115,10,parent,1.55);
+      cylinder(0xb3483a,0,-.014,0,.038,.020,10,parent,1.08);
+      cylinder(0xffe9b5,0,.022,0,.042,.009,10,parent,1.03);
+      return {update(age,remaining){sticks.scale.y=.30+.70*remainingPortions(age,remaining)/3;}};
+    },
     cannedBeer(parent){
       cylinder(0xd7b767,0,-.003,0,.058,.165,20,parent);
       cylinder(0x496d76,0,.005,0,.0589,.068,20,parent);

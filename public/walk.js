@@ -22,6 +22,7 @@ import {beachPiano} from "./beach-market-layout.js";
 import {createBeachPiano} from "./beach-piano.js";
 import {fishingSpot} from "./sea-fishing.js";
 import {createSeaFishing} from "./sea-fishing-client.js";
+import {parkServiceNear,parkWashbasin} from "./gyeongju-world-layout.js";
 import {amusementRideNear,createAmusementRides} from "./gyeongju-world-client.js";
 import {ceremonyAt} from "./palace-people.js";
 import {cityHallStation,gbSites,gbLake,gbPond,gbPaths,gbCourts,gbLawns,gbShortcuts,wishPond,inGyeongbok,gbWoldae,onWoldaeApproach,nearWoldaeRailing,at as palaceAt,gyeongbokWater} from "./gyeongbok-layout.js";
@@ -95,7 +96,7 @@ import {arcadeTitles,bindArcade} from "./arcade-client.js";
 import {isClassic} from "./arcade-classics.js";
 import {arcadeSnapshot,visibleArcade} from "./arcade-presence.js";
 import {ITEM_SLOTS,handLabel,itemAnimating,freeItemSlot,handsFree} from "./held-items.js";
-import {BAG_SIZE,belongings,validPacked} from "./walk-inventory.js";
+import {BAG_SIZE,PARK_LOCKER_SIZE,belongings,validPacked} from "./walk-inventory.js";
 import {bindWalkBag} from "./walk-bag-client.js";
 import {bindExpressionWheel} from "./expression-wheel.js";
 import {BIKE_FALL_DURATION_MS,GESTURE_DURATIONS,SICK_DURATION_MS,alcoholGait,bikeFallChance,finishAlcoholSip,staggeredStep} from "./avatar-gestures.js";
@@ -569,6 +570,46 @@ $("amusement-ride").addEventListener("click",()=>{
   Object.assign(me,{vx:0,vy:0,running:false});dirty=true;
   amusement.start(ride);
 });
+const parkServiceLabels={info:"공원 안내지도 보기",locker:"물품보관함 열기",restroom:"세면대에서 손 씻기",firstaid:"의무실 앞에서 쉬기"};
+const lockerDialog=$("park-locker");
+function nearbyParkService(){
+  if(!session||!world||!inGyeongju||amusement.active||photoMode.camera||me.bus||riding||isCycling(me)||me.seat!=null)return null;
+  const s=parkServiceNear(me);
+  return s&&parkServiceLabels[s.type]?s:null;
+}
+let lockerSignature="";
+function renderLocker(){
+  if(!lockerDialog.open)return;
+  if(nearbyParkService()?.type!=="locker"){lockerDialog.close();return;}
+  const locker=me.parkLocker??[],busy=bagLocked(),canHold=Boolean(freeItemSlot(me,gameTime()));
+  const signature=JSON.stringify([busy,canHold,locker,...ITEM_SLOTS.map(s=>me[s])]);
+  if(signature===lockerSignature)return;
+  lockerSignature=signature;
+  $("park-locker-count").textContent=locker.length+" / "+PARK_LOCKER_SIZE+"칸";
+  const rows=$("park-locker-items");rows.replaceChildren();
+  function button(text,cmd,disabled){
+    const b=document.createElement("button");b.type="button";b.className="quiet";b.textContent=text;
+    b.disabled=busy||disabled;b.onclick=()=>{bagRequest(cmd);renderLocker();};rows.append(b);
+  }
+  for(const slot of ITEM_SLOTS){
+    const item=me[slot];if(!validPacked(item))continue;
+    button(ITEMS[item.kind].name+" 맡기기", {action:"deposit",slot,kind:item.kind,remaining:item.remaining},locker.length>=PARK_LOCKER_SIZE);
+  }
+  locker.forEach((item,index)=>button((index+1)+"번 · "+ITEMS[item.kind].name+" 꺼내기",{action:"withdraw",index,kind:item.kind,remaining:item.remaining},!canHold));
+  if(!rows.childElementCount)rows.textContent="맡길 물건을 손에 들고 오세요.";
+}
+$("park-locker-close").onclick=()=>lockerDialog.close();
+$("park-service").onclick=()=>{
+  const s=nearbyParkService();if(!s)return;
+  if(s.type==="info"){setMap(true);return;}
+  if(s.type==="firstaid"){interactBench();return;}
+  if(s.type==="locker"){resetInput();lockerSignature="";lockerDialog.showModal();renderLocker();return;}
+  if(s.type==="restroom"){
+    if(!ITEM_SLOTS.every(slot=>!me[slot]?.remaining)){toast("양손을 비운 뒤 손을 씻을 수 있어요.");return;}
+    if(near(parkWashbasin,me.x,me.y)>.82){walkTo(parkWashbasin);return;}
+    resetInput();me.heading=0;me.gesture={kind:"wash",at:gameTime()};dirty=true;wakeSync();sound.washHands();toast("세면대에서 손을 씻어요.");
+  }
+};
 function canFish(){
   return Boolean(onCoast&&session&&world&&me.coast?.mode==="walk"&&!riding&&!me.bus&&!bungeoMode&&
     me.seat==null&&!me.groundSit&&!photoMode.camera&&!myLink()?.active&&
@@ -1261,7 +1302,7 @@ async function sync(){
     bikeOffers:isBikeDriver(me)||Boolean(tandemOffer),diningVenue:serviceVenue,...(bungeoWatch?{bungeoWatch}:null),
     ...(bowlingWatch?{bowlingWatch}:null),...(amusementWatch?{amusementWatch:true}:null)};
   const avatar=post?{...me,catFriends:passport.friendlyCatIds()}:null;
-  if(avatar){delete avatar.bag;delete avatar.plushHead;delete avatar.plushBack;}
+  if(avatar){delete avatar.bag;delete avatar.parkLocker;delete avatar.plushHead;delete avatar.plushBack;}
   if(avatar&&arcadePacket)avatar.arcade=arcadePacket;
   if(avatar&&claim)Object.assign(avatar,{seat:claim.bench,seatSide:claim.side});
   if(avatar){if(chat)avatar.chat=chat;else delete avatar.chat;}
@@ -1348,7 +1389,7 @@ async function sync(){
       else if(inventory.action==="give")toast("친구에게 건넸어요.");
       else if(inventory.action==="collect")toast(ITEMS[inventory.kind].name+"을 가방에 담았어요.");
     }
-    walkBag.render();saveBag();
+    walkBag.render();renderLocker();saveBag();
     if(feed&&queuedFeed===feed){
       queuedFeed=null;
       if(confirmed?.feed?.claim!==feed.claim)toast("고양이에게 가까이 다가가 다시 간식을 주세요.");
@@ -1484,7 +1525,7 @@ function returnToLobby(message=""){
   if(bungeoMode)setBungeoCooking(false);
   arcade.stop();
   bowlingQueue.length=0;bowlingMatch=lastBowlingPlace=null;
-  amusement.reset();
+  amusement.reset();sound.parkRide(null);
   bungeoQueue.length=0;clearBungeoState();
   $("bungeo-status").hidden=$("bungeo-order-status").hidden=$("bungeo-hint").hidden=true;
   guestbook.close();diningMenu.close();galleryLight=0;
@@ -3823,6 +3864,8 @@ function updateActivities(time,guideNearby,coastMarkers){
   setActivity("sea-fishing-open",canFish()?"바다낚시":null);
   const amusementRide=nearbyAmusement();
   setActivity("amusement-ride",amusementRide?amusementRide.name+" 타기":null);
+  const facility=nearbyParkService();
+  setActivity("park-service",facility?.type==="restroom"&&near(parkWashbasin,me.x,me.y)>.82?"세면대로 이동":facility&&parkServiceLabels[facility.type],facility?.type==="restroom"&&me.gesture?.kind==="wash"&&time-me.gesture.at<3000);
   for(const [kind,point] of Object.entries(ARCADE_GAMES))setActivity("arcade-"+kind,canStartArcade(point)?arcadeLabels[kind]:null);
   const stairs=eligible&&nearbyArcadeStairs();
   setActivity("arcade-stairs",stairs?stairs.name:null);
@@ -4162,7 +4205,7 @@ function preferredNearbyAction(time){
   if(!$("sit").hidden&&!$("sit").disabled&&$("sit").dataset.footBath==="true")return "sit";
   if(!$("arcade-stairs").hidden)return "arcade-stairs";
   if(!venueDoorButton.hidden&&!venueDoorButton.disabled&&interiorAt(me.x,me.y))return venueDoorButton.id;
-  for(const id of ["bungeo-serve","bungeo-accept","bungeo-open","bungeo-gift","beach-piano-open","sea-fishing-open","amusement-ride"]){
+  for(const id of ["bungeo-serve","bungeo-accept","bungeo-open","bungeo-gift","beach-piano-open","sea-fishing-open","amusement-ride","park-service"]){
     const action=$(id);
     if(!action.hidden&&!action.disabled)return id;
   }
@@ -4197,7 +4240,7 @@ function preferredPeerAction(time){
 function frame(now){
   const elapsed=Math.max(0,Math.min(56,now-lastFrame))/1000;lastFrame=now;
   requestAnimationFrame(frame);
-  if(!session||leavingByKtx){liftRide=null;if(amusement.active)amusement.reset();return;}
+  if(!session||leavingByKtx){sound.parkRide(null);liftRide=null;if(amusement.active)amusement.reset();return;}
   const time=gameTime(now);
   if(alcoholSip&&time>=alcoholSip.at){
     Object.assign(me,finishAlcoholSip(me,alcoholSip.at,alcoholSip.empty));
@@ -4289,6 +4332,7 @@ function frame(now){
   const perspective=currentPerspective();
   labelPerspective(perspective);
   const amusementRide=amusement.update(time,me,Boolean(world&&session&&inGyeongju&&!photoMode.camera));
+  sound.parkRide(inGyeongju&&world&&!riding?amusement.acoustics(time,me,ownView.pan):null);
   lastScene={paperBoats:paperBoats.states(),me:self,peers:[...others.values()],parkedBikes,view:ownView,coastMarker,gyeongjuMarker:inGyeongju?coastMarker:null,
     firstPerson:perspective.first&&!amusementRide,amusementRide,amusementSessions:amusement.rides,
     photoCamera:photoMode.camera,photoCapture:Boolean(photoMode.camera),environment,guideNearby,destination:course.at(-1),clock:time,fountainShow,galleryLight,

@@ -2,6 +2,9 @@
 
 경주월드 구역은 공식 가이드맵으로 정문과 놀이기구의 배치를 확인하고, OpenStreetMap의 놀이공원 경계와 타임라이더·킹바이킹·범퍼카 좌표를 경주 지도에 맞췄습니다. 게임의 보행로와 탑승 모델은 자료를 바탕으로 단순화했습니다. [경주월드 공식 가이드맵](https://www.gjw.co.kr/images/contents/guidemap.pdf) · [OpenStreetMap 기여자 · ODbL](https://www.openstreetmap.org/copyright)
 
+페기의 캐로셀·파에톤·크라크·댄싱컵·섬머린스플래쉬의 탑승 방식, 캐니언빌리지와 매점·카페의 메뉴는 경주월드 공식 안내를 참고했습니다. 선로와 운행 시간은 게임에 맞춰 구성하고, 조형과 기계음은 게임용으로 제작했습니다. [경주월드 어트랙션](https://www.gjw.co.kr/Contents/contents.php?cmsNo=DB0200) · [경주월드 식음시설](https://www.gjw.co.kr/Contents/contents.php?cmsNo=DB0300) · [Three.js 롤러코스터 예제](https://threejs.org/examples/webxr_vr_rollercoaster.html)
+
+
 시작 화면의 여행 풍경은 서울·포항·경주를 한 장면에 담아 생성한 게임용 일러스트입니다. ‘유람’ 글자 로고는 두 음절의 획을 직접 그린 레터링입니다. 작은 로고는 Adobe Firefly로 구도를 잡고, 살짝 말린 민트색 종이 지도 한 장에 주황색 배와 파란 기차를 벡터로 그렸습니다.
 
 ## 국가유산청 3D 자료

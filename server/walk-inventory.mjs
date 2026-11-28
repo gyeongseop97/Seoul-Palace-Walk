@@ -1,10 +1,11 @@
+import {parkServiceNear} from "../public/gyeongju-world-layout.js";
 import {inCoastSpace,inGyeongjuSpace} from "../public/region-coordinates.js";
 import {inventoryAction} from "../public/walk-inventory.js";
 import {ARCADE_CLAW} from "../public/arcade-layout.js";
 import {regionalStations,streetCounters} from "../public/street-stands.js";
 import {railCounters,plazaCafe} from "../public/rail-station-layout.js";
 const counters=[...regionalStations,...streetCounters,...railCounters,plazaCafe];
-const actions=new Set(["store","hold","give","prize","wear","remove","collect","storeBoard","unpackBoard"]);
+const actions=new Set(["store","hold","give","prize","wear","remove","collect","storeBoard","unpackBoard","deposit","withdraw"]);
 const token=v=>typeof v==="string"&&/^[a-f0-9]{32}$/.test(v);
 export const validInventory=(c,id)=>c&&actions.has(c.action)&&token(c.id)&&typeof c.kind==="string"&&c.kind.length<60&&
   (c.action!=="give"||token(c.to)&&c.to!==id);
@@ -15,6 +16,8 @@ export async function applyInventory(db,{room,id,key,now,cmd,rows}){
   const own=rows.find(row=>row.id===id&&row.player_key===key),other=cmd.action==="give"&&rows.find(row=>row.id===cmd.to&&row.updated>=now-9000);
   if(!own)return {id:cmd.id,error:"산책방에 다시 들어와 주세요."};
   const a=JSON.parse(own.avatar),b=other&&JSON.parse(other.avatar);
+  if(["deposit","withdraw"].includes(cmd.action)&&(!parkServiceNear(a,"locker")||a.bus||a.bikeRide||a.seat!=null))
+    return {id:cmd.id,error:"정문 물품보관소에서 이용해 주세요."};
   let sources=counters;
   if(cmd.action==="collect"){
     if(inGyeongjuSpace(a))sources=(await import("../public/gyeongju-market.js")).marketCounters;

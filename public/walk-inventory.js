@@ -3,7 +3,7 @@ import {freeItemSlot,itemAnimating,validItemSlot} from "./held-items.js";
 import {plushItems} from "./plush-items.js";
 import {inCoastSpace} from "./region-coordinates.js";
 
-export const BAG_SIZE=15;
+export const BAG_SIZE=15, PARK_LOCKER_SIZE=6;
 export const wearSlots=["plushHead","plushBack"];
 export const portable=kind=>Object.hasOwn(ITEMS,kind)&&!ITEMS[kind].meal;
 export const packedBoard={kind:"surfboard",remaining:1,started:0};
@@ -11,12 +11,27 @@ export const canPackBoard=a=>inCoastSpace(a)&&Boolean(a.coast)&&a.coast.mode!=="
 export const validPacked=p=>p&&(p.kind==="surfboard"?p.remaining===1:portable(p.kind)&&Number.isInteger(p.remaining)&&p.remaining>0&&p.remaining<=ITEMS[p.kind].uses);
 const pack=p=>({kind:p.kind,remaining:p.remaining,started:0});
 export function belongings(a){
-  return {bag:(Array.isArray(a?.bag)?a.bag:[]).slice(0,BAG_SIZE).filter(validPacked).map(pack),
+  return {parkLocker:(Array.isArray(a?.parkLocker)?a.parkLocker:[]).slice(0,PARK_LOCKER_SIZE).filter(p=>validPacked(p)&&p.kind!=="surfboard").map(pack),bag:(Array.isArray(a?.bag)?a.bag:[]).slice(0,BAG_SIZE).filter(validPacked).map(pack),
     plushHead:Object.hasOwn(plushItems,a?.plushHead)?a.plushHead:null,
     plushBack:Object.hasOwn(plushItems,a?.plushBack)?a.plushBack:null};
 }
 export function inventoryAction(a,cmd,now,recipient){
   const bag=a.bag??=[],i=cmd.index,slot=cmd.slot,wear=cmd.wear;
+  if(cmd.action==="deposit"||cmd.action==="withdraw"){
+    const locker=a.parkLocker??[];
+    if(cmd.action==="deposit"){
+      const held=validItemSlot(slot)&&a[slot];
+      if(!validPacked(held)||!portable(held.kind)||held.kind!==cmd.kind||held.remaining!==cmd.remaining||itemAnimating(held,now))return "손에 든 물건을 확인해 주세요.";
+      if(locker.length>=PARK_LOCKER_SIZE)return "보관함이 가득 찼어요.";
+      a.parkLocker=[...locker,pack(held)];a[slot]=null;
+    }else{
+      const held=locker[i],dest=freeItemSlot(a,now);
+      if(!Number.isInteger(i)||!held||held.kind!==cmd.kind||held.remaining!==cmd.remaining)return "보관한 물건을 다시 골라 주세요.";
+      if(!dest)return "물건을 받을 손을 비워 주세요.";
+      a[dest]=pack(held);a.parkLocker=locker.filter((_,n)=>n!==i);
+    }
+    return;
+  }
   if(cmd.kind==="surfboard"){
     if(!canPackBoard(a))return "포항에서 보드를 탄 상태를 끝낸 뒤 옮길 수 있어요.";
     if(cmd.action==="storeBoard"&&a.coast.board&&!bag.some(p=>p.kind==="surfboard")){

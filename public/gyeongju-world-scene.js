@@ -1,5 +1,11 @@
-import {parkBoundary,parkEntrance,parkFountain,parkPavilions,parkRides,parkWalkways} from "./gyeongju-world-layout.js";
-import {standSign} from "./regional-stands.js";
+import {districtMeshes} from "./gyeongju-mesh.js";
+import * as layout from "./gyeongju-world-layout.js";
+import {buildParkLandscape} from "./gyeongju-world-landscape.js";
+import {buildParkFacilities} from "./gyeongju-world-facilities.js";
+import {buildParkAttractions} from "./gyeongju-world-attractions.js";
+import {buildParkClassics} from "./gyeongju-world-classics.js";
+import {addRideDetails} from "./gyeongju-world-ride-details.js";
+const {parkBoundary,parkRides,parkWalkways,parkServices}=layout;
 
 export function buildGyeongjuWorld(T,root,kit){
   const steel=0x4b647a,cream=0xf3d79e,blue=0x387188,brick=0xb8624e;
@@ -11,72 +17,26 @@ export function buildGyeongjuWorld(T,root,kit){
     pole.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),axis.normalize());
     return pole;
   }
-  function ground(points,color,height){
-    const outline=new T.Shape(points.map(({x,z})=>new T.Vector2(x,-z)));
-    const geo=new T.ShapeGeometry(outline);
-    geo.rotateX(-Math.PI/2);
-    shape(geo,color,0,height,0,root).receiveShadow=true;
-  }
   function at(parent,x,y,z){
     const group=new T.Group();group.position.set(x,y,z);parent.add(group);return group;
   }
-  function sign(parent,text,x,y,z,width){
-    standSign(T,parent,text,null,width,x,y,z,"#244954","#fff0ca",width*.21);
-  }
-  ground(parkBoundary,0x8f9b68,0);
-  box(0x477680,5817,-.4,-137,320,.25,760,root);
+  const paving=districtMeshes(root);
+  paving.polygon(parkBoundary,0,0xa3b581,"grass");
+  const joins=new Map();
   for(const path of parkWalkways){
-    for(const p of path)cylinder(0xd3bb96,p.x,.024,p.z,4.3,.04,16,root);
-    for(let i=1;i<path.length;i++){
-      const a=path[i-1],b=path[i];
-      const slab=box(0xd3bb96,(a.x+b.x)/2,.024,(a.z+b.z)/2,8.6,.04,Math.hypot(b.x-a.x,b.z-a.z),root);
-      slab.rotation.y=Math.atan2(b.x-a.x,b.z-a.z);
-    }
+    paving.strip(path,8.9,.051,0xb59c7f,"pavers");
+    paving.strip(path,8.2,.063,0xe0c8a9,"pavers");
+    for(const p of [path[0],path.at(-1)])joins.set(p.x+","+p.z,p);
   }
-  const gate=at(root,parkEntrance.x-5,0,parkEntrance.z-7);
-  gate.rotation.y=.68;
-  for(const x of [-9,9]){
-    box(brick,x,3.25,0,3.7,6.5,3.9,gate);
-    cylinder(blue,x,7.3,0,2.85,2.2,4,gate,0);
+  for(const {x,z} of joins.values()){
+    const disk=Array.from({length:18},(_,i)=>({x:x+4.12*Math.cos(i*Math.PI/9),z:z+4.12*Math.sin(i*Math.PI/9)}));
+    paving.polygon(disk,.066,0xe0c8a9,"pavers");
   }
-  box(blue,0,5.2,0,16,1.56,2.8,gate);
-  sign(gate,"경주월드",0,5.25,1.42,8);
-  cylinder(0xd9c5a1,parkEntrance.x-22,.03,parkEntrance.z-27,23,.055,40,root);
-  const fountain=at(root,parkFountain.x,0,parkFountain.z);
-  cylinder(cream,0,.24,0,5.7,.48,28,fountain);
-  cylinder(0x65a5ad,0,.49,0,5.25,.05,28,fountain);
-  cylinder(0x6f847f,0,1.42,0,.26,1.9,10,fountain,.54);
-  for(const {x,z} of parkPavilions){
-    const pavilion=at(root,x,0,z);
-    box(cream,0,1.65,0,8,3.3,4.8,pavilion);
-    box(blue,0,3.32,0,8.8,.32,5.5,pavilion);
-    box(brick,0,2.9,2.53,8,.22,.39,pavilion);
-    for(const dx of [-2.28,2.28])box(0x577784,dx,1.82,2.42,1.9,1.1,.08,pavilion);
-  }
-  for(const ride of parkRides){
-    const signGroup=at(root,ride.gate.x+4,0,ride.gate.z-4);
-    signGroup.rotation.y=.55;
-    box(steel,-1.45,1.18,0,.09,2.36,.09,signGroup);
-    box(steel,1.45,1.18,0,.09,2.36,.09,signGroup);
-    sign(signGroup,ride.name,0,2.45,0,3.36);
-  }
-  for(const path of parkWalkways){
-    for(const p of path.slice(1,-1)){
-      cylinder(steel,p.x+5,1.7,p.z,.09,3.4,8,root);
-      cylinder(cream,p.x+5,3.42,p.z,.28,.34,8,root);
-    }
-  }
-  for(let i=0;i<parkBoundary.length;i++){
-    const a=parkBoundary[i],b=parkBoundary[(i+1)%parkBoundary.length];
-    const count=Math.ceil(Math.hypot(b.x-a.x,b.z-a.z)/12);
-    for(let j=1;j<count;j++){
-      const x=a.x+(b.x-a.x)*j/count,z=a.z+(b.z-a.z)*j/count;
-      const height=3.5+(i*3+j*7)%5;
-      cylinder(0x695340,x,height*.29,z,.27,height*.58,6,root);
-      cylinder(j%2?0x486a55:0x5f784a,x,height*.66,z,height*.31,height*.72,7,root,.18);
-    }
-  }
-
+  paving.finish();
+  const landscape=buildParkLandscape(T,root,kit,layout);
+  const facilities=buildParkFacilities(T,root,kit,parkServices);
+  const attractions=buildParkAttractions(T,root,kit,parkRides);
+  const classics=buildParkClassics(T,root,kit,parkRides);
   const [wheelRide,vikingRide,bumperRide,coasterRide]=parkRides;
   const wheelBase=at(root,wheelRide.x,0,wheelRide.z);wheelBase.rotation.y=-.26;
   const wheel=at(wheelBase,0,26,0),cabins=[];
@@ -88,7 +48,9 @@ export function buildGyeongjuWorld(T,root,kit){
   for(let i=0;i<16;i++){
     const angle=i*Math.PI/8,x=23*Math.sin(angle),y=-23*Math.cos(angle);
     beam(wheel,[0,0,0],[x,y,0],.16,0xe6b84c);
-    const cabin=at(wheel,x,y,0);
+    const pivot=at(wheel,x,y,0),cabin=at(pivot,0,-.86,0);
+    // Suspend the cabin below its axle so the window clears the steel rim.
+    for(const s of [-1,1])beam(pivot,[0,0,s*.83],[0,-.43,s*.83],.09,steel);
     const cabinColor=i%2?0x795691:0xddae4c;
     box(cabinColor,0,-1.17,0,2.45,.26,2,cabin);
     for(const side of [-1,1]){
@@ -159,9 +121,10 @@ export function buildGyeongjuWorld(T,root,kit){
     box(blue,0,-.04,row*1.02,3.25,.28,.96,train);
     for(let seat=0;seat<4;seat++)box(brick,(seat-1.5)*.76,.44,row*1.02+.26,.44,.65,.38,train);
   }
+  const details=addRideDetails(T,kit,{wheelBase,wheel,cabins,vikingBase,ship,arena,cars,coaster,track,train});
   const eye=new T.Vector3(),target=new T.Vector3(),forward=new T.Vector3(),up=new T.Vector3(0,1,0);
   const trainFrame=new T.Matrix4(),facing=new T.Quaternion();
-  const seats={
+  const seats={...attractions.seats,...classics.seats,
     wheel:Array.from({length:4},(_,i)=>({object:cabins[0],x:i<2?-.46:.46,y:-1.13,z:i%2?-.59:.59,yaw:i%2?0:Math.PI})),
     viking:Array.from({length:14},(_,i)=>({object:ship,x:i%2?.73:-.73,y:-.19,z:[0,-1,1,-2,2,-3,3][i>>1]*1.45,yaw:Math.PI})),
     coaster:Array.from({length:12},(_,i)=>({object:train,x:(i%4-1.5)*.76,y:-.28,z:Math.floor(i/4)*1.02,yaw:Math.PI})),
@@ -176,15 +139,21 @@ export function buildGyeongjuWorld(T,root,kit){
   }
   function pose(camera,object,seat,look){
     camera.position.copy(object.localToWorld(eye.set(...seat)));
+    object.getWorldQuaternion(facing);
+    camera.up.copy(up).applyQuaternion(facing);
     camera.lookAt(object.localToWorld(target.set(...look)));
+    camera.up.copy(up);
   }
-  return function update(camera,active,clock,sessions,models){
+  return function update(camera,active,clock,sessions,models,night){
     function seconds(kind,duration){
       const shared=sessions.find(ride=>ride.kind===kind);
       return shared?Math.max(0,(clock-shared.starts)/1000):(clock/1000)%duration;
     }
+    attractions.update(seconds,clock,sessions);
+    classics.update(seconds,clock,sessions);
+    facilities(clock,night);details(clock,night);
     wheel.rotation.z=seconds("wheel",64)/64*Math.PI*2;
-    for(const cabin of cabins)cabin.rotation.z=-wheel.rotation.z;
+    for(const cabin of cabins)cabin.parent.rotation.z=-wheel.rotation.z;
     const swingTime=seconds("viking",34);
     swing.rotation.x=Math.sin(swingTime*1.02)*1.13*Math.max(0,Math.min(1,swingTime/8,(34-swingTime)/6));
     const t=coasterProgress(seconds("coaster",42));
@@ -208,15 +177,24 @@ export function buildGyeongjuWorld(T,root,kit){
         object.localToWorld(model.group.position.set(x,y,z));
         object.getWorldQuaternion(model.group.quaternion);
         model.group.quaternion.multiply(facing.setFromAxisAngle(up,yaw));
+        if(model.label)model.label.visible=!active;
         model.ridePose=true;
       }
     }
-    if(!active)return;
-    const {object,x,z}=seats[active.id][active.seat];
-    if(active.id==="wheel"){
-      const side=Math.sign(z);
-      pose(camera,object,[x,.04,z],[x+.32,-.22,z-side*3.4]);
-    }else if(active.id==="bumper")pose(camera,object,[0,2.2,3.6],[0,.72,-3.4]);
-    else pose(camera,object,[x*.62,2.04,z+2.55],[x*.55,.95,z-3.4]);
+    if(active){
+      const {object,x,y,z,camera:seatView}=seats[active.id][active.seat];
+      if(!active.firstPerson){
+        if(active.id==="wheel")pose(camera,object,[-1.95,-.03,-4.45],[0,-.24,0]);
+        else if(active.id==="phaethon"){
+          const front=seats.phaethon[0].object;
+          pose(camera,front,[-.75,.95,-4.1],[.89,.74,.2]);
+        }else if(active.id==="krake")pose(camera,object,[-1.15,1.7,-3.45],[.24,.97,.08]);
+        else if(active.id==="coaster")pose(camera,train,[-2.7,2.3,-3.65],[0,1.02,.47]);
+        else pose(camera,object,[x+1.28,y+2.45,z+3.4],[x,y+1.03,z-.6]);
+      }else if(seatView)pose(camera,object,seatView.eye,seatView.look);
+      else if(active.id==="wheel")pose(camera,object,[x,.04,z],[x+.32,-.22,z-Math.sign(z)*3.4]);
+      else pose(camera,object,[x,y+1.4,z-.12],[x,y+1.03,z-4]);
+    }
+    landscape(clock,night,camera);
   };
 }

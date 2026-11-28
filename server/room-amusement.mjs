@@ -7,7 +7,7 @@ export function validAmusement(command){
   if(!validToken(command?.id)||!rideDefinitions.has(command.kind))return false;
   if(command.action==="join")return true;
   if(!validToken(command.ticket))return false;
-  return command.action==="leave"||command.action==="drive"&&command.kind==="bumper"&&
+  return command.action==="leave"||command.action==="spin"&&command.kind==="cups"||command.action==="drive"&&command.kind==="bumper"&&
     [command.throttle,command.steer].every(value=>[-1,0,1].includes(value))&&Number.isSafeInteger(command.seq)&&command.seq>0;
 }
 export function ensureAmusement(db){
@@ -54,7 +54,10 @@ function perform(state,id,actor,command,now){
   const receipt=state.receipts.find(receipt=>receipt.id===command.id&&receipt.player===id);
   if(receipt)return receipt.result;
   let result="ok";
-  if(action==="leave"){
+  if(action==="spin"){
+    if(!rider||rider.ticket!==ticket||now<ride.starts)result="unavailable";
+    else if(now-(ride.cupSpins[rider.seat>>1]??0)>=3000)ride.cupSpins[rider.seat>>1]=now;
+  }else if(action==="leave"){
     if(rider?.ticket===ticket){
       ride.riders=ride.riders.filter(person=>person!==rider);
       if(!ride.riders.length)state.rides=state.rides.filter(entry=>entry!==ride);

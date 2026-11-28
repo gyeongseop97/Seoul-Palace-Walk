@@ -1,5 +1,5 @@
 import {isCycling} from "./sejong-bike.js";
-export const GESTURE_DURATIONS=Object.freeze({wave:2450,clap:2250,punch:2100,dance:3600,heart:2500,cheer:2450,peace:2700,
+export const GESTURE_DURATIONS=Object.freeze({wash:3000,wave:2450,clap:2250,punch:2100,dance:3600,heart:2500,cheer:2450,peace:2700,
   templeBow:5200,churchPrayer:4400});
 export const SICK_DURATION_MS=2150;
 export const MAX_ALCOHOL_LEVEL=8;
@@ -109,7 +109,7 @@ export function gestureHands(avatar,clock,hands,{riding,busy}){
   const sick=grounded?sickPoseAt(avatar,clock):null,fall=grounded?bikeFallAt(avatar,clock):null;
   const gesture=grounded&&!busy&&!petting&&!feeding&&!sick&&!fall?hands.gesture:null;
   const umbrellaOpen=Boolean(grounded&&avatar.umbrella&&!fall&&!gesture?.worship);
-  const needsBoth=gesture?.kind==="clap"||gesture?.kind==="heart"||gesture?.worship;
+  const needsBoth=gesture?.kind==="wash"||gesture?.kind==="clap"||gesture?.kind==="heart"||gesture?.worship;
   const centreUmbrella=needsBoth&&!avatar.sharedUmbrella&&!claspSide&&!itemFor(1)&&!itemFor(-1);
   const umbrellaSide=umbrellaOpen&&!centreUmbrella?umbrellaHand||[1,-1].find(side=>side!==claspSide&&!itemFor(side)&&side!==petSide&&
     (gesture?.kind!=="wave"||side!==waveSide)):0;
@@ -159,6 +159,11 @@ export function gestureHand(pose,side,waveSide,firstPerson=false){
       const swing=Math.sin(time*17),lift=Math.cos(time*17);
       return firstPerson?{x:side*(.57+swing*.048),y:-.05+lift*.055,z:.74,bend:-.09,roll:side*.29+swing*.40,curl:-.16}:
         {x:side*(.590+swing*.075),y:.640+lift*.034,z:.150,bend:0,roll:side*swing*.20,curl:0};
+    }
+    case "wash":{
+      const rub=Math.sin(time*TAU*2.3);
+      return firstPerson?{x:side*.083,y:-.45+rub*side*.032,z:.68+side*rub*.045,bend:-.50,roll:side*.8}:
+        {x:side*.065,y:.23+rub*side*.024,z:.35+side*rub*.037,bend:-.29,roll:side*.75};
     }
     case "clap":{
       const gap=(1-Math.cos(time*TAU*2.55))*.5;

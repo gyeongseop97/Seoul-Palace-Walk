@@ -1164,6 +1164,10 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
         leg.target.lerp(target.set(-side*.076,ankle-pelvis.position.y,.18+i*.106),folded);
       }
       pole.set(side*folded*1.36,folded*.02,1-folded*.52);
+      if(seat?.horse){
+        leg.target.set(side*.32-pelvis.position.x,SOLE+.03-pelvis.position.y,.13);
+        pole.set(side*.73,.05,1);
+      }
       solve(leg,leg.target,pole);
       const roll = (footPhase < stance ? 0 : Math.sin(swing*TAU)*.24*stride) * (1-seated);
       pitch.setFromAxisAngle(xAxis,roll+seated*.06-Math.max(0,paddle)*.35+kneel*2.56);

@@ -1,8 +1,8 @@
 import {ITEMS} from "../public/activities.js";
 import {DINING_SERVICE_SPEED,diningServiceRoute,diningTables,diningVenues} from "../public/dining-data.js";
-import {marketDining,marketDiningAt} from "../public/gyeongju-market.js";
+import {marketDining,marketDiningAt,canyonDining} from "../public/gyeongju-market.js";
 
-const venues=new Map([...diningVenues,marketDining].map(venue=>[venue.id,venue]));
+const venues=new Map([...diningVenues,marketDining,canyonDining].map(venue=>[venue.id,venue]));
 const readyDatabases=new WeakMap();
 const orderWait=18000,kioskWait=90000,prepareTime=3600;
 const counterActions=new Set(["counter","kiosk"]);

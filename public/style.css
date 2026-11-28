@@ -1334,3 +1334,10 @@ dialog input,dialog code{display:block;width:100%;padding:9px;border-radius:7px;
   gap: .3rem;
   touch-action: none;
 }
+
+#amusement-ride-panel [data-phase] { color: #fcdb94; }
+#amusement-ride-panel [data-riders] { overflow-wrap: anywhere; }
+@media (max-width: 680px) {
+  #amusement-ride-panel:not([hidden]) { inset: 3.4rem .4rem auto auto; max-width: min(23rem, calc(100% - .8rem)); gap: .35rem; }
+  #amusement-ride-panel button { min-height: 2.3rem; }
+}

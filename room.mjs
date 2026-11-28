@@ -243,7 +243,7 @@ async function enterRoom(db,body){
 }
 
 function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeAction,pendingPicnic,pendingBungeo,busAction){
-  const {feed,chat,bus,bike,bikeRide,bikeFallAt,picnicClaim,bungeoClaim,arcade,bag,plushHead,plushBack,bagClaim,...snapshotData}=avatar;
+  const {feed,chat,bus,bike,bikeRide,bikeFallAt,picnicClaim,bungeoClaim,arcade,bag,parkLocker,plushHead,plushBack,bagClaim,...snapshotData}=avatar;
   const activity=key&&cleanArcadeActivity(avatar);
   if(activity)snapshotData.arcade=activity;
   const snapshot=JSON.stringify(snapshotData);
@@ -277,7 +277,7 @@ function avatarUpdate(db,room,id,key,avatar,view,now,active,pendingFeed="",bikeA
         THEN json_object('coast',json_object('board',json(json_type(avatar,'$.coast.board')))) ELSE '{}' END`:"'{}'"})
     ELSE '{}' END`;
   const applySnapshot=base=>`json_set(json_patch(json_patch(json_patch(${base},${snapshotPatch}),${inventoryPatch}),${transportPatch}),
-    '$.bag',coalesce(json_extract(avatar,'$.bag'),json('[]')),'$.bagClaim',json_extract(avatar,'$.bagClaim'),
+    '$.parkLocker',coalesce(json_extract(avatar,'$.parkLocker'),json('[]')),'$.bag',coalesce(json_extract(avatar,'$.bag'),json('[]')),'$.bagClaim',json_extract(avatar,'$.bagClaim'),
     '$.plushHead',json_extract(avatar,'$.plushHead'),'$.plushBack',json_extract(avatar,'$.plushBack'))`;
   // A regular avatar packet cannot reserve or release a vehicle. A lease that
   // expired while the player was disconnected must not reclaim its old seat.
@@ -775,7 +775,7 @@ export async function api(request,env){
   const walkers=[],parkedBikes=[];
   for(const row of rows){
     const avatar=avatars.get(row.id);
-    if(row!==ownRow)delete avatar.bag;
+    if(row!==ownRow){delete avatar.bag;delete avatar.parkLocker;}
     if(avatar.bike?.parked)parkedBikes.push({id:row.id,...avatar.bike.parked});
     if(row.updated<active)continue;
     if(avatar.catFriends&&(row===ownRow||receiverIndoors||

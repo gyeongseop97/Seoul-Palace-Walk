@@ -13,7 +13,7 @@ import {gyeongjuPoint,localGyeongju,inGyeongjuSpace} from "./region-coordinates.
 import {places,roads,buildings,walls,mounds,parks,gyeongjuRoute,gyeongjuWalkable} from "./gyeongju-layout.js";
 import {inBulguksa,templeSites,templePaths,templeHalls,templeBridges,templeCourts,templePonds,templeWoods} from "./bulguksa-layout.js";
 import {lawnEdge} from "./bulguksa-ground.js";
-import {inAmusementPark,parkBoundary,parkDestinations,parkWalkways} from "./gyeongju-world-layout.js";
+import {inAmusementPark,parkBoundary,parkDestinations,parkRides,parkServices,parkFountain,parkWalkways} from "./gyeongju-world-layout.js";
 import {templeRoomAt} from "./bulguksa-hall-layout.js";
 export {templeWorshipAt} from "./bulguksa-hall-layout.js";
 export {gyeongjuOrigin,gyeongjuPoint,inGyeongjuSpace} from "./region-coordinates.js";
@@ -42,7 +42,7 @@ const cityBusSites=gyeongjuBusStops.map((stop,index)=>{
   source:"https://www.gyeongju.go.kr/hwangridan/images/gj_map_kor.pdf",sourceLabel:"경주시 황리단길 안내도"}};
 });
 const sites=[
- ...parkDestinations.map(point=>[point,"activity"]),
+ ...parkDestinations.map((point,i)=>[point,i===0?"heritage":i<=parkRides.length?"activity":["restaurant","snack","cafe"].includes(parkServices[i-1-parkRides.length]?.type)?"shop":"activity"]),
  [{...hillStart,name:"산악 루지·잔디썰매 출발장",label:"산악 루지·잔디썰매",district:"교촌·월정교",heading:270,guide:{title:"산악 루지·잔디썰매",description:"월정교 동쪽에 조성한 게임 속 산악 코스예요.",directions:"출발장에서 탈것을 고르세요. 좌우로 조향하고 뒤로 당겨 감속하세요. 깃발 사이로 지나면 기록에서 벌점을 피할 수 있어요."}},"activity"],
  [travelStops.stationExit,"railway"],[travelStops.stationBus,"bus"],[travelStops.townBus,"bus"],[travelStops.townReturnBus,"bus"],
  [describe("hwangnidan","황리단길"),"activity"],
@@ -214,6 +214,16 @@ export function drawCoastMap(base,svg,drawMarker,mini=false){
  const path=points=>points.map((p,i)=>{const q=gyeongjuPoint(p);return (i?"L":"M")+q.x.toFixed(1)+" "+q.y.toFixed(1);}).join("");
  svg(base,"path",{d:path(parkBoundary)+"Z",fill:"#bac6a0",stroke:"#839578","stroke-width":2});
  for(const walkway of parkWalkways)svg(base,"path",{d:path(walkway),fill:"none",stroke:"#f3dfb4","stroke-width":9,"stroke-linecap":"round","stroke-linejoin":"round"});
+ for(const r of parkRides){
+  const p=gyeongjuPoint(r);
+  svg(base,"ellipse",{cx:p.x,cy:p.y,rx:r.radius||31,ry:r.id==="splash"?34:r.radius||45,fill:r.id==="splash"?"#83b3c3":"#cab0a2",stroke:"#947b70","stroke-width":1.4});
+ }
+ for(const s of parkServices){
+  const p=gyeongjuPoint(s);
+  svg(base,"rect",{x:p.x-s.w/2,y:p.y-s.d/2,width:s.w,height:s.d,rx:1,fill:"#ad896a",stroke:"#836951"});
+ }
+ const fountain=gyeongjuPoint(parkFountain);
+ svg(base,"circle",{cx:fountain.x,cy:fountain.y,r:5.6,fill:"#8bbdc3",stroke:"#d4c1a4"});
  for(const [kind,fill] of [["lawn","#c9d2af"],["wood","#a9bf9f"],["water","#9cbcc4"]]){
   svg(base,"path",{d:parks.filter(p=>p.kind===kind).map(p=>path(p.points)+"Z").join(""),fill});
  }

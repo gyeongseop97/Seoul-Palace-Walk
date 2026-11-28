@@ -1,5 +1,6 @@
 import {cafeFittings} from "./gyeongju-cafe.js";
 import {gyeongjuPoint,localGyeongju} from "./region-coordinates.js";
+import {parkServices,parkBenches,parkCounters} from "./gyeongju-world-layout.js";
 
 const townMap="https://www.gyeongju.go.kr/design/tour2019/file/HroadMap.pdf";
 const bread="https://www.gyeongju.go.kr/tour/page.do?mnu_uid=4824";
@@ -27,7 +28,7 @@ export const marketRooms=shops.map(shop=>{
  return {...shop,fit,entry,heading:(360-shop.yaw*180/Math.PI)%360};
 });
 export const marketCounters=marketRooms.filter(r=>r.stock).map(r=>({...gyeongjuPoint(r.fit.order),
- name:r.name,kind:r.stock[0],stock:r.stock,actionLabel:r.actionLabel}));
+ name:r.name,kind:r.stock[0],stock:r.stock,actionLabel:r.actionLabel})).concat(parkCounters);
 export const marketBuilding=p=>marketRooms.find(r=>r.footprint?.[0]===p.x&&r.footprint[1]===p.z);
 export function marketRoomAt(p,margin=0){
  for(const room of marketRooms){
@@ -73,4 +74,35 @@ export const marketDining={
    {x:end.x,z:dining.fit.counter.z+1.06},end],face:side*Math.PI/2};
  }
 };
-export const marketDiningAt=p=>marketRoomAt(localGyeongju(p))?.id==="restaurant"?marketDining:null;
+const canyon=parkServices.find(s=>s.type==="restaurant");
+const parkTables=parkServices.filter(s=>s.type==="restaurant"||s.type==="cafe").flatMap(s=>[-1,1].map((side,i)=>{
+ const x=s.x+side*s.w*.32,z=s.z+s.d*.11,restaurant=s===canyon;
+ return {...gyeongjuPoint({x,z}),table:restaurant,tableIndex:i,venueId:restaurant?"gj-canyon":undefined,
+  slots:[-1,1].map(end=>({...gyeongjuPoint({x,z:z+end*.87}),heading:end<0?180:0,top:.49,cafeFloor:0,
+   approach:gyeongjuPoint({x:x-side*1.08,z:z+end*.93}),
+   ...(restaurant?{tray:{...gyeongjuPoint({x,z:z+end*.23}),heading:end<0?180:0,height:.77}}:{})}))};
+}));
+export const cityBenches=[...marketBenches,...parkTables,...parkBenches.map(b=>{
+ const h=b.heading*Math.PI/180,frontX=Math.sin(h),frontZ=-Math.cos(h);
+ return {...gyeongjuPoint(b),slots:[-1,1].map(side=>{
+  const x=b.x+side*.48*Math.cos(h),z=b.z+side*.48*Math.sin(h);
+  return {...gyeongjuPoint({x,z}),heading:(b.heading+360)%360,top:.48,cafeFloor:0,
+   approach:gyeongjuPoint({x:x+frontX*.84,z:z+frontZ*.84})};
+ })};
+})];
+const center=gyeongjuPoint(canyon),canyonStation={x:0,z:-canyon.d*.33};
+export const canyonDining={id:"gj-canyon",name:canyon.name,service:"staff",area:"gyeongju",center,staffStation:canyonStation,
+ bounds:{minX:center.x-canyon.w/2,maxX:center.x+canyon.w/2,minY:center.y-canyon.d/2,maxY:center.y+canyon.d/2+.1},
+ menuPoint:{x:center.x,y:center.y-canyon.d*.12},benches:parkTables.filter(b=>b.table),
+ dishes:[{kind:"fishcakeUdon",name:"꼬치어묵우동",description:"어묵꼬치와 쑥갓을 올린 따끈한 우동이에요."},
+  {kind:"spicyPorkRice",name:"제육불고기덮밥",description:"매콤하게 볶은 제육불고기를 밥 위에 올려요."}],
+ benchAt(seat){const b=cityBenches[seat];return b?.venueId===this.id?b:null;},
+ servicePath(table){
+  const side=table.index?1:-1,end={x:side*(canyon.w*.32-1.02),z:canyon.d*.11+table.side*.47};
+  return {points:[canyonStation,{x:-.53*canyon.w+.95,z:canyonStation.z},{x:-.53*canyon.w+.95,z:-.72},{x:end.x,z:-.72},end],face:side*Math.PI/2};
+ }};
+export function marketDiningAt(p){
+ const b=canyonDining.bounds;
+ if(p.x>b.minX&&p.x<b.maxX&&p.y>b.minY&&p.y<b.maxY)return canyonDining;
+ return marketRoomAt(localGyeongju(p))?.id==="restaurant"?marketDining:null;
+}

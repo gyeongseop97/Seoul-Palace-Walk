@@ -1,5 +1,6 @@
 import {PLAZA_SHOW_BEAT_MS,PLAZA_SHOW_BEATS,PLAZA_SHOW_DURATION_MS,PLAZA_SHOW_HEARING_METRES,plazaShowNotes} from "./plaza-show.js";
 
+import {makeRideAudio} from "./gyeongju-world-audio.js";
 let gameSound;
 const pianoSamples=["A0","Ds1","A1","Ds2","A2","Ds3","A3","Ds4","A4","Ds5","A5","Ds6","A6","Ds7","A7","C8"];
 export function getGameSound(){return gameSound??=makeSound();}
@@ -53,10 +54,12 @@ export function makeSound(){
     return context;
   }
   const playing=()=>enabled&&!document.hidden&&context?.state==="running"?context:null;
+  const parkRide=makeRideAudio(()=>playing()?{ctx:context,master,noise}:null);
+  globalThis.document?.addEventListener("visibilitychange",()=>{if(document.hidden)parkRide(null);});
   function setEnabled(value){
     enabled=value;save("jeongdong-sound",enabled?"on":"off");syncOutput();
     if(enabled)ready();
-    else{stopEngine();stopShow();stopRain();stopStream();}
+    else{parkRide(null);stopEngine();stopShow();stopRain();stopStream();}
   }
 
   let pianoLoading=false;
@@ -228,15 +231,16 @@ export function makeSound(){
     brook.roar.gain.setTargetAtTime(rush**1.3*.17+flow*.012,ctx.currentTime,.25);
   }
   // A short burst of filtered noise: the body of a footstep, a splash or a drum.
-  function burst({type="lowpass",frequency=900,q=1,gain=.2,attack=.004,decay=.09,rate=1}){
+  function burst({type="lowpass",frequency=900,q=1,gain=.2,attack=.004,decay=.09,rate=1,delay=0}){
     const ctx=playing();
     if(!ctx)return;
-    const start=ctx.currentTime,source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),amp=ctx.createGain();
+    const start=ctx.currentTime+delay,source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),amp=ctx.createGain();
     source.buffer=noise;source.playbackRate.value=rate;
     filter.type=type;filter.frequency.value=frequency;filter.Q.value=q;
     amp.gain.setValueAtTime(.0001,start);amp.gain.linearRampToValueAtTime(gain,start+attack);
     amp.gain.exponentialRampToValueAtTime(.0001,start+attack+decay);
     source.connect(filter);filter.connect(amp);amp.connect(master);
+    source.loop=attack+decay>noise.duration/rate;source.onended=()=>{source.disconnect();filter.disconnect();amp.disconnect();};
     source.start(start);source.stop(start+attack+decay+.05);
   }
   function tone(from,to,{gain=.12,attack=.01,decay=.25,type="sine",delay=0}={}){
@@ -313,8 +317,11 @@ export function makeSound(){
       if(enabled!==(next>0))setEnabled(next>0);
       else{syncOutput();if(enabled)ready();}
     },
-    bus,plazaShow,rain,stream,preparePiano,pianoNote,
+    bus,plazaShow,rain,stream,preparePiano,pianoNote,parkRide,
     // A foot flicking the surface of the stream.
+    washHands(){
+      for(let i=0;i<5;i++)burst({type:"bandpass",frequency:1850+i%2*390,q:.62,gain:.048,attack:.13,decay:.52,delay:i*.44,rate:1.12});
+    },
     splash(){
       burst({type:"bandpass",frequency:1500+Math.random()*500,q:.8,gain:.085,attack:.006,decay:.15,rate:.9});
       burst({type:"lowpass",frequency:420,gain:.05,decay:.11,rate:.5});
