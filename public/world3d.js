@@ -1416,6 +1416,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     }
     const diners=new Map(service.map(ticket=>[ticket.player,ticket]));
     function diningPose(player){
+      if(historicCity)player=historicCity.beachAppearance(player,clock);
       const taste=player.coast?.tasting;
       if(player.coast?.mode==="table"){
         if(taste?.kind==="grilledClam"&&clock>=taste.at&&clock-taste.at<1500)
@@ -1433,7 +1434,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const raft=historicCity&&(isRaftBus(anchor.bus?.index)||watchesRaft(state.photoCamera??anchor))?clientRaftAt(clock):null;
     const pilot=raft?.helm&&roster.find(player=>player.id===raft.helm&&isRaftBus(player.bus?.index));
     const rowing=pilot&&helmStroke(raft,pilot.bus.seat,clock);
-    const parkRiders=new Map((state.amusementSessions??[]).flatMap(ride=>ride.riders.map(person=>[person.id,ride.kind==="carousel"&&person.seat<10?"horse":"seat"])));
+    const parkRiders=new Map((state.amusementSessions??[]).flatMap(ride=>ride.riders.map(person=>[person.id,ride.kind==="carousel"&&person.seat<10?"horse":
+      ride.kind==="beach-triple"?"bodySlide":ride.kind.startsWith("beach-")?"tube":"seat"])));
     visibleWalkers.forEach((player,index)=>{
       let model=models.get(player.id);
       const onRide=parkRiders.has(player.id);
@@ -1445,7 +1447,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
       if(model.ridePose){if(model.label)model.label.visible=true;model.group.rotation.set(0,0,0);model.ridePose=false;}
       const floor=footing(player.bikeDriverPosition??player);
       const downhill=player.sport==="luge"||player.sport==="sled";
-      const tableSeat=onRide?{x:player.x,y:player.y,heading:0,base:0,horse:parkRiders.get(player.id)==="horse"}:downhill?{x:player.x,y:player.y,heading:player.heading,base:footBathSeatBase(floor+.29)}:seatAt(player,clock);
+      const poolCurrent=!onRide&&historicCity?.playerWater(player,clock);
+      const tableSeat=poolCurrent?.kind==="river"?{x:player.x,y:player.y,heading:player.heading,base:poolCurrent.level-.40}:onRide?{x:player.x,y:player.y,heading:0,base:0,horse:parkRiders.get(player.id)==="horse"}:downhill?{x:player.x,y:player.y,heading:player.heading,base:footBathSeatBase(floor+.29)}:seatAt(player,clock);
       const waterPoint=tableSeat?.waterPoint;
       drawRipples(player.id,now,
         waterPoint?{...waterPoint,level:outsideGroundOffset(waterPoint)+CHEONGGYE_WATER_LEVEL+.016,seat:tableSeat,kick:footKickAge(player,clock)}:null);
@@ -1464,6 +1467,7 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
         turnEase:player===me?1-Math.exp(-delta*22):1,steeringGrips:player===pilot?rowing?.hands:null});
       if(player.sport||model.sportKind)poseSport(model,player,clock,floor);
       seaside?.pose(player,model);
+      historicCity?.poseBeach(player,model,clock,parkRiders.get(player.id));
       minigameWorld.pose(player,model,state.photoCapture);
       if(arcadeFloors.has(insideId)){
         let activity=player===me?state.arcade:player.arcade;
@@ -1534,7 +1538,8 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     const fallWeight=firstPerson?(bikeFallAt(anchor,clock)?.weight??0):0;
     // In a train seat the lens rides above the headrests, so the rows behind never cover it.
     const coachSeat=insideId==="ktx-coach"&&Boolean(seat)&&!firstPerson;
-    const eyeHeight=outsideBus?2.115+(coastBus?1.85:busGround(bus)):seat?(firstPerson?1.30:coachSeat?1.5:1.22)+(seat.base??0):
+    const waterEye=historicCity&&!state.amusementRide&&historicCity.waterEye(anchor,clock,firstPerson);
+    const eyeHeight=typeof waterEye==="number"?waterEye:outsideBus?2.115+(coastBus?1.85:busGround(bus)):seat?(firstPerson?1.30:coachSeat?1.5:1.22)+(seat.base??0):
       (firstPerson?1.28:1.20)+floor+renderedJumpLift(anchor,clock,floor)+(isCycling(anchor)?.12:0)-fallWeight*.87;
     const cameraPoint=(outsideBus||outsideRaft)&&bus?bus:seat??anchor;
     const watchLift=seaside?.watchLift()??0;

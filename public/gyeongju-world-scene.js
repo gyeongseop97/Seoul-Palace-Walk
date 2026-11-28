@@ -1,3 +1,4 @@
+import {buildCaliforniaBeach} from "./california-beach-scene.js";
 import {districtMeshes} from "./gyeongju-mesh.js";
 import * as layout from "./gyeongju-world-layout.js";
 import {buildParkLandscape} from "./gyeongju-world-landscape.js";
@@ -121,6 +122,8 @@ export function buildGyeongjuWorld(T,root,kit){
     box(blue,0,-.04,row*1.02,3.25,.28,.96,train);
     for(let seat=0;seat<4;seat++)box(brick,(seat-1.5)*.76,.44,row*1.02+.26,.44,.65,.38,train);
   }
+  const beachRoot=new T.Group();beachRoot.name="캘리포니아비치";root.add(beachRoot);
+  let waterpark;
   const details=addRideDetails(T,kit,{wheelBase,wheel,cabins,vikingBase,ship,arena,cars,coaster,track,train});
   const eye=new T.Vector3(),target=new T.Vector3(),forward=new T.Vector3(),up=new T.Vector3(0,1,0);
   const trainFrame=new T.Matrix4(),facing=new T.Quaternion();
@@ -144,10 +147,15 @@ export function buildGyeongjuWorld(T,root,kit){
     camera.lookAt(object.localToWorld(target.set(...look)));
     camera.up.copy(up);
   }
-  return function update(camera,active,clock,sessions,models,night){
+  return function update(camera,active,clock,sessions,models,night,player){
     function seconds(kind,duration){
       const shared=sessions.find(ride=>ride.kind===kind);
       return shared?Math.max(0,(clock-shared.starts)/1000):(clock/1000)%duration;
+    }
+    beachRoot.visible=Boolean(player&&Math.hypot(player.x-6304,player.z-273)<275)||Boolean(active?.id.startsWith("beach-"));
+    if(beachRoot.visible){
+      if(!waterpark){waterpark=buildCaliforniaBeach(T,beachRoot,kit);Object.assign(seats,waterpark.seats);}
+      waterpark.update(seconds,clock,sessions,night,camera);
     }
     attractions.update(seconds,clock,sessions);
     classics.update(seconds,clock,sessions);
@@ -172,7 +180,7 @@ export function buildGyeongjuWorld(T,root,kit){
     for(const session of sessions){
       for(const rider of session.riders){
         const model=models.get(rider.id);
-        if(!model?.group.parent)continue;
+        if(!model?.group.parent||!seats[session.kind]?.[rider.seat])continue;
         const {object,x,y,z,yaw}=seats[session.kind][rider.seat];
         object.localToWorld(model.group.position.set(x,y,z));
         object.getWorldQuaternion(model.group.quaternion);
@@ -184,7 +192,11 @@ export function buildGyeongjuWorld(T,root,kit){
     if(active){
       const {object,x,y,z,camera:seatView}=seats[active.id][active.seat];
       if(!active.firstPerson){
-        if(active.id==="wheel")pose(camera,object,[-1.95,-.03,-4.45],[0,-.24,0]);
+        const slideTime=active.id==="beach-x"?seconds(active.id,32):0;
+        if(active.id==="beach-x"&&(slideTime>10.8&&slideTime<24.6||slideTime>28.2)){
+          pose(camera,object.parent,[.15,3.12,1.85],[0,.46,0]);
+        }else if(seatView?.companion)pose(camera,object,seatView.companion.eye,seatView.companion.look);
+        else if(active.id==="wheel")pose(camera,object,[-1.95,-.03,-4.45],[0,-.24,0]);
         else if(active.id==="phaethon"){
           const front=seats.phaethon[0].object;
           pose(camera,front,[-.75,.95,-4.1],[.89,.74,.2]);

@@ -1,3 +1,5 @@
+import {beachWaterAt} from "./california-beach-water.js";
+import {beachWalkways,beachSolid,inCaliforniaBeach} from "./california-beach-layout.js";
 import {gyeongjuPoint} from "./region-coordinates.js";
 
 // Local metres. Existing landmarks and additions use OSM footprints where mapped.
@@ -64,6 +66,7 @@ export const parkWalkways=[
 export const parkDestinations=[{...parkEntrance,description:"보문호 옆 놀이공원이에요. 분수광장을 지나 위자드가든, 엑스존과 드라켄밸리로 갈 수 있어요."},...parkRides.map(r=>({...r.gate,name:r.name+" 입구",description:r.description,heading:(Math.atan2(r.x-r.gate.x,r.gate.z-r.z)*180/Math.PI+360)%360})),...parkServices.map(s=>({...s.gate,name:s.name,description:s.description,heading:0}))].map(p=>({...gyeongjuPoint(p),name:p.name,label:p.name,heading:p.heading,district:"경주월드",guide:{title:p.name,description:p.description,source:parkGuide,sourceLabel:"경주월드 공식 가이드맵"}}));
 
 export function inAmusementPark({x,z}){
+  if(inCaliforniaBeach({x,z}))return true;
   if(x<5988||x>6502||z< -473||z>248)return false;
   let inside=false;
   for(let i=0,j=parkBoundary.length-1;i<parkBoundary.length;j=i++){
@@ -77,6 +80,7 @@ export function parkWalkable(p){
     !parkSolid(p,.4);
 }
 export function parkSolid(p,height){
+  if(inCaliforniaBeach(p))return beachSolid(p,height);
   const gateDx=p.x-parkEntrance.x,gateDz=p.z-parkEntrance.z;
   const u=gateDx*Math.cos(.68)-gateDz*Math.sin(.68),v=9+gateDx*Math.sin(.68)+gateDz*Math.cos(.68);
   if(height<3.4&&Math.abs(Math.abs(u)-10.7)<3.35&&Math.abs(v)<2.25)return true;
@@ -103,16 +107,19 @@ export function parkSolid(p,height){
 
 export function parkRoute(from,to){
   if(!parkWalkable(from)||!parkWalkable(to))return [];
-  const nodes=[from,to,...new Set(parkWalkways.flat())];
+  const nodes=[from,to,...new Set([...parkWalkways.flat(),...beachWalkways.flat()])];
   const cost=nodes.map(()=>Infinity),previous=[],visited=new Set();
   const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
+  const dryRoute=!beachWaterAt(from,0)&&!beachWaterAt(to,0);
   function crossesPark(a,b){
     const steps=Math.ceil(distance(a,b)/2);
     for(let i=1;i<steps;i++){
-      if(!parkWalkable({x:a.x+(b.x-a.x)*i/steps,z:a.z+(b.z-a.z)*i/steps}))return true;
+      const p={x:a.x+(b.x-a.x)*i/steps,z:a.z+(b.z-a.z)*i/steps};
+      if(!parkWalkable(p)||dryRoute&&beachWaterAt(p,0))return true;
     }
     return false;
   }
+  if(!crossesPark(from,to))return [to];
   cost[0]=0;
   while(visited.size<nodes.length){
     let index=-1;

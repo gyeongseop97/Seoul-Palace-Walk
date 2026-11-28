@@ -1,3 +1,4 @@
+import {beachBeds,beachCounter} from "./california-beach-layout.js";
 import {cafeFittings} from "./gyeongju-cafe.js";
 import {gyeongjuPoint,localGyeongju} from "./region-coordinates.js";
 import {parkServices,parkBenches,parkCounters} from "./gyeongju-world-layout.js";
@@ -28,7 +29,7 @@ export const marketRooms=shops.map(shop=>{
  return {...shop,fit,entry,heading:(360-shop.yaw*180/Math.PI)%360};
 });
 export const marketCounters=marketRooms.filter(r=>r.stock).map(r=>({...gyeongjuPoint(r.fit.order),
- name:r.name,kind:r.stock[0],stock:r.stock,actionLabel:r.actionLabel})).concat(parkCounters);
+ name:r.name,kind:r.stock[0],stock:r.stock,actionLabel:r.actionLabel})).concat(parkCounters,beachCounter);
 export const marketBuilding=p=>marketRooms.find(r=>r.footprint?.[0]===p.x&&r.footprint[1]===p.z);
 export function marketRoomAt(p,margin=0){
  for(const room of marketRooms){
@@ -89,6 +90,10 @@ export const cityBenches=[...marketBenches,...parkTables,...parkBenches.map(b=>{
   return {...gyeongjuPoint({x,z}),heading:(b.heading+360)%360,top:.48,cafeFloor:0,
    approach:gyeongjuPoint({x:x+frontX*.84,z:z+frontZ*.84})};
  })};
+}),...beachBeds.map(b=>{
+ const heading=b.heading*Math.PI/180,place=gyeongjuPoint(b);
+ return {...place,slots:[{...place,heading:b.heading,top:.48,cafeFloor:0,
+   approach:gyeongjuPoint({x:b.x+.89*Math.cos(heading),z:b.z+.89*Math.sin(heading)})}]};
 })];
 const center=gyeongjuPoint(canyon),canyonStation={x:0,z:-canyon.d*.33};
 export const canyonDining={id:"gj-canyon",name:canyon.name,service:"staff",area:"gyeongju",center,staffStation:canyonStation,

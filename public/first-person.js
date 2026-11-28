@@ -80,7 +80,7 @@ export function makeFirstPersonView(T,createItemProp){
     const size=clamp(Math.min(1,camera.aspect/.72)*viewHeight/.54,.59,1.17);
     const frame=(vector,x,y,depth)=>vector.set(x*viewWidth*depth,y*viewHeight*depth,-depth);
     ambient.intensity=2.12-.84*night;key.intensity=1.10-.48*night;
-    const suit=swimwearOptions[position.coast?.swimwear],swimming=position.coast?.mode==="swim";
+    const suit=swimwearOptions[position.beachSuit??position.coast?.swimwear],swimming=position.beachSwimming||position.coast?.mode==="swim";
     const surfing=position.coast?.mode==="surf",seconds=clock/1000%14400;
     const ride=position.coast?.surf,standing=clamp(ride?.rise??0),bank=clamp(ride?.bank??0,-1,1);
     const outfit=suit?"swimsuit":position.look?.outfit==="hoodie"?"puffer":position.look?.outfit??"coat";

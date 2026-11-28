@@ -79,6 +79,9 @@ const validCoast=s=>s==null||coastModes.has(s.mode)&&typeof s.board==="boolean"&
   (s.cafeFloor==null||finite(s.cafeFloor,1.84,6.11))&&
   (s.mode!=="bus"||Number.isInteger(s.coach)&&finite(s.coach,0,coastBusCount-1)&&Number.isInteger(s.chair)&&finite(s.chair,0,7));
 const validAvatar = (a) => validPoint(a) && validCoast(a.coast) && [a.groundSit,a.kissReady].every(v=>v===undefined||typeof v==="boolean") &&
+  (a.beachGear==null||typeof a.beachGear==="object"&&(a.beachGear.suit==null||["tide","coral","navy"].includes(a.beachGear.suit))&&
+    (a.beachGear.vest==null||typeof a.beachGear.vest==="boolean")) &&
+  (a.beachSplash==null||validTime(a.beachSplash)) &&
   (a.bagClaim==null||validId(a.bagClaim)) &&
   (a.character===undefined || a.character==="man" || a.character==="woman") &&
   (a.sport==null||["luge","sled","skate"].includes(a.sport)) &&

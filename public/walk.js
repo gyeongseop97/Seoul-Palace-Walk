@@ -22,6 +22,7 @@ import {beachPiano} from "./beach-market-layout.js";
 import {createBeachPiano} from "./beach-piano.js";
 import {fishingSpot} from "./sea-fishing.js";
 import {createSeaFishing} from "./sea-fishing-client.js";
+import {createBeachControls,inSwimmingDepth,playerWater} from "./california-beach-play.js";
 import {parkServiceNear,parkWashbasin} from "./gyeongju-world-layout.js";
 import {amusementRideNear,createAmusementRides} from "./gyeongju-world-client.js";
 import {ceremonyAt} from "./palace-people.js";
@@ -557,6 +558,13 @@ const sound=getGameSound();
 const piano=createBeachPiano($("beach-piano"),sound);
 const seaFishing=createSeaFishing($("sea-fishing"),()=>sound.splash());
 const amusement=createAmusementRides($("amusement-ride-panel"),{token,wake:wakeSync,notify:toast,onFinish:()=>{resetInput();focusGame();}});
+const poolCourses=new WeakSet();
+const beachControls=createBeachControls({me,available:()=>inGyeongju&&session&&world&&!amusement.active&&!riding&&!me.bus&&!isCycling(me)&&me.seat==null&&!photoMode.camera,
+  time:gameTime,changed:()=>{dirty=true;wakeSync();},toast,setActivity,walkTo:target=>{
+    if(!canWalkTo())return;
+    stand();coastalWalkRequest++;pendingSeat=null;seatClaim=null;course=[target];poolCourses.add(course);
+  },sound,reset:resetInput});
+const heardBeachSplashes=new Map();
 function nearbyAmusement(){
   if(!inGyeongju||!session||!world||amusement.active||riding||me.bus||isCycling(me)||me.seat!=null||
     me.groundSit||photoMode.camera||myLink()?.active)return null;
@@ -803,7 +811,9 @@ function soundscape(time,travelled,running=false){
       sound.rain(rain,rain>0&&(me.umbrella||sharingUmbrella()||world.underDoldamAwning(me)));
       // The stream is heard from the banks, and the waterfall at its head from further off.
       const water=indoors||me.bus?null:streamNearness(me);
-      sound.stream(water?.flow??0,water?.falls??0);
+      const beach=inGyeongju&&!me.bus&&playerWater(me,time);
+      sound.stream(beach?(beach.kind==="river"?.65:beach.kind==="kids"?.18:.29+.18*beach.level):(water?.flow??0),
+        beach?.kind==="wave"?.12+.32*Math.min(1,beach.level):water?.falls??0);
     }
     if(!indoors&&!me.bus){
       if(time>=nextBird){
@@ -1287,7 +1297,7 @@ async function sync(){
   const bungeo=bungeoQueue[0],bungeoWatch=bungeo?.stall??nearbyCookingStall(me)?.id;
   const bowling=bowlingQueue[0],bowlingWatch=Boolean(bowling||interiorAt(me.x,me.y)===ARCADE_SITE.id);
   const rideCommand=amusement.packet(gameTime(sent));
-  const amusementWatch=Boolean(rideCommand||inGyeongju&&region.coastDistrict(me)==="경주월드");
+  const amusementWatch=Boolean(rideCommand||inGyeongju&&["경주월드","캘리포니아비치"].includes(region.coastDistrict(me)));
   syncStarted=sent;
   const sincePost=Date.now()-lastPost;
   const arcadePacket=arcade.kind&&arcade.kind!=="bowling"?arcadeSnapshot(arcade.state(sent)):null;
@@ -1789,6 +1799,7 @@ window.addEventListener("pageshow",event=>{
 function canJump(time){
   if(sports.active)return me.sport==="skate";
   if(!session||!world||bungeoMode||arcade.kind||riding||me.bus||isCycling(me)||queuedBus||queuedBike||sharingUmbrella()||feedingLocked(time)||clinkLocked(time)||sickLocked(time)||carryingDiningTray(time)||mealBiteLocked(time)||jumpInProgress(time))return false;
+  if(inGyeongju&&playerWater(me,time))return false;
   if(onCoast&&!coastPlay?.canJumpHere())return false;
   if(me.coast?.deckJumpY!=null)return deckJumpLift(me,time)===0;
   return me.coast?.beachJumpY==null||time-me.jump>=BEACH_JUMP_MS||renderedJumpLift(me,time,world.floorHeight(me))===0;
@@ -3864,6 +3875,16 @@ function updateActivities(time,guideNearby,coastMarkers){
   setActivity("sea-fishing-open",canFish()?"바다낚시":null);
   const amusementRide=nearbyAmusement();
   setActivity("amusement-ride",amusementRide?amusementRide.name+" 타기":null);
+  beachControls.update();
+  if(inGyeongju){
+    for(const [id,person] of people){
+      const stamp=person.avatar.beachSplash;
+      if(!stamp||heardBeachSplashes.get(id)===stamp||time-stamp<0||time-stamp>1100)continue;
+      heardBeachSplashes.set(id,stamp);
+      if(near(person.position,me.x,me.y)<14&&playerWater(person.position,time))sound.splash();
+    }
+    for(const id of heardBeachSplashes.keys())if(!people.has(id))heardBeachSplashes.delete(id);
+  }
   const facility=nearbyParkService();
   setActivity("park-service",facility?.type==="restroom"&&near(parkWashbasin,me.x,me.y)>.82?"세면대로 이동":facility&&parkServiceLabels[facility.type],facility?.type==="restroom"&&me.gesture?.kind==="wash"&&time-me.gesture.at<3000);
   for(const [kind,point] of Object.entries(ARCADE_GAMES))setActivity("arcade-"+kind,canStartArcade(point)?arcadeLabels[kind]:null);
@@ -4036,7 +4057,10 @@ function motion(now,elapsed){
   const leader=follower&&!exitPress&&people.get(link.leader);
   const input=movementInput(),canRun=!arcade.kind&&!(isUmbrellaLink(link)&&link.active);
   const pace=canRun&&input.run;
-  const gait=alcoholGait(me,gameTime(now)-elapsed*500,pace),speed=elapsed*travelSpeed(canRun?input.runBlend:0,gait);
+  const water=inGyeongju&&playerWater(me,gameTime(now));
+  const gait=alcoholGait(me,gameTime(now)-elapsed*500,pace);
+  const waterSpeed=water?.kind==="river"?2.15+input.runBlend*.65:inSwimmingDepth(water)?1.65+input.runBlend*.8:1.9+input.runBlend*.8;
+  const speed=elapsed*(water?waterSpeed:travelSpeed(canRun?input.runBlend:0,gait));
   let blocked=false;
   if(leader){
     const next=pairedPose(link,leader.position,me,now);
@@ -4056,6 +4080,12 @@ function motion(now,elapsed){
     }else if(manual){
       blocked=moveWithInput(input.x,input.y,speed,link,relative,gait);
     }else walkCourse(speed,gait);
+    if(water&&elapsed>0&&(water.vx||water.vz)&&!(course.length&&poolCourses.has(course))){
+      const dt=Math.min(elapsed,.18),x=me.x+water.vx*dt,y=me.y+water.vz*dt;
+      if(playerWater({...me,x,y},gameTime(now))){
+        const heading=me.heading;move(x,y);me.heading=heading;
+      }
+    }
   }
   const moved=oldX!==me.x||oldY!==me.y;
   const distance=moved?Math.hypot(me.x-oldX,me.y-oldY):0;
@@ -4065,7 +4095,7 @@ function motion(now,elapsed){
     Object.assign(me,{vx:0,vy:0,running:false,blocked:false});
     dirty=true;wakeSync();return false;
   }
-  soundscape(gameTime(now),moved&&!isCycling(me)&&me.seat==null&&!["scooter","swim","surf"].includes(me.coast?.mode)?Math.min(1.2,Math.hypot(me.x-oldX,me.y-oldY)):0,pace);
+  soundscape(gameTime(now),moved&&!water&&!isCycling(me)&&me.seat==null&&!["scooter","swim","surf"].includes(me.coast?.mode)?Math.min(1.2,Math.hypot(me.x-oldX,me.y-oldY)):0,pace);
   if(moved){
     const location=placeName(me);
     if($("location").textContent!==location)$("location").textContent=location;
@@ -4205,7 +4235,7 @@ function preferredNearbyAction(time){
   if(!$("sit").hidden&&!$("sit").disabled&&$("sit").dataset.footBath==="true")return "sit";
   if(!$("arcade-stairs").hidden)return "arcade-stairs";
   if(!venueDoorButton.hidden&&!venueDoorButton.disabled&&interiorAt(me.x,me.y))return venueDoorButton.id;
-  for(const id of ["bungeo-serve","bungeo-accept","bungeo-open","bungeo-gift","beach-piano-open","sea-fishing-open","amusement-ride","park-service"]){
+  for(const id of ["bungeo-serve","bungeo-accept","bungeo-open","bungeo-gift","beach-piano-open","sea-fishing-open","amusement-ride","park-service","waterpark-action","waterpark-splash"]){
     const action=$(id);
     if(!action.hidden&&!action.disabled)return id;
   }
@@ -4238,7 +4268,7 @@ function preferredPeerAction(time){
   if(!$("clink").hidden&&!$("clink").disabled)return "clink";
 }
 function frame(now){
-  const elapsed=Math.max(0,Math.min(56,now-lastFrame))/1000;lastFrame=now;
+  const frameMs=Math.max(0,now-lastFrame),elapsed=Math.min(56,frameMs)/1000;lastFrame=now;
   requestAnimationFrame(frame);
   if(!session||leavingByKtx){sound.parkRide(null);liftRide=null;if(amusement.active)amusement.reset();return;}
   const time=gameTime(now);
@@ -4263,7 +4293,9 @@ function frame(now){
     coastPlay.tick(elapsed,photoMode.camera?[0,0]:axis);
   }
   landJump(time);
-  const stepping=studioMonitor?.active||amusement.active?false:backgroundTrip?advanceBackgroundTrip():motion(now,elapsed);
+  const inPool=inGyeongju&&(course.length&&poolCourses.has(course)||playerWater(me,time));
+  const stepTime=inPool&&!document.hidden?Math.min(frameMs,180)/1000:elapsed;
+  const stepping=studioMonitor?.active||amusement.active?false:backgroundTrip?advanceBackgroundTrip():motion(now,stepTime);
   if(me.blushLevel&&time>=me.blushUntil){me.blushLevel=0;me.blushUntil=0;me.alcoholGlasses=0;me.sickAt=0;dirty=true;}
   faceFirstPersonView(time);
   stationConveyor(elapsed);

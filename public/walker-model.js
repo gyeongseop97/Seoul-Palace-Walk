@@ -794,7 +794,7 @@ export function makeWalkerModels(T, scene, {wx, wz}, createItemProp) {
     const tone = LOOK_OPTIONS.skin.includes(look?.skin) ? look.skin : "light";
     const hairColor = Object.hasOwn(HAIR_COLORS,look?.hairColor) ? look.hairColor : HAIR_SHADES[model.offset % HAIR_SHADES.length];
     const woman = position.character === "woman";
-    const suitKey=position.coast?.swimwear,suit=Object.hasOwn(swimwearOptions,suitKey)?swimwearOptions[suitKey]:null;
+    const suitKey=position.beachSuit??position.coast?.swimwear,suit=Object.hasOwn(swimwearOptions,suitKey)?swimwearOptions[suitKey]:null;
     const outfit = suit?"shorts":OUTFITS.includes(look?.outfit) ? look.outfit : "coat";
     const chima = outfit === "hanbok" && position.character === "woman";
     const headwear=Object.hasOwn(wearables.headwear,look?.headwear)?look.headwear:"none";

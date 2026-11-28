@@ -47,8 +47,14 @@ try{
     assert.deepEqual(ride.riders.map(r=>r.seat).sort(),[0,1]);
     assert.deepEqual((await act(a,kind,one)).amusementRides[0].riders,ride.riders);
     assert.deepEqual((await send("room",{...other,avatar:gate(kind),view,amusementWatch:true})).amusementRides,[]);
+    const shortRide=rideDefinitions.get(kind).capacity===2;
     const late=join();now+=4600;
-    assert.equal((await act(guest,kind,late)).amusementRides[0].starts,ride.starts);
+    if(shortRide){
+      assert.equal((await act(guest,kind,join())).amusementResult,"full");
+      await act(b,kind,leave(two.id));
+    }
+    const later=await act(guest,kind,late);
+    assert.equal(later.amusementResult,"ok");assert.equal(later.amusementRides[0].starts,ride.starts);
     if(kind==="wheel"){
       const fourth=await enter("노을",a.code),fifth=await enter("하루",a.code);
       assert.equal((await act(fourth,kind,join())).amusementResult,"ok");
@@ -78,7 +84,7 @@ try{
     }
     const exit=leave(one.id);
     await act(a,kind,exit);
-    assert.equal((await act(a,kind,one)).amusementRides[0].riders.length,2);
+    assert.equal((await act(a,kind,one)).amusementRides[0].riders.length,shortRide?1:2);
     const rejoin=join();await act(a,kind,rejoin);
     await act(a,kind,exit);
     assert((await look(guest)).amusementRides[0].riders.some(r=>r.ticket===rejoin.id));
@@ -112,4 +118,4 @@ try{
   advanceCars(session,session.starts+4000);
   assert.deepEqual(session.cars,copy.cars,"identical result at different rendering rates");
 }finally{Date.now=realTime;client.close();}
-console.log("Nine shared rides passed: concurrent seating, late boarding, room isolation, full cabin, retry, disconnect and two-driver collision.");
+console.log("Twelve shared rides passed: concurrent seating, late boarding, room isolation, full cabin, retry, disconnect and two-driver collision.");

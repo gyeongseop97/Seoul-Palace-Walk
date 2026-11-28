@@ -2,15 +2,22 @@
 const clamp=x=>Math.max(0,Math.min(1,x));
 const modes={
   wheel:[48,290,.009],viking:[56,490,.024],bumper:[83,650,.022],coaster:[56,940,.042],
-  krake:[66,760,.037],cups:[88,390,.012],splash:[51,1050,.05],carousel:[74,270,.009],phaethon:[71,1150,.049]
+  krake:[66,760,.037],cups:[88,390,.012],splash:[51,1050,.05],carousel:[74,270,.009],phaethon:[71,1150,.049],
+  "beach-x":[61,1260,.015],"beach-twist":[82,820,.012],"beach-triple":[77,1520,.014]
 };
 const organ={
   carousel:[72,76,79,83,81,79,76,74,71,74,77,81,79,77,74,71],
   cups:[79,0,76,81,84,0,83,79,77,81,0,79,76,74,0,77]
 };
-export function ridePhase(id,t){
-  if(t<0)return "안전바 확인";
+export function ridePhase(id,t,seat=0){
+  if(t<0)return id.startsWith("beach-")?"출발 대기":"안전바 확인";
   switch(id){
+    case "beach-x":return t<1.5?"튜브 출발":t<10.2?"급강하":t<25.2?"깔때기 벽 왕복":t<27.75?"출구 수로":t<30?"착수":"하차장";
+    case "beach-twist":{
+      const age=t-2.45*seat;
+      return age<1.7?"튜브 출발":age<19?"터널 활주":age<20.2?"출구 수로":age<23?"착수":"하차장";
+    }
+    case "beach-triple":return t<2.25?"레인 출발":t<14.4+seat*.45?"슬라이드 활주":t<17?"착수":"감속 수로";
     case "coaster":return t<12?"체인 리프트":t<14.6?"정상 대기":t<18?"수직 낙하":t<35?"고속 주행":"브레이크 구간";
     case "splash":return t<10?"수로 출항":t<30?"리프트 상승":t<34?"정상 선회":t<36.6?"급강하":t<40?"착수":"선착장 복귀";
     case "phaethon":return t<5.6?"역사 출발":t<14.05?"리프트 상승":t<18.1?"첫 급강하":t<40?"역전 구간":t<41.1?"저공 선회":"브레이크 구간";
@@ -60,11 +67,12 @@ export function makeRideAudio(output){
     const a=active,ctx=a.ctx;
     if(ctx.currentTime-a.last<.043&&t>=a.stamp)return;
     a.last=ctx.currentTime;
-    const phase=ridePhase(id,t),[rpm,cutoff,rumble]=modes[id];
-    const swing=id==="viking"||id==="krake",rail=id==="coaster"||id==="phaethon",wet=id==="splash";
+    const phase=ridePhase(id,t,packet.seat),[rpm,cutoff,rumble]=modes[id];
+    const swing=id==="viking"||id==="krake",rail=id==="coaster"||id==="phaethon",slide=id.startsWith("beach-"),wet=id==="splash"||slide;
     const lift=phase.includes("리프트"),brake=phase.includes("브레이크")||phase.includes("역사");
     const moving=t<0?.015:swing?.15+.85*Math.abs(Math.cos(t*(id==="viking"?1.02:.64)))*clamp(t/7):
       rail?lift?.23:brake?.3:phase==="정상 대기"?.04:.89+.1*Math.sin(t):
+      slide?phase==="착수"?1.8:phase==="하차장"?.04:phase.includes("출발")?.35:.88+.32*Math.sin(t*.85):
       wet?t>=36.4&&t<39.5?1.7:lift?.34:t>=34&&t<36.4?1:.17:id==="bumper"?.18+.82*clamp(speed/6):.48;
     const set=(param,value,time=.07)=>param.setTargetAtTime(value,ctx.currentTime,time);
     set(a.mix.gain,gain);if(a.panner.pan)set(a.panner.pan,pan);
@@ -72,7 +80,7 @@ export function makeRideAudio(output){
     set(a.filter.frequency,cutoff*(.6+moving*2.4));set(a.air.gain,(wet?.16:rail?.13:.048)*moving);
     const beat=Math.floor(Math.max(0,t)/(lift?.21:rail?.30:organ[id]?id==="cups"?.31:.41:swing?1.53:1.35));
     if(a.phase!==phase){
-      if((a.phase==="안전바 확인"||a.phase===null&&t<0)&&packet.onboard){
+      if((a.phase==="출발 대기"||a.phase==="안전바 확인"||a.phase===null&&t<0)&&packet.onboard){
         note(a,740,737,.10,.32);note(a,990,982,.065,.44,"sine",.18);
       }
       if(wet&&phase==="착수")note(a,115,38,.19,.65,"triangle");
@@ -87,7 +95,8 @@ export function makeRideAudio(output){
       }else if(lift||rail&&!brake&&moving>.3){
         note(a,lift?830:270,lift?320:90,lift?.078:.046,lift?.065:.13,"triangle");
         if(lift)note(a,1430,650,.024,.044,"triangle",.045);
-      }else if(swing){note(a,190+moving*50,156,.047,.31,"triangle");}
+      }else if(slide&&phase==="터널 활주"){note(a,187,161,.023,.28,"sine");}
+      else if(swing){note(a,190+moving*50,156,.047,.31,"triangle");}
       else if(id==="wheel")note(a,348,270,.022,.1,"triangle");
     }
     if(bumpAt&&bumpAt>a.hit&&packet.clock-bumpAt<400){

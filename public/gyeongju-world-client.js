@@ -92,7 +92,7 @@ export function createAmusementRides(panel,{token,wake,onFinish,notify}){
       if(own&&!queue.some(cmd=>cmd.action==="leave"&&cmd.ticket===own.ticket)&&(!intent||intent.ticket===own.ticket)){
         intent={kind:shared.kind,ticket:own.ticket};current=shared;seat=own;seq=Math.max(seq,own.seq??0);
         title.textContent=rideDefinitions.get(shared.kind).name;
-        const unit=shared.kind==="bumper"?"호차":"번 좌석";
+        const unit=shared.kind==="bumper"?"호차":shared.kind==="beach-triple"?"번 레인":shared.kind==="beach-twist"?"번 튜브":"번 좌석";
         const names=shared.riders.filter(person=>person.id!==id).sort((a,b)=>a.seat-b.seat).map(person=>person.nickname);
         const label=(own.seat+1)+unit+(names.length?" · 동행 "+names.join(", "):"");
         if(roster.textContent!==label)roster.textContent=label;
@@ -112,7 +112,7 @@ export function createAmusementRides(panel,{token,wake,onFinish,notify}){
       if(current.ends<=now){close();return null;}
       const remaining=now<current.starts?"출발까지 "+Math.ceil((current.starts-now)/1000)+"초":Math.ceil((current.ends-now)/1000)+"초";
       if(clock.value!==remaining)clock.value=remaining;
-      const label=ridePhase(current.kind,(now-current.starts)/1000);
+      const label=ridePhase(current.kind,(now-current.starts)/1000,seat.seat);
       if(phase.textContent!==label)phase.textContent=label;
       if(!spin.hidden)spin.disabled=now<current.starts||now-(current.cupSpins?.[seat.seat>>1]??0)<3000||performance.now()-lastSpin<3000;
       return {id:current.kind,seat:seat.seat,firstPerson};
@@ -134,7 +134,7 @@ export function createAmusementRides(panel,{token,wake,onFinish,notify}){
       const session=rides.find(r=>r.kind===def.id),cars=session?.cars??[],own=current?.kind===def.id;
       const car=own?cars[seat.seat]:cars.reduce((a,b)=>(a?.bumpAt??0)>(b.bumpAt??0)?a:b,null);
       const t=session?(clock-session.starts)/1000:(clock/1000)%def.duration;
-      return {id:def.id,t,gain,pan,clock,onboard:own,speed:car?Math.hypot(car.vx,car.vz):2,bumpAt:car?.bumpAt,bumpForce:car?.bumpForce};
+      return {id:def.id,t,gain,pan,clock,seat:own?seat.seat:0,onboard:own,speed:car?Math.hypot(car.vx,car.vz):2,bumpAt:car?.bumpAt,bumpForce:car?.bumpForce};
     },
     reset(){queue.length=0;rides=[];close();}
   };

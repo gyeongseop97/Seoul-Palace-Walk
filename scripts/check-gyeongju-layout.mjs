@@ -34,13 +34,19 @@ function walk(from,to){
 }
 const stops=["townBus","townReturnBus","hwangnidan","cafe","cafeCounter","northGate","photo","mainGate","stars",
  "gyerimEntry","gyerim","woljeongNorth","woljeong","woljeongSouth"];
-assert.equal(Object.keys(travelDistricts).length,7);
+assert.equal(Object.keys(travelDistricts).length,8);
 assert.deepEqual(new Set(Object.values(travelDistricts).flat()),new Set(destinations));
 for(const site of destinations)assert.ok(gyeongjuWalkable(localGyeongju(site)),site.name+" 순간이동");
 assert.equal(travelDistricts["불국사"][0].name,"불국사 일주문");
 for(const from of templeSites)for(const to of templeSites)if(from!==to)walk(from,to);
 const amusementGate=travelDistricts["경주월드"][0];
 assert.equal(amusementGate.name,"경주월드 정문");
+const beach=travelDistricts["캘리포니아비치"];
+assert.equal(beach.length,11);assert.equal(beach[0].name,"캘리포니아비치 입구");
+for(const place of beach){
+ assert.ok(gyeongjuRoute(localGyeongju(amusementGate),localGyeongju(place)).length,place.name+" 가는 길");
+ assert.ok(gyeongjuRoute(localGyeongju(place),localGyeongju(amusementGate)).length,place.name+" 돌아오는 길");
+}
 assert.equal(travelDistricts["경주월드"].length,17);
 for(const ride of travelDistricts["경주월드"].slice(1)){
  assert.ok(gyeongjuRoute(localGyeongju(amusementGate),localGyeongju(ride)).length,ride.name);

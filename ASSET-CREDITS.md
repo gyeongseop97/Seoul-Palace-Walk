@@ -139,3 +139,7 @@
 대릉원 황남대총의 남북 쌍분, 천마총 입구와 미추왕릉 상석은 경주시 안내 사진과 지도를 바탕으로 구현했습니다. 천마총 내부 전시 공간과 금관 모형은 게임용으로 구성했습니다. [경주시 대릉원 안내도](https://gyeongju.go.kr/design/tour2019/file/tourMap/01/tourMap1_front.pdf) · [국립문화유산연구원 검총](https://portal.nrich.go.kr/kor/archeologyUsrView.do?idx=2708&menuIdx=567)
 
 황리단길과 교촌의 가게, 황남 순환버스, 타실라 거치대는 경주의 음식 문화와 교통을 담아 게임용으로 배치했습니다. [경주시 황리단길 안내도](https://www.gyeongju.go.kr/hwangridan/images/gj_map_kor.pdf) · [경주시 교촌마을 안내도](https://www.gyeongju.go.kr/design/tour2019/file/tourMap/tourMap2_250821.pdf) · [타실라 대여 안내](https://tasilla.gyeongju.go.kr/Guide/rental.do)
+
+### 경주 캘리포니아비치
+
+산타모니카비치 파도풀, 웨이브캐년 유수풀, 페블비치, 엑스, 터보트위스트와 트리플다운은 공식 가이드맵과 시설 안내를 참고했습니다. 경주월드와 이어지는 보행로, 수조와 슬라이드의 길이, 대여소와 식음시설의 위치는 게임 지도에 맞춰 조정했습니다. 시설 모형, 수면, 파도, 소리는 게임에서 직접 생성합니다. [공식 가이드맵](https://www.gjw.co.kr/images/contents/CB_map.pdf) · [엑스](https://www.gjw.co.kr/California/contents.php?cmsNo=WB0200%2Fview%2F34) · [터보트위스트](https://www.gjw.co.kr/California/contents.php?cmsNo=WB0200%2Fview%2F36) · [공식 식음시설](https://www.gjw.co.kr/California/contents.php?cmsNo=WB0300%2Fview%2F11)

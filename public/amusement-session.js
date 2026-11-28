@@ -1,8 +1,9 @@
+import {beachRides} from "./california-beach-layout.js";
 import {parkRides} from "./gyeongju-world-layout.js";
 import {gyeongjuPoint} from "./region-coordinates.js";
 
-export const rideDefinitions=new Map(parkRides.map(ride=>[ride.id,{...ride,point:gyeongjuPoint(ride.gate)}]));
-export const rideCapacity=Object.fromEntries(parkRides.map(r=>[r.id,r.capacity]));
+export const rideDefinitions=new Map([...parkRides,...beachRides].map(ride=>[ride.id,{...ride,point:gyeongjuPoint(ride.gate)}]));
+export const rideCapacity=Object.fromEntries([...parkRides,...beachRides].map(r=>[r.id,r.capacity]));
 export const boardingDelay=4000;
 const stepMs=40,arenaRadius=9.45,carDiameter=1.74;
 

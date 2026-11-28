@@ -1,3 +1,4 @@
+import {inCaliforniaBeach} from "./california-beach-layout.js";
 import {districtMeshes,localFrame,randomSeed,registerDistrictLod,updateDistrictBatches} from "./gyeongju-mesh.js";
 import {makeTreeBuilder} from "./lowpoly-trees.js";
 import {basinWater,jetTube,jetWater,pondWater,tickWater} from "./water-shader.js";
@@ -281,6 +282,7 @@ function lantern(k,x,z,yaw,glow,theme){
 }
 
 function clearOfFeatures(layout,x,z,padding){
+  if(inCaliforniaBeach({x,z}))return false;
   const close=(p,r)=>Math.hypot(x-p.x,z-p.z)<r+padding;
   if(close(layout.parkEntrance,20)||close(layout.parkFountain,18.6))return false;
   if(layout.parkRides.some(ride=>close(ride.gate,7)||close(ride,ride.id==="coaster"?55:Math.max(ride.radius||0,13))))return false;

@@ -1,3 +1,4 @@
+import {inCaliforniaBeach} from "./california-beach-layout.js";
 import {parkWalkways,inAmusementPark,parkWalkable} from "./gyeongju-world-layout.js";
 import {gyeongjuPoint,localGyeongju} from "./region-coordinates.js";
 
@@ -14,7 +15,7 @@ const lanes=parkWalkways.flatMap((path,route)=>path.slice(1).flatMap((b,i)=>{
 }));
 export function parkVisitors(clock,anchor,limit){
   const p=localGyeongju(anchor);
-  if(!inAmusementPark(p))return [];
+  if(!inAmusementPark(p)||inCaliforniaBeach(p))return [];
   const groups=[];
   for(const [i,{a,dx,dz,length,seed}] of lanes.entries()){
     const span=length-3,pace=.83+seed%5*.07,lap=2*(span+4);

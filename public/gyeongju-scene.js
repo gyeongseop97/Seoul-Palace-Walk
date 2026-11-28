@@ -27,6 +27,8 @@ import {inBulguksa,templeOrigin,templeAxis,templeHeight,templeCameraBlocked} fro
 import {worshipHalls} from "./bulguksa-hall-layout.js";
 import {buildBulguksa,createBulguksaPagodas} from "./bulguksa-model.js";
 import {nearbyConstruction} from "./gyeongju-construction.js";
+import {createBeachBathers} from "./california-beach-bathers.js";
+import {beachAppearance,inSwimmingDepth,playerWater} from "./california-beach-play.js";
 import {makeDiningStaff} from "./dining-staff.js";
 import {parkVisitors} from "./gyeongju-world-visitors.js";
 import {inAmusementPark,parkSolid} from "./gyeongju-world-layout.js";
@@ -302,7 +304,8 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
  station.name="경주역 광장";town.name="경주 역사유적지구";temple.name="불국사";outdoors.add(station,town,temple);
  const amusement=new T.Group();
  amusement.name="경주월드";amusement.visible=false;outdoors.add(amusement);
- let updateAmusement;
+ let updateAmusement,parkClock=Date.now();
+ const poseBeach=createBeachBathers(T,kit);
  const marker=buildCoastActionMarker(outdoors,outdoors,()=>.01);
  const updateRaft=createRaftScene(town);
  let raftLift=0;
@@ -351,7 +354,11 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
   }while(uploads<8&&performance.now()<deadline);
   return uploads>0||before!==active.children.length;
  }
- return {visitors:parkVisitors,benches:cityBenches,entryReady(camera){
+ return {visitors:parkVisitors,benches:cityBenches,beachAppearance,poseBeach,playerWater,
+  waterEye(player,clock,first){
+   const w=playerWater(player,clock);
+   return inSwimmingDepth(w)?w.level+(first?.29:.5):w?.kind==="river"?w.level+(first?.93:.80):null;
+  },entryReady(camera){
    if(amusement.visible)return Boolean(updateAmusement);
    const district=temple.visible?temple:station.visible?station:town;
    const floor=entryFloors.get(district);
@@ -359,7 +366,10 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
   },surface(world){
    if(isRaftBus(world.bus?.index))return RAFT_DECK_HEIGHT+raftLift;
    const p={x:world.x-origin.x,z:world.y-origin.y};
-   if(inAmusementPark(p))return 0;
+   if(inAmusementPark(p)){
+    const w=playerWater(world,parkClock);
+    return w?w.level-w.depth:0;
+   }
    if(inBulguksa(p))return templeHeight(p);
    return insideObservatory(p)?tower.landing:raftPierHeight(p)||footbridge.surface(p)||Math.max(gyeongjuMoundHeight(p,world.up),gyeongjuWallTop(p));
   },cameraBlocked(world,y){
@@ -375,13 +385,14 @@ export function createGyeongjuScene(outdoors,origin,kit,walkerModels){
    if(marketCameraBlocked(p,y))return true;
    return y<4.2&&insideSolid(p);
   },update(state,night,camera,raft,rowing,models){
+   parkClock=state.clock??Date.now();
    const player={x:state.me.x-origin.x,z:state.me.y-origin.y};
    amusement.visible=inAmusementPark(player);
    if(amusement.visible){
     station.visible=town.visible=temple.visible=false;
     displayLamp.intensity=0;
     updateAmusement??=buildGyeongjuWorld(T,amusement,kit);
-    updateAmusement(camera,state.amusementRide,state.clock??Date.now(),state.amusementSessions??[],models,night);
+    updateAmusement(camera,state.amusementRide,state.clock??Date.now(),state.amusementSessions??[],models,night,player);
     if(Math.hypot(state.me.x-canyonDining.center.x,state.me.y-canyonDining.center.y)<55){
      if(!canyonStaff){
       const room=new T.Group();room.position.set(canyonDining.center.x-origin.x,0,canyonDining.center.y-origin.y);
