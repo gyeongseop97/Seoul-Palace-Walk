@@ -45,6 +45,7 @@
   <title>유람 | Yuram</title>
   <link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48" href="./favicon.ico?v=yuram-4">
   <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./beach-piano.css">
   <link rel="stylesheet" href="./passport.css">
   <link rel="stylesheet" href="./minigames.css">
   <link rel="stylesheet" href="./photo-mode.css">
@@ -309,6 +310,7 @@
                   <button id="dining-order" type="button" class="quiet activity-button" aria-haspopup="dialog" aria-controls="dining-menu-dialog" hidden>주문하기</button>
                   <button id="bungeo-accept" type="button" class="quiet activity-button" aria-describedby="bungeo-order-status" hidden>주문 받기</button>
                   <button id="bungeo-open" type="button" class="quiet activity-button" hidden>붕어빵 굽기</button>
+                  <button id="beach-piano-open" type="button" class="quiet activity-button" hidden>피아노 연주</button>
                   <button id="bungeo-serve" type="button" class="quiet activity-button" aria-describedby="bungeo-order-status" hidden>손님에게 건네기</button>
                   <button id="bungeo-gift" type="button" class="quiet activity-button" hidden>붕어빵 건네기</button>
                   <button id="arcade-claw" type="button" class="quiet activity-button" hidden>인형뽑기</button>
@@ -526,6 +528,24 @@
   </main>
   </div>
   <div id="passport-mount"></div>
+  <dialog id="beach-piano" aria-labelledby="beach-piano-title">
+    <form method="dialog">
+      <div class="dialog-top">
+        <h2 id="beach-piano-title">영일대 바다 피아노</h2>
+        <button type="submit" class="quiet close" aria-label="연주 끝내기">×</button>
+      </div>
+    </form>
+    <p>건반을 누르거나 A W S E D F T G Y H U J K 키로 연주하세요.</p>
+    <p class="piano-muted" hidden>연주를 들으려면 게임의 소리 설정을 켜 주세요.</p>
+    <div class="piano-keys" aria-label="피아노 건반"></div>
+    <div class="piano-controls">
+      <button type="button" class="quiet" data-octave="-1" aria-label="한 옥타브 내리기">− 옥타브</button>
+      <output aria-live="polite"></output>
+      <button type="button" class="quiet" data-octave="1" aria-label="한 옥타브 올리기">+ 옥타브</button>
+      <button type="button" class="quiet piano-pedal" aria-pressed="false">서스테인 페달</button>
+    </div>
+    <small class="piano-credit">피아노 음원 Alexander Holm · <a href="https://github.com/Tonejs/audio/tree/master/salamander" target="_blank" rel="noopener">Salamander Grand Piano</a> · <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a></small>
+  </dialog>
   <dialog id="controls-help" aria-labelledby="controls-help-title">
     <div class="dialog-top">
       <h2 id="controls-help-title">조작 안내</h2>

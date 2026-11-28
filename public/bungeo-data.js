@@ -1,6 +1,8 @@
 import {plazaAt} from "./plaza-layout.js";
 import {at as palaceAt} from "./gyeongbok-layout.js";
 import {fountain} from "./layout.js";
+import {beachMarketStalls,MARKET_ANGLE} from "./beach-market-layout.js";
+import {coastPoint} from "./region-coordinates.js";
 
 export const BUNGEO_STALL=Object.freeze({
   ...plazaAt(-51.8,373,"광화문 붕어빵 좌판"),id:"bungeo-stall",area:"gwanghwamun",kind:"bungeo",customer:true,radius:2.4,watchRadius:26,
@@ -13,6 +15,7 @@ function cookingStall(id,name,area,kind,body,angle){
 }
 export const COOKING_STALLS=Object.freeze([
   BUNGEO_STALL,
+  ...beachMarketStalls.map(({id,name,kind,spot})=>cookingStall(id,name,"pohang",kind,coastPoint(spot),MARKET_ANGLE)),
   cookingStall("hotteok-deoks","정동 호떡 굽는 곳","jeongdong","hotteok",{x:fountain.x-5.8,y:fountain.y+5},Math.PI/2),
   cookingStall("bungeo-palace","경회루 붕어빵 굽는 곳","gyeongbokgung","bungeo",palaceAt(-60.8,389),Math.PI/2),
   cookingStall("hotteok-palace","소주방 앞 호떡 굽는 곳","gyeongbokgung","hotteok",palaceAt(100,354.0),0),

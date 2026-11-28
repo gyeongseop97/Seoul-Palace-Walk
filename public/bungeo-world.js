@@ -56,7 +56,7 @@ export function addBungeoStall(T,parent,kit,groundHeight,stall=BUNGEO_STALL){
     box(color,(left+right)/2,2.124,.647,.318,.124,.028,root);
   }
   box(shade,0,1.918,.47,1.58,.39,.081,root);
-  standSign(T,root,hotteok?"호떡":"붕어빵","직접 굽기",1.52,0,1.918,.517,hotteok?"#3d654f":"#973c30","#ffe6b7",.365);
+  standSign(T,root,hotteok?"호떡":"붕어빵",stall.area==="pohang"?"영일대 야시장":"직접 굽기",1.52,0,1.918,.517,hotteok?"#3d654f":"#973c30","#ffe6b7",.365);
   standSign(T,root,hotteok?"철판에 굽기":"팥 · 슈크림",null,.75,-.75,.66,.537,"#edcf9b","#6f332a",.168);
   for(const x of [-.988,.988]){
     box(0x523a31,x,1.96,.396,.21,.051,.21,root);

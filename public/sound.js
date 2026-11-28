@@ -1,6 +1,7 @@
 import {PLAZA_SHOW_BEAT_MS,PLAZA_SHOW_BEATS,PLAZA_SHOW_DURATION_MS,PLAZA_SHOW_HEARING_METRES,plazaShowNotes} from "./plaza-show.js";
 
 let gameSound;
+const pianoSamples=["A0","Ds1","A1","Ds2","A2","Ds3","A3","Ds4","A4","Ds5","A5","Ds6","A6","Ds7","A7","C8"];
 export function getGameSound(){return gameSound??=makeSound();}
 // Recordings and procedural ambience share the user's sound control and master volume.
 export function makeSound(){
@@ -20,9 +21,9 @@ export function makeSound(){
   globalThis.document?.addEventListener("visibilitychange",syncOutput);
   const fraction=value=>Math.max(0,Math.min(1,Number.isFinite(value)?value:0));
   const recordings=new Map();
-  async function loadRecording(ctx,name){
+  async function loadRecording(ctx,name,extension="wav"){
     try{
-      const response=await fetch(new URL("./audio/"+name+".wav",import.meta.url));
+      const response=await fetch(new URL("./audio/"+name+"."+extension,import.meta.url));
       if(response.ok)recordings.set(name,await ctx.decodeAudioData(await response.arrayBuffer()));
     }catch{/* The synthesized cue stays available when offline. */}
   }
@@ -56,6 +57,65 @@ export function makeSound(){
     enabled=value;save("jeongdong-sound",enabled?"on":"off");syncOutput();
     if(enabled)ready();
     else{stopEngine();stopShow();stopRain();stopStream();}
+  }
+
+  let pianoLoading=false;
+  function preparePiano(){
+    const ctx=ready();
+    if(!ctx||pianoLoading)return;
+    pianoLoading=true;
+    for(const name of pianoSamples)void loadRecording(ctx,"piano/"+name,"mp3");
+  }
+
+  function pianoNote(midi,velocity){
+    const ctx=ready();
+    if(!ctx)return;
+    const time=ctx.currentTime,frequency=440*2**((midi-69)/12);
+    const index=Math.min(pianoSamples.length-1,Math.round((midi-21)/6));
+    const pitch=index===pianoSamples.length-1?108:21+index*6;
+    const pianoBuffer=recordings.get("piano/"+pianoSamples[index]);
+    if(pianoBuffer){
+      const voice=ctx.createBufferSource(),damper=ctx.createGain();
+      voice.buffer=pianoBuffer;
+      voice.playbackRate.value=2**((midi-pitch)/12);
+      damper.gain.value=.34*velocity;
+      voice.connect(damper);damper.connect(master);
+      let finished=false;
+      voice.onended=()=>{finished=true;voice.disconnect();damper.disconnect();};
+      voice.start(time);
+      return ()=>{
+        if(finished)return;
+        const end=ctx.currentTime;
+        damper.gain.setTargetAtTime(.0001,end,.04);
+        voice.stop(end+.29);
+      };
+    }
+    const mix=ctx.createGain(),damper=ctx.createGain(),partials=[];
+    mix.connect(damper);damper.connect(master);
+    mix.gain.value=.19*velocity;
+    for(const [index,strength] of [.78,.24,.13,.078,.05,.027].entries()){
+      const harmonic=index+1;
+      const pitch=frequency*harmonic*Math.sqrt(1+.00013*harmonic*harmonic);
+      if(pitch>=ctx.sampleRate*.48)break;
+      const oscillator=ctx.createOscillator(),envelope=ctx.createGain();
+      const decay=(.63+1.9*2**((48-midi)/42))/harmonic**.68;
+      oscillator.frequency.value=pitch;
+      envelope.gain.setValueAtTime(.0001,time);
+      envelope.gain.exponentialRampToValueAtTime(strength,time+.005);
+      envelope.gain.exponentialRampToValueAtTime(.0001,time+Math.min(11,decay*3.5));
+      oscillator.connect(envelope);envelope.connect(mix);
+      oscillator.start(time);oscillator.stop(time+11.1);
+      partials.push(oscillator);
+    }
+    let remaining=partials.length;
+    for(const oscillator of partials)oscillator.onended=()=>{
+      if(--remaining===0){mix.disconnect();damper.disconnect();}
+    };
+    return ()=>{
+      const end=ctx.currentTime;
+      damper.gain.setTargetAtTime(.0001,end,.035);
+      for(const oscillator of partials)oscillator.stop(Math.min(end+.27,time+11.1));
+    };
   }
 
   function startEngine(ctx){
@@ -253,7 +313,7 @@ export function makeSound(){
       if(enabled!==(next>0))setEnabled(next>0);
       else{syncOutput();if(enabled)ready();}
     },
-    bus,plazaShow,rain,stream,
+    bus,plazaShow,rain,stream,preparePiano,pianoNote,
     // A foot flicking the surface of the stream.
     splash(){
       burst({type:"bandpass",frequency:1500+Math.random()*500,q:.8,gain:.085,attack:.006,decay:.15,rate:.9});

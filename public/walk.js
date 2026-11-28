@@ -18,6 +18,8 @@ import {bindMapGestures} from "./map-gestures.js";
 import {drawMapGround,fitMapBounds,mapFormat,nearbyMap} from "./map-format.js";
 import {bindMapLabels} from "./map-labels.js";
 import {getGameSound} from "./sound.js";
+import {beachPiano} from "./beach-market-layout.js";
+import {createBeachPiano} from "./beach-piano.js";
 import {ceremonyAt} from "./palace-people.js";
 import {cityHallStation,gbSites,gbLake,gbPond,gbPaths,gbCourts,gbLawns,gbShortcuts,wishPond,inGyeongbok,gbWoldae,onWoldaeApproach,nearWoldaeRailing,at as palaceAt,gyeongbokWater} from "./gyeongbok-layout.js";
 import {inGwanghwamunPlaza,plazaAt,plazaSites,plazaOutline,plazaPaths,plazaShortcuts,plazaBeds,plazaAvenueOutline,plazaEastSidewalks,plazaSideForecourts,plazaUijeongbuApproach,plazaSideJunction,plazaCrossingLandings,eastCurb,plazaEastWalkSpine,eastRoadWidth,sajikRoad,sejongParkOutline} from "./plaza-layout.js";
@@ -548,6 +550,15 @@ function labelPerspective(view=currentPerspective()){
   button.disabled=Boolean(view.locked);
 }
 const sound=getGameSound();
+const piano=createBeachPiano($("beach-piano"),sound);
+function nearBeachPiano(){
+  return Boolean(onCoast&&session&&world&&!bungeoMode&&!riding&&!me.bus&&!isCycling(me)&&
+    me.seat==null&&!photoMode.camera&&near(beachPiano.action,me.x,me.y)<2.3&&clearSegment(me,beachPiano.action));
+}
+$("beach-piano-open").addEventListener("click",()=>{
+  if(!nearBeachPiano())return;
+  resetInput();closeActionMenus();piano.open();
+});
 let arcadeReturnView=null;
 function commandBowling(command){
   if(!session||(command.action!=="leave"&&bowlingQueue.some(item=>item.action!=="leave")))return false;
@@ -3523,6 +3534,7 @@ function cookingPrompt(actions,hotteok){
   return (hotteok?hotteokInstructions:bungeoInstructions)[cell.action]??"작업대의 도구나 자리를 누르세요.";
 }
 function updateBungeoControls(time){
+  setActivity("beach-piano-open",nearBeachPiano()?"피아노 연주":null);
   const actions=bungeoActions(time),status=$("bungeo-status"),gift=$("bungeo-gift");
   const hotteok=actions?.stall.kind==="hotteok",food=hotteok?"호떡":"붕어빵",customer=Boolean(actions?.stall.customer);
   const giftName=ITEMS[me[actions?.giftSlot]?.kind]?.name??"간식";
@@ -4114,7 +4126,7 @@ function preferredNearbyAction(time){
   if(!$("sit").hidden&&!$("sit").disabled&&$("sit").dataset.footBath==="true")return "sit";
   if(!$("arcade-stairs").hidden)return "arcade-stairs";
   if(!venueDoorButton.hidden&&!venueDoorButton.disabled&&interiorAt(me.x,me.y))return venueDoorButton.id;
-  for(const id of ["bungeo-serve","bungeo-accept","bungeo-open","bungeo-gift"]){
+  for(const id of ["bungeo-serve","bungeo-accept","bungeo-open","bungeo-gift","beach-piano-open"]){
     const action=$(id);
     if(!action.hidden&&!action.disabled)return id;
   }

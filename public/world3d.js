@@ -14,6 +14,7 @@ import { addSeoulPrecipitation, makeSeasonFoliage } from "./seoul-weather-scene.
 import { addStands, addRegionalStands, makeItemProps, regionalStations, registerRegionalStands, underDoldamAwning } from "./street-stands.js";
 import { BUNGEO_STALL,COOKING_STALLS,cookingStallById } from "./bungeo-data.js";
 import { addBungeoStall, registerBungeoStall } from "./bungeo-world.js";
+import {addBeachMarketPiano} from "./beach-market-world.js";
 import { makeBungeoCustomer } from "./bungeo-customer.js";
 import { ARCADE_GAMES,ARCADE_SITE,ARCADE_STAIRS,ARCADE_THIRD_SITE,ARCADE_UPPER_SITE,registerArcade } from "./arcade-layout.js";
 import { addArcadeExterior } from "./arcade-exterior.js";
@@ -574,6 +575,10 @@ export function makeWorld(container,{onCatFlee,catSeed,graphics="high",coast=nul
     for(const stall of COOKING_STALLS)if(stall.area===area){
       cookingScenes.set(stall.id,addBungeoStall(T,root,localKit,groundHeight,stall));
     }
+  }
+  if(seaside){
+    addCookingStalls("pohang",outdoors);
+    addBeachMarketPiano(T,outdoors,kit,groundHeight);
   }
   const deoks={root:deoksRoot,bounds:deoksBounds,*build(){
     yield* gradeJeongdongMeshes(T,deoksRoot,southWorldSurfaceHeight,{trees,catWalls});

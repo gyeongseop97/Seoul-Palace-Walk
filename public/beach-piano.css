@@ -1,0 +1,73 @@
+#beach-piano {
+  width: min(92vw, 54rem);
+  max-width: 54rem;
+}
+
+#beach-piano p {
+  margin: .5rem 0 .75rem;
+}
+
+.piano-keys {
+  --key-width: calc(100% / 21);
+  position: relative;
+  height: clamp(6.5rem, 23vh, 12rem);
+  background: #21191b;
+  border-block: .45rem solid #3c2523;
+  border-radius: .4rem;
+  touch-action: none;
+  user-select: none;
+}
+
+.piano-keys button {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: calc(var(--key-position) * var(--key-width));
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 .35rem;
+  min-width: 0;
+  min-height: 0;
+  font-size: clamp(.5rem, 1.8vw, .89rem);
+  border-radius: 0 0 .22rem .22rem;
+}
+
+.piano-keys .piano-white {
+  width: var(--key-width);
+  height: 100%;
+  color: #2a2221;
+  background: linear-gradient(#d9d0bd, #fffbef 27%);
+  border: 1px solid #4a403c;
+}
+
+.piano-keys .piano-black {
+  width: calc(.62 * var(--key-width));
+  height: 61%;
+  z-index: 1;
+  color: #fff8e7;
+  background: linear-gradient(#5b4a4a, #21191b 75%);
+  border: 1px solid #21191b;
+}
+
+.piano-keys button.sounding {
+  background: #b9854c;
+  color: #171013;
+}
+
+.piano-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  align-items: center;
+  margin-top: .7rem;
+}
+
+.piano-controls button[aria-pressed="true"] {
+  outline: 2px solid currentColor;
+  outline-offset: -4px;
+}
+
+.piano-credit {
+  display: block;
+  margin-top: .65rem;
+}
